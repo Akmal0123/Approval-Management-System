@@ -1,0 +1,7 @@
+{
+    "project": {
+        "name": "Document Approval Management System",
+        "type": "laravel-inertia",
+        "description": "Sistem manajemen persetujuan dokumen dengan Laravel, Inertia.js, dan React TypeScript"
+    }
+}

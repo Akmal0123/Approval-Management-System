@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Test Reverb Broadcast</title>
+        <meta charset="utf-8" />
+    </head>
+    <body>
+        <h1>🧪 Test Laravel Reverb Broadcasting</h1>
+
+        <div style="margin: 20px; padding: 20px; border: 2px solid #ccc; border-radius: 8px">
+            <h2>Manual Broadcast Test</h2>
+            <p>User ID: <input type="number" id="userId" value="4" style="width: 100px" /></p>
+            <p>Dokumen Judul: <input type="text" id="dokumenJudul" value="Test Dokumen" style="width: 300px" /></p>
+            <button
+                onclick="triggerBroadcast()"
+                style="padding: 10px 20px; font-size: 16px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer"
+            >
+                📡 Trigger Broadcast
+            </button>
+        </div>
+
+        <div style="margin: 20px; padding: 20px; border: 2px solid #0066cc; border-radius: 8px; background: #f0f8ff">
+            <h2>Console Output</h2>
+            <div id="output" style="font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto"></div>
+        </div>
+
+        <script>
+            function log(message) {
+                const output = document.getElementById('output');
+                const timestamp = new Date().toLocaleTimeString();
+                output.textContent += `[${timestamp}] ${message}\n`;
+                output.scrollTop = output.scrollHeight;
+            }
+
+            async function triggerBroadcast() {
+                const userId = document.getElementById('userId').value;
+                const dokumenJudul = document.getElementById('dokumenJudul').value;
+
+                log('🚀 Triggering broadcast...');
+                log(`   User ID: ${userId}`);
+                log(`   Channel: user.${userId}.dokumen`);
+                log(`   Event: dokumen.updated`);
+
+                try {
+                    const response = await fetch('/api/test-broadcast', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                            Accept: 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            user_id: parseInt(userId),
+                            dokumen_judul: dokumenJudul,
+                        }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        log('✅ Broadcast triggered successfully!');
+                        log(`   Response: ${JSON.stringify(data, null, 2)}`);
+                    } else {
+                        log(`❌ Broadcast failed: ${data.message || response.statusText}`);
+                    }
+                } catch (error) {
+                    log(`❌ Error: ${error.message}`);
+                }
+            }
+
+            log('📋 Ready to test broadcast!');
+            log('📝 Instructions:');
+            log('   1. Make sure you are logged in as User ID specified above');
+            log('   2. Open /dokumen page in another tab');
+            log('   3. Click "Trigger Broadcast" button');
+            log('   4. Check the /dokumen page for real-time update');
+        </script>
+    </body>
+</html>
