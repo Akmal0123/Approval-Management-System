@@ -74,12 +74,8 @@ class CheckUserRole
             }
         }
 
-        // If no role found, redirect to user dashboard
-        if ($request->route()->getName() !== 'user.dashboard') {
-            return redirect()->route('user.dashboard');
-        }
-
-        return abort(403, 'No role assigned to user.');
+        // If no role found, redirect to waiting room
+        return redirect()->route('waiting-room');
     }
 
     /**

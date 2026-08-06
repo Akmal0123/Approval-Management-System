@@ -18,7 +18,7 @@ Route::get('/', function () {
         return redirect('/dashboard');
     }
     return redirect()->route('login');
-});
+})->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
@@ -50,6 +50,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/role-management', function () {
         return Inertia::render('management/role-management');
     })->name('role-management');
+
+    // Waiting Room Route
+    Route::get('/waiting-room', function () {
+        return Inertia::render('auth/waiting-room');
+    })->name('waiting-room');
 
     // Context Management Routes
     Route::get('/contexts', [\App\Http\Controllers\ContextController::class, 'index'])->name('context.index');
