@@ -263,7 +263,7 @@ class DokumenController extends Controller
                     foreach ($validated['custom_approvers'] as $approver) {
                         $targetUser = \App\Models\User::where('email', $approver['email'])->first();
 
-                        DokumenApproval::create([
+                        $approval = DokumenApproval::create([
                             'dokumen_id' => $dokumen->id,
                             'user_id' => $targetUser?->id,
                             'approver_email' => $approver['email'],
@@ -272,6 +272,10 @@ class DokumenController extends Controller
                             'approval_status' => 'pending',
                             'tgl_deadline' => $validated['tgl_deadline'],
                         ]);
+
+                        if ($approval->user_id) {
+                            SendApprovalNotification::dispatch($approval);
+                        }
                     }
                 } else {
                     // Existing masterflow - create approvals from selected approvers
@@ -607,7 +611,7 @@ class DokumenController extends Controller
             })->first();
 
             if ($user) {
-                DokumenApproval::create([
+                $approval = DokumenApproval::create([
                     'dokumen_id' => $dokumen->id,
                     'user_id' => $user->id,
                     'dokumen_version_id' => $latestVersion->id,
@@ -615,6 +619,8 @@ class DokumenController extends Controller
                     'approval_status' => 'pending',
                     'tgl_deadline' => now()->addDays(3), // 3 days deadline
                 ]);
+
+                SendApprovalNotification::dispatch($approval);
             }
         }
     }
@@ -782,7 +788,10 @@ class DokumenController extends Controller
                         ]);
 
                         // Dispatch email notification for the reset approval
-                        SendApprovalNotification::dispatch($revisionApproval->fresh());
+                        if ($revisionApproval->user?->email) {
+                            Mail::to($revisionApproval->user->email)
+                                ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $revisionApproval->fresh(), $newVersion));
+                        }
 
                         // Broadcast browser notification to approver
                         broadcast(new BrowserNotificationEvent(
@@ -848,7 +857,10 @@ class DokumenController extends Controller
                             ]);
 
                             // Dispatch email notification for each reset approval
-                            SendApprovalNotification::dispatch($approval->fresh());
+                            if ($approval->user?->email) {
+                                Mail::to($approval->user->email)
+                                    ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
+                            }
 
                             // Broadcast browser notification to approver
                             broadcast(new BrowserNotificationEvent(
@@ -887,7 +899,10 @@ class DokumenController extends Controller
                             'revision_requested_by' => null,
                             'revision_requested_at' => null,
                         ]);
-                        SendApprovalNotification::dispatch($approval->fresh());
+                        if ($approval->user?->email) {
+                            Mail::to($approval->user->email)
+                                ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
+                        }
 
                         // Broadcast browser notification to approver
                         broadcast(new BrowserNotificationEvent(
