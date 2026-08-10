@@ -70,7 +70,7 @@ export default function UserDocumentTable({ documents = [] }: UserDocumentTableP
                             <TableCell className="text-muted-foreground">{doc.submitted_at}</TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="sm" asChild>
-                                    <Link href={`/dokumen/${doc.id}`}>
+                                    <Link href={route('dokumen.show', doc.id)}>
                                         <Eye className="h-4 w-4" />
                                     </Link>
                                 </Button>
