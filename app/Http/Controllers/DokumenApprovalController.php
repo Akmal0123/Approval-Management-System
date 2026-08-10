@@ -462,6 +462,9 @@ class DokumenApprovalController extends Controller
                 'user_id' => Auth::id(),
                 'created_at_custom' => now(),
             ]);
+            
+            // Dispatch email notification to the new delegate
+            \App\Jobs\SendApprovalNotification::dispatch($approval->fresh());
 
             DB::commit();
 
@@ -565,6 +568,14 @@ class DokumenApprovalController extends Controller
                 'status' => 'approved',
                 'status_current' => 'fully_approved',
             ]);
+
+            // Send email notification to document owner
+            $dokumenWithUser = $dokumen->fresh(['user']);
+            if ($dokumenWithUser->user?->email) {
+                Mail::to($dokumenWithUser->user->email)
+                    ->queue(new \App\Mail\DocumentFullyApprovedMail($dokumenWithUser));
+            }
+
             return;
         }
 
