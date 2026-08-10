@@ -258,12 +258,14 @@ class DokumenController extends Controller
                     'status' => 'active',
                 ]);
 
-                // Create approval records based on masterflow type
                 if ($request->masterflow_id === 'custom') {
                     // Custom approval flow
                     foreach ($validated['custom_approvers'] as $approver) {
+                        $targetUser = \App\Models\User::where('email', $approver['email'])->first();
+
                         DokumenApproval::create([
                             'dokumen_id' => $dokumen->id,
+                            'user_id' => $targetUser?->id,
                             'approver_email' => $approver['email'],
                             'approval_order' => $approver['order'],
                             'dokumen_version_id' => $version->id,

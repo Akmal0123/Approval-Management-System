@@ -298,11 +298,19 @@ class DokumenApproval extends Model
     }
 
     /**
-     * Scope to filter by user.
+     * Scope to filter by user (by user_id or matching approver_email).
      */
     public function scopeByUser($query, $userId)
     {
-        return $query->where('user_id', $userId);
+        $user = \App\Models\User::find($userId);
+        $userEmail = $user?->email;
+
+        return $query->where(function ($q) use ($userId, $userEmail) {
+            $q->where('user_id', $userId);
+            if ($userEmail) {
+                $q->orWhere('approver_email', $userEmail);
+            }
+        });
     }
 
     /**

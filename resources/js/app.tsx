@@ -28,10 +28,10 @@ window.Pusher = Pusher;
 window.Echo = new Echo({
     broadcaster: 'reverb',
     key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
-    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    wsHost: import.meta.env.VITE_REVERB_HOST || '127.0.0.1',
+    wsPort: import.meta.env.VITE_REVERB_PORT ? Number(import.meta.env.VITE_REVERB_PORT) : 8080,
+    wssPort: import.meta.env.VITE_REVERB_PORT ? Number(import.meta.env.VITE_REVERB_PORT) : 8080,
+    forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
     enabledTransports: ['ws', 'wss'],
     // Enable debug mode for development
     enableLogging: true,
@@ -40,11 +40,11 @@ window.Echo = new Echo({
 
 console.log('📡 Laravel Echo initialized with Reverb:', {
     broadcaster: 'reverb',
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: import.meta.env.VITE_REVERB_PORT,
+    wsHost: import.meta.env.VITE_REVERB_HOST || '127.0.0.1',
+    wsPort: import.meta.env.VITE_REVERB_PORT || 8080,
     appKey: import.meta.env.VITE_REVERB_APP_KEY,
-    scheme: import.meta.env.VITE_REVERB_SCHEME,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    scheme: import.meta.env.VITE_REVERB_SCHEME || 'http',
+    forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
 });
 
 // Helper function to get CSRF token and its type
