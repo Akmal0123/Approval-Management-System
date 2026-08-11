@@ -1,30 +1,38 @@
 <x-mail::message>
-    # ⏰ Reminder: Deadline Approval {{ $timeLabel }}
+# ⏰ Peringatan: Deadline Persetujuan {{ $timeLabel }}
 
-    Anda memiliki approval yang mendekati deadline.
+Halo,
 
-    <x-mail::panel>
-        **Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+Anda memiliki pengajuan dokumen yang memerlukan persetujuan dan sudah mendekati batas waktu (deadline). Berikut adalah rincian informasi dokumen tersebut:
 
-        **Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+<x-mail::panel>
+**1. Nama Dokumen:**  
+{{ $dokumen->judul_dokumen }}
 
-        **Diajukan oleh:** {{ $dokumen->user->name ?? 'N/A' }}
+**2. Nomor Dokumen:**  
+{{ $dokumen->nomor_dokumen }}
 
-        **Deadline:** {{ $deadline?->format('d M Y H:i') ?? 'N/A' }}
-    </x-mail::panel>
+**3. Diajukan Oleh:**  
+{{ $dokumen->user->name ?? 'N/A' }}
 
-    @if ($deadline && $deadline->isPast())
-        <x-mail::panel>
-            ⚠️ **PERHATIAN:** Deadline approval ini sudah terlewat!
-        </x-mail::panel>
-    @endif
+**4. Batas Waktu (Deadline):**  
+{{ $deadline?->format('d M Y H:i') ?? 'N/A' }}
+</x-mail::panel>
 
-    Mohon segera lakukan approval agar proses dokumen dapat berjalan lancar.
+@if ($deadline && $deadline->isPast())
+<x-mail::panel>
+⚠️ **PERHATIAN:** Batas waktu (deadline) untuk persetujuan dokumen ini telah terlewat!
+</x-mail::panel>
+@endif
 
-    <x-mail::button :url="$approvalUrl">
-        Lihat & Approve Dokumen
-    </x-mail::button>
+Mohon segera lakukan peninjauan dan persetujuan agar proses birokrasi dapat berjalan lancar.
 
-    Terima kasih,<br>
-    {{ config('app.name') }}
+<x-mail::button :url="$approvalUrl" color="primary">
+Tinjau & Berikan Persetujuan
+</x-mail::button>
+
+Terima kasih atas kerja sama dan perhatian Anda.
+
+Hormat kami,<br>
+**{{ config('mail.from.name') }}**
 </x-mail::message>

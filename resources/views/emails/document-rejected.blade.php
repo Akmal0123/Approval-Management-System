@@ -1,32 +1,37 @@
 <x-mail::message>
-    # Dokumen Ditolak
+# ❌ Dokumen Ditolak
 
-    Dokumen Anda telah ditolak oleh approver.
+Halo,
 
-    <x-mail::panel>
-        **Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+Mohon maaf, dokumen yang Anda ajukan telah ditolak. Berikut adalah rincian informasi penolakan tersebut:
 
-        **Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+<x-mail::panel>
+**1. Nama Dokumen:**  
+{{ $dokumen->judul_dokumen }}
 
-        **Ditolak oleh:** {{ $rejector->name ?? 'N/A' }}
-    </x-mail::panel>
+**2. Nomor Dokumen:**  
+{{ $dokumen->nomor_dokumen }}
 
-    ## Alasan Penolakan
+**3. Ditolak Oleh:**  
+{{ $rejector->name ?? 'N/A' }}
+</x-mail::panel>
 
-    {{ $reason }}
+**Alasan Penolakan:**  
+{{ $reason }}
 
-    @if ($rejection->comment)
-        **Catatan tambahan:** {{ $rejection->comment }}
-    @endif
+@if ($rejection->comment)
+**Catatan Tambahan:**  
+{{ $rejection->comment }}
+@endif
 
-    ---
+Silakan periksa kembali catatan penolakan di atas dan unggah ulang dokumen yang telah disesuaikan jika diperlukan.
 
-    Silakan lakukan revisi dan upload ulang dokumen Anda.
+<x-mail::button :url="$documentUrl" color="error">
+Lihat Dokumen
+</x-mail::button>
 
-    <x-mail::button :url="$documentUrl">
-        Lihat Dokumen & Upload Revisi
-    </x-mail::button>
+Terima kasih atas perhatian Anda.
 
-    Terima kasih,<br>
-    {{ config('app.name') }}
+Hormat kami,<br>
+**{{ config('mail.from.name') }}**
 </x-mail::message>

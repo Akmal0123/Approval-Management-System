@@ -1,22 +1,29 @@
 <x-mail::message>
-    # ✅ Dokumen Disetujui
+# ✅ Dokumen Disetujui
 
-    Selamat! Dokumen Anda telah disetujui oleh semua pihak.
+Halo,
 
-    <x-mail::panel>
-        **Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+Selamat! Dokumen Anda telah disetujui oleh semua pihak terkait. Berikut adalah rincian informasi dokumen tersebut:
 
-        **Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+<x-mail::panel>
+**1. Nama Dokumen:**  
+{{ $dokumen->judul_dokumen }}
 
-        **Status:** Fully Approved
-    </x-mail::panel>
+**2. Nomor Dokumen:**  
+{{ $dokumen->nomor_dokumen }}
 
-    Dokumen dengan tanda tangan digital sudah tersedia untuk diunduh.
+**3. Status:**  
+Fully Approved
+</x-mail::panel>
 
-    <x-mail::button :url="$documentUrl">
-        Lihat & Unduh Dokumen
-    </x-mail::button>
+Dokumen dengan tanda tangan digital sudah tersedia untuk diunduh.
 
-    Terima kasih,<br>
-    {{ config('app.name') }}
+<x-mail::button :url="$documentUrl" color="success">
+Lihat & Unduh Dokumen
+</x-mail::button>
+
+Terima kasih atas kerja sama Anda.
+
+Hormat kami,<br>
+**{{ config('mail.from.name') }}**
 </x-mail::message>

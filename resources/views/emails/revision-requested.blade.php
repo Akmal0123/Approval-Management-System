@@ -1,31 +1,35 @@
 <x-mail::message>
-    # Revisi Diperlukan
+# 📝 Permintaan Revisi Dokumen
 
-    Dokumen Anda memerlukan revisi sebelum dapat disetujui.
+Halo,
 
-    <x-mail::panel>
-        **Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+Dokumen Anda memerlukan revisi sebelum dapat disetujui. Berikut adalah rincian informasinya:
 
-        **Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+<x-mail::panel>
+**1. Nama Dokumen:**  
+{{ $dokumen->judul_dokumen }}
 
-        **Step:** {{ $stepName }}
+**2. Nomor Dokumen:**  
+{{ $dokumen->nomor_dokumen }}
 
-        **Diminta oleh:** {{ $requester->name ?? 'N/A' }}
-    </x-mail::panel>
+**3. Tahap Persetujuan (Step):**  
+{{ $stepName }}
 
-    ## Catatan Revisi
+**4. Diminta Oleh:**  
+{{ $requester->name ?? 'N/A' }}
+</x-mail::panel>
 
-    {{ $revisionNotes }}
+**Catatan Revisi:**  
+{{ $revisionNotes }}
 
-    ---
+Silakan lakukan perbaikan sesuai dengan catatan di atas dan unggah ulang dokumen Anda. *Persetujuan (approval) yang telah diberikan sebelumnya akan tetap valid.*
 
-    Silakan lakukan revisi sesuai catatan di atas dan upload ulang dokumen Anda. Approval yang sudah diberikan
-    sebelumnya tetap valid.
+<x-mail::button :url="$documentUrl" color="primary">
+Lihat Dokumen & Unggah Revisi
+</x-mail::button>
 
-    <x-mail::button :url="$documentUrl">
-        Lihat Dokumen & Upload Revisi
-    </x-mail::button>
+Terima kasih atas kerja sama Anda.
 
-    Terima kasih,<br>
-    {{ config('app.name') }}
+Hormat kami,<br>
+**{{ config('mail.from.name') }}**
 </x-mail::message>

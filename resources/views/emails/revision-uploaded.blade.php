@@ -1,28 +1,40 @@
 <x-mail::message>
-    # Revisi Dokumen Telah Diupload
+# 🔄 Revisi Dokumen Telah Diunggah
 
-    Dokumen berikut telah direvisi dan membutuhkan review ulang dari Anda:
+Halo,
 
-    **Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+Dokumen berikut telah direvisi dan membutuhkan peninjauan ulang dari Anda:
 
-    **Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+<x-mail::panel>
+**1. Nama Dokumen:**  
+{{ $dokumen->judul_dokumen }}
 
-    **Diajukan oleh:** {{ $dokumen->user->name ?? 'N/A' }}
+**2. Nomor Dokumen:**  
+{{ $dokumen->nomor_dokumen }}
 
-    **Versi Baru:** {{ $newVersion }}
+**3. Diajukan Oleh:**  
+{{ $dokumen->user->name ?? 'N/A' }}
 
-    **Step:** {{ $stepName }}
+**4. Versi Baru:**  
+{{ $newVersion }}
 
-    @if ($approval->tgl_deadline)
-        **Deadline:** {{ $approval->tgl_deadline->format('d M Y') }}
-    @endif
+**5. Tahap Persetujuan (Step):**  
+{{ $stepName }}
 
-    > Dokumen ini memerlukan persetujuan ulang karena telah direvisi oleh pemilik dokumen.
+@if ($approval->tgl_deadline)
+**6. Deadline Pengajuan:**  
+{{ $approval->tgl_deadline->format('d M Y') }}
+@endif
+</x-mail::panel>
 
-    <x-mail::button :url="$approvalUrl">
-        Review & Approve Dokumen
-    </x-mail::button>
+> **Catatan:** Dokumen ini memerlukan persetujuan ulang karena telah diperbarui atau direvisi oleh pemilik dokumen.
 
-    Terima kasih,<br>
-    {{ config('app.name') }}
+<x-mail::button :url="$approvalUrl" color="primary">
+Tinjau Ulang & Berikan Persetujuan
+</x-mail::button>
+
+Terima kasih atas kerja sama dan perhatian Anda.
+
+Hormat kami,<br>
+**{{ config('mail.from.name') }}**
 </x-mail::message>

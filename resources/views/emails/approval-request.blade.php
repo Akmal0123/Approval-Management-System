@@ -1,26 +1,43 @@
 <x-mail::message>
-# Permintaan Approval Dokumen
+# Permintaan Persetujuan Dokumen
 
-Anda memiliki permintaan approval baru untuk dokumen berikut:
+Halo,
 
-**Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+Anda menerima permintaan persetujuan (approval) baru. Berikut adalah rincian informasi pengajuan dokumen tersebut:
 
-**Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+<x-mail::panel>
+**1. Nama Dokumen:**  
+{{ $dokumen->judul_dokumen }}
 
-**Diajukan oleh:** {{ $dokumen->user->name ?? 'N/A' }}
+**2. Nomor Dokumen:**  
+{{ $dokumen->nomor_dokumen }}
 
-**Step:** {{ $stepName }}
+**3. Diajukan Oleh:**  
+{{ $dokumen->user->name ?? 'N/A' }}
 
-**Deadline:** {{ $approval->tgl_deadline?->format('d M Y') ?? 'Tidak ada deadline' }}
+**4. Posisi / Jabatan:**  
+{{ $dokumen->user->user_auths->first()?->jabatan->name ?? 'N/A' }}
+
+**5. Tanggal Pengajuan:**  
+{{ $dokumen->tgl_pengajuan?->format('d M Y') ?? $dokumen->created_at->format('d M Y') }}
+
+**6. Deadline Pengajuan:**  
+{{ $approval->tgl_deadline?->format('d M Y') ?? 'Tidak ada deadline' }}
+</x-mail::panel>
 
 @if($dokumen->deskripsi)
-**Deskripsi:** {{ Str::limit($dokumen->deskripsi, 200) }}
-@endif
+**Deskripsi Tambahan:**  
+{{ Str::limit($dokumen->deskripsi, 250) }}
 
-<x-mail::button :url="$approvalUrl">
-Lihat & Approve Dokumen
+@endif
+Harap segera meninjau dokumen ini agar proses birokrasi dan operasional dapat berjalan dengan lancar.
+
+<x-mail::button :url="$approvalUrl" color="primary">
+Tinjau & Berikan Persetujuan
 </x-mail::button>
 
-Terima kasih,<br>
-{{ config('app.name') }}
+Terima kasih atas kerja sama dan perhatian Anda.
+
+Hormat kami,<br>
+**{{ config('mail.from.name') }}**
 </x-mail::message>

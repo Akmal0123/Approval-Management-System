@@ -250,6 +250,8 @@ class UserController extends Controller
                 ]);
             }
 
+            $hadNoAuths = $user->userAuths()->count() === 0;
+
             // Delete existing user auths and create new ones
             $user->userAuths()->delete();
 
@@ -263,6 +265,20 @@ class UserController extends Controller
             }
 
             DB::commit();
+
+            // Send registration approved email if this is their first role assignment
+            if ($hadNoAuths && count($request->user_auths) > 0) {
+                $firstAuth = $user->userAuths()->with(['role', 'company', 'jabatan', 'aplikasi'])->first();
+                if ($firstAuth) {
+                    $authDetails = [
+                        'role' => $firstAuth->role->role_name ?? 'N/A',
+                        'company' => $firstAuth->company->name ?? 'N/A',
+                        'jabatan' => $firstAuth->jabatan->name ?? 'N/A',
+                        'aplikasi' => $firstAuth->aplikasi->name ?? 'N/A',
+                    ];
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\UserRegistrationApprovedMail($user, $authDetails));
+                }
+            }
 
             return response()->json([
                 'message' => 'User updated successfully',
