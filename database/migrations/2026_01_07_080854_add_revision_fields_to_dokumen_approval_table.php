@@ -13,7 +13,9 @@ return new class extends Migration
     public function up(): void
     {
         // First, modify the enum to add 'revision_requested' status
-        DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled', 'revision_requested') DEFAULT 'pending'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled', 'revision_requested') DEFAULT 'pending'");
+        }
 
         // Add revision-related columns
         Schema::table('dokumen_approval', function (Blueprint $table) {
@@ -40,6 +42,8 @@ return new class extends Migration
         });
 
         // Revert enum to original values
-        DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled') DEFAULT 'pending'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled') DEFAULT 'pending'");
+        }
     }
 };

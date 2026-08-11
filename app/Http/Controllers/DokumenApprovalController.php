@@ -339,28 +339,19 @@ class DokumenApprovalController extends Controller
             // Reject this approval
             $approval->reject($validated['alasan_reject'], $validated['comment']);
 
-            // Cancel all pending approvals in future steps
-            if ($approval->masterflow_step_id) {
-                DokumenApproval::where('dokumen_id', $approval->dokumen_id)
-                    ->where('approval_status', 'pending')
-                    ->whereHas('masterflowStep', function ($query) use ($currentStepNumber) {
-                        $query->where('step_order', '>', $currentStepNumber);
-                    })
-                    ->update([
-                        'approval_status' => 'cancelled',
-                        'tgl_approve' => now(),
-                        'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
-                    ]);
-            } else {
-                DokumenApproval::where('dokumen_id', $approval->dokumen_id)
-                    ->where('approval_status', 'pending')
-                    ->where('approval_order', '>', $currentStepNumber)
-                    ->update([
-                        'approval_status' => 'cancelled',
-                        'tgl_approve' => now(),
-                        'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
-                    ]);
-            }
+            // Cancel all pending approvals in future steps (covers both masterflow and custom approvals)
+            DokumenApproval::where('dokumen_id', $approval->dokumen_id)
+                ->where('approval_status', 'pending')
+                ->where(function ($query) use ($currentStepNumber) {
+                    $query->whereHas('masterflowStep', function ($q) use ($currentStepNumber) {
+                        $q->where('step_order', '>', $currentStepNumber);
+                    })->orWhere('approval_order', '>', $currentStepNumber);
+                })
+                ->update([
+                    'approval_status' => 'cancelled',
+                    'tgl_approve' => now(),
+                    'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
+                ]);
 
             // Update document status to rejected
             $approval->dokumen->update([
@@ -447,7 +438,7 @@ class DokumenApprovalController extends Controller
         if (
             $approval->user_id !== Auth::id() ||
             !$approval->isPending() ||
-            $approval->masterflowStep->is_required
+            ($approval->masterflowStep?->is_required ?? false)
         ) {
             return back()->withErrors(['error' => 'Approval ini tidak dapat di-skip.']);
         }
@@ -507,7 +498,7 @@ class DokumenApprovalController extends Controller
         $targetUser = \App\Models\User::with('profile')->find($validated['delegate_to']);
         if (
             !$targetUser ||
-            $targetUser->profile->jabatan_id !== $approval->masterflowStep->jabatan_id
+            ($approval->masterflowStep && $targetUser->profile?->jabatan_id !== $approval->masterflowStep->jabatan_id)
         ) {
             return back()->withErrors(['error' => 'User yang dipilih tidak memiliki jabatan yang sesuai.']);
         }
