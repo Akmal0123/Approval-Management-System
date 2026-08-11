@@ -142,9 +142,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Document detail page
-    Route::get('/dokumen/{id}', function ($id) {
-        return Inertia::render('dokumen/show', ['id' => $id]);
-    })->where('id', '[0-9]+')->name('dokumen.detail');
+    Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
 });
 
 // Other Document Related Routes
@@ -190,12 +188,12 @@ Route::middleware(['auth'])->group(function () {
     // Helper routes
     Route::get('masterflows/{masterflow}/steps', function (\App\Models\Masterflow $masterflow) {
         return response()->json([
-            'steps' => $masterflow->masterflowDetails()->with(['approver', 'role'])->orderBy('step_order')->get()->map(function ($detail) {
+            'steps' => $masterflow->steps()->with('jabatan')->orderBy('step_order')->get()->map(function ($detail) {
                 return [
                     'id' => $detail->id,
                     'step_order' => $detail->step_order,
-                    'approver_name' => $detail->approver->name ?? 'N/A',
-                    'role_name' => $detail->role->role_name ?? 'N/A',
+                    'step_name' => $detail->step_name ?? 'N/A',
+                    'jabatan_name' => $detail->jabatan->name ?? 'N/A',
                 ];
             })
         ]);
@@ -219,3 +217,12 @@ require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';
 require __DIR__ . '/debug.php';
 require __DIR__ . '/test-broadcast.php';
+
+// Storage fallback route for Windows / missing storage symlink
+Route::get('/storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
+    if (!file_exists($filePath)) {
+        abort(404);
+    }
+    return response()->file($filePath);
+})->where('path', '.*')->name('storage.fallback');

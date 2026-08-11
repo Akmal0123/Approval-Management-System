@@ -87,6 +87,53 @@ class PdfSignatureService
     }
 
     /**
+     * Prepare signature image (converts transparent PNG to solid white background JPG to avoid FPDF black alpha box bug)
+     */
+    private function prepareSignatureForPdf(string $signaturePath): string
+    {
+        if (!file_exists($signaturePath)) {
+            return $signaturePath;
+        }
+
+        $imageInfo = @getimagesize($signaturePath);
+        if (!$imageInfo) {
+            return $signaturePath;
+        }
+
+        // If it's a PNG image, process alpha transparency with GD
+        if ($imageInfo[2] === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) {
+            try {
+                $srcImg = @imagecreatefrompng($signaturePath);
+                if ($srcImg) {
+                    $width = imagesx($srcImg);
+                    $height = imagesy($srcImg);
+
+                    // Create truecolor image with white background
+                    $destImg = imagecreatetruecolor($width, $height);
+                    $white = imagecolorallocate($destImg, 255, 255, 255);
+                    imagefill($destImg, 0, 0, $white);
+
+                    // Copy PNG onto white background
+                    imagecopy($destImg, $srcImg, 0, 0, 0, 0, $width, $height);
+
+                    // Save to sys_get_temp_dir as clean JPG
+                    $tempFile = sys_get_temp_dir() . '/sig_clean_' . md5($signaturePath . filemtime($signaturePath)) . '.jpg';
+                    imagejpeg($destImg, $tempFile, 95);
+
+                    imagedestroy($srcImg);
+                    imagedestroy($destImg);
+
+                    return $tempFile;
+                }
+            } catch (\Throwable $t) {
+                // Fallback to original path if GD fails
+            }
+        }
+
+        return $signaturePath;
+    }
+
+    /**
      * Add signature image and text to current page
      *
      * @param Fpdi $pdf
@@ -96,18 +143,22 @@ class PdfSignatureService
      */
     private function addSignatureToPage(Fpdi $pdf, string $signaturePath, array $options): void
     {
-        // Add signature image
-        $imageInfo = getimagesize($signaturePath);
-        $imageType = $imageInfo[2];
+        // Clean transparent PNG to avoid black background bug in FPDF
+        $cleanPath = $this->prepareSignatureForPdf($signaturePath);
+
+        $imageInfo = @getimagesize($cleanPath);
+        $imageType = $imageInfo ? $imageInfo[2] : IMAGETYPE_JPEG;
 
         // Determine image type and use appropriate method
         if ($imageType === IMAGETYPE_PNG) {
-            $pdf->Image($signaturePath, $options['x'], $options['y'], $options['width'], $options['height'], 'PNG');
-        } elseif ($imageType === IMAGETYPE_JPEG) {
-            $pdf->Image($signaturePath, $options['x'], $options['y'], $options['width'], $options['height'], 'JPG');
+            $pdf->Image($cleanPath, $options['x'], $options['y'], $options['width'], $options['height'], 'PNG');
         } else {
-            // Try as PNG by default
-            $pdf->Image($signaturePath, $options['x'], $options['y'], $options['width'], $options['height'], 'PNG');
+            $pdf->Image($cleanPath, $options['x'], $options['y'], $options['width'], $options['height'], 'JPG');
+        }
+
+        // Clean up temp file if generated
+        if ($cleanPath !== $signaturePath && file_exists($cleanPath)) {
+            @unlink($cleanPath);
         }
 
         // Add text information below signature

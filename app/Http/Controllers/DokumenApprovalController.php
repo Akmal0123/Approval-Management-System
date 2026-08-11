@@ -41,11 +41,12 @@ class DokumenApprovalController extends Controller
             'masterflowStep.jabatan',
             'dokumenVersion'
         ])
-            ->byUser(Auth::id())
             ->orderBy('created_at', 'desc');
 
-        // Context-based filtering (Super Admin sees all)
+        // Context-based filtering (Super Admin sees all approvals)
         if (!$this->contextService->isSuperAdmin()) {
+            $query->byUser(Auth::id());
+
             $companyId = $this->contextService->getCurrentCompanyId();
             $aplikasiId = $this->contextService->getCurrentAplikasiId();
 
@@ -79,10 +80,12 @@ class DokumenApprovalController extends Controller
         $approvals = $query->paginate(15)->withQueryString();
 
         // Get statistics - with context filter applied
-        $statsBaseQuery = DokumenApproval::byUser(Auth::id());
+        $statsBaseQuery = DokumenApproval::query();
 
         // Apply the same context filtering to stats
         if (!$this->contextService->isSuperAdmin()) {
+            $statsBaseQuery->byUser(Auth::id());
+
             $companyId = $this->contextService->getCurrentCompanyId();
             $aplikasiId = $this->contextService->getCurrentAplikasiId();
 
@@ -116,7 +119,7 @@ class DokumenApprovalController extends Controller
     public function show(DokumenApproval $approval)
     {
         // Ensure user can access this approval
-        if ($approval->user_id !== Auth::id()) {
+        if (!$this->canUserPerformApproval($approval, Auth::id())) {
             abort(403, 'Anda tidak memiliki akses ke approval ini.');
         }
 
@@ -144,12 +147,43 @@ class DokumenApprovalController extends Controller
     }
 
     /**
+     * Check if user is authorized to perform approval actions for this record.
+     */
+    private function canUserPerformApproval(DokumenApproval $approval, int $userId): bool
+    {
+        if ($this->contextService->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($approval->user_id === $userId) {
+            return true;
+        }
+
+        $user = Auth::user();
+        if ($user) {
+            if ($approval->approver_email && strtolower($approval->approver_email) === strtolower($user->email)) {
+                return true;
+            }
+
+            if ($approval->masterflow_step_id) {
+                $userJabatanIds = $user->userAuths->pluck('jabatan_id')->filter()->toArray();
+                $stepJabatanId = $approval->masterflowStep?->jabatan_id;
+                if ($stepJabatanId && in_array($stepJabatanId, $userJabatanIds)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Approve the document.
      */
     public function approve(Request $request, DokumenApproval $approval, PdfSignatureService $pdfSignatureService)
     {
         // Ensure user can approve this and previous steps are completed
-        if ($approval->user_id !== Auth::id() || !$approval->canCurrentlyApprove()) {
+        if (!$this->canUserPerformApproval($approval, Auth::id()) || !$approval->canCurrentlyApprove()) {
             return back()->withErrors(['error' => 'Anda tidak dapat melakukan approval ini. Pastikan tahap sebelumnya sudah selesai.']);
         }
 
@@ -255,6 +289,20 @@ class DokumenApprovalController extends Controller
                 'event' => 'dokumen.updated'
             ]);
             broadcast(new UserDokumenUpdated($dokumen))->toOthers();
+
+            // Broadcast browser notification to document owner
+            if ($dokumen && $dokumen->user_id) {
+                $isFullyApproved = $dokumen->status === 'approved';
+                broadcast(new BrowserNotificationEvent(
+                    userId: $dokumen->user_id,
+                    title: $isFullyApproved ? 'Dokumen Disetujui Sepenuhnya 🎉' : 'Tahap Persetujuan Disetujui ✅',
+                    body: $isFullyApproved
+                        ? "Dokumen '{$dokumen->judul_dokumen}' telah selesai disetujui oleh semua pihak!"
+                        : "Dokumen '{$dokumen->judul_dokumen}' telah disetujui pada tahap ini.",
+                    url: route('dokumen.show', $dokumen->id),
+                    type: $isFullyApproved ? 'success' : 'info'
+                ));
+            }
         } catch (\Exception $e) {
             // Log post-processing errors but don't fail the request as the approval is already committed
             Log::error('Post-approval processing failed', [
@@ -274,7 +322,7 @@ class DokumenApprovalController extends Controller
     public function reject(Request $request, DokumenApproval $approval)
     {
         // Ensure user can reject this and previous steps are completed
-        if ($approval->user_id !== Auth::id() || !$approval->canCurrentlyApprove()) {
+        if (!$this->canUserPerformApproval($approval, Auth::id()) || !$approval->canCurrentlyApprove()) {
             return back()->withErrors(['error' => 'Anda tidak dapat melakukan rejection ini. Pastikan tahap sebelumnya sudah selesai.']);
         }
 
@@ -285,24 +333,34 @@ class DokumenApprovalController extends Controller
 
         DB::beginTransaction();
         try {
-            // Get the current step number
-            $currentStepNumber = $approval->masterflowStep->step_order;
+            // Get the current step number safely (masterflow or custom approval)
+            $currentStepNumber = $approval->masterflowStep?->step_order ?? $approval->approval_order ?? 1;
 
             // Reject this approval
             $approval->reject($validated['alasan_reject'], $validated['comment']);
 
             // Cancel all pending approvals in future steps
-            // When a document is rejected at step X, all approvals at step X+1, X+2, etc. should be cancelled
-            DokumenApproval::where('dokumen_id', $approval->dokumen_id)
-                ->where('approval_status', 'pending')
-                ->whereHas('masterflowStep', function ($query) use ($currentStepNumber) {
-                    $query->where('step_order', '>', $currentStepNumber);
-                })
-                ->update([
-                    'approval_status' => 'cancelled',
-                    'tgl_approve' => now(),
-                    'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
-                ]);
+            if ($approval->masterflow_step_id) {
+                DokumenApproval::where('dokumen_id', $approval->dokumen_id)
+                    ->where('approval_status', 'pending')
+                    ->whereHas('masterflowStep', function ($query) use ($currentStepNumber) {
+                        $query->where('step_order', '>', $currentStepNumber);
+                    })
+                    ->update([
+                        'approval_status' => 'cancelled',
+                        'tgl_approve' => now(),
+                        'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
+                    ]);
+            } else {
+                DokumenApproval::where('dokumen_id', $approval->dokumen_id)
+                    ->where('approval_status', 'pending')
+                    ->where('approval_order', '>', $currentStepNumber)
+                    ->update([
+                        'approval_status' => 'cancelled',
+                        'tgl_approve' => now(),
+                        'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
+                    ]);
+            }
 
             // Update document status to rejected
             $approval->dokumen->update([
@@ -321,28 +379,44 @@ class DokumenApprovalController extends Controller
             // Broadcast dokumen updated event for real-time updates (minimal payload)
             $dokumen = $approval->dokumen->fresh();
 
-            // Broadcast to detail page viewers
-            Log::info('Broadcasting DokumenUpdated event (reject)', [
-                'dokumen_id' => $dokumen->id,
-                'channel' => 'dokumen.' . $dokumen->id,
-                'event' => 'dokumen.updated'
-            ]);
-            broadcast(new DokumenUpdated($dokumen))->toOthers();
+            // Safely broadcast events and send email notifications
+            try {
+                // Broadcast to detail page viewers
+                Log::info('Broadcasting DokumenUpdated event (reject)', [
+                    'dokumen_id' => $dokumen->id,
+                    'channel' => 'dokumen.' . $dokumen->id,
+                    'event' => 'dokumen.updated'
+                ]);
+                broadcast(new DokumenUpdated($dokumen))->toOthers();
 
-            // Broadcast to dokumen owner's list page
-            Log::info('Broadcasting UserDokumenUpdated event (reject)', [
-                'dokumen_id' => $dokumen->id,
-                'user_id' => $dokumen->user_id,
-                'channel' => 'user.' . $dokumen->user_id . '.dokumen',
-                'event' => 'dokumen.updated'
-            ]);
-            broadcast(new UserDokumenUpdated($dokumen))->toOthers();
+                // Broadcast to dokumen owner's list page
+                Log::info('Broadcasting UserDokumenUpdated event (reject)', [
+                    'dokumen_id' => $dokumen->id,
+                    'user_id' => $dokumen->user_id,
+                    'channel' => 'user.' . $dokumen->user_id . '.dokumen',
+                    'event' => 'dokumen.updated'
+                ]);
+                broadcast(new UserDokumenUpdated($dokumen))->toOthers();
 
-            // Send email notification to document owner
-            $dokumenWithUser = $approval->dokumen->fresh(['user']);
-            if ($dokumenWithUser->user?->email) {
-                Mail::to($dokumenWithUser->user->email)
-                    ->queue(new DocumentRejectedMail($dokumenWithUser, $approval));
+                // Send email notification to document owner
+                $dokumenWithUser = $approval->dokumen->fresh(['user']);
+                if ($dokumenWithUser->user?->email) {
+                    Mail::to($dokumenWithUser->user->email)
+                        ->queue(new DocumentRejectedMail($dokumenWithUser, $approval));
+                }
+
+                // Broadcast browser notification to document owner
+                if (isset($dokumenWithUser) && $dokumenWithUser->user_id) {
+                    broadcast(new BrowserNotificationEvent(
+                        userId: $dokumenWithUser->user_id,
+                        title: 'Dokumen Ditolak',
+                        body: "Dokumen '{$dokumenWithUser->judul_dokumen}' telah ditolak. Alasan: " . \Illuminate\Support\Str::limit($validated['alasan_reject'], 50),
+                        url: route('dokumen.show', $dokumenWithUser->id),
+                        type: 'error'
+                    ));
+                }
+            } catch (\Throwable $bEx) {
+                Log::warning('Failed to send broadcast/email on rejection: ' . $bEx->getMessage());
             }
 
             // Log revision
@@ -353,15 +427,6 @@ class DokumenApprovalController extends Controller
                 'action' => RevisionLog::ACTION_REJECTED,
                 'notes' => $validated['alasan_reject'],
             ]);
-
-            // Broadcast browser notification to document owner
-            broadcast(new BrowserNotificationEvent(
-                userId: $dokumenWithUser->user_id,
-                title: 'Dokumen Ditolak',
-                body: "Dokumen '{$dokumenWithUser->judul_dokumen}' telah ditolak. Alasan: " . \Illuminate\Support\Str::limit($validated['alasan_reject'], 50),
-                url: route('dokumen.show', $dokumenWithUser->id),
-                type: 'error'
-            ));
 
             DB::commit();
 
@@ -415,7 +480,7 @@ class DokumenApprovalController extends Controller
 
             DB::commit();
 
-            return redirect()->route('approval.index')
+            return redirect()->route('approvals.index')
                 ->with('success', 'Approval berhasil di-skip!');
         } catch (\Exception $e) {
             DB::rollback();
@@ -465,7 +530,7 @@ class DokumenApprovalController extends Controller
 
             DB::commit();
 
-            return redirect()->route('approval.index')
+            return redirect()->route('approvals.index')
                 ->with('success', 'Approval berhasil didelegasikan!');
         } catch (\Exception $e) {
             DB::rollback();
@@ -633,7 +698,7 @@ class DokumenApprovalController extends Controller
     public function requestRevision(Request $request, DokumenApproval $approval)
     {
         // Ensure user can request revision
-        if ($approval->user_id !== Auth::id() || !$approval->isPending()) {
+        if (!$this->canUserPerformApproval($approval, Auth::id()) || !$approval->isPending()) {
             return back()->withErrors(['error' => 'Anda tidak dapat melakukan request revision ini.']);
         }
 
@@ -649,7 +714,7 @@ class DokumenApprovalController extends Controller
             // Update document status to needs_revision
             $approval->dokumen->update([
                 'status' => 'needs_revision',
-                'status_current' => 'revision_requested_step_' . ($approval->masterflowStep->step_order ?? 0),
+                'status_current' => 'revision_requested_step_' . ($approval->masterflowStep?->step_order ?? $approval->approval_order ?? 1),
             ]);
 
             // Add comment

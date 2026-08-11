@@ -106,7 +106,7 @@ class UserDashboardController extends Controller
         $totalSubmitted = (clone $baseQuery)->count();
 
         // Count approvals assigned to user
-        $approvalQuery = DokumenApproval::where('user_id', $user->id);
+        $approvalQuery = DokumenApproval::byUser($user->id);
 
         $pendingApprovals = (clone $approvalQuery)
             ->where('approval_status', 'pending')
@@ -147,8 +147,8 @@ class UserDashboardController extends Controller
         return $query->get()->map(function ($doc) {
             // Calculate file size from latest version if available
             $size = 'N/A';
-            if ($doc->latestVersion && $doc->latestVersion->file_size) {
-                $size = $this->formatBytes($doc->latestVersion->file_size);
+            if ($doc->latestVersion && $doc->latestVersion->size_file) {
+                $size = $this->formatBytes($doc->latestVersion->size_file);
             }
 
             return [
@@ -208,17 +208,17 @@ class UserDashboardController extends Controller
                     'id' => $log->id,
                     'action' => $log->action,
                     'description' => $this->formatActivityDescription($log),
-                    'timestamp' => $log->created_at->diffForHumans(),
-                    'user_name' => $log->user->name,
-                    'document_name' => $log->dokumen->judul_dokumen ?? 'Unknown Document',
+                    'timestamp' => $log->created_at ? $log->created_at->diffForHumans() : 'Just now',
+                    'user_name' => $log->user?->name ?? 'System',
+                    'document_name' => $log->dokumen?->judul_dokumen ?? 'Unknown Document',
                 ];
             })->toArray();
     }
 
     private function formatActivityDescription($log): string
     {
-        $docName = $log->dokumen->judul_dokumen ?? 'Dokumen';
-        $actor = $log->user_id === Auth::id() ? 'You' : $log->user->name;
+        $docName = $log->dokumen?->judul_dokumen ?? 'Dokumen';
+        $actor = $log->user_id === Auth::id() ? 'You' : ($log->user?->name ?? 'System');
 
         return match ($log->action) {
             RevisionLog::ACTION_CREATED => "$actor created document '$docName'",

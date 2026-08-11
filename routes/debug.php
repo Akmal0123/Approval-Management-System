@@ -24,11 +24,11 @@ Route::get('/debug-user-data', function () {
             'jabatan_id' => $userAuth->jabatan_id,
             'company' => $userAuth->company ? [
                 'id' => $userAuth->company->id,
-                'nama_company' => $userAuth->company->nama_company,
+                'name' => $userAuth->company->name,
             ] : null,
             'jabatan' => $userAuth->jabatan ? [
                 'id' => $userAuth->jabatan->id,
-                'nama_jabatan' => $userAuth->jabatan->nama_jabatan,
+                'name' => $userAuth->jabatan->name,
             ] : null,
         ] : null,
     ];

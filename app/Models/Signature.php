@@ -59,7 +59,19 @@ class Signature extends Model
      */
     public function getSignatureUrlAttribute(): string
     {
-        return Storage::disk('public')->url($this->signature_path);
+        if ($this->signature_path) {
+            $fullPath = Storage::disk('public')->path($this->signature_path);
+            if (file_exists($fullPath)) {
+                $mime = @mime_content_type($fullPath) ?: 'image/jpeg';
+                $content = @file_get_contents($fullPath);
+                if ($content) {
+                    return 'data:' . $mime . ';base64,' . base64_encode($content);
+                }
+            }
+        }
+
+        $path = ltrim($this->signature_path ?? '', '/');
+        return '/storage/' . $path;
     }
 
     /**

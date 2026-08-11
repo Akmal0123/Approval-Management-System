@@ -49,7 +49,7 @@ class ProfileController extends Controller
 
         // Update PIN if provided
         if (!empty($validated['pin'])) {
-            $user->pin = bcrypt($validated['pin']);
+            $user->pin = $validated['pin'];
         }
 
         $user->save();

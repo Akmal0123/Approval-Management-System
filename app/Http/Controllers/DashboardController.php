@@ -26,12 +26,10 @@ class DashboardController extends Controller
             // Total Documents
             $totalDocuments = Dokumen::count();
 
-            // Pending Approvals - safely check if status column exists
-            $pendingApprovals = 0;
-            try {
-                $pendingApprovals = Dokumen::where('status', 'pending')->count();
-            } catch (\Exception $e) {
-                // Status column might not exist
+            // Pending Approvals - count pending approval records
+            $pendingApprovals = \App\Models\DokumenApproval::where('approval_status', 'pending')->count();
+            if ($pendingApprovals === 0) {
+                $pendingApprovals = Dokumen::whereIn('status', ['submitted', 'under_review'])->count();
             }
 
             // Total Roles
@@ -46,27 +44,46 @@ class DashboardController extends Controller
             // Total Aplikasis
             $totalAplikasis = Aplikasi::count();
 
-            // Recent Documents (last 10) - very simple without complex relations
+            // Recent Documents (last 10) with user and version relations
             $recentDocuments = [];
             try {
-                $recentDocuments = Dokumen::orderBy('created_at', 'desc')
+                $recentDocuments = Dokumen::with(['user', 'latestVersion', 'masterflow'])
+                    ->orderBy('created_at', 'desc')
                     ->limit(10)
                     ->get();
             } catch (\Exception $e) {
-                // If fails, return empty
+                Log::warning('Failed to load recent documents: ' . $e->getMessage());
             }
 
             // Document Status Distribution
-            $documentsByStatus = [];
+            $documentsByStatus = [
+                'draft' => Dokumen::where('status', 'draft')->count(),
+                'submitted' => Dokumen::whereIn('status', ['submitted', 'under_review'])->count(),
+                'approved' => Dokumen::where('status', 'approved')->count(),
+                'rejected' => Dokumen::where('status', 'rejected')->count(),
+            ];
 
             // Approvals by Status
-            $approvalsByStatus = [];
+            $approvalsByStatus = [
+                'pending' => \App\Models\DokumenApproval::where('approval_status', 'pending')->count(),
+                'approved' => \App\Models\DokumenApproval::where('approval_status', 'approved')->count(),
+                'rejected' => \App\Models\DokumenApproval::where('approval_status', 'rejected')->count(),
+            ];
 
             // System Health - default to 100%
             $systemHealth = 100;
 
-            // Calculate storage - default to 0
-            $storageDisplay = '0 B';
+            // Calculate storage - calculate sum of file sizes
+            $totalSizeBytes = \App\Models\DokumenVersion::sum('size_file');
+            if ($totalSizeBytes > 1073741824) {
+                $storageDisplay = number_format($totalSizeBytes / 1073741824, 2) . ' GB';
+            } else if ($totalSizeBytes > 1048576) {
+                $storageDisplay = number_format($totalSizeBytes / 1048576, 2) . ' MB';
+            } else if ($totalSizeBytes > 1024) {
+                $storageDisplay = number_format($totalSizeBytes / 1024, 2) . ' KB';
+            } else {
+                $storageDisplay = $totalSizeBytes . ' B';
+            }
 
             return response()->json([
                 'stats' => [

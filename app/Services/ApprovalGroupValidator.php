@@ -196,7 +196,7 @@ class ApprovalGroupValidator
         $rejected = $approvals->where('approval_status', 'rejected')->count();
         $pending = $approvals->where('approval_status', 'pending')->count();
 
-        $majorityThreshold = ceil($total / 2); // >50% means at least ceil(total/2)
+        $majorityThreshold = (int) floor($total / 2) + 1; // Strict majority (>50%) is at least floor(total/2) + 1
 
         // If majority approved, group is approved
         if ($approved >= $majorityThreshold) {

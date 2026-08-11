@@ -14,6 +14,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
+import RevisionHistory from '@/components/revision-history';
 import { Head, router, usePage } from '@inertiajs/react';
 import { IconDownload, IconEdit, IconEye, IconFileText, IconPrinter, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
 import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon } from 'lucide-react';
@@ -155,7 +156,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             <div className="text-center">
                                 <h1 className="text-2xl font-bold">Dokumen Tidak Ditemukan</h1>
                                 <p className="mt-2 text-muted-foreground">Data dokumen tidak tersedia</p>
-                                <Button className="mt-4" onClick={() => router.visit('/user/dokumen')}>
+                                <Button className="mt-4" onClick={() => router.visit('/dokumen')}>
                                     Kembali ke Daftar Dokumen
                                 </Button>
                             </div>
@@ -311,6 +312,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 label: 'Rejected',
                 icon: XCircleIcon,
                 className: 'bg-red-100 text-red-800 border-red-300',
+            },
+            revision_requested: {
+                label: 'Perlu Revisi',
+                icon: AlertCircleIcon,
+                className: 'bg-orange-100 text-orange-800 border-orange-300',
+            },
+            needs_revision: {
+                label: 'Perlu Revisi',
+                icon: AlertCircleIcon,
+                className: 'bg-orange-100 text-orange-800 border-orange-300',
             },
         };
 
@@ -624,7 +635,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         try {
             await api.delete(`/dokumen/${dokumen.id}`);
             showToast.success('🎉 Dokumen berhasil dihapus!');
-            router.visit('/user/dokumen');
+            router.visit('/dokumen');
         } catch (error: any) {
             showToast.error(`❌ Gagal menghapus dokumen. ${error.response?.data?.message || error.message}`);
         }
@@ -769,6 +780,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         window.location.href = url;
     };
 
+    // Download original file - download raw PDF without signatures
+    const handleDownloadOriginal = (versionId?: number) => {
+        const url = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}?original=1` : `/api/dokumen/${dokumen.id}/download?original=1`;
+        window.location.href = url;
+    };
+
     // Print file - opens PDF in new tab and triggers print
     const handlePrint = (version: DokumenVersion) => {
         const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
@@ -884,7 +901,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-1">
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/user/dokumen')}>
+                                    <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/dokumen')}>
                                         Dokumen Saya
                                     </Button>
                                     <span>/</span>
@@ -915,8 +932,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         Submit Approval
                                     </Button>
                                 )}
-                                {dokumen?.status === 'rejected' && dokumen?.user_id === auth.user.id && (
-                                    <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700">
+                                {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
+                                    <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700 font-sans">
                                         <IconFileText className="mr-2 h-4 w-4" />
                                         Upload Revisi
                                     </Button>
@@ -1236,12 +1253,24 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                         </>
                                                                     )}
                                                                     <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => handleDownload(version.id)}
-                                                                        title="Download"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleDownloadOriginal(version.id)}
+                                                                        title="Download File PDF Asli Mentah"
+                                                                        className="h-8 border-gray-300 text-xs hover:bg-gray-100"
                                                                     >
-                                                                        <IconDownload className="h-4 w-4" />
+                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-gray-600" />
+                                                                        PDF Asli
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleDownload(version.id)}
+                                                                        title="Download PDF Ber-Tanda Tangan"
+                                                                        className="h-8 border-blue-300 bg-blue-50/50 text-xs text-blue-700 hover:bg-blue-100"
+                                                                    >
+                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-blue-600" />
+                                                                        Signed PDF
                                                                     </Button>
                                                                 </div>
                                                             </div>
@@ -1251,6 +1280,9 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         </CardContent>
                                     </Card>
                                 )}
+
+                                {/* Revision History Component */}
+                                <RevisionHistory dokumenId={dokumen.id} />
                             </div>
 
                             {/* RIGHT COLUMN - Sidebar Actions & Status */}
@@ -1351,8 +1383,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                     Submit Approval
                                                 </Button>
                                             )}
-                                            {dokumen?.status === 'rejected' && dokumen?.user_id === auth.user.id && (
-                                                <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700">
+                                            {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
+                                                <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700 font-sans">
                                                     <IconFileText className="mr-2 h-4 w-4" />
                                                     Upload Revisi
                                                 </Button>

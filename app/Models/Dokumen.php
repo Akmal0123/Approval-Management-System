@@ -184,36 +184,37 @@ class Dokumen extends Model
      */
     public function getNextApprovers(): array
     {
-        // Get all pending approvals ordered by approval_order
+        // Get all pending approvals
         $pendingApprovals = $this->approvals()
             ->where('approval_status', 'pending')
             ->with(['user', 'masterflowStep.jabatan'])
-            ->orderBy('approval_order')
             ->get();
 
         if ($pendingApprovals->isEmpty()) {
             return [];
         }
 
-        // Get the next approval order (lowest order number among pending)
-        $nextOrder = $pendingApprovals->min('approval_order');
-
-        // Get all approvals at this order (could be a group)
-        $nextApprovals = $pendingApprovals->where('approval_order', $nextOrder);
-
-        return $nextApprovals->map(function ($approval) {
+        // Map effective order (from approval_order or masterflowStep step_order)
+        $mapped = $pendingApprovals->map(function ($approval) {
+            $effectiveOrder = $approval->approval_order ?? ($approval->masterflowStep?->step_order ?? 1);
             return [
                 'id' => $approval->id,
                 'user' => $approval->user,
                 'approver_email' => $approval->approver_email,
                 'step_name' => $approval->masterflowStep?->step_name,
                 'jabatan_name' => $approval->masterflowStep?->jabatan?->name,
-                'approval_order' => $approval->approval_order,
+                'approval_order' => $effectiveOrder,
                 'group_index' => $approval->group_index,
                 'jenis_group' => $approval->jenis_group,
                 'tgl_deadline' => $approval->tgl_deadline,
             ];
-        })->values()->toArray();
+        });
+
+        // Find the lowest effective order
+        $nextOrder = $mapped->min('approval_order');
+
+        // Filter all approvers at this lowest order
+        return $mapped->where('approval_order', $nextOrder)->values()->toArray();
     }
 
     /**
@@ -228,8 +229,10 @@ class Dokumen extends Model
                 return 'Dokumen telah disetujui oleh semua pihak';
             } elseif ($this->isRejected()) {
                 return 'Dokumen ditolak';
+            } elseif ($this->status === 'draft') {
+                return 'Draft (Belum diajukan)';
             }
-            return null;
+            return 'Menunggu Persetujuan Admin / Approver';
         }
 
         $firstApprover = $nextApprovers[0];

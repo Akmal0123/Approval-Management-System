@@ -1,4 +1,4 @@
-import { LogOutIcon, MoreVerticalIcon } from 'lucide-react';
+import { LogOutIcon, MoreVerticalIcon, UserIcon } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -71,8 +71,13 @@ export function NavUser({
                             </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => router.visit('/profile')} className="cursor-pointer">
+                            <UserIcon className="mr-2 h-4 w-4" />
+                            Pengaturan Profil & Tanda Tangan
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
-                            <LogOutIcon />
+                            <LogOutIcon className="mr-2 h-4 w-4" />
                             Log out
                         </DropdownMenuItem>
                     </DropdownMenuContent>

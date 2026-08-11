@@ -94,23 +94,23 @@ class DokumenApproval extends Model
      */
     public function jabatan()
     {
-        return $this->masterflowStep->jabatan ?? null;
+        return $this->masterflowStep?->jabatan ?? null;
     }
 
     /**
-     * Get the step order from masterflow step.
+     * Get the step order from masterflow step or approval_order.
      */
     public function getStepOrderAttribute(): int
     {
-        return $this->masterflowStep->step_order ?? 0;
+        return $this->masterflowStep?->step_order ?? $this->approval_order ?? 0;
     }
 
     /**
-     * Get the step name from masterflow step.
+     * Get the step name from masterflow step or fallback.
      */
     public function getStepNameAttribute(): string
     {
-        return $this->masterflowStep->step_name ?? '';
+        return $this->masterflowStep?->step_name ?? ('Tahap ' . ($this->approval_order ?? 1));
     }
 
     /**
@@ -172,8 +172,8 @@ class DokumenApproval extends Model
             return false;
         }
 
-        // Get the step order of this approval
-        $currentStepOrder = $this->masterflowStep?->step_order ?? 0;
+        // Get the step order of this approval (masterflow step order or approval_order)
+        $currentStepOrder = $this->masterflowStep?->step_order ?? $this->approval_order ?? 1;
 
         // If this is the first step, no previous steps to check
         if ($currentStepOrder <= 1) {
@@ -182,8 +182,13 @@ class DokumenApproval extends Model
 
         // Get all approvals for this document with lower step order
         $previousApprovals = self::where('dokumen_id', $this->dokumen_id)
-            ->whereHas('masterflowStep', function ($query) use ($currentStepOrder) {
-                $query->where('step_order', '<', $currentStepOrder);
+            ->where(function ($query) use ($currentStepOrder) {
+                $query->whereHas('masterflowStep', function ($q) use ($currentStepOrder) {
+                    $q->where('step_order', '<', $currentStepOrder);
+                })->orWhere(function ($customQ) use ($currentStepOrder) {
+                    $customQ->whereNull('masterflow_step_id')
+                        ->where('approval_order', '<', $currentStepOrder);
+                });
             })
             ->get();
 
@@ -298,11 +303,28 @@ class DokumenApproval extends Model
     }
 
     /**
-     * Scope to filter by user.
+     * Scope to filter by user (by user_id, by approver_email, or by user's Jabatan).
      */
     public function scopeByUser($query, $userId)
     {
-        return $query->where('user_id', $userId);
+        $user = \App\Models\User::with('userAuths')->find($userId);
+        if (!$user) {
+            return $query->where('user_id', $userId);
+        }
+
+        $userEmail = strtolower($user->email);
+        $userJabatanIds = $user->userAuths->pluck('jabatan_id')->filter()->toArray();
+
+        return $query->where(function ($q) use ($userId, $userEmail, $userJabatanIds) {
+            $q->where('user_id', $userId)
+              ->orWhereRaw('LOWER(approver_email) = ?', [$userEmail]);
+
+            if (!empty($userJabatanIds)) {
+                $q->orWhereHas('masterflowStep', function ($stepQuery) use ($userJabatanIds) {
+                    $stepQuery->whereIn('jabatan_id', $userJabatanIds);
+                });
+            }
+        });
     }
 
     /**
