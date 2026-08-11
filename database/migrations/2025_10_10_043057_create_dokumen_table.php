@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('judul_dokumen');
             $table->unsignedBigInteger('user_id');
-            $table->unsignedBigInteger('masterflow_id');
+            $table->unsignedBigInteger('masterflow_id')->nullable();
             $table->unsignedBigInteger('comment_id')->nullable();
             $table->string('status');
             $table->date('tgl_pengajuan');

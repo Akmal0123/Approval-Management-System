@@ -155,7 +155,7 @@ class DokumenVersionController extends Controller
     {
         // Only allow edit if user is document owner and version is active
         if ($dokumen->user_id !== Auth::id() || $version->status !== 'active') {
-            return redirect()->route('dokumen-version.show', [$dokumen, $version])
+            return redirect()->route('dokumen.show', $dokumen->id)
                 ->withErrors(['error' => 'Versi ini tidak dapat diedit.']);
         }
 
@@ -190,7 +190,7 @@ class DokumenVersionController extends Controller
 
         $version->update(['version' => $validated['version']]);
 
-        return redirect()->route('dokumen-version.show', [$dokumen, $version])
+        return redirect()->route('dokumen.show', $dokumen->id)
             ->with('success', 'Versi berhasil diupdate!');
     }
 

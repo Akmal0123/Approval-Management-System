@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
             CompanySeeder::class,       // 2. Seed companies
             AplikasiSeeder::class,      // 3. Seed aplikasis (depends on companies)
             MasterDataSeeder::class,    // 4. Seed jabatans, other master data
-            // MasterflowSeeder::class,    // 5. Seed masterflows (depends on companies & jabatans)
+            MasterflowSeeder::class,    // 5. Seed masterflows (depends on companies & jabatans)
             AdminUserSeeder::class,     // 6. Seed admin users with complete data
         ]);
 

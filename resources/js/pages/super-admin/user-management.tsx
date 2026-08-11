@@ -363,8 +363,17 @@ export default function UserManagement() {
             // Wait a bit to ensure cookie is set
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            // For updates, only include password if it's provided
-            const submitData = { ...formData };
+            // Format submitData safely
+            const submitData: any = {
+                ...formData,
+                user_auths: formData.user_auths.map((auth: any) => ({
+                    role_id: Number(auth.role_id),
+                    company_id: auth.company_id ? Number(auth.company_id) : null,
+                    jabatan_id: Number(auth.jabatan_id),
+                    aplikasi_id: auth.aplikasi_id ? Number(auth.aplikasi_id) : null,
+                })),
+            };
+
             if (editingUser && !submitData.password) {
                 delete submitData.password;
             }

@@ -704,9 +704,39 @@ export default function UserDokumen() {
         setIsCreateDialogOpen(true);
     };
 
+    // Helper function to safely render validation error message
+    const renderError = (err: any) => {
+        if (!err) return null;
+        if (Array.isArray(err)) return err[0];
+        return String(err);
+    };
+
     // Submit form to create document
     const handleSubmit = async (e: React.FormEvent, type: 'draft' | 'submit') => {
         e.preventDefault();
+
+        // Perform client-side validation check
+        const validationErrors: Record<string, string> = {};
+        if (!formData.judul_dokumen.trim()) {
+            validationErrors.judul_dokumen = 'Judul dokumen wajib diisi.';
+        }
+        if (!formData.file) {
+            validationErrors.file = 'File dokumen (PDF) wajib diunggah.';
+        }
+        if (!formData.tgl_deadline) {
+            validationErrors.tgl_deadline = 'Tanggal deadline wajib diisi.';
+        }
+        if (formData.masterflow_id === '') {
+            validationErrors.masterflow_id = 'Pilih Masterflow atau Custom Approval.';
+        }
+
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors as any);
+            const firstMsg = Object.values(validationErrors)[0];
+            showToast.error(`❌ ${firstMsg}`);
+            return;
+        }
+
         setSubmitType(type);
         setIsSubmitting(true);
         setErrors({});
@@ -722,11 +752,11 @@ export default function UserDokumen() {
 
             // Create FormData for file upload
             const submitData = new FormData();
-            submitData.append('nomor_dokumen', formData.nomor_dokumen);
+            submitData.append('nomor_dokumen', formData.nomor_dokumen || generateDocumentNumber());
             submitData.append('judul_dokumen', formData.judul_dokumen);
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
-            submitData.append('deskripsi', formData.deskripsi);
+            submitData.append('deskripsi', formData.deskripsi || '');
             submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
 
             if (formData.file) {
@@ -738,15 +768,17 @@ export default function UserDokumen() {
                 submitData.append('masterflow_id', 'custom');
                 // Send custom approvers array
                 formData.custom_approvers.forEach((approver, index) => {
-                    submitData.append(`custom_approvers[${index}][email]`, approver.email);
-                    submitData.append(`custom_approvers[${index}][order]`, approver.order.toString());
+                    if (approver.email) {
+                        submitData.append(`custom_approvers[${index}][email]`, approver.email);
+                        submitData.append(`custom_approvers[${index}][order]`, approver.order.toString());
+                    }
                 });
             } else {
                 submitData.append('masterflow_id', formData.masterflow_id.toString());
 
                 // Send step_approvers for group mode steps
                 Object.entries(formData.step_approvers).forEach(([stepId, stepApprover]) => {
-                    if (stepApprover.userIds.length > 0 && stepApprover.jenisGroup) {
+                    if (stepApprover.userIds && stepApprover.userIds.length > 0 && stepApprover.jenisGroup) {
                         console.log(`Adding group approvers for step ${stepId}:`, stepApprover);
                         submitData.append(`step_approvers[${stepId}][jenis_group]`, stepApprover.jenisGroup);
                         stepApprover.userIds.forEach((userId, index) => {
@@ -793,7 +825,8 @@ export default function UserDokumen() {
                     setErrors(errors as unknown as Record<string, string[]>);
 
                     // Show specific error message if available
-                    const errorMessage = errors.error?.[0] || 'Failed to create document. Please check the form.';
+                    const firstVal = Object.values(errors)[0];
+                    const errorMessage = Array.isArray(firstVal) ? firstVal[0] : (typeof firstVal === 'string' ? firstVal : 'Failed to create document. Please check the form.');
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -841,6 +874,8 @@ export default function UserDokumen() {
             under_review: { label: 'Under Review', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
             approved: { label: 'Approved', className: 'bg-green-100 text-green-800 border-green-300' },
             rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800 border-red-300' },
+            revision_requested: { label: 'Perlu Revisi', className: 'bg-orange-100 text-orange-800 border-orange-300' },
+            needs_revision: { label: 'Perlu Revisi', className: 'bg-orange-100 text-orange-800 border-orange-300' },
         };
 
         const config = statusConfig[status] || statusConfig.draft;
@@ -1001,9 +1036,8 @@ export default function UserDokumen() {
                                                             filteredDokumen.map((doc, index) => (
                                                                 <TableRow
                                                                     key={doc.id}
-                                                                    className={`transition-all duration-500 ${
-                                                                        updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
-                                                                    }`}
+                                                                    className={`transition-all duration-500 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
+                                                                        }`}
                                                                 >
                                                                     <TableCell className="font-mono">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
@@ -1017,7 +1051,7 @@ export default function UserDokumen() {
                                                                             )}
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans">{doc.masterflow?.name || '-'}</TableCell>
+                                                                    <TableCell className="font-sans">{doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}</TableCell>
                                                                     <TableCell className="font-sans">{getStatusBadge(doc.status)}</TableCell>
                                                                     <TableCell className="font-sans">
                                                                         {doc.detailed_status?.current_step_description ? (
@@ -1041,7 +1075,7 @@ export default function UserDokumen() {
                                                                     </TableCell>
                                                                     <TableCell className="text-right">
                                                                         <div className="flex justify-end gap-2">
-                                                                            <Link href={`/api/dokumen/${doc.id}`}>
+                                                                            <Link href={`/dokumen/${doc.id}`}>
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
@@ -1151,7 +1185,7 @@ export default function UserDokumen() {
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
                                             placeholder="Jurnal Besar Keuangan"
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen[0]}</p>}
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
                                     </div>
 
                                     {/* Deadline */}
@@ -1167,7 +1201,7 @@ export default function UserDokumen() {
                                             onChange={handleInputChange}
                                             className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
-                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline[0]}</p>}
+                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{renderError(errors.tgl_deadline)}</p>}
                                     </div>
 
                                     {/* Masterflow Selection (includes Custom option) */}
@@ -1193,7 +1227,7 @@ export default function UserDokumen() {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {errors.masterflow_id && <p className="text-sm text-red-500">{errors.masterflow_id[0]}</p>}
+                                        {errors.masterflow_id && <p className="text-sm text-red-500">{renderError(errors.masterflow_id)}</p>}
                                     </div>
 
                                     {/* Approval Flow - Dynamic based on masterflow selection */}
@@ -1461,7 +1495,7 @@ export default function UserDokumen() {
                                             placeholder="Lapor bapak,,"
                                             rows={4}
                                         />
-                                        {errors.deskripsi && <p className="text-sm text-red-500">{errors.deskripsi[0]}</p>}
+                                        {errors.deskripsi && <p className="text-sm text-red-500">{renderError(errors.deskripsi)}</p>}
                                     </div>
 
                                     {/* Upload File */}
@@ -1480,7 +1514,7 @@ export default function UserDokumen() {
                                             📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
                                             (Max 10MB)
                                         </p>
-                                        {errors.file && <p className="text-sm text-red-500">{errors.file[0]}</p>}
+                                        {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
                                     </div>
                                 </div>
 

@@ -99,7 +99,7 @@ class CommentController extends Controller
     {
         // Only allow edit if user owns the comment
         if ($comment->user_id !== Auth::id()) {
-            return redirect()->route('comment.show', [$dokumen, $comment])
+            return redirect()->route('dokumen.show', $dokumen->id)
                 ->withErrors(['error' => 'Anda tidak dapat mengedit komentar ini.']);
         }
 
@@ -139,7 +139,7 @@ class CommentController extends Controller
             ]);
         }
 
-        return redirect()->route('comment.show', [$dokumen, $comment])
+        return redirect()->route('dokumen.show', $dokumen->id)
             ->with('success', 'Komentar berhasil diupdate!');
     }
 

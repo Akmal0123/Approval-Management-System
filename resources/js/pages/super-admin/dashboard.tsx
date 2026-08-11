@@ -87,10 +87,12 @@ export default function SuperAdminDashboard() {
                                         >
                                             Super Admin Access
                                         </Badge>
-                                        <Button size="sm" className="hidden font-sans font-medium sm:flex">
-                                            <IconSettings className="mr-2 h-4 w-4" />
-                                            System Settings
-                                        </Button>
+                                        <Link href="/profile">
+                                            <Button size="sm" className="hidden font-sans font-medium sm:flex">
+                                                <IconSettings className="mr-2 h-4 w-4" />
+                                                System Settings
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </div>
 

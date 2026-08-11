@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import axios from 'axios';
 import { CheckCircle2, FileSignature, PenTool, Trash2, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -67,12 +67,7 @@ export default function SignatureManager() {
 
     const fetchSignatures = async () => {
         try {
-            const response = await axios.get(route('signatures.index'), {
-                headers: {
-                    Accept: 'application/json',
-                },
-                withCredentials: true,
-            });
+            const response = await api.get('/signatures');
             setSignatures(response.data.signatures || []);
         } catch (error) {
             console.error('Failed to fetch signatures:', error);
@@ -161,24 +156,25 @@ export default function SignatureManager() {
 
         setLoading(true);
         try {
-            const dataUrl = canvas.toDataURL('image/png');
+            // Create a temp canvas with explicit white background to guarantee 100% white image export
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
 
-            const response = await axios.post(
-                route('signatures.store'),
-                {
-                    signature: dataUrl,
-                    signature_type: 'manual',
-                    is_default: signatures.length === 0, // Set as default if first signature
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-XSRF-TOKEN': getCsrfToken(),
-                    },
-                    withCredentials: true,
-                },
-            );
+            if (tempCtx) {
+                tempCtx.fillStyle = '#ffffff';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                tempCtx.drawImage(canvas, 0, 0);
+            }
+
+            const dataUrl = (tempCtx ? tempCanvas : canvas).toDataURL('image/jpeg', 0.95);
+
+            await api.post('/signatures', {
+                signature: dataUrl,
+                signature_type: 'manual',
+                is_default: signatures.length === 0,
+            });
 
             showToast.success('✅ Tanda tangan berhasil disimpan!');
             clearCanvas();
@@ -220,13 +216,10 @@ export default function SignatureManager() {
             formData.append('signature_type', 'uploaded');
             formData.append('is_default', signatures.length === 0 ? '1' : '0');
 
-            await axios.post(route('signatures.upload'), formData, {
+            await api.post('/signatures/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    Accept: 'application/json',
-                    'X-XSRF-TOKEN': getCsrfToken(),
                 },
-                withCredentials: true,
             });
 
             showToast.success('✅ Tanda tangan berhasil diupload!');
@@ -246,17 +239,7 @@ export default function SignatureManager() {
     const setAsDefault = async (signatureId: number) => {
         setLoading(true);
         try {
-            await axios.post(
-                route('signatures.setDefault', signatureId),
-                {},
-                {
-                    headers: {
-                        Accept: 'application/json',
-                        'X-XSRF-TOKEN': getCsrfToken(),
-                    },
-                    withCredentials: true,
-                },
-            );
+            await api.post(`/signatures/${signatureId}/set-default`);
 
             showToast.success('✅ Tanda tangan default berhasil diupdate!');
             await fetchSignatures();
@@ -271,13 +254,7 @@ export default function SignatureManager() {
     const deleteSignature = async (signatureId: number) => {
         setLoading(true);
         try {
-            await axios.delete(route('signatures.destroy', signatureId), {
-                headers: {
-                    Accept: 'application/json',
-                    'X-XSRF-TOKEN': getCsrfToken(),
-                },
-                withCredentials: true,
-            });
+            await api.delete(`/signatures/${signatureId}`);
 
             showToast.success('✅ Tanda tangan berhasil dihapus');
             await fetchSignatures();
@@ -329,7 +306,7 @@ export default function SignatureManager() {
                                     ref={canvasRef}
                                     width={600}
                                     height={200}
-                                    className="w-full cursor-crosshair touch-none rounded-md border-2 border-dashed border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950"
+                                    className="w-full cursor-crosshair touch-none rounded-md border-2 border-dashed border-neutral-300 bg-white shadow-inner"
                                     onMouseDown={startDrawing}
                                     onMouseMove={draw}
                                     onMouseUp={stopDrawing}
@@ -425,15 +402,19 @@ export default function SignatureManager() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
+                                        <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2">
                                             <img
-                                                src={signature.signature_url}
+                                                src={
+                                                    signature.signature_url.startsWith('http') || signature.signature_url.startsWith('data:')
+                                                        ? signature.signature_url
+                                                        : `${window.location.origin}${signature.signature_url}`
+                                                }
                                                 alt="Tanda Tangan"
                                                 className="max-h-full max-w-full object-contain"
                                                 onError={(e) => {
                                                     console.error('Failed to load signature image:', signature.signature_url);
                                                     e.currentTarget.src =
-                                                        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
+                                                        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjgwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmOGZhZmMiLz48dGV4dCB4PSI1MCUiIHk9IjU1JSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5NGEzYjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZpbGUgVGlkYWsgRGl0ZW11a2FuPC90ZXh0Pjwvc3ZnPg==';
                                                 }}
                                             />
                                         </div>
