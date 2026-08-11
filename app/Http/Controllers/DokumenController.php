@@ -302,13 +302,11 @@ class DokumenController extends Controller
                 ]);
 
                 // Create approval records based on masterflow type
-                if ($request->masterflow_id === 'custom' || empty($masterflowIdVal)) {
+                if ($request->masterflow_id === 'custom') {
                     // Custom approval flow
-                    $hasCustomApprover = false;
                     if (!empty($validated['custom_approvers'])) {
                         foreach ($validated['custom_approvers'] as $approver) {
                             if (!empty($approver['email'])) {
-                                $hasCustomApprover = true;
                                 DokumenApproval::create([
                                     'dokumen_id' => $dokumen->id,
                                     'approver_email' => $approver['email'],
@@ -320,25 +318,11 @@ class DokumenController extends Controller
                             }
                         }
                     }
-
-                    // Fallback: If submitted but no custom approver email specified, assign to Super Admin / Admin
-                    if (!$hasCustomApprover && $status === 'submitted') {
-                        $adminUser = User::whereHas('userAuths.role', function ($q) {
-                            $q->whereRaw('LOWER(role_name) LIKE ?', ['%admin%']);
-                        })->first() ?? User::first();
-
-                        DokumenApproval::create([
-                            'dokumen_id' => $dokumen->id,
-                            'user_id' => $adminUser?->id ?? 1,
-                            'approval_order' => 1,
-                            'dokumen_version_id' => $version->id,
-                            'approval_status' => 'pending',
-                            'tgl_deadline' => $validated['tgl_deadline'],
-                        ]);
-                    }
-                } else if ($masterflowIdVal) {
+                } else if (!empty($validated['masterflow_id'])) {
                     // Existing masterflow - create approvals from selected approvers
                     $masterflow = Masterflow::with('steps')->find($validated['masterflow_id']);
+
+                    if ($masterflow) {
 
                     Log::info('Processing masterflow steps', [
                         'masterflow_id' => $masterflow->id,
@@ -438,6 +422,7 @@ class DokumenController extends Controller
                                 }
                             }
                         }
+                    }
                     }
                 }
             }
@@ -686,7 +671,7 @@ class DokumenController extends Controller
             })->first();
 
             if ($user) {
-                DokumenApproval::create([
+                $approval = DokumenApproval::create([
                     'dokumen_id' => $dokumen->id,
                     'user_id' => $user->id,
                     'dokumen_version_id' => $latestVersion->id,
@@ -694,6 +679,8 @@ class DokumenController extends Controller
                     'approval_status' => 'pending',
                     'tgl_deadline' => now()->addDays(3), // 3 days deadline
                 ]);
+
+                SendApprovalNotification::dispatch($approval);
             }
         }
     }
@@ -861,7 +848,10 @@ class DokumenController extends Controller
                         ]);
 
                         // Dispatch email notification for the reset approval
-                        SendApprovalNotification::dispatch($revisionApproval->fresh());
+                        if ($revisionApproval->user?->email) {
+                            Mail::to($revisionApproval->user->email)
+                                ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $revisionApproval->fresh(), $newVersion));
+                        }
 
                         // Broadcast browser notification to approver
                         broadcast(new BrowserNotificationEvent(
@@ -927,7 +917,10 @@ class DokumenController extends Controller
                             ]);
 
                             // Dispatch email notification for each reset approval
-                            SendApprovalNotification::dispatch($approval->fresh());
+                            if ($approval->user?->email) {
+                                Mail::to($approval->user->email)
+                                    ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
+                            }
 
                             // Broadcast browser notification to approver
                             broadcast(new BrowserNotificationEvent(
@@ -966,7 +959,10 @@ class DokumenController extends Controller
                             'revision_requested_by' => null,
                             'revision_requested_at' => null,
                         ]);
-                        SendApprovalNotification::dispatch($approval->fresh());
+                        if ($approval->user?->email) {
+                            Mail::to($approval->user->email)
+                                ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
+                        }
 
                         // Broadcast browser notification to approver
                         broadcast(new BrowserNotificationEvent(

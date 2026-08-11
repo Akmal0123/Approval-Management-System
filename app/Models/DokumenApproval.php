@@ -313,7 +313,7 @@ class DokumenApproval extends Model
         }
 
         $userEmail = strtolower($user->email);
-        $userJabatanIds = $user->userAuths->pluck('jabatan_id')->filter()->toArray();
+        $userJabatanIds = $user->userAuths ? $user->userAuths->pluck('jabatan_id')->filter()->toArray() : [];
 
         return $query->where(function ($q) use ($userId, $userEmail, $userJabatanIds) {
             $q->where('user_id', $userId)
