@@ -44,20 +44,12 @@ class DokumenApprovalController extends Controller
             ->byUser(Auth::id())
             ->orderBy('created_at', 'desc');
 
-        // Context-based filtering (Super Admin sees all)
-        if (!$this->contextService->isSuperAdmin()) {
-            $companyId = $this->contextService->getCurrentCompanyId();
-            $aplikasiId = $this->contextService->getCurrentAplikasiId();
-
-            $query->whereHas('dokumen', function ($q) use ($companyId, $aplikasiId) {
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                }
-                if ($aplikasiId) {
-                    $q->where('aplikasi_id', $aplikasiId);
-                }
-            });
-        }
+        // NOTE: Context-based company/aplikasi filtering is intentionally removed here.
+        // The byUser() scope above already ensures users only see their own assigned approvals.
+        // Filtering by the user's current company/aplikasi context is incorrect because:
+        // - Super Admin can assign approvals to users in different companies/aplikasi
+        // - An approver in company B may legitimately be assigned a document from company A
+        // Super Admin sees all approvals (no byUser filter needed on top of byUser scope).
 
         // Filter by status
         if ($request->filled('status')) {
@@ -81,20 +73,8 @@ class DokumenApprovalController extends Controller
         // Get statistics - with context filter applied
         $statsBaseQuery = DokumenApproval::byUser(Auth::id());
 
-        // Apply the same context filtering to stats
-        if (!$this->contextService->isSuperAdmin()) {
-            $companyId = $this->contextService->getCurrentCompanyId();
-            $aplikasiId = $this->contextService->getCurrentAplikasiId();
-
-            $statsBaseQuery->whereHas('dokumen', function ($q) use ($companyId, $aplikasiId) {
-                if ($companyId) {
-                    $q->where('company_id', $companyId);
-                }
-                if ($aplikasiId) {
-                    $q->where('aplikasi_id', $aplikasiId);
-                }
-            });
-        }
+        // Stats also use byUser() only — no company/aplikasi filter needed.
+        // See comment above for explanation.
 
         $stats = [
             'pending' => (clone $statsBaseQuery)->pending()->count(),

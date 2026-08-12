@@ -382,47 +382,51 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
 
                             {/* Stats Cards */}
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Menunggu</CardTitle>
-                                        <IconClock className="h-4 w-4 text-yellow-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.pending}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Perlu persetujuan</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.pending}</p>
+                                            </div>
+                                            <IconClock className="h-8 w-8 text-yellow-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Disetujui</CardTitle>
-                                        <IconCheck className="h-4 w-4 text-green-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.approved}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Total disetujui</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.approved}</p>
+                                            </div>
+                                            <IconCheck className="h-8 w-8 text-green-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Ditolak</CardTitle>
-                                        <IconX className="h-4 w-4 text-red-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.rejected}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Total ditolak</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Ditolak</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.rejected}</p>
+                                            </div>
+                                            <IconX className="h-8 w-8 text-red-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Terlambat</CardTitle>
-                                        <IconAlertCircle className="h-4 w-4 text-orange-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.overdue}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Melewati deadline</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Terlambat</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.overdue}</p>
+                                            </div>
+                                            <IconAlertCircle className="h-8 w-8 text-orange-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>

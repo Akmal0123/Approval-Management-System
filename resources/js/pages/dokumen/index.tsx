@@ -900,39 +900,47 @@ export default function UserDokumen() {
                                 {/* Stats Cards */}
                                 <div className="grid gap-4 md:grid-cols-4">
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</h3>
-                                            <FileTextIcon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.total}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.total}</p>
+                                                </div>
+                                                <FileTextIcon className="h-8 w-8 text-blue-500" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Draft</h3>
-                                            <UserIcon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.draft}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Draft</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.draft}</p>
+                                                </div>
+                                                <UserIcon className="h-8 w-8 text-gray-400" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</h3>
-                                            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.submitted}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.submitted}</p>
+                                                </div>
+                                                <CalendarIcon className="h-8 w-8 text-orange-500" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Disetujui</h3>
-                                            <Activity className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.approved}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.approved}</p>
+                                                </div>
+                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 </div>
