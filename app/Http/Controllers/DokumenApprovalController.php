@@ -265,23 +265,25 @@ class DokumenApprovalController extends Controller
 
         DB::beginTransaction();
         try {
-            // Get the current step number
-            $currentStepNumber = $approval->masterflowStep->step_order;
+            // Get the current step number (null-safe for custom approvers without masterflow)
+            $currentStepNumber = $approval->masterflowStep?->step_order ?? 0;
 
             // Reject this approval
             $approval->reject($validated['alasan_reject'], $validated['comment']);
 
-            // Cancel all pending approvals in future steps
+            // Cancel all pending/revision_requested approvals in future steps
             // When a document is rejected at step X, all approvals at step X+1, X+2, etc. should be cancelled
             DokumenApproval::where('dokumen_id', $approval->dokumen_id)
-                ->where('approval_status', 'pending')
-                ->whereHas('masterflowStep', function ($query) use ($currentStepNumber) {
-                    $query->where('step_order', '>', $currentStepNumber);
+                ->whereIn('approval_status', ['pending', 'revision_requested'])
+                ->when($currentStepNumber > 0, function ($query) use ($currentStepNumber) {
+                    $query->whereHas('masterflowStep', function ($q) use ($currentStepNumber) {
+                        $q->where('step_order', '>', $currentStepNumber);
+                    });
                 })
                 ->update([
                     'approval_status' => 'cancelled',
-                    'tgl_approve' => now(),
-                    'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
+                    'tgl_approve'     => now(),
+                    'comment'         => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
                 ]);
 
             // Update document status to rejected

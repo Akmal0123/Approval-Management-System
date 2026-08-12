@@ -312,6 +312,11 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 icon: XCircleIcon,
                 className: 'bg-red-100 text-red-800 border-red-300',
             },
+            needs_revision: {
+                label: 'Perlu Revisi',
+                icon: AlertCircleIcon,
+                className: 'bg-purple-100 text-purple-800 border-purple-300',
+            },
         };
 
         const config = statusConfig[status] || statusConfig.draft;
@@ -333,6 +338,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             skipped: { label: 'Disetujui', className: 'bg-green-100 text-green-800 border-green-300' },
             rejected: { label: 'Ditolak', className: 'bg-red-100 text-red-800 border-red-300' },
             waiting: { label: 'Menunggu Giliran', className: 'bg-gray-100 text-gray-800 border-gray-300' },
+            revision_requested: { label: 'Perlu Revisi', className: 'bg-purple-100 text-purple-800 border-purple-300' },
         };
 
         const config = statusConfig[status] || statusConfig.pending;
@@ -915,7 +921,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         Submit Approval
                                     </Button>
                                 )}
-                                {dokumen?.status === 'rejected' && dokumen?.user_id === auth.user.id && (
+                                {(dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && dokumen?.user_id === auth.user.id && (
                                     <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700">
                                         <IconFileText className="mr-2 h-4 w-4" />
                                         Upload Revisi
@@ -1351,7 +1357,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                     Submit Approval
                                                 </Button>
                                             )}
-                                            {dokumen?.status === 'rejected' && dokumen?.user_id === auth.user.id && (
+                                            {(dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && dokumen?.user_id === auth.user.id && (
                                                 <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700">
                                                     <IconFileText className="mr-2 h-4 w-4" />
                                                     Upload Revisi

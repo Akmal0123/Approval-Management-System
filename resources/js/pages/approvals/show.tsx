@@ -16,6 +16,7 @@ import { showToast } from '@/lib/toast';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     IconAlertCircle,
+    IconAlertTriangle,
     IconCalendar,
     IconCheck,
     IconClock,
@@ -116,6 +117,7 @@ interface Props {
 
 export default function ApproverShow({ approval, allApprovals, canApprove }: Props) {
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
     const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -128,6 +130,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const rejectForm = useForm({
         alasan_reject: '',
         comment: '',
+    });
+
+    const revisionForm = useForm({
+        revision_notes: '',
     });
 
     // Real-time updates - Listen to dokumen-specific channel
@@ -229,6 +235,20 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             },
             onError: () => {
                 showToast.error('❌ Gagal menolak dokumen.');
+            },
+        });
+    };
+
+    // Handle request revision
+    const handleRequestRevision = () => {
+        revisionForm.post(route('approvals.request-revision', approval.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                showToast.success('✅ Permintaan revisi berhasil dikirim!');
+                setIsRevisionDialogOpen(false);
+            },
+            onError: () => {
+                showToast.error('❌ Gagal mengirim permintaan revisi.');
             },
         });
     };
@@ -916,9 +936,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 Setujui Dokumen
                                             </Button>
                                             <Button
-                                                variant="outline"
+                                                onClick={() => setIsRevisionDialogOpen(true)}
+                                                className="w-full bg-orange-500 text-white hover:bg-orange-600"
+                                            >
+                                                <IconAlertTriangle className="mr-2 h-4 w-4" />
+                                                Minta Revisi
+                                            </Button>
+                                            <Button
                                                 onClick={() => setIsRejectDialogOpen(true)}
-                                                className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                                                className="w-full bg-red-600 text-white hover:bg-red-700"
                                             >
                                                 <IconX className="mr-2 h-4 w-4" />
                                                 Tolak Dokumen
@@ -1009,6 +1035,57 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             </div>
                         </div>
                     </div>
+
+                    {/* Revision Request Dialog */}
+                    <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle className="font-serif">Minta Revisi</DialogTitle>
+                                <DialogDescription className="font-sans">
+                                    Jelaskan bagian dokumen "{approval.dokumen.judul_dokumen}" yang perlu direvisi.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="revision_notes" className="font-sans">
+                                        Catatan Revisi <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Textarea
+                                        id="revision_notes"
+                                        placeholder="Jelaskan bagian yang perlu diperbaiki atau direvisi..."
+                                        value={revisionForm.data.revision_notes}
+                                        onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
+                                        className="font-sans"
+                                        rows={4}
+                                        required
+                                    />
+                                    {revisionForm.errors.revision_notes && (
+                                        <p className="font-sans text-sm text-red-600">{revisionForm.errors.revision_notes}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsRevisionDialogOpen(false)}
+                                    disabled={revisionForm.processing}
+                                    className="font-sans"
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    onClick={handleRequestRevision}
+                                    disabled={revisionForm.processing || !revisionForm.data.revision_notes.trim()}
+                                    className="bg-orange-500 font-sans text-white hover:bg-orange-600"
+                                >
+                                    <IconAlertTriangle className="mr-2 h-4 w-4" />
+                                    {revisionForm.processing ? 'Mengirim...' : 'Kirim Permintaan Revisi'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Reject Dialog */}
                     <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
