@@ -155,7 +155,7 @@ class Dokumen extends Model
      */
     public function isFullyApproved(): bool
     {
-        return $this->approvals()->where('approval_status', 'pending')->count() === 0 &&
+        return $this->approvals()->whereIn('approval_status', ['pending', 'waiting'])->count() === 0 &&
             $this->approvals()->where('approval_status', 'approved')->count() > 0;
     }
 

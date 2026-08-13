@@ -260,8 +260,12 @@ class DokumenController extends Controller
 
                 if ($request->masterflow_id === 'custom') {
                     // Custom approval flow
+                    $minOrder = collect($validated['custom_approvers'])->min('order');
+                    
                     foreach ($validated['custom_approvers'] as $approver) {
                         $targetUser = \App\Models\User::where('email', $approver['email'])->first();
+
+                        $isFirstLevel = $approver['order'] == $minOrder;
 
                         $approval = DokumenApproval::create([
                             'dokumen_id' => $dokumen->id,
@@ -269,17 +273,19 @@ class DokumenController extends Controller
                             'approver_email' => $approver['email'],
                             'approval_order' => $approver['order'],
                             'dokumen_version_id' => $version->id,
-                            'approval_status' => 'pending',
+                            'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                             'tgl_deadline' => $validated['tgl_deadline'],
                         ]);
 
-                        if ($approval->user_id) {
+                        if ($approval->user_id && $isFirstLevel) {
                             SendApprovalNotification::dispatch($approval);
                         }
                     }
                 } else {
                     // Existing masterflow - create approvals from selected approvers
                     $masterflow = Masterflow::with('steps')->find($validated['masterflow_id']);
+                    
+                    $minStepOrder = $masterflow->steps->min('step_order');
 
                     Log::info('Processing masterflow steps', [
                         'masterflow_id' => $masterflow->id,
@@ -289,6 +295,7 @@ class DokumenController extends Controller
                     ]);
 
                     foreach ($masterflow->steps as $step) {
+                        $isFirstLevel = $step->step_order == $minStepOrder;
                         // Check if user selected group approval for this step
                         if ($request->has("step_approvers.{$step->id}")) {
                             $stepApprover = $request->input("step_approvers.{$step->id}");
@@ -308,31 +315,33 @@ class DokumenController extends Controller
                                     'user_id' => $userId,
                                     'masterflow_step_id' => $step->id,
                                     'dokumen_version_id' => $version->id,
-                                    'approval_status' => 'pending',
+                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                                     'tgl_deadline' => $validated['tgl_deadline'],
                                     'group_index' => $groupIndex,
                                     'jenis_group' => $stepApprover['jenis_group'],
                                 ]);
 
-                                // Broadcast new approval event
-                                Log::info('Broadcasting ApprovalCreated event', [
-                                    'approval_id' => $approval->id,
-                                    'user_id' => $userId,
-                                    'dokumen_id' => $dokumen->id,
-                                ]);
-                                broadcast(new ApprovalCreated($approval))->toOthers();
-
-                                // Dispatch email notification job
-                                SendApprovalNotification::dispatch($approval);
-
-                                // Broadcast browser notification to approver
-                                broadcast(new BrowserNotificationEvent(
-                                    userId: $userId,
-                                    title: 'Dokumen Baru Membutuhkan Persetujuan',
-                                    body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
-                                    url: route('approvals.show', $approval->id),
-                                    type: 'info'
-                                ));
+                                if ($isFirstLevel) {
+                                    // Broadcast new approval event
+                                    Log::info('Broadcasting ApprovalCreated event', [
+                                        'approval_id' => $approval->id,
+                                        'user_id' => $userId,
+                                        'dokumen_id' => $dokumen->id,
+                                    ]);
+                                    broadcast(new ApprovalCreated($approval))->toOthers();
+    
+                                    // Dispatch email notification job
+                                    SendApprovalNotification::dispatch($approval);
+    
+                                    // Broadcast browser notification to approver
+                                    broadcast(new BrowserNotificationEvent(
+                                        userId: $userId,
+                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                        url: route('approvals.show', $approval->id),
+                                        type: 'info'
+                                    ));
+                                }
                             }
                         } else {
                             // Single approver selected by user
@@ -347,29 +356,31 @@ class DokumenController extends Controller
                                     'user_id' => $validated['approvers'][$step->id],
                                     'masterflow_step_id' => $step->id,
                                     'dokumen_version_id' => $version->id,
-                                    'approval_status' => 'pending',
+                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                                     'tgl_deadline' => $validated['tgl_deadline'],
                                 ]);
 
-                                // Broadcast new approval event
-                                Log::info('Broadcasting ApprovalCreated event', [
-                                    'approval_id' => $approval->id,
-                                    'user_id' => $validated['approvers'][$step->id],
-                                    'dokumen_id' => $dokumen->id,
-                                ]);
-                                broadcast(new ApprovalCreated($approval))->toOthers();
-
-                                // Dispatch email notification job
-                                SendApprovalNotification::dispatch($approval);
-
-                                // Broadcast browser notification to approver
-                                broadcast(new BrowserNotificationEvent(
-                                    userId: $validated['approvers'][$step->id],
-                                    title: 'Dokumen Baru Membutuhkan Persetujuan',
-                                    body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
-                                    url: route('approvals.show', $approval->id),
-                                    type: 'info'
-                                ));
+                                if ($isFirstLevel) {
+                                    // Broadcast new approval event
+                                    Log::info('Broadcasting ApprovalCreated event', [
+                                        'approval_id' => $approval->id,
+                                        'user_id' => $validated['approvers'][$step->id],
+                                        'dokumen_id' => $dokumen->id,
+                                    ]);
+                                    broadcast(new ApprovalCreated($approval))->toOthers();
+    
+                                    // Dispatch email notification job
+                                    SendApprovalNotification::dispatch($approval);
+    
+                                    // Broadcast browser notification to approver
+                                    broadcast(new BrowserNotificationEvent(
+                                        userId: $validated['approvers'][$step->id],
+                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                        url: route('approvals.show', $approval->id),
+                                        type: 'info'
+                                    ));
+                                }
                             }
                         }
                     }
@@ -603,6 +614,8 @@ class DokumenController extends Controller
     {
         $masterflow = $dokumen->masterflow;
         $latestVersion = $dokumen->latestVersion;
+        
+        $minStepOrder = $masterflow->steps->min('step_order');
 
         foreach ($masterflow->steps as $step) {
             // Find first user with required jabatan for this step
@@ -610,17 +623,21 @@ class DokumenController extends Controller
                 $query->where('jabatan_id', $step->jabatan_id);
             })->first();
 
+            $isFirstLevel = $step->step_order == $minStepOrder;
+
             if ($user) {
                 $approval = DokumenApproval::create([
                     'dokumen_id' => $dokumen->id,
                     'user_id' => $user->id,
                     'dokumen_version_id' => $latestVersion->id,
                     'masterflow_step_id' => $step->id,
-                    'approval_status' => 'pending',
+                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                     'tgl_deadline' => now()->addDays(3), // 3 days deadline
                 ]);
 
-                SendApprovalNotification::dispatch($approval);
+                if ($isFirstLevel) {
+                    SendApprovalNotification::dispatch($approval);
+                }
             }
         }
     }

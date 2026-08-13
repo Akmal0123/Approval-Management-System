@@ -173,7 +173,7 @@ class DokumenApproval extends Model
         }
 
         // Get the step order of this approval
-        $currentStepOrder = $this->masterflowStep?->step_order ?? 0;
+        $currentStepOrder = $this->masterflowStep?->step_order ?? $this->approval_order ?? 0;
 
         // If this is the first step, no previous steps to check
         if ($currentStepOrder <= 1) {
@@ -182,8 +182,10 @@ class DokumenApproval extends Model
 
         // Get all approvals for this document with lower step order
         $previousApprovals = self::where('dokumen_id', $this->dokumen_id)
-            ->whereHas('masterflowStep', function ($query) use ($currentStepOrder) {
-                $query->where('step_order', '<', $currentStepOrder);
+            ->where(function ($query) use ($currentStepOrder) {
+                $query->whereHas('masterflowStep', function ($q) use ($currentStepOrder) {
+                    $q->where('step_order', '<', $currentStepOrder);
+                })->orWhere('approval_order', '<', $currentStepOrder);
             })
             ->get();
 

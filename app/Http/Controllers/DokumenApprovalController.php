@@ -54,6 +54,9 @@ class DokumenApprovalController extends Controller
         // Filter by status
         if ($request->filled('status')) {
             $query->byStatus($request->status);
+        } else {
+            // Hide waiting approvals from the default list
+            $query->where('approval_status', '!=', 'waiting');
         }
 
         // Filter overdue
@@ -614,6 +617,68 @@ class DokumenApprovalController extends Controller
                             ]);
                         });
                     }
+                }
+            }
+        }
+
+        // Activate the next sequence of approvals if all previous are completed
+        $this->activateNextApprovals($dokumen);
+    }
+
+    /**
+     * Activate the next sequential approvals if the current level is completed.
+     */
+    private function activateNextApprovals(Dokumen $dokumen)
+    {
+        // Find all approvals for this document
+        $approvals = DokumenApproval::with(['masterflowStep', 'user'])->where('dokumen_id', $dokumen->id)->get();
+
+        // Find the lowest step order that has 'waiting' approvals
+        $waitingApprovals = $approvals->where('approval_status', 'waiting');
+        if ($waitingApprovals->isEmpty()) {
+            return;
+        }
+
+        // Get the lowest step order from waiting approvals
+        $lowestWaitingStep = $waitingApprovals->map(function ($a) {
+            return $a->masterflowStep?->step_order ?? $a->approval_order ?? 0;
+        })->min();
+
+        // Check if all approvals before this step are completed (approved, skipped, cancelled)
+        $previousApprovals = $approvals->filter(function ($a) use ($lowestWaitingStep) {
+            $step = $a->masterflowStep?->step_order ?? $a->approval_order ?? 0;
+            return $step < $lowestWaitingStep;
+        });
+
+        $allPreviousCompleted = $previousApprovals->every(function ($a) {
+            return in_array($a->approval_status, ['approved', 'skipped', 'cancelled']);
+        });
+
+        if ($allPreviousCompleted) {
+            // Activate all waiting approvals in the lowest waiting step
+            $approvalsToActivate = $waitingApprovals->filter(function ($a) use ($lowestWaitingStep) {
+                $step = $a->masterflowStep?->step_order ?? $a->approval_order ?? 0;
+                return $step == $lowestWaitingStep;
+            });
+
+            foreach ($approvalsToActivate as $approval) {
+                $approval->update(['approval_status' => 'pending']);
+                
+                // Broadcast new approval event
+                broadcast(new \App\Events\ApprovalCreated($approval))->toOthers();
+
+                // Dispatch email notification job
+                \App\Jobs\SendApprovalNotification::dispatch($approval);
+
+                // Broadcast browser notification to approver
+                if ($approval->user_id) {
+                    broadcast(new \App\Events\BrowserNotificationEvent(
+                        userId: $approval->user_id,
+                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                        url: route('approvals.show', $approval->id),
+                        type: 'info'
+                    ));
                 }
             }
         }
