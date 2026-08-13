@@ -141,6 +141,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
     });
 
+    // Masterflows API endpoint for document creation
+    Route::get('/api/masterflows', [\App\Http\Controllers\UserDashboardController::class, 'getMasterflowsApi'])->name('api.masterflows');
+
     // Document detail & edit pages
     Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.show');
     Route::get('/dokumen/{dokumen}/detail', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');

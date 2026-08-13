@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconEdit, IconFileText, IconPlus, IconTrash, IconX } from '@tabler/icons-react';
+import { IconEdit, IconFileText, IconPlus, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
 import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -217,7 +217,7 @@ export default function UserDokumen() {
             });
 
             console.log('Dokumen fetched:', response.data);
-            const newDokumen = response.data.data || response.data;
+            const newDokumen = Array.isArray(response.data) ? response.data : response.data.data || [];
             console.log('📊 Total dokumen received:', newDokumen.length);
             console.log(
                 '📊 Dokumen list:',
@@ -244,7 +244,7 @@ export default function UserDokumen() {
             const response = await api.get('/masterflows');
             console.log('Masterflows fetched:', response.data);
             // API returns { masterflows: [...] }, not direct array
-            setMasterflows(response.data.masterflows || []);
+            setMasterflows(response.data.masterflows || response.data || []);
         } catch (error) {
             console.error('Error fetching masterflows:', error);
             showToast.error('❌ Failed to load masterflows.');
