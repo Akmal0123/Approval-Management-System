@@ -52,6 +52,10 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // Dashboard Statistics
     Route::get('/dashboard/super-admin/stats', [DashboardController::class, 'superAdminStats']);
 
+    // Signature API Routes
+    Route::post('/signatures', [\App\Http\Controllers\SignatureController::class, 'store']);
+    Route::get('/signatures', [\App\Http\Controllers\SignatureController::class, 'index']);
+    
     // User Dashboard API Routes
     Route::prefix('user')->group(function () {
         Route::get('/statistics', [UserDashboardController::class, 'getStatisticsApi']);
@@ -69,4 +73,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
 
     // User API Routes for approval flow
     Route::get('/users-by-jabatan/{jabatan}', [UserController::class, 'getByJabatan']);
+
+    //History Document API Routes
+    Route::get('/dokumen/{id}/history', [DokumenController::class, 'getHistory']);
 });

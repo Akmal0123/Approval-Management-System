@@ -1022,4 +1022,32 @@ class DokumenController extends Controller
             return response()->file($filePath, ['Content-Type' => 'application/pdf']);
         }
     }
+
+    /**
+     * API: Get history / revision logs for a document.
+     */
+    public function getHistory($id)
+    {
+        try {
+            $dokumen = Dokumen::findOrFail($id);
+
+            // Mengambil revision logs dengan relasi user
+            $history = RevisionLog::with(['user'])
+                ->where('dokumen_id', $dokumen->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $history,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching document history: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil riwayat dokumen: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
