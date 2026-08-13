@@ -157,7 +157,7 @@ export default function UserDokumen() {
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft'); // Track button clicked
-    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
@@ -446,7 +446,7 @@ export default function UserDokumen() {
         if (errors[name]) {
             setErrors((prev) => ({
                 ...prev,
-                [name]: [],
+                [name]: '',
             }));
         }
     };
@@ -479,7 +479,7 @@ export default function UserDokumen() {
             if (errors.file) {
                 setErrors((prev) => ({
                     ...prev,
-                    file: [],
+                    file: '',
                 }));
             }
         }
@@ -522,7 +522,7 @@ export default function UserDokumen() {
         if (errors.masterflow_id) {
             setErrors((prev) => ({
                 ...prev,
-                masterflow_id: [],
+                masterflow_id: '',
             }));
         }
 
@@ -775,7 +775,7 @@ export default function UserDokumen() {
             // Use Inertia router for form submission with file
             router.post('/api/dokumen', submitData, {
                 forceFormData: true,
-                preserveState: false,
+                preserveState: true,
                 preserveScroll: false,
                 onSuccess: (page) => {
                     const message =
@@ -790,10 +790,10 @@ export default function UserDokumen() {
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
-                    setErrors(errors as unknown as Record<string, string[]>);
+                    setErrors(errors);
 
                     // Show specific error message if available
-                    const errorMessage = errors.error?.[0] || 'Failed to create document. Please check the form.';
+                    const errorMessage = errors.error || 'Failed to create document. Please check the form.';
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -1159,7 +1159,7 @@ export default function UserDokumen() {
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
                                             placeholder="Jurnal Besar Keuangan"
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen[0]}</p>}
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
                                     {/* Deadline */}
@@ -1175,7 +1175,7 @@ export default function UserDokumen() {
                                             onChange={handleInputChange}
                                             className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
-                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline[0]}</p>}
+                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline}</p>}
                                     </div>
 
                                     {/* Masterflow Selection (includes Custom option) */}
@@ -1201,7 +1201,7 @@ export default function UserDokumen() {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {errors.masterflow_id && <p className="text-sm text-red-500">{errors.masterflow_id[0]}</p>}
+                                        {errors.masterflow_id && <p className="text-sm text-red-500">{errors.masterflow_id}</p>}
                                     </div>
 
                                     {/* Approval Flow - Dynamic based on masterflow selection */}
@@ -1469,7 +1469,7 @@ export default function UserDokumen() {
                                             placeholder="Lapor bapak,,"
                                             rows={4}
                                         />
-                                        {errors.deskripsi && <p className="text-sm text-red-500">{errors.deskripsi[0]}</p>}
+                                        {errors.deskripsi && <p className="text-sm text-red-500">{errors.deskripsi}</p>}
                                     </div>
 
                                     {/* Upload File */}
@@ -1484,6 +1484,7 @@ export default function UserDokumen() {
                                             onChange={handleFileChange}
                                             className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
+                                        {errors.file && <p className="text-sm text-red-500">{errors.file}</p>}
                                         <p className="text-xs text-muted-foreground">
                                             📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
                                             (Max 10MB)

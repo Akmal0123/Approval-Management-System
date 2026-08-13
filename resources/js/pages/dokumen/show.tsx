@@ -192,7 +192,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         custom_approvers: [],
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Debug log
     useEffect(() => {
@@ -470,7 +470,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         if (errors[name]) {
             setErrors((prev) => ({
                 ...prev,
-                [name]: [],
+                [name]: '',
             }));
         }
     };
@@ -503,7 +503,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             if (errors.file) {
                 setErrors((prev) => ({
                     ...prev,
-                    file: [],
+                    file: '',
                 }));
             }
         }
@@ -604,7 +604,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
-                    setErrors(errors as unknown as Record<string, string[]>);
+                    setErrors(errors);
                     showToast.error('❌ Gagal update dokumen. Silakan cek form.');
                 },
             });
@@ -1403,7 +1403,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                             onChange={handleInputChange}
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen[0]}</p>}
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
                                     <div className="grid gap-2">
