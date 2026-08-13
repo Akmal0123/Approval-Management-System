@@ -876,7 +876,7 @@ export default function UserDokumen() {
         <>
             <Head title="My Documents" />
             <SidebarProvider>
-                <NotificationListener userId={auth.user?.id} />
+                <NotificationListener />
                 <AppSidebar variant="inset" />
                 <SidebarInset>
                     <SiteHeader />
@@ -1010,9 +1010,8 @@ export default function UserDokumen() {
                                                             filteredDokumen.map((doc, index) => (
                                                                 <TableRow
                                                                     key={doc.id}
-                                                                    className={`transition-all duration-500 ${
-                                                                        updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
-                                                                    }`}
+                                                                    className={`transition-all duration-500 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
+                                                                        }`}
                                                                 >
                                                                     <TableCell className="font-mono">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
