@@ -22,6 +22,7 @@ import {
     IconClock,
     IconDownload,
     IconEye,
+    IconEyeOff,
     IconFileText,
     IconPencil,
     IconRefresh,
@@ -128,6 +129,19 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
     const [signatureData, setSignatureData] = useState<string | null>(null);
+    const [isNominalMasked, setIsNominalMasked] = useState(false);
+
+    const formatNominalDisplay = (nominalVal: number | string | null | undefined) => {
+        if (!nominalVal || Number(nominalVal) === 0) return null;
+        const num = Number(nominalVal);
+        if (isNominalMasked) {
+            const numStr = Math.round(num).toString();
+            if (numStr.length <= 4) return 'Rp ' + '•'.repeat(numStr.length);
+            const prefix = numStr.substring(0, 1);
+            return `Rp ${prefix}.***.***.***`;
+        }
+        return `Rp ${num.toLocaleString('id-ID')}`;
+    };
 
     const approveForm = useForm({
         comment: '',
@@ -560,9 +574,18 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <div className="font-semibold text-emerald-950 capitalize">
                                                     {approval.dokumen.tipe_dokumen || 'Proposal'}
                                                 </div>
-                                                {approval.dokumen.nominal && (
-                                                    <div className="text-xs font-medium text-emerald-800">
-                                                        Nominal: Rp {Number(approval.dokumen.nominal).toLocaleString('id-ID')}
+                                                {approval.dokumen.nominal && Number(approval.dokumen.nominal) > 0 && (
+                                                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 mt-1">
+                                                        <span>Nominal: {formatNominalDisplay(approval.dokumen.nominal)}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsNominalMasked(!isNominalMasked)}
+                                                            className="inline-flex items-center gap-1 rounded bg-emerald-200/70 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-300 transition-colors"
+                                                            title={isNominalMasked ? "Tampilkan Nominal" : "Sensor / Sembunyikan Nominal"}
+                                                        >
+                                                            {isNominalMasked ? <IconEyeOff className="h-3 w-3" /> : <IconEye className="h-3 w-3" />}
+                                                            <span>{isNominalMasked ? "Buka" : "Sensor"}</span>
+                                                        </button>
                                                     </div>
                                                 )}
                                             </div>

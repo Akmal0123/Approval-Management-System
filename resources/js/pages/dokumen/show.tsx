@@ -16,7 +16,7 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import RevisionHistory from '@/components/revision-history';
 import { Head, router, usePage } from '@inertiajs/react';
-import { IconDownload, IconEdit, IconEye, IconFileText, IconPencil, IconPrinter, IconRefresh, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
+import { IconDownload, IconEdit, IconEye, IconEyeOff, IconFileText, IconPencil, IconPrinter, IconRefresh, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
 import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -168,6 +168,20 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     }
 
     const [dokumen, setDokumen] = useState<Dokumen>(initialDokumen);
+    const [isNominalMasked, setIsNominalMasked] = useState(false);
+
+    const formatNominalDisplay = (nominalVal: number | string | null | undefined) => {
+        if (!nominalVal || Number(nominalVal) === 0) return null;
+        const num = Number(nominalVal);
+        if (isNominalMasked) {
+            const numStr = Math.round(num).toString();
+            if (numStr.length <= 4) return 'Rp ' + '•'.repeat(numStr.length);
+            const prefix = numStr.substring(0, 1);
+            return `Rp ${prefix}.***.***.***`;
+        }
+        return `Rp ${num.toLocaleString('id-ID')}`;
+    };
+
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
@@ -984,7 +998,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         <CardTitle className="font-serif text-lg">Informasi Dokumen</CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        <div className="grid gap-6 sm:grid-cols-2">
+                                        <div className="grid gap-6 sm:grid-cols-3">
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Masterflow
@@ -1003,6 +1017,25 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
+                                            {dokumen.nominal && Number(dokumen.nominal) > 0 && (
+                                                <div className="space-y-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Nominal Transaksi</Label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsNominalMasked(!isNominalMasked)}
+                                                            className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 transition-colors"
+                                                            title={isNominalMasked ? "Buka Sensor Nominal" : "Sensor Nominal"}
+                                                        >
+                                                            {isNominalMasked ? <IconEyeOff className="h-3 w-3" /> : <IconEye className="h-3 w-3" />}
+                                                            <span>{isNominalMasked ? "Buka" : "Sensor"}</span>
+                                                        </button>
+                                                    </div>
+                                                    <div className="font-semibold text-foreground font-mono">
+                                                        {formatNominalDisplay(dokumen.nominal)}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {dokumen.deskripsi && (
