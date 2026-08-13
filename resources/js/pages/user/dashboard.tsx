@@ -117,7 +117,7 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                 </div>
 
                                 {/* Approver Stats - Show if user has approval duties */}
-                                {((statistics.pending_approvals ?? 0) > 0 || (statistics.processed_approvals ?? 0) > 0) && (
+                                {((statistics?.pending_approvals ?? 0) > 0 || (statistics?.processed_approvals ?? 0) > 0) && (
                                     <>
                                         <h2 className="mb-2 font-serif text-lg font-semibold text-foreground">My Approval Tasks</h2>
                                         <div className="mb-8 grid gap-4 md:grid-cols-2">
@@ -126,7 +126,7 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1">
                                                             <p className="text-sm font-medium text-orange-900">Pending Approvals</p>
-                                                            <p className="text-3xl font-bold text-orange-700">{statistics.pending_approvals || 0}</p>
+                                                            <p className="text-3xl font-bold text-orange-700">{statistics?.pending_approvals || 0}</p>
                                                         </div>
                                                         <IconFileText className="h-8 w-8 text-orange-500" />
                                                     </div>
@@ -144,7 +144,7 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1">
                                                             <p className="text-sm font-medium text-blue-900">Processed Approvals</p>
-                                                            <p className="text-3xl font-bold text-blue-700">{statistics.processed_approvals || 0}</p>
+                                                            <p className="text-3xl font-bold text-blue-700">{statistics?.processed_approvals || 0}</p>
                                                         </div>
                                                         <CheckCircle2 className="h-8 w-8 text-blue-500" />
                                                     </div>
