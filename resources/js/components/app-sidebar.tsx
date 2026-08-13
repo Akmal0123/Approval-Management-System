@@ -135,7 +135,7 @@ interface PageProps {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-    const { props: pageProps } = usePage<PageProps>();
+    const { props: pageProps, url } = usePage<PageProps>();
     const user = pageProps.auth?.user;
     const context = pageProps.context;
 
@@ -157,6 +157,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         navMainItems = userNavMain;
         sidebarTitle = 'User Panel';
     }
+
+    const activeNavMainItems = navMainItems.map((item) => ({
+        ...item,
+        isActive: url === item.url || url.startsWith(item.url + '/'),
+    }));
 
     const userData = {
         name: user?.name || 'User',
@@ -183,7 +188,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={navMainItems} />
+                <NavMain items={activeNavMainItems} />
             </SidebarContent>
             <SidebarFooter>
                 <NavUser user={userData} />
