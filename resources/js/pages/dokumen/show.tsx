@@ -282,7 +282,9 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const progress = getApprovalProgress();
     const isCustomApproval = !dokumen.masterflow_id;
 
-    // Find pending approval for logged in user or fallback to first active approval
+    const isSuperAdmin = pageProps.context?.is_super_admin || pageProps.auth?.user?.userAuths?.some((ua: any) => ua.role?.role_name === 'Super Admin') || false;
+
+    // Find pending approval ONLY for assigned approver or Super Admin
     const activePendingApproval = (() => {
         if (!dokumen?.approvals || dokumen.approvals.length === 0) return null;
 
@@ -290,13 +292,18 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         const directApproval = dokumen.approvals.find(
             (a) =>
                 (a.approval_status === 'pending' || a.approval_status === 'waiting') &&
-                (a.user_id === auth.user.id ||
-                    (a.approver_email && a.approver_email.toLowerCase() === auth.user.email.toLowerCase())),
+                (a.user_id === auth?.user?.id ||
+                    (a.approver_email && a.approver_email.toLowerCase() === auth?.user?.email?.toLowerCase())),
         );
         if (directApproval) return directApproval;
 
-        // 2. Return first pending approval or first approval item
-        return dokumen.approvals.find((a) => a.approval_status === 'pending' || a.approval_status === 'waiting') || dokumen.approvals[0] || null;
+        // 2. If Super Admin, allow approving active pending step
+        if (isSuperAdmin) {
+            return dokumen.approvals.find((a) => a.approval_status === 'pending') || null;
+        }
+
+        // 3. Regular users who are NOT the assigned approver get null (no action card)
+        return null;
     })();
 
     // Get status badge
