@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             MasterDataSeeder::class,    // 4. Seed jabatans, other master data
             MasterflowSeeder::class,    // 5. Seed masterflows (depends on companies & jabatans)
             AdminUserSeeder::class,     // 6. Seed admin users with complete data
+            UserJabatanSeeder::class,   // 7. Seed demo users for each jabatan
+            SampleDokumenSeeder::class, // 8. Seed sample documents for testing
         ]);
 
         // Optional: Create additional test users

@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { showToast } from '@/lib/toast';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     IconAlertCircle,
     IconCalendar,
@@ -69,8 +69,11 @@ interface MasterflowStep {
 
 interface Dokumen {
     id: number;
+    user_id?: number;
     nomor_dokumen: string;
     judul_dokumen: string;
+    tipe_dokumen?: string;
+    nominal?: number | string;
     status: string;
     tgl_pengajuan: string;
     tgl_deadline?: string;
@@ -101,6 +104,7 @@ interface DokumenApproval {
     comment?: string;
     signature_path?: string;
     signature_url?: string;
+    revision_notes?: string;
     created_at: string;
     dokumen: Dokumen;
     masterflow_step?: MasterflowStep;
@@ -117,6 +121,8 @@ interface Props {
 }
 
 export default function ApproverShow({ approval, allApprovals, canApprove }: Props) {
+    const { auth } = usePage().props as any;
+    const isOwner = auth?.user?.id === approval.dokumen?.user_id;
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -547,6 +553,30 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             </div>
                                         </div>
 
+                                        {/* Tipe Dokumen, Nominal & QR Code Badge */}
+                                        <div className="grid gap-4 sm:grid-cols-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-medium text-emerald-900 uppercase">Tipe Dokumen</Label>
+                                                <div className="font-semibold text-emerald-950 capitalize">
+                                                    {approval.dokumen.tipe_dokumen || 'Proposal'}
+                                                </div>
+                                                {approval.dokumen.nominal && (
+                                                    <div className="text-xs font-medium text-emerald-800">
+                                                        Nominal: Rp {Number(approval.dokumen.nominal).toLocaleString('id-ID')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm">
+                                                    QR
+                                                </div>
+                                                <div className="text-xs text-emerald-900">
+                                                    <div className="font-bold">Verifikasi Auto QR Code v2.0</div>
+                                                    <div className="text-emerald-700">QR Code distempel otomatis pada PDF preview & download</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         {approval.dokumen.deskripsi && (
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
@@ -936,7 +966,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             {/* RIGHT COLUMN - Sidebar Actions */}
                             <div className="space-y-6">
                                 {/* Action Card */}
-                                {canApprove && approval.approval_status === 'pending' ? (
+                                {canApprove && (approval.approval_status as string) === 'pending' ? (
                                     <Card className="border-primary shadow-md">
                                         <CardHeader className="bg-primary/5 pb-3">
                                             <CardTitle className="flex items-center gap-2 text-base font-bold text-primary sm:text-lg">
@@ -946,14 +976,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             <CardDescription className="text-xs sm:text-sm">Dokumen ini menunggu persetujuan Anda.</CardDescription>
                                         </CardHeader>
                                         <CardContent className="space-y-3 pt-6">
-                                            <Button onClick={() => handlePreview()} className="w-full bg-primary hover:bg-primary/90 font-sans">
+                                            <Button onClick={() => handlePreview()} className="w-full bg-green-600 hover:bg-green-700 font-sans font-bold text-white shadow-sm">
                                                 <IconCheck className="mr-2 h-4 w-4" />
                                                 Setujui Dokumen
                                             </Button>
                                             <Button
                                                 variant="outline"
                                                 onClick={() => setIsRevisionDialogOpen(true)}
-                                                className="w-full border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900 font-sans"
+                                                className="w-full border-amber-300 text-amber-800 bg-amber-50/80 hover:bg-amber-100 hover:text-amber-900 font-sans font-bold shadow-sm"
                                             >
                                                 <IconRefresh className="mr-2 h-4 w-4" />
                                                 Minta Revisi
@@ -961,7 +991,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             <Button
                                                 variant="outline"
                                                 onClick={() => setIsRejectDialogOpen(true)}
-                                                className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 font-sans"
+                                                className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 font-sans font-bold shadow-sm"
                                             >
                                                 <IconX className="mr-2 h-4 w-4" />
                                                 Tolak Dokumen
@@ -1024,12 +1054,46 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         </p>
                                                     </>
                                                 )}
-                                                {(approval.approval_status === 'waiting' ||
-                                                    (approval.approval_status === 'pending' && !canApprove)) && (
+                                                {(approval.approval_status as string) === 'revision_requested' && (
+                                                    <>
+                                                        <p className="font-semibold text-amber-900 flex items-center gap-1.5">
+                                                            <IconRefresh className="h-4 w-4 text-amber-600" />
+                                                            Revisi Telah Diminta
+                                                        </p>
+                                                        <p className="text-sm text-amber-800 leading-relaxed">
+                                                            {isOwner
+                                                                ? 'Dokumen Anda memerlukan perbaikan berkas revisi. Silakan klik tombol di bawah untuk membuka halaman Dokumen Saya dan mengunggah versi berkas PDF terbaru.'
+                                                                : 'Anda telah meminta revisi pada dokumen ini. Menunggu pemilik dokumen mengunggah berkas revisi baru.'}
+                                                        </p>
+                                                        {approval.revision_notes && (
+                                                            <div className="mt-2 rounded-md border border-amber-200 bg-amber-100/70 p-2.5 text-xs text-amber-900 w-full">
+                                                                <strong>Catatan Revisi:</strong> "{approval.revision_notes}"
+                                                            </div>
+                                                        )}
+                                                        {isOwner && (
+                                                            <Link
+                                                                href={route('dokumen.detail', approval.dokumen_id)}
+                                                                className="mt-3.5 inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-amber-700 transition-colors w-full text-center"
+                                                            >
+                                                                ✏️ Unggah Berkas Revisi Baru (Buka Dokumen Saya) →
+                                                            </Link>
+                                                        )}
+                                                    </>
+                                                )}
+                                                {((approval.approval_status as string) === 'waiting' ||
+                                                    ((approval.approval_status as string) === 'pending' && !canApprove)) && (
                                                     <>
                                                         <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
                                                         <p className="text-sm text-yellow-700">
                                                             Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
+                                                        </p>
+                                                    </>
+                                                )}
+                                                {!['approved', 'rejected', 'waiting', 'revision_requested'].includes(approval.approval_status as string) && ((approval.approval_status as string) !== 'pending' || !canApprove) && (
+                                                    <>
+                                                        <p className="font-semibold text-gray-900">Menunggu Persetujuan</p>
+                                                        <p className="text-sm text-gray-600">
+                                                            Dokumen ini sedang dalam alur persetujuan.
                                                         </p>
                                                     </>
                                                 )}
@@ -1057,20 +1121,20 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                     <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle className="font-serif">Tolak Dokumen</DialogTitle>
+                                <DialogTitle className="font-serif text-red-700">Tolak Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    Silakan berikan alasan penolakan dokumen "{approval.dokumen.judul_dokumen}"
+                                    Silakan berikan alasan penolakan atau catatan perbaikan untuk dokumen "{approval.dokumen.judul_dokumen}"
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="alasan_reject" className="font-sans">
-                                        Alasan Penolakan <span className="text-red-500">*</span>
+                                        Alasan Penolakan / Catatan Perbaikan <span className="text-red-500">*</span>
                                     </Label>
                                     <Textarea
                                         id="alasan_reject"
-                                        placeholder="Jelaskan alasan penolakan dokumen..."
+                                        placeholder="Jelaskan alasan penolakan atau catatan perbaikan detail yang wajib dilakukan oleh pengaju dokumen..."
                                         value={rejectForm.data.alasan_reject}
                                         onChange={(e) => rejectForm.setData('alasan_reject', e.target.value)}
                                         className="font-sans"
@@ -1330,6 +1394,90 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         </div>
                                     )}
                             </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Reject Dialog Modal */}
+                    <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-red-600">
+                                    <IconX className="h-5 w-5" />
+                                    Tolak Dokumen
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Apakah Anda yakin ingin menolak dokumen ini? Alasan penolakan akan dikirimkan ke pembuat dokumen.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="alasan_reject">
+                                        Alasan Penolakan <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Textarea
+                                        id="alasan_reject"
+                                        placeholder="Tuliskan alasan penolakan dokumen secara jelas..."
+                                        value={rejectForm.data.alasan_reject}
+                                        onChange={(e) => rejectForm.setData('alasan_reject', e.target.value)}
+                                        rows={4}
+                                        className="font-sans"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)} disabled={rejectForm.processing}>
+                                    Batal
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleReject}
+                                    disabled={rejectForm.processing || !rejectForm.data.alasan_reject.trim()}
+                                >
+                                    {rejectForm.processing ? 'Memproses...' : 'Konfirmasi Tolak'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Request Revision Dialog Modal */}
+                    <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-amber-700">
+                                    <IconRefresh className="h-5 w-5 text-amber-600" />
+                                    Minta Revisi Dokumen
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Kirimkan instruksi perbaikan kepada pengaju agar mengunggah versi berkas PDF yang diperbaiki.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="revision_notes">
+                                        Catatan Instuksi Revisi <span className="text-amber-600">*</span>
+                                    </Label>
+                                    <Textarea
+                                        id="revision_notes"
+                                        placeholder="Jelaskan secara spesifik bagian mana yang harus diperbaiki oleh pembuat dokumen..."
+                                        value={revisionForm.data.revision_notes}
+                                        onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
+                                        rows={4}
+                                        className="font-sans"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button variant="outline" onClick={() => setIsRevisionDialogOpen(false)} disabled={revisionForm.processing}>
+                                    Batal
+                                </Button>
+                                <Button
+                                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                                    onClick={handleRequestRevision}
+                                    disabled={revisionForm.processing || !revisionForm.data.revision_notes.trim()}
+                                >
+                                    {revisionForm.processing ? 'Memproses...' : 'Kirim Instruksi Revisi'}
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </SidebarInset>

@@ -6,6 +6,7 @@ use App\Models\DokumenApproval;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -28,8 +29,10 @@ class ApprovalRequestMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
+        $nomorStr = $this->approval->dokumen->nomor_dokumen ? ' (' . $this->approval->dokumen->nomor_dokumen . ')' : '';
         return new Envelope(
-            subject: '[Approval Required] ' . $this->approval->dokumen->judul_dokumen,
+            from: new Address(config('mail.from.address'), config('mail.from.name', 'Sistem Persetujuan Dokumen')),
+            subject: '[Persetujuan Dokumen] 📝 Permohonan Persetujuan: ' . $this->approval->dokumen->judul_dokumen . $nomorStr,
         );
     }
 
@@ -39,12 +42,13 @@ class ApprovalRequestMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.approval-request',
+            view: 'emails.approval-request',
             with: [
                 'approval' => $this->approval,
                 'dokumen' => $this->approval->dokumen,
                 'stepName' => $this->approval->masterflowStep?->step_name ?? 'Approval',
                 'approvalUrl' => route('approvals.show', $this->approval->id),
+                'pdfUrl' => route('dokumen.signed-pdf', $this->approval->dokumen_id),
             ],
         );
     }

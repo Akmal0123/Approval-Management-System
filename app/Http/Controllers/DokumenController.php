@@ -23,6 +23,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use App\Services\ContextService;
 use App\Services\PdfSignatureService;
+use App\Services\QrCodeService;
 
 class DokumenController extends Controller
 {
@@ -201,7 +202,7 @@ class DokumenController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request, QrCodeService $qrCodeService)
     {
         // Get user's company and aplikasi from CURRENT CONTEXT (not first)
         $context = $this->contextService->getContext();
@@ -222,6 +223,8 @@ class DokumenController extends Controller
         $rules = [
             'nomor_dokumen' => 'required|string',
             'judul_dokumen' => 'required|string|max:255',
+            'tipe_dokumen' => 'nullable|string',
+            'nominal' => 'nullable|numeric|min:0',
             'tgl_pengajuan' => 'required|date',
             'tgl_deadline' => 'required|date|after_or_equal:tgl_pengajuan',
             'deskripsi' => 'nullable|string',
@@ -254,13 +257,31 @@ class DokumenController extends Controller
             $status = $submitType === 'draft' ? 'draft' : 'submitted';
             $statusCurrent = $submitType === 'draft' ? 'draft' : 'waiting_approval_1';
 
-            // Determine masterflow_id value
+            // Determine masterflow_id value or auto-match based on tipe_dokumen & nominal threshold
             $masterflowIdVal = ($request->masterflow_id === 'custom' || empty($request->masterflow_id)) ? null : $request->masterflow_id;
+
+            if (empty($masterflowIdVal) && $request->masterflow_id !== 'custom' && !empty($validated['tipe_dokumen'])) {
+                $nominalVal = $validated['nominal'] ?? 0;
+                $matchedFlow = Masterflow::where('company_id', $context->company_id)
+                    ->where('is_active', true)
+                    ->where('tipe_dokumen', $validated['tipe_dokumen'])
+                    ->where(function ($q) use ($nominalVal) {
+                        $q->whereNull('max_nominal')
+                          ->orWhere('max_nominal', '>=', $nominalVal);
+                    })
+                    ->first();
+
+                if ($matchedFlow) {
+                    $masterflowIdVal = $matchedFlow->id;
+                }
+            }
 
             // Create document
             $dokumen = Dokumen::create([
                 'nomor_dokumen' => $validated['nomor_dokumen'],
                 'judul_dokumen' => $validated['judul_dokumen'],
+                'tipe_dokumen' => $validated['tipe_dokumen'] ?? 'proposal',
+                'nominal' => $validated['nominal'] ?? null,
                 'user_id' => Auth::id(),
                 'company_id' => $context->company_id,
                 'aplikasi_id' => $context->aplikasi_id,
@@ -271,6 +292,18 @@ class DokumenController extends Controller
                 'deskripsi' => $validated['deskripsi'] ?? null,
                 'status_current' => $statusCurrent,
             ]);
+
+            // Auto-generate QR Code for document verification
+            try {
+                $verificationUrl = route('dokumen.show', $dokumen->id);
+                $qrPath = $qrCodeService->generateDocumentQrCode($dokumen->nomor_dokumen, $verificationUrl);
+                $dokumen->update([
+                    'qr_code_path' => $qrPath,
+                    'qr_code_hash' => md5($dokumen->nomor_dokumen . '_' . time()),
+                ]);
+            } catch (\Throwable $qrEx) {
+                Log::warning('QR Code generation failed for document ID ' . $dokumen->id . ': ' . $qrEx->getMessage());
+            }
 
             // Store file and create first version
             if ($request->hasFile('file')) {
@@ -519,6 +552,9 @@ class DokumenController extends Controller
     {
         // Only allow update if document is draft or rejected
         if (!in_array($dokumen->status, ['draft', 'rejected'])) {
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['message' => 'Dokumen tidak dapat diupdate dalam status ini.'], 422);
+            }
             return redirect()->route('dokumen.show', $dokumen->id)
                 ->withErrors(['error' => 'Dokumen tidak dapat diupdate dalam status ini.']);
         }
@@ -535,8 +571,8 @@ class DokumenController extends Controller
             // Update dokumen
             $dokumen->update([
                 'judul_dokumen' => $validated['judul_dokumen'],
-                'tgl_deadline' => $validated['tgl_deadline'] ?? $dokumen->tgl_deadline,
-                'deskripsi' => $validated['deskripsi'] ?? $dokumen->deskripsi,
+                'tgl_deadline' => array_key_exists('tgl_deadline', $validated) && $validated['tgl_deadline'] ? $validated['tgl_deadline'] : $dokumen->tgl_deadline,
+                'deskripsi' => array_key_exists('deskripsi', $validated) ? $validated['deskripsi'] : $dokumen->deskripsi,
             ]);
 
             // If new file uploaded, create new version
@@ -563,8 +599,8 @@ class DokumenController extends Controller
                 // Store file in document-specific folder
                 $path = $file->storeAs($folderPath, $filename, 'public');
 
-                // Set old versions to inactive
-                $dokumen->versions()->update(['status' => 'inactive']);
+                // Set old versions to archived
+                $dokumen->versions()->update(['status' => 'archived']);
 
                 // Create new version
                 DokumenVersion::create([
@@ -581,11 +617,25 @@ class DokumenController extends Controller
 
             DB::commit();
 
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Dokumen berhasil diupdate!',
+                    'dokumen' => $dokumen->fresh(['versions', 'user', 'company', 'aplikasi']),
+                ]);
+            }
+
             return redirect()->back()
                 ->with('success', 'Dokumen berhasil diupdate!');
         } catch (\Exception $e) {
             DB::rollback();
             Log::error('Error updating dokumen: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Gagal mengupdate dokumen: ' . $e->getMessage(),
+                ], 500);
+            }
+
             return back()->withErrors(['error' => 'Gagal mengupdate dokumen: ' . $e->getMessage()])
                 ->withInput();
         }
@@ -620,6 +670,9 @@ class DokumenController extends Controller
     public function submit(Dokumen $dokumen)
     {
         if ($dokumen->status !== 'draft') {
+            if (request()->expectsJson() || request()->wantsJson()) {
+                return response()->json(['message' => 'Hanya dokumen draft yang dapat diajukan.'], 422);
+            }
             return back()->withErrors(['error' => 'Hanya dokumen draft yang dapat diajukan.']);
         }
 
@@ -639,10 +692,23 @@ class DokumenController extends Controller
 
             DB::commit();
 
+            if (request()->expectsJson() || request()->wantsJson()) {
+                return response()->json([
+                    'message' => 'Dokumen berhasil diajukan untuk approval!',
+                    'dokumen' => $dokumen->fresh(['versions', 'approvals', 'user', 'company', 'aplikasi']),
+                ]);
+            }
+
             return redirect()->route('dokumen.show', $dokumen->id)
                 ->with('success', 'Dokumen berhasil diajukan untuk approval!');
         } catch (\Exception $e) {
             DB::rollback();
+            Log::error('Error submitting dokumen: ' . $e->getMessage());
+
+            if (request()->expectsJson() || request()->wantsJson()) {
+                return response()->json(['message' => 'Gagal mengajukan dokumen: ' . $e->getMessage()], 500);
+            }
+
             return back()->withErrors(['error' => 'Gagal mengajukan dokumen: ' . $e->getMessage()]);
         }
     }
@@ -815,21 +881,27 @@ class DokumenController extends Controller
                             ]);
 
                             // Send email notification to each group member
-                            Mail::to($groupApproval->user->email)
-                                ->queue(new \App\Mail\RevisionUploadedMail(
-                                    $dokumen,
-                                    $groupApproval->fresh(),
-                                    $newVersion
-                                ));
+                            $targetEmail = $groupApproval->user?->email;
+                            if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                                $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
+                            }
+                            Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail(
+                                $dokumen,
+                                $groupApproval->fresh(),
+                                $newVersion
+                            ));
 
                             // Broadcast browser notification to each group member
-                            broadcast(new BrowserNotificationEvent(
-                                userId: $groupApproval->user_id,
-                                title: 'Revisi Dokumen Telah Diupload',
-                                body: "Dokumen '{$dokumen->judul_dokumen}' (v{$newVersion}) telah direvisi dan membutuhkan persetujuan ulang.",
-                                url: route('approvals.show', $groupApproval->id),
-                                type: 'info'
-                            ));
+                            $groupUserId = $groupApproval->user_id ?? ($groupApproval->approver_email ? \App\Models\User::where('email', $groupApproval->approver_email)->value('id') : null);
+                            if ($groupUserId) {
+                                broadcast(new BrowserNotificationEvent(
+                                    userId: (int) $groupUserId,
+                                    title: 'Revisi Dokumen Telah Diupload',
+                                    body: "Dokumen '{$dokumen->judul_dokumen}' (v{$newVersion}) telah direvisi dan membutuhkan persetujuan ulang.",
+                                    url: route('approvals.show', $groupApproval->id),
+                                    type: 'info'
+                                ));
+                            }
 
                             Log::info('Notified group member about revision', [
                                 'approval_id' => $groupApproval->id,
@@ -848,19 +920,23 @@ class DokumenController extends Controller
                         ]);
 
                         // Dispatch email notification for the reset approval
-                        if ($revisionApproval->user?->email) {
-                            Mail::to($revisionApproval->user->email)
-                                ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $revisionApproval->fresh(), $newVersion));
+                        $targetEmail = $revisionApproval->user?->email;
+                        if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                            $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
                         }
+                        Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail($dokumen, $revisionApproval->fresh(), $newVersion));
 
                         // Broadcast browser notification to approver
-                        broadcast(new BrowserNotificationEvent(
-                            userId: $revisionApproval->user_id,
-                            title: 'Dokumen Telah Direvisi',
-                            body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
-                            url: route('approvals.show', $revisionApproval->id),
-                            type: 'info'
-                        ));
+                        $targetUserId = $revisionApproval->user_id ?? ($revisionApproval->approver_email ? \App\Models\User::where('email', $revisionApproval->approver_email)->value('id') : null);
+                        if ($targetUserId) {
+                            broadcast(new BrowserNotificationEvent(
+                                userId: (int) $targetUserId,
+                                title: 'Dokumen Telah Direvisi',
+                                body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
+                                url: route('approvals.show', $revisionApproval->id),
+                                type: 'info'
+                            ));
+                        }
                     }
 
                     // Update document status back to under_review
@@ -917,19 +993,23 @@ class DokumenController extends Controller
                             ]);
 
                             // Dispatch email notification for each reset approval
-                            if ($approval->user?->email) {
-                                Mail::to($approval->user->email)
-                                    ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
+                            $targetEmail = $approval->user?->email;
+                            if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                                $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
                             }
+                            Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
 
                             // Broadcast browser notification to approver
-                            broadcast(new BrowserNotificationEvent(
-                                userId: $approval->user_id,
-                                title: 'Dokumen Telah Direvisi',
-                                body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
-                                url: route('approvals.show', $approval->id),
-                                type: 'info'
-                            ));
+                            $targetUserId = $approval->user_id ?? ($approval->approver_email ? \App\Models\User::where('email', $approval->approver_email)->value('id') : null);
+                            if ($targetUserId) {
+                                broadcast(new BrowserNotificationEvent(
+                                    userId: (int) $targetUserId,
+                                    title: 'Dokumen Telah Direvisi',
+                                    body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
+                                    url: route('approvals.show', $approval->id),
+                                    type: 'info'
+                                ));
+                            }
                         } else {
                             // Update the version_id for already approved steps but keep their status
                             $approval->update([
@@ -959,19 +1039,23 @@ class DokumenController extends Controller
                             'revision_requested_by' => null,
                             'revision_requested_at' => null,
                         ]);
-                        if ($approval->user?->email) {
-                            Mail::to($approval->user->email)
-                                ->queue(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
+                        $targetEmail = $approval->user?->email;
+                        if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                            $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
                         }
+                        Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail($dokumen, $approval->fresh(), $newVersion));
 
                         // Broadcast browser notification to approver
-                        broadcast(new BrowserNotificationEvent(
-                            userId: $approval->user_id,
-                            title: 'Dokumen Telah Direvisi',
-                            body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
-                            url: route('approvals.show', $approval->id),
-                            type: 'info'
-                        ));
+                        $targetUserId = $approval->user_id ?? ($approval->approver_email ? \App\Models\User::where('email', $approval->approver_email)->value('id') : null);
+                        if ($targetUserId) {
+                            broadcast(new BrowserNotificationEvent(
+                                userId: (int) $targetUserId,
+                                title: 'Dokumen Telah Direvisi',
+                                body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
+                                url: route('approvals.show', $approval->id),
+                                type: 'info'
+                            ));
+                        }
                     }
 
                     $dokumen->update([
@@ -1092,6 +1176,33 @@ class DokumenController extends Controller
             return back()->withErrors(['error' => 'File tidak ditemukan.']);
         }
 
+        // Access control check
+        $user = Auth::user();
+        if ($user) {
+            $isOwner = (int)$dokumen->user_id === (int)$user->id;
+            $isSuperAdmin = $this->contextService->isSuperAdmin();
+            $isApproved = $dokumen->status === 'approved';
+            $isAssignedApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (!$isSuperAdmin && !$isOwner) {
+                if ($isApproved) {
+                    if (!$isAssignedApprover) {
+                        abort(403, 'Dokumen ini hanya dapat diakses oleh pihak yang terlibat.');
+                    }
+                } else {
+                    $isPendingApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
+                        ->where('approval_status', 'pending')
+                        ->where('user_id', $user->id)
+                        ->exists();
+                    if (!$isPendingApprover) {
+                        abort(403, 'Dokumen belum sepenuhnya disetujui. Hanya approver aktif saat ini yang dapat mengunduh berkas.');
+                    }
+                }
+            }
+        }
+
         // Option to explicitly download original PDF without signatures
         if (request()->has('original') && request('original') == '1') {
             $filePath = Storage::disk('public')->path($version->file_url);
@@ -1106,12 +1217,13 @@ class DokumenController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        // If there are approved signatures, generate signed PDF on-the-fly
-        if ($approvedSignatures->count() > 0 && strtolower($version->tipe_file) === 'pdf') {
+        // If there are approved signatures or QR code, generate signed PDF on-the-fly
+        if (($approvedSignatures->count() > 0 || $dokumen->qr_code_path) && strtolower($version->tipe_file) === 'pdf') {
             try {
                 $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                     $version->file_url,
-                    $approvedSignatures
+                    $approvedSignatures,
+                    $dokumen->qr_code_path
                 );
 
                 $signedFilename = pathinfo($version->nama_file, PATHINFO_FILENAME) . '_signed.pdf';
@@ -1136,7 +1248,7 @@ class DokumenController extends Controller
     }
 
     /**
-     * Stream signed PDF with all approved signatures (on-demand generation).
+     * Stream signed PDF with all approved signatures and QR code (on-demand generation).
      * This endpoint is used for PDF preview in the browser.
      */
     public function streamSignedPdf(Dokumen $dokumen, PdfSignatureService $pdfSignatureService, $versionId = null)
@@ -1154,6 +1266,33 @@ class DokumenController extends Controller
             abort(404, 'File tidak ditemukan.');
         }
 
+        // Access control check
+        $user = Auth::user();
+        if ($user) {
+            $isOwner = (int)$dokumen->user_id === (int)$user->id;
+            $isSuperAdmin = $this->contextService->isSuperAdmin();
+            $isApproved = $dokumen->status === 'approved';
+            $isAssignedApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (!$isSuperAdmin && !$isOwner) {
+                if ($isApproved) {
+                    if (!$isAssignedApprover) {
+                        abort(403, 'Dokumen ini hanya dapat diakses oleh pihak yang terlibat.');
+                    }
+                } else {
+                    $isPendingApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
+                        ->where('approval_status', 'pending')
+                        ->where('user_id', $user->id)
+                        ->exists();
+                    if (!$isPendingApprover) {
+                        abort(403, 'Dokumen belum sepenuhnya disetujui. Hanya approver aktif saat ini yang dapat membuka berkas.');
+                    }
+                }
+            }
+        }
+
         // Get approved signatures for this document
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
@@ -1162,19 +1301,20 @@ class DokumenController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        // If no signatures or not a PDF, stream original file
-        if ($approvedSignatures->count() === 0 || strtolower($version->tipe_file) !== 'pdf') {
+        // If no signatures and no QR code, stream original file
+        if ($approvedSignatures->count() === 0 && !$dokumen->qr_code_path && strtolower($version->tipe_file) !== 'pdf') {
             $filePath = Storage::disk('public')->path($version->file_url);
             return response()->file($filePath, [
                 'Content-Type' => 'application/pdf',
             ]);
         }
 
-        // Generate signed PDF on-the-fly
+        // Generate signed PDF on-the-fly with QR code
         try {
             $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                 $version->file_url,
-                $approvedSignatures
+                $approvedSignatures,
+                $dokumen->qr_code_path
             );
 
             return response($pdfContent)

@@ -1,46 +1,75 @@
 import toast from 'react-hot-toast';
 
-// Custom toast styles and utilities
+// Custom toast styles and utilities - Elegant Corner Notifications
 export const toastStyles = {
     success: {
-        background: '#F0FDF4',
-        color: '#166534',
-        border: '1px solid #BBF7D0',
-        textAlign: 'center' as const,
-        maxWidth: '400px',
-        borderRadius: '8px',
+        background: '#FFFFFF',
+        color: '#065F46',
+        borderLeft: '5px solid #10B981',
+        borderTop: '1px solid #F0FDF4',
+        borderRight: '1px solid #E5E7EB',
+        borderBottom: '1px solid #E5E7EB',
+        textAlign: 'left' as const,
+        maxWidth: '420px',
+        borderRadius: '12px',
+        padding: '12px 18px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 12px 24px -6px rgba(16, 185, 129, 0.2), 0 4px 10px -2px rgba(0, 0, 0, 0.05)',
     },
     error: {
-        background: '#FEF2F2',
-        color: '#DC2626',
-        border: '1px solid #FECACA',
-        textAlign: 'center' as const,
-        maxWidth: '400px',
-        borderRadius: '8px',
+        background: '#FFFFFF',
+        color: '#9F1239',
+        borderLeft: '5px solid #F43F5E',
+        borderTop: '1px solid #FFF1F2',
+        borderRight: '1px solid #E5E7EB',
+        borderBottom: '1px solid #E5E7EB',
+        textAlign: 'left' as const,
+        maxWidth: '420px',
+        borderRadius: '12px',
+        padding: '12px 18px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 12px 24px -6px rgba(244, 63, 94, 0.2), 0 4px 10px -2px rgba(0, 0, 0, 0.05)',
     },
     info: {
-        background: '#EFF6FF',
+        background: '#FFFFFF',
         color: '#1E40AF',
-        border: '1px solid #BFDBFE',
-        textAlign: 'center' as const,
-        maxWidth: '400px',
-        borderRadius: '8px',
+        borderLeft: '5px solid #3B82F6',
+        borderTop: '1px solid #EFF6FF',
+        borderRight: '1px solid #E5E7EB',
+        borderBottom: '1px solid #E5E7EB',
+        textAlign: 'left' as const,
+        maxWidth: '420px',
+        borderRadius: '12px',
+        padding: '12px 18px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 12px 24px -6px rgba(59, 130, 246, 0.2), 0 4px 10px -2px rgba(0, 0, 0, 0.05)',
     },
     warning: {
-        background: '#FFFBEB',
-        color: '#D97706',
-        border: '1px solid #FED7AA',
-        textAlign: 'center' as const,
-        maxWidth: '400px',
-        borderRadius: '8px',
+        background: '#FFFFFF',
+        color: '#92400E',
+        borderLeft: '5px solid #F59E0B',
+        borderTop: '1px solid #FFFBEB',
+        borderRight: '1px solid #E5E7EB',
+        borderBottom: '1px solid #E5E7EB',
+        textAlign: 'left' as const,
+        maxWidth: '420px',
+        borderRadius: '12px',
+        padding: '12px 18px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 12px 24px -6px rgba(245, 158, 11, 0.2), 0 4px 10px -2px rgba(0, 0, 0, 0.05)',
     },
 };
 
-// Custom toast functions with consistent styling
+// Custom toast functions with consistent styling - Hardcoded bottom-right position
 export const showToast = {
     success: (message: string, duration = 4000) => {
         toast.success(message, {
             duration,
+            position: 'bottom-right',
             style: toastStyles.success,
         });
     },
@@ -48,6 +77,7 @@ export const showToast = {
     error: (message: string, duration = 5000) => {
         toast.error(message, {
             duration,
+            position: 'bottom-right',
             style: toastStyles.error,
         });
     },
@@ -55,6 +85,7 @@ export const showToast = {
     info: (message: string, duration = 4000) => {
         toast(message, {
             duration,
+            position: 'bottom-right',
             style: toastStyles.info,
             icon: 'ℹ️',
         });
@@ -63,6 +94,7 @@ export const showToast = {
     warning: (message: string, duration = 4000) => {
         toast(message, {
             duration,
+            position: 'bottom-right',
             style: toastStyles.warning,
             icon: '⚠️',
         });
@@ -73,6 +105,7 @@ export const showToast = {
         created: (itemName: string, itemType = 'item') => {
             toast.success(`✅ New ${itemType} "${itemName}" has been created!`, {
                 duration: 4000,
+                position: 'bottom-right',
                 style: toastStyles.success,
             });
         },
@@ -80,6 +113,7 @@ export const showToast = {
         updated: (itemName: string, itemType = 'item') => {
             toast.success(`📝 ${itemType} "${itemName}" has been updated!`, {
                 duration: 4000,
+                position: 'bottom-right',
                 style: toastStyles.info,
             });
         },
@@ -87,6 +121,7 @@ export const showToast = {
         deleted: (itemType = 'Item') => {
             toast.success(`🗑️ ${itemType} has been deleted successfully!`, {
                 duration: 4000,
+                position: 'bottom-right',
                 style: {
                     background: '#FEF2F2',
                     color: '#DC2626',

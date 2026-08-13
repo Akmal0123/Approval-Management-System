@@ -128,7 +128,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('api/dokumen')->group(function () {
         Route::get('/', [\App\Http\Controllers\DokumenController::class, 'index'])->name('dokumen.index');
         Route::post('/', [\App\Http\Controllers\DokumenController::class, 'store'])->name('dokumen.store');
-        Route::get('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->name('dokumen.show');
+        Route::get('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->name('api.dokumen.show');
         Route::put('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->name('dokumen.update');
         Route::delete('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'destroy'])->name('dokumen.destroy');
 
@@ -141,8 +141,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
     });
 
-    // Document detail page
+    // Document detail & edit pages
     Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
+    Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.show');
+    Route::get('/dokumen/{dokumen}/edit', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.edit');
+    Route::match(['post', 'put'], '/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->where('dokumen', '[0-9]+')->name('dokumen.web_update');
+    Route::post('/dokumen/{dokumen}/submit', [\App\Http\Controllers\DokumenController::class, 'submit'])->where('dokumen', '[0-9]+')->name('dokumen.web_submit');
 });
 
 // Other Document Related Routes

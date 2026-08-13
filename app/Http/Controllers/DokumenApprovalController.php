@@ -52,10 +52,18 @@ class DokumenApprovalController extends Controller
 
             $query->whereHas('dokumen', function ($q) use ($companyId, $aplikasiId) {
                 if ($companyId) {
-                    $q->where('company_id', $companyId);
+                    $q->where(function ($subQ) use ($companyId) {
+                        $subQ->where('company_id', $companyId)
+                             ->orWhereNull('company_id')
+                             ->orWhere('user_id', Auth::id());
+                    });
                 }
                 if ($aplikasiId) {
-                    $q->where('aplikasi_id', $aplikasiId);
+                    $q->where(function ($subQ) use ($aplikasiId) {
+                        $subQ->where('aplikasi_id', $aplikasiId)
+                             ->orWhereNull('aplikasi_id')
+                             ->orWhere('user_id', Auth::id());
+                    });
                 }
             });
         }
@@ -91,16 +99,25 @@ class DokumenApprovalController extends Controller
 
             $statsBaseQuery->whereHas('dokumen', function ($q) use ($companyId, $aplikasiId) {
                 if ($companyId) {
-                    $q->where('company_id', $companyId);
+                    $q->where(function ($subQ) use ($companyId) {
+                        $subQ->where('company_id', $companyId)
+                             ->orWhereNull('company_id')
+                             ->orWhere('user_id', Auth::id());
+                    });
                 }
                 if ($aplikasiId) {
-                    $q->where('aplikasi_id', $aplikasiId);
+                    $q->where(function ($subQ) use ($aplikasiId) {
+                        $subQ->where('aplikasi_id', $aplikasiId)
+                             ->orWhereNull('aplikasi_id')
+                             ->orWhere('user_id', Auth::id());
+                    });
                 }
             });
         }
 
         $stats = [
             'pending' => (clone $statsBaseQuery)->pending()->count(),
+            'revision_requested' => (clone $statsBaseQuery)->where('approval_status', 'revision_requested')->count(),
             'approved' => (clone $statsBaseQuery)->approved()->count(),
             'rejected' => (clone $statsBaseQuery)->rejected()->count(),
             'overdue' => (clone $statsBaseQuery)->overdue()->count(),
@@ -139,10 +156,14 @@ class DokumenApprovalController extends Controller
             ->orderBy('masterflow_step_id')
             ->get();
 
+        $isSuperAdmin = $this->contextService->isSuperAdmin();
+        $isAssignedUser = (int)$approval->user_id === (int)Auth::id() || ($approval->approver_email && strtolower($approval->approver_email) === strtolower(Auth::user()?->email));
+        $canApprove = in_array($approval->approval_status, ['pending', 'waiting']) && ($isSuperAdmin || $isAssignedUser || $approval->canCurrentlyApprove());
+
         return Inertia::render('approvals/show', [
             'approval' => $approval,
             'allApprovals' => $allApprovals,
-            'canApprove' => $approval->canCurrentlyApprove(),
+            'canApprove' => $canApprove,
         ]);
     }
 
@@ -156,6 +177,11 @@ class DokumenApprovalController extends Controller
         }
 
         if ($approval->user_id === $userId) {
+            return true;
+        }
+
+        // Allow document owner / creator to view the approval progress details
+        if ($approval->dokumen && (int)$approval->dokumen->user_id === (int)$userId) {
             return true;
         }
 
@@ -400,10 +426,11 @@ class DokumenApprovalController extends Controller
 
                 // Send email notification to document owner
                 $dokumenWithUser = $approval->dokumen->fresh(['user']);
-                if ($dokumenWithUser->user?->email) {
-                    Mail::to($dokumenWithUser->user->email)
-                        ->queue(new DocumentRejectedMail($dokumenWithUser, $approval));
+                $targetEmail = $dokumenWithUser->user?->email;
+                if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                    $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
                 }
+                Mail::to($targetEmail)->send(new DocumentRejectedMail($dokumenWithUser, $approval));
 
                 // Broadcast browser notification to document owner
                 if (isset($dokumenWithUser) && $dokumenWithUser->user_id) {
@@ -636,10 +663,11 @@ class DokumenApprovalController extends Controller
 
             // Send email notification to document owner
             $dokumenWithUser = $dokumen->fresh(['user']);
-            if ($dokumenWithUser->user?->email) {
-                Mail::to($dokumenWithUser->user->email)
-                    ->queue(new \App\Mail\DocumentFullyApprovedMail($dokumenWithUser));
+            $targetEmail = $dokumenWithUser->user?->email;
+            if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
             }
+            Mail::to($targetEmail)->send(new \App\Mail\DocumentFullyApprovedMail($dokumenWithUser));
 
             return;
         }
@@ -709,7 +737,7 @@ class DokumenApprovalController extends Controller
     public function requestRevision(Request $request, DokumenApproval $approval)
     {
         // Ensure user can request revision
-        if (!$this->canUserPerformApproval($approval, Auth::id()) || !$approval->isPending()) {
+        if (!$this->canUserPerformApproval($approval, Auth::id()) || in_array($approval->approval_status, ['approved', 'rejected'])) {
             return back()->withErrors(['error' => 'Anda tidak dapat melakukan request revision ini.']);
         }
 
@@ -747,10 +775,11 @@ class DokumenApprovalController extends Controller
 
             // Send email notification to owner
             $dokumen = $approval->dokumen->fresh(['user']);
-            if ($dokumen->user?->email) {
-                Mail::to($dokumen->user->email)
-                    ->queue(new RevisionRequestedMail($dokumen, $approval));
+            $targetEmail = $dokumen->user?->email;
+            if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
             }
+            Mail::to($targetEmail)->send(new RevisionRequestedMail($dokumen, $approval));
 
             // Broadcast event (minimal payload)
             $dokumenForBroadcast = $approval->dokumen->fresh();

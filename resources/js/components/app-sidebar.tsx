@@ -113,11 +113,6 @@ const userNavMain = [
         url: '/dokumen',
         icon: FileTextIcon,
     },
-    {
-        title: 'Persetujuan Dokumen',
-        url: '/approvals',
-        icon: CheckSquareIcon,
-    },
 ];
 
 interface PageProps {

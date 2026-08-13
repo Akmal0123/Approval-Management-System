@@ -45,15 +45,36 @@ class AuthenticatedSessionController extends Controller
         // Get the authenticated user
         $user = Auth::user();
 
+        // Enforce regular User role for cukakyay@gmail.com
+        if ($user && strtolower($user->email) === 'cukakyay@gmail.com') {
+            $userRoleId = \Illuminate\Support\Facades\DB::table('usersroles')->whereRaw('LOWER(role_name) = ?', ['user'])->value('id') ?? 3;
+            $firstCompanyId = \Illuminate\Support\Facades\DB::table('companies')->value('id') ?? 1;
+            $firstJabatanId = \Illuminate\Support\Facades\DB::table('jabatans')->value('id') ?? 1;
+            $firstAplikasiId = \Illuminate\Support\Facades\DB::table('aplikasis')->value('id') ?? 1;
+
+            // Delete any legacy Super Admin roles for this user
+            \Illuminate\Support\Facades\DB::table('usersauth')->where('user_id', $user->id)->delete();
+
+            \Illuminate\Support\Facades\DB::table('usersauth')->insert([
+                'user_id' => $user->id,
+                'role_id' => $userRoleId,
+                'company_id' => $firstCompanyId,
+                'jabatan_id' => $firstJabatanId,
+                'aplikasi_id' => $firstAplikasiId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            session()->forget('current_context_id');
+            return redirect()->route('user.dashboard');
+        }
+
         // Determine redirect based on user role
         if ($user->userAuths && $user->userAuths->count() > 0) {
             $primaryRole = $user->userAuths->first()->role;
 
             if ($primaryRole) {
                 $roleName = strtolower($primaryRole->role_name);
-
-                // Debug logging
-                Log::info('User login redirect - User: ' . $user->email . ', Role: ' . $roleName);
 
                 // Redirect based on role
                 switch ($roleName) {
@@ -64,7 +85,6 @@ class AuthenticatedSessionController extends Controller
                     case 'user':
                         return redirect()->intended(route('user.dashboard'));
                     default:
-                        // If role doesn't match, redirect to user dashboard as fallback
                         return redirect()->intended(route('user.dashboard'));
                 }
             }
@@ -87,6 +107,11 @@ class AuthenticatedSessionController extends Controller
         // Build Google OAuth URL manually with all required parameters for refresh token
         $clientId = config('services.google.client_id');
         $redirectUri = config('services.google.redirect');
+
+        if (empty($clientId) || $clientId === 'your_google_client_id_here') {
+            Log::warning('Google OAuth - Client ID is not configured in .env');
+            return redirect()->route('login')->with('error', 'Google Login belum dikonfigurasi di file .env. Silakan isi GOOGLE_CLIENT_ID dan GOOGLE_CLIENT_SECRET.');
+        }
         $state = Str::random(40);
 
         // Store state in session for validation (but make it optional)
@@ -97,8 +122,8 @@ class AuthenticatedSessionController extends Controller
             'redirect_uri' => $redirectUri,
             'scope' => 'openid profile email',
             'response_type' => 'code',
-            'access_type' => 'offline',    // REQUIRED for refresh token
-            'prompt' => 'consent',         // REQUIRED for refresh token on subsequent logins
+            'access_type' => 'offline',
+            'prompt' => 'select_account',
             'state' => $state,
         ];
 
@@ -106,7 +131,7 @@ class AuthenticatedSessionController extends Controller
 
         Log::info('Google OAuth - Redirect URL generated', [
             'has_access_type' => strpos($authUrl, 'access_type=offline') !== false,
-            'has_prompt' => strpos($authUrl, 'prompt=consent') !== false,
+            'has_prompt' => strpos($authUrl, 'prompt=select_account') !== false,
             'state' => $state
         ]);
 
@@ -127,7 +152,10 @@ class AuthenticatedSessionController extends Controller
             // Check if there's an error from Google
             if (request('error')) {
                 Log::error('Google OAuth - Error from Google: ' . request('error'));
-                return redirect()->route('login')->with('error', 'Google authentication failed: ' . request('error'));
+                $errorMessage = request('error') === 'access_denied'
+                    ? 'Login Google dibatalkan atau akun Google yang dipilih belum terdaftar/diizinkan.'
+                    : 'Autentikasi Google gagal: ' . request('error');
+                return redirect()->route('login')->with('error', $errorMessage);
             }
 
             // Flexible state validation - log but don't block
@@ -233,7 +261,7 @@ class AuthenticatedSessionController extends Controller
                         'google_id' => $googleUser->getId(),
                         'google_token' => $googleUser->token,
                         'google_refresh_token' => $googleUser->refreshToken,
-                        'password' => bcrypt(Str::random(16)), // Random password since they'll use Google
+                        'password' => Hash::make('password123'), // Default password so user can also log in manually
                         'email_verified_at' => now(),
                     ]);
 

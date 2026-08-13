@@ -16,7 +16,7 @@ class AplikasiSeeder extends Seeder
     {
         // Get existing companies from seeder
         $companies = Company::whereIn('name', [
-            'PT. Tiga Serangkai Pustaka Mandiri',
+            'PT. Digital Approval Indonesia',
             'PT. K33 Distribusi',
             'PT. Assalaam Niaga Utama'
         ])->get();
@@ -28,14 +28,14 @@ class AplikasiSeeder extends Seeder
 
         $aplikasis = [
             [
-                'name' => 'Tisera',
-                'company_id' => $companies->where('name', 'PT. Tiga Serangkai Pustaka Mandiri')->first()->id,
+                'name' => 'DocuFlow Engine',
+                'company_id' => $companies->where('name', 'PT. Digital Approval Indonesia')->first()?->id ?? $companies->first()->id,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'name' => 'PerpusKita',
-                'company_id' => $companies->where('name', 'PT. Tiga Serangkai Pustaka Mandiri')->first()->id,
+                'name' => 'Approval Portal',
+                'company_id' => $companies->where('name', 'PT. Digital Approval Indonesia')->first()?->id ?? $companies->first()->id,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

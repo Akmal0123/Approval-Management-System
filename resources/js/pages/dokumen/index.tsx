@@ -14,9 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconEdit, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconEdit, IconFileText, IconPlus, IconTrash, IconX } from '@tabler/icons-react';
 import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface User {
     id: number;
@@ -94,7 +94,12 @@ interface DetailedStatus {
 
 interface Dokumen {
     id: number;
+    nomor_dokumen: string;
     judul_dokumen: string;
+    tipe_dokumen?: string;
+    nominal?: number | string;
+    qr_code_path?: string;
+    qr_code_hash?: string;
     user_id: number;
     masterflow_id: number;
     status: string;
@@ -123,6 +128,8 @@ interface StepApprovers {
 interface FormData {
     nomor_dokumen: string;
     judul_dokumen: string;
+    tipe_dokumen: string;
+    nominal: string;
     masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
     tgl_pengajuan: string;
     tgl_deadline: string;
@@ -136,6 +143,8 @@ interface FormData {
 const initialFormData: FormData = {
     nomor_dokumen: '',
     judul_dokumen: '',
+    tipe_dokumen: 'proposal',
+    nominal: '',
     masterflow_id: '',
     tgl_pengajuan: new Date().toISOString().split('T')[0],
     tgl_deadline: '',
@@ -159,11 +168,40 @@ export default function UserDokumen() {
     const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft'); // Track button clicked
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
     const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
+
+    // Helper to check if text or any word starts with query
+    const startsWithWord = (text: string | null | undefined, query: string): boolean => {
+        if (!text || !query) return false;
+        const cleanText = text.trim().toLowerCase();
+        const cleanQuery = query.trim().toLowerCase();
+
+        if (cleanText.startsWith(cleanQuery)) return true;
+        const words = cleanText.split(/[\s\-_\/]+/);
+        return words.some((word) => word.startsWith(cleanQuery));
+    };
+
+    // Compute live search recommendations for Dokumen Saya (max 5 items)
+    const suggestions = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+        if (!query || query.length < 1) return [];
+
+        return dokumen
+            .filter((item) => {
+                const titleMatch = startsWithWord(item.judul_dokumen, query);
+                const numberMatch = startsWithWord(item.nomor_dokumen, query);
+                const descMatch = startsWithWord(item.deskripsi, query);
+                const fileName = item.latest_version?.nama_file;
+                const fileMatch = startsWithWord(fileName, query);
+                return titleMatch || numberMatch || descMatch || fileMatch;
+            })
+            .slice(0, 5);
+    }, [dokumen, searchQuery]);
 
     // Fetch dokumen from backend
     const fetchDokumen = async () => {
@@ -754,6 +792,8 @@ export default function UserDokumen() {
             const submitData = new FormData();
             submitData.append('nomor_dokumen', formData.nomor_dokumen || generateDocumentNumber());
             submitData.append('judul_dokumen', formData.judul_dokumen);
+            submitData.append('tipe_dokumen', formData.tipe_dokumen || 'proposal');
+            submitData.append('nominal', formData.nominal || '0');
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
             submitData.append('deskripsi', formData.deskripsi || '');
@@ -888,10 +928,14 @@ export default function UserDokumen() {
 
     // Filter documents
     const filteredDokumen = dokumen.filter((doc) => {
+        const query = searchQuery.trim().toLowerCase();
         const matchesSearch =
-            doc.judul_dokumen.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            doc.deskripsi?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            doc.masterflow?.name.toLowerCase().includes(searchQuery.toLowerCase());
+            !query ||
+            startsWithWord(doc.judul_dokumen, query) ||
+            startsWithWord(doc.nomor_dokumen, query) ||
+            startsWithWord(doc.deskripsi, query) ||
+            startsWithWord(doc.masterflow?.name, query) ||
+            (query.length >= 3 && doc.judul_dokumen?.toLowerCase().includes(query));
 
         const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
 
@@ -977,11 +1021,70 @@ export default function UserDokumen() {
                                     <div className="relative flex-1">
                                         <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
-                                            placeholder="Cari dokumen..."
+                                            placeholder="Cari berdasarkan judul, nomor, atau nama berkas..."
                                             value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="pl-10 font-sans"
+                                            onChange={(e) => {
+                                                setSearchQuery(e.target.value);
+                                                setIsDropdownOpen(true);
+                                            }}
+                                            onFocus={() => setIsDropdownOpen(true)}
+                                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                                            className="pl-10 pr-10 font-sans"
                                         />
+                                        {searchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSearchQuery('')}
+                                                className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                                title="Hapus pencarian"
+                                            >
+                                                <IconX className="h-4 w-4" />
+                                            </button>
+                                        )}
+
+                                        {/* Live Recommendation Dropdown */}
+                                        {isDropdownOpen && suggestions.length > 0 && (
+                                            <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-blue-300 bg-[#f4f8fb] p-2.5 shadow-2xl backdrop-blur-md">
+                                                <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold tracking-wider text-blue-900 uppercase bg-blue-100/90 rounded-xl mb-1.5">
+                                                    <span>💡 REKOMENDASI BERKAS DOKUMEN SAYA ({suggestions.length})</span>
+                                                    <span className="text-[10px] font-medium text-blue-700">Awalan kata: "{searchQuery}"</span>
+                                                </div>
+                                                <div className="divide-y divide-blue-100/80">
+                                                    {suggestions.map((item) => {
+                                                        const fileName = item.latest_version?.nama_file;
+                                                        return (
+                                                            <div
+                                                                key={item.id}
+                                                                onMouseDown={() => {
+                                                                    setSearchQuery(item.judul_dokumen || '');
+                                                                    setIsDropdownOpen(false);
+                                                                    router.visit(route('dokumen.detail', item.id));
+                                                                }}
+                                                                className="group flex cursor-pointer items-center justify-between rounded-xl p-2.5 hover:bg-blue-100/80 transition-all"
+                                                            >
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
+                                                                        <IconFileText className="h-5 w-5" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <div className="truncate text-xs font-bold text-blue-950 group-hover:text-blue-800 sm:text-sm">
+                                                                            {item.judul_dokumen}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 text-[11px] font-medium text-blue-800/80">
+                                                                            {item.nomor_dokumen && <span>{item.nomor_dokumen}</span>}
+                                                                            {fileName && <span className="truncate max-w-[220px]">📁 {fileName}</span>}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-xs font-bold text-blue-700 group-hover:translate-x-1 transition-transform shrink-0 pl-2">
+                                                                    Lihat →
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                                         <SelectTrigger className="w-[180px] font-sans">
@@ -1084,13 +1187,27 @@ export default function UserDokumen() {
                                                                                     <Eye className="h-4 w-4" />
                                                                                 </Button>
                                                                             </Link>
+                                                                            {(doc.status === 'needs_revision' || doc.status === 'revision_requested') && (
+                                                                                <Link href={`/dokumen/${doc.id}`}>
+                                                                                    <Button
+                                                                                        variant="outline"
+                                                                                        size="sm"
+                                                                                        className="h-8 border-amber-400 bg-amber-50 px-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                                                                                        title="Unggah Berkas Revisi Baru"
+                                                                                    >
+                                                                                        <IconRefresh className="mr-1 h-3.5 w-3.5" />
+                                                                                        Unggah Revisi
+                                                                                    </Button>
+                                                                                </Link>
+                                                                            )}
                                                                             {doc.status === 'draft' && (
                                                                                 <>
-                                                                                    <Link href={`/dokumen/${doc.id}/edit`}>
+                                                                                    <Link href={`/dokumen/${doc.id}`}>
                                                                                         <Button
                                                                                             variant="outline"
                                                                                             size="sm"
                                                                                             className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50"
+                                                                                            title="Edit Informasi Dokumen"
                                                                                         >
                                                                                             <IconEdit className="h-4 w-4" />
                                                                                         </Button>
@@ -1143,18 +1260,33 @@ export default function UserDokumen() {
                                     {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="nomor_dokumen" className="font-sans">
-                                                Nomor Dokumen
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor="nomor_dokumen" className="font-sans font-medium">
+                                                    Nomor Dokumen <span className="text-xs text-muted-foreground">(Bisa Manual / Auto)</span>
+                                                </Label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const autoNum = generateDocumentNumber();
+                                                        setFormData((prev) => ({ ...prev, nomor_dokumen: autoNum }));
+                                                        showToast.success('⚡ Nomor dokumen otomatis dibuat');
+                                                    }}
+                                                    className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                                >
+                                                    ⚡ Auto Generate
+                                                </button>
+                                            </div>
                                             <Input
                                                 id="nomor_dokumen"
                                                 name="nomor_dokumen"
                                                 value={formData.nomor_dokumen}
                                                 onChange={handleInputChange}
                                                 className="font-mono"
-                                                placeholder="Auto-generated"
-                                                readOnly
+                                                placeholder="Ketik manual (contoh: 001/FIN/2026) atau klik Auto"
                                             />
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Bebas diketik nomor manual atau tekan tombol Auto Generate.
+                                            </p>
                                         </div>
 
                                         <div className="grid gap-2">
@@ -1183,9 +1315,63 @@ export default function UserDokumen() {
                                             value={formData.judul_dokumen}
                                             onChange={handleInputChange}
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-                                            placeholder="Jurnal Besar Keuangan"
+                                            placeholder="Proposal Pengadaan / Transaksi Operational"
                                         />
                                         {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
+                                    </div>
+
+                                    {/* Tipe Dokumen & Nominal */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tipe_dokumen" className="font-sans">
+                                                Tipe Dokumen / Transaksi <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Select
+                                                value={formData.tipe_dokumen}
+                                                onValueChange={(val) => setFormData((prev) => ({ ...prev, tipe_dokumen: val }))}
+                                            >
+                                                <SelectTrigger className="font-sans">
+                                                    <SelectValue placeholder="Pilih Tipe Dokumen" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="proposal" className="font-sans">📊 Proposal Business</SelectItem>
+                                                    <SelectItem value="transaksi" className="font-sans">💳 Transaksi Keuangan</SelectItem>
+                                                    <SelectItem value="memo" className="font-sans">📝 Internal Memo</SelectItem>
+                                                    <SelectItem value="contract" className="font-sans">📜 Perjanjian / Kontrak</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="nominal" className="font-sans">
+                                                Nominal Transaksi (Rp)
+                                            </Label>
+                                            <Input
+                                                id="nominal"
+                                                name="nominal"
+                                                type="number"
+                                                placeholder="Contoh: 4500000"
+                                                value={formData.nominal}
+                                                onChange={handleInputChange}
+                                                className="font-sans"
+                                            />
+                                            <span className="text-[11px] text-emerald-700 font-medium">
+                                                💡 Nominal &lt; 5 Juta otomatis rute Manager level
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* QR Code Auto Badge Banner */}
+                                    <div className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-50/70 p-3 text-xs text-emerald-900 shadow-sm">
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
+                                            QR
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <div className="font-bold text-emerald-950">Auto QR Code Verification (System v2.0)</div>
+                                            <div className="text-emerald-800/90">
+                                                QR Code verifikasi unik akan otomatis di-generate dan distempel pada header berkas PDF.
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Deadline */}
@@ -1511,13 +1697,28 @@ export default function UserDokumen() {
                                             className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
                                         <p className="text-xs text-muted-foreground">
-                                            📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
-                                            (Max 10MB)
+                                            📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF. (Max 10MB)
                                         </p>
+
+                                        {/* Auto QR Code Feature Info */}
+                                        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 mt-1">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 font-bold text-xs text-white shadow-sm">
+                                                QR
+                                            </div>
+                                            <div className="text-xs text-emerald-950">
+                                                <div className="flex items-center gap-2 font-bold">
+                                                    <span>Auto QR Code Verifikasi v2.0</span>
+                                                    <Badge className="bg-emerald-600 text-[10px] text-white">Otomatis Tergenerasi</Badge>
+                                                </div>
+                                                <div className="mt-0.5 text-emerald-800">
+                                                    QR Code verifikasi unik akan dibuat secara otomatis dan distempel pada setiap lembar PDF.
+                                                </div>
+                                            </div>
+                                        </div>
                                         {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
                                     </div>
                                 </div>
-
+                                    
                                 <DialogFooter className="sm:justify-between">
                                     <Button
                                         type="button"

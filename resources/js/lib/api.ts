@@ -58,6 +58,11 @@ const api = axios.create({
 
 // Add CSRF token and auth token to requests
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+    // If sending FormData, delete Content-Type header so browser automatically sets multipart/form-data with boundary
+    if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+    }
+
     // Ensure CSRF cookie is set first (on first request)
     if (!csrfInitialized) {
         await initializeCSRF();

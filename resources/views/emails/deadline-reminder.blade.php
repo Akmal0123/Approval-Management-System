@@ -1,30 +1,106 @@
-<x-mail::message>
-    # ⏰ Reminder: Deadline Approval {{ $timeLabel }}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengingat Batas Waktu Persetujuan Dokumen</title>
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #f1f5f9; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
 
-    Anda memiliki approval yang mendekati deadline.
+<div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);">
 
-    <x-mail::panel>
-        **Judul Dokumen:** {{ $dokumen->judul_dokumen }}
+    <!-- Header Banner - Vibrant Orange Theme -->
+    <div style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); padding: 32px 24px; text-align: center;">
+        <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai Logo" style="max-height: 75px; width: auto; margin: 0 auto 16px auto; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));" />
+        <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.3px;">
+            Pengingat Batas Waktu Persetujuan
+        </h2>
+        <p style="color: #ffedd5; margin: 6px 0 0 0; font-size: 13px; font-weight: 500;">
+            Sistem Persetujuan Dokumen Terintegrasi
+        </p>
+    </div>
 
-        **Nomor Dokumen:** {{ $dokumen->nomor_dokumen }}
+    <!-- Body Content -->
+    <div style="padding: 32px 24px;">
+        <p style="font-size: 15px; line-height: 1.6; color: #334155; margin-top: 0;">
+            Kepada Yth. <strong style="color: #0f172a;">Bapak/Ibu {{ ucwords($approval->user?->name ?? $approval->approver_email) }}</strong>,
+        </p>
 
-        **Diajukan oleh:** {{ $dokumen->user->name ?? 'N/A' }}
+        <p style="font-size: 15px; line-height: 1.6; color: #334155;">
+            Dengan hormat,<br>
+            Melalui surat elektronik ini, kami mengingatkan kembali bahwa terdapat dokumen permohonan persetujuan yang <strong style="color: #ea580c;">mendekati atau telah melewati batas waktu peninjauan (<em>deadline</em>)</strong>.
+        </p>
 
-        **Deadline:** {{ $deadline?->format('d M Y H:i') ?? 'N/A' }}
-    </x-mail::panel>
+        <!-- Summary Card Panel - 3 Column Aligned Table -->
+        <div style="margin: 24px 0; background-color: #fff7ed; border-left: 5px solid #ea580c; border-radius: 12px; padding: 20px; border-top: 1px solid #ffedd5; border-right: 1px solid #ffedd5; border-bottom: 1px solid #ffedd5;">
+            <div style="font-size: 12px; font-weight: 700; color: #9a3412; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                RINGKASAN INFORMASI DOKUMEN
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.5;">
+                <tr>
+                    <td style="padding: 6px 0; color: #9a3412; font-weight: 600; vertical-align: top; white-space: nowrap; width: 130px;">Judul Dokumen</td>
+                    <td style="padding: 6px 4px; color: #9a3412; font-weight: 700; vertical-align: top; width: 10px; text-align: center;">:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700; vertical-align: top;">{{ $dokumen->judul_dokumen }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #9a3412; font-weight: 600; vertical-align: top; white-space: nowrap;">Nomor Dokumen</td>
+                    <td style="padding: 6px 4px; color: #9a3412; font-weight: 700; vertical-align: top; text-align: center;">:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600; vertical-align: top;">{{ $dokumen->nomor_dokumen }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #9a3412; font-weight: 600; vertical-align: top; white-space: nowrap;">Diajukan Oleh</td>
+                    <td style="padding: 6px 4px; color: #9a3412; font-weight: 700; vertical-align: top; text-align: center;">:</td>
+                    <td style="padding: 6px 0; color: #0f172a; vertical-align: top; word-break: break-all;">{{ ucwords($dokumen->user?->name ?? 'Pengirim Dokumen') }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #9a3412; font-weight: 600; vertical-align: top; white-space: nowrap;">Batas Waktu (Deadline)</td>
+                    <td style="padding: 6px 4px; color: #9a3412; font-weight: 700; vertical-align: top; text-align: center;">:</td>
+                    <td style="padding: 6px 0; color: #c2410c; font-weight: 700; vertical-align: top;">{{ $deadline ? \Carbon\Carbon::parse($deadline)->locale('id')->translatedFormat('d F Y, H:i') . ' WIB' : 'Tidak ditentukan' }}</td>
+                </tr>
+            </table>
+        </div>
 
-    @if ($deadline && $deadline->isPast())
-        <x-mail::panel>
-            ⚠️ **PERHATIAN:** Deadline approval ini sudah terlewat!
-        </x-mail::panel>
-    @endif
+        @if ($deadline && $deadline->isPast())
+        <!-- Alert Box -->
+        <div style="margin: 20px 0; background-color: #fee2e2; border-radius: 10px; padding: 14px 18px; border: 1px solid #fca5a5; color: #991b1b; font-size: 13px; font-weight: 600; line-height: 1.5;">
+            <strong>PERHATIAN KHUSUS:</strong> Batas waktu peninjauan (<em>deadline</em>) untuk dokumen ini telah terlewati. Mohon berkenan untuk segera memproses keputusan persetujuan.
+        </div>
+        @endif
 
-    Mohon segera lakukan approval agar proses dokumen dapat berjalan lancar.
+        <p style="font-size: 14px; line-height: 1.6; color: #475569;">
+            Mohon berkenan untuk segera meninjau berkas dokumen melalui opsi pilihan di bawah ini:
+        </p>
 
-    <x-mail::button :url="$approvalUrl">
-        Lihat & Approve Dokumen
-    </x-mail::button>
+        <!-- CTA Buttons -->
+        <div style="margin: 28px 0 16px 0; text-align: center;">
+            <a href="{{ $pdfUrl }}" target="_blank" style="display: inline-block; background-color: #f8fafc; color: #334155; font-weight: 600; font-size: 14px; text-decoration: none; padding: 12px 24px; border-radius: 10px; border: 1px solid #cbd5e1; margin: 6px 4px;">
+                Buka Berkas PDF
+            </a>
+            <a href="{{ $approvalUrl }}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 13px 26px; border-radius: 10px; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25); margin: 6px 4px;">
+                Proses Persetujuan Sekarang
+            </a>
+        </div>
 
-    Terima kasih,<br>
-    {{ config('app.name') }}
-</x-mail::message>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 28px 0;" />
+
+        <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+            Demikian pengingat ini kami sampaikan. Atas perhatian, dedikasi, dan kerja sama Bapak/Ibu, kami ucapkan terima kasih.
+        </p>
+
+        <div style="margin-top: 20px; font-size: 13px; color: #334155; line-height: 1.5;">
+            Hormat kami,<br>
+            <strong style="color: #0f172a; font-size: 14px;">Tim Manajemen Sistem Persetujuan</strong><br>
+            <span style="color: #64748b;">PT Tiga Serangkai Inti Corpora</span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #f8fafc; padding: 20px 28px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+        Pesan ini dikirim secara otomatis oleh Sistem Persetujuan Dokumen PT Tiga Serangkai Inti Corpora.<br>
+        © {{ date('Y') }} PT Tiga Serangkai Inti Corpora. All rights reserved.
+    </div>
+
+</div>
+</body>
+</html>

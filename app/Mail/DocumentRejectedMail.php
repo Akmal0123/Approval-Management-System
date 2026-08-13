@@ -30,8 +30,12 @@ class DocumentRejectedMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
+        $rejectorEmail = $this->rejection->user?->email ?? $this->rejection->approver_email;
+        $replyTo = $rejectorEmail ? [new \Illuminate\Mail\Mailables\Address($rejectorEmail, $this->rejection->user?->name ?? $rejectorEmail)] : [];
+
         return new Envelope(
-            subject: '[Rejected] ' . $this->dokumen->judul_dokumen,
+            subject: '[Dokumen Ditolak] ' . $this->dokumen->judul_dokumen,
+            replyTo: $replyTo,
         );
     }
 
@@ -41,13 +45,14 @@ class DocumentRejectedMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.document-rejected',
+            view: 'emails.document-rejected',
             with: [
                 'dokumen' => $this->dokumen,
                 'rejection' => $this->rejection,
-                'rejector' => $this->rejection->user,
+                'rejectorName' => $this->rejection->user?->name ?? $this->rejection->approver_email ?? 'Approver',
                 'reason' => $this->rejection->alasan_reject,
                 'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
             ],
         );
     }

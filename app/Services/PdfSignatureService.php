@@ -281,7 +281,7 @@ class PdfSignatureService
      * @return string PDF binary content
      * @throws Exception
      */
-    public function generateSignedPdfStream(string $pdfPath, $approvals): string
+    public function generateSignedPdfStream(string $pdfPath, $approvals, ?string $qrCodePath = null): string
     {
         try {
             $pdf = new Fpdi();
@@ -299,6 +299,14 @@ class PdfSignatureService
                 $pdf->AddPage();
                 $tplIdx = $pdf->importPage($i);
                 $pdf->useTemplate($tplIdx);
+
+                // Add QR Code on top right of each page if provided
+                if ($qrCodePath) {
+                    $fullQrPath = Storage::disk('public')->path($qrCodePath);
+                    if (file_exists($fullQrPath)) {
+                        $pdf->Image($fullQrPath, 170, 10, 25, 25, 'PNG');
+                    }
+                }
 
                 // Add signatures on the last page
                 if ($i == $pageCount && $approvals->count() > 0) {

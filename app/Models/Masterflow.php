@@ -20,6 +20,9 @@ class Masterflow extends Model
         'company_id',
         'name',
         'description',
+        'tipe_dokumen',
+        'min_nominal',
+        'max_nominal',
         'is_active',
         'total_steps',
     ];

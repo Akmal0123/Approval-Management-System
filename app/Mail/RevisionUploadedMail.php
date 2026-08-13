@@ -42,13 +42,14 @@ class RevisionUploadedMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.revision-uploaded',
+            view: 'emails.revision-uploaded',
             with: [
                 'dokumen' => $this->dokumen,
                 'approval' => $this->approval,
                 'newVersion' => $this->newVersion,
                 'stepName' => $this->approval->masterflowStep?->step_name ?? 'Approval',
                 'approvalUrl' => route('approvals.show', $this->approval->id),
+                'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
             ],
         );
     }

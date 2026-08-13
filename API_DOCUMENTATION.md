@@ -263,3 +263,28 @@ Get a list of recently active documents for the user.
 
 - **Endpoint:** `GET /api/user/recent-documents`
 - **Protected:** Yes
+
+---
+
+## Version 2.0 API & Storage Integration
+
+### Document Upload v2 (with QR Code & Document Type)
+
+- **Endpoint:** `POST /api/dokumen`
+- **Protected:** Yes (Bearer JWT / Sanctum)
+- **Parameters:**
+  - `nomor_dokumen` (string, required): Manual document number.
+  - `judul_dokumen` (string, required): Title of document.
+  - `tipe_dokumen` (string, required): `proposal`, `transaksi`, `memo`, `contract`.
+  - `nominal` (numeric, optional): Monetary transaction amount.
+  - `tgl_pengajuan` (date, required).
+  - `tgl_deadline` (date, required).
+  - `file` (file, required): PDF document (max 10MB).
+- **Features:** Auto generates unique QR Code PNG, stores v1.0 original PDF, auto-routes to threshold Masterflow.
+
+### Signed PDF Streaming & Security Access
+
+- **Endpoint:** `GET /api/dokumen/{id}/signed-pdf/{versionId?}`
+- **Protected:** Yes
+- **Access Rule:** Strict active approver & owner view authorization. Once status is `approved`, all assigned workflow approvers gain stream access.
+- **On-Demand Stamping:** On-the-fly embeds signatures and QR code verification watermark without overwriting original v1.0 upload file.

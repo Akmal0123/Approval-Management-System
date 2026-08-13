@@ -6,6 +6,7 @@ use App\Models\Dokumen;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -28,8 +29,10 @@ class DocumentFullyApprovedMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
+        $nomorStr = $this->dokumen->nomor_dokumen ? ' (' . $this->dokumen->nomor_dokumen . ')' : '';
         return new Envelope(
-            subject: '✅ [Approved] ' . $this->dokumen->judul_dokumen,
+            from: new Address(config('mail.from.address'), config('mail.from.name', 'Sistem Persetujuan Dokumen')),
+            subject: '[Persetujuan Dokumen] ✅ Disetujui: ' . $this->dokumen->judul_dokumen . $nomorStr,
         );
     }
 
@@ -39,10 +42,11 @@ class DocumentFullyApprovedMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.document-approved',
+            view: 'emails.document-approved',
             with: [
                 'dokumen' => $this->dokumen,
                 'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
             ],
         );
     }

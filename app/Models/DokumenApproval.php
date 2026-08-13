@@ -27,6 +27,7 @@ class DokumenApproval extends Model
         'masterflow_step_id',
         'approval_order',
         'approval_status',
+        'is_parallel',
         'tgl_approve',
         'tgl_deadline',
         'group_index',
@@ -43,6 +44,7 @@ class DokumenApproval extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
+        'is_parallel' => 'boolean',
         'tgl_approve' => 'datetime',
         'tgl_deadline' => 'datetime',
         'revision_requested_at' => 'datetime',
@@ -317,7 +319,10 @@ class DokumenApproval extends Model
 
         return $query->where(function ($q) use ($userId, $userEmail, $userJabatanIds) {
             $q->where('user_id', $userId)
-              ->orWhereRaw('LOWER(approver_email) = ?', [$userEmail]);
+              ->orWhereRaw('LOWER(approver_email) = ?', [$userEmail])
+              ->orWhereHas('dokumen', function ($docQuery) use ($userId) {
+                  $docQuery->where('user_id', $userId);
+              });
 
             if (!empty($userJabatanIds)) {
                 $q->orWhereHas('masterflowStep', function ($stepQuery) use ($userJabatanIds) {

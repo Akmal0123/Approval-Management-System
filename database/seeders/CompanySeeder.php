@@ -15,9 +15,9 @@ class CompanySeeder extends Seeder
     {
         $companies = [
             [
-                'name' => 'PT. Tiga Serangkai Pustaka Mandiri',
-                'address' => 'Jl. Prof. DR. Supomo No.23, Sriwedari, Kec. Laweyan, Surakarta, Jawa Tengah 57126',
-                'phone_number' => '(0271) 354313',
+                'name' => 'PT. Digital Approval Indonesia',
+                'address' => 'Gedung Wisma Nusantara Lt. 12, Jl. M.H. Thamrin No. 59, Jakarta Pusat 10350',
+                'phone_number' => '(021) 39835000',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

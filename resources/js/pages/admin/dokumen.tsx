@@ -99,12 +99,15 @@ export default function DokumenManagement() {
         }
     };
 
-    const filteredDocuments = documents.filter(
-        (doc) =>
-            doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            doc.submitter.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            doc.type.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    const filteredDocuments = documents.filter((doc) => {
+        const query = searchQuery.trim().toLowerCase();
+        return (
+            !query ||
+            (doc.title && doc.title.toLowerCase().includes(query)) ||
+            (doc.submitter && doc.submitter.toLowerCase().includes(query)) ||
+            (doc.type && doc.type.toLowerCase().includes(query))
+        );
+    });
 
     return (
         <>

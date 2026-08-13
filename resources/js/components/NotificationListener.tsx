@@ -1,4 +1,5 @@
 import { useBrowserNotification } from '@/hooks/useBrowserNotification';
+import { toastStyles } from '@/lib/toast';
 import { usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -105,25 +106,19 @@ export function NotificationListener({ userId: propUserId }: NotificationListene
             console.log('🔔 Received browser notification:', data);
 
             // Show toast notification (always shown, regardless of browser notification permission)
-            const toastOptions = {
-                duration: 5000,
-                style: {
-                    maxWidth: '400px',
-                },
-            };
 
             switch (data.type) {
                 case 'success':
-                    toast.success(data.body, { ...toastOptions, icon: '✅' });
+                    toast.success(data.body, { style: toastStyles.success, icon: '✅' });
                     break;
                 case 'warning':
-                    toast(data.body, { ...toastOptions, icon: '⚠️' });
+                    toast(data.body, { style: toastStyles.warning, icon: '⚠️' });
                     break;
                 case 'error':
-                    toast.error(data.body, { ...toastOptions, icon: '❌' });
+                    toast.error(data.body, { style: toastStyles.error, icon: '❌' });
                     break;
                 default:
-                    toast(data.body, { ...toastOptions, icon: '📄' });
+                    toast(data.body, { style: toastStyles.info, icon: '🔔' });
             }
 
             // Show browser notification (if permission granted)

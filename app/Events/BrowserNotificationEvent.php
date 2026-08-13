@@ -21,10 +21,10 @@ class BrowserNotificationEvent implements ShouldBroadcastNow
      * Create a new event instance.
      */
     public function __construct(
-        public int $userId,
-        public string $title,
-        public string $body,
-        public string $url,
+        public ?int $userId = null,
+        public string $title = '',
+        public string $body = '',
+        public string $url = '',
         public string $type = 'info' // info, success, warning, error
     ) {
         Log::info('🔔 BrowserNotificationEvent constructed', [
@@ -39,6 +39,10 @@ class BrowserNotificationEvent implements ShouldBroadcastNow
      */
     public function broadcastOn(): Channel
     {
+        if (!$this->userId) {
+            return new Channel('global.notifications');
+        }
+
         $channelName = 'user.' . $this->userId . '.notifications';
 
         Log::info('🔔 BrowserNotificationEvent::broadcastOn', [
