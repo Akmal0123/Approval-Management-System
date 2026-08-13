@@ -1072,7 +1072,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         )}
                                                         {isOwner && (
                                                             <Link
-                                                                href={route('dokumen.detail', approval.dokumen_id)}
+                                                                href={route('dokumen.show', approval.dokumen_id)}
                                                                 className="mt-3.5 inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-amber-700 transition-colors w-full text-center"
                                                             >
                                                                 ✏️ Unggah Berkas Revisi Baru (Buka Dokumen Saya) →

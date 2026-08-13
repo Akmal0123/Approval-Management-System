@@ -142,8 +142,8 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Document detail & edit pages
-    Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
     Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.show');
+    Route::get('/dokumen/{dokumen}/detail', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
     Route::get('/dokumen/{dokumen}/edit', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.edit');
     Route::match(['post', 'put'], '/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->where('dokumen', '[0-9]+')->name('dokumen.web_update');
     Route::post('/dokumen/{dokumen}/submit', [\App\Http\Controllers\DokumenController::class, 'submit'])->where('dokumen', '[0-9]+')->name('dokumen.web_submit');

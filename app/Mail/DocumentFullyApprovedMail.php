@@ -45,7 +45,7 @@ class DocumentFullyApprovedMail extends Mailable implements ShouldQueue
             view: 'emails.document-approved',
             with: [
                 'dokumen' => $this->dokumen,
-                'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'documentUrl' => route('dokumen.show', $this->dokumen->id),
                 'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
             ],
         );

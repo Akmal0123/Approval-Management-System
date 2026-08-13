@@ -1058,7 +1058,7 @@ export default function UserDokumen() {
                                                                 onMouseDown={() => {
                                                                     setSearchQuery(item.judul_dokumen || '');
                                                                     setIsDropdownOpen(false);
-                                                                    router.visit(route('dokumen.detail', item.id));
+                                                                    router.visit(route('dokumen.show', item.id));
                                                                 }}
                                                                 className="group flex cursor-pointer items-center justify-between rounded-xl p-2.5 hover:bg-blue-100/80 transition-all"
                                                             >

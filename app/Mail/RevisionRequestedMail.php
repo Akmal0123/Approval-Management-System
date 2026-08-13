@@ -52,7 +52,7 @@ class RevisionRequestedMail extends Mailable implements ShouldQueue
                 'requesterName' => $this->approval->user?->name ?? $this->approval->approver_email ?? 'Approver',
                 'revisionNotes' => $this->approval->revision_notes,
                 'stepName' => $this->approval->step_name ?? 'Approval',
-                'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'documentUrl' => route('dokumen.show', $this->dokumen->id),
                 'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
             ],
         );

@@ -51,7 +51,7 @@ class DocumentRejectedMail extends Mailable implements ShouldQueue
                 'rejection' => $this->rejection,
                 'rejectorName' => $this->rejection->user?->name ?? $this->rejection->approver_email ?? 'Approver',
                 'reason' => $this->rejection->alasan_reject,
-                'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'documentUrl' => route('dokumen.show', $this->dokumen->id),
                 'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
             ],
         );

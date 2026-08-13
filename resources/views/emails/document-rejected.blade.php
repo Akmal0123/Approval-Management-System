@@ -66,7 +66,7 @@
 
         <!-- CTA Buttons -->
         <div style="margin: 28px 0 16px 0; text-align: center;">
-            <a href="{{ $documentUrl ?? route('dokumen.detail', $dokumen->id) }}" target="_blank" style="display: inline-block; background-color: #475569; color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 13px 26px; border-radius: 10px;">
+            <a href="{{ $documentUrl ?? route('dokumen.show', $dokumen->id) }}" target="_blank" style="display: inline-block; background-color: #475569; color: #ffffff; font-weight: 700; font-size: 14px; text-decoration: none; padding: 13px 26px; border-radius: 10px;">
                 🔗 Lihat Detail Dokumen
             </a>
         </div>
