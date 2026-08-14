@@ -90,6 +90,14 @@ class DokumenApproval extends Model
     }
 
     /**
+     * Get the signature position for this approval.
+     */
+    public function signaturePosition()
+    {
+        return $this->hasOne(DocumentSignaturePosition::class, 'dokumen_approval_id');
+    }
+
+    /**
      * Get the jabatan through masterflow step.
      */
     public function jabatan()

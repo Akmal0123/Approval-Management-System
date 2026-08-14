@@ -277,7 +277,7 @@ class DokumenController extends Controller
                             'tgl_deadline' => $validated['tgl_deadline'],
                         ]);
 
-                        if ($approval->user_id && $isFirstLevel) {
+                        if ($approval->user_id && $isFirstLevel && $submitType !== 'draft') {
                             SendApprovalNotification::dispatch($approval);
                         }
                     }
@@ -321,7 +321,7 @@ class DokumenController extends Controller
                                     'jenis_group' => $stepApprover['jenis_group'],
                                 ]);
 
-                                if ($isFirstLevel) {
+                                if ($isFirstLevel && $submitType !== 'draft') {
                                     // Broadcast new approval event
                                     Log::info('Broadcasting ApprovalCreated event', [
                                         'approval_id' => $approval->id,
@@ -360,7 +360,7 @@ class DokumenController extends Controller
                                     'tgl_deadline' => $validated['tgl_deadline'],
                                 ]);
 
-                                if ($isFirstLevel) {
+                                if ($isFirstLevel && $submitType !== 'draft') {
                                     // Broadcast new approval event
                                     Log::info('Broadcasting ApprovalCreated event', [
                                         'approval_id' => $approval->id,
@@ -585,17 +585,30 @@ class DokumenController extends Controller
 
         DB::beginTransaction();
         try {
-            // Delete old approvals if any (in case of resubmit)
-            $dokumen->approvals()->delete();
-
             // Update document status
             $dokumen->update([
                 'status' => 'submitted',
-                'status_current' => 'waiting_approval',
+                'status_current' => 'waiting_approval_1',
             ]);
 
-            // Create approval workflow
-            $this->createApprovalWorkflow($dokumen);
+            // Notify first-level approvers that are pending
+            $firstLevelApprovals = $dokumen->approvals()->where('approval_status', 'pending')->get();
+            
+            foreach ($firstLevelApprovals as $approval) {
+                if ($approval->user_id) {
+                    // Dispatch email notification job
+                    SendApprovalNotification::dispatch($approval);
+    
+                    // Broadcast browser notification to approver
+                    broadcast(new BrowserNotificationEvent(
+                        userId: $approval->user_id,
+                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                        url: route('approvals.show', $approval->id),
+                        type: 'info'
+                    ));
+                }
+            }
 
             DB::commit();
 
@@ -658,9 +671,6 @@ class DokumenController extends Controller
                 'status' => 'draft',
                 'status_current' => 'draft',
             ]);
-
-            // Delete pending approvals
-            $dokumen->approvals()->where('approval_status', 'pending')->delete();
 
             DB::commit();
 

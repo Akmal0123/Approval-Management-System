@@ -118,6 +118,14 @@ class Dokumen extends Model
     }
 
     /**
+     * Get all signature positions for this document.
+     */
+    public function signaturePositions(): HasMany
+    {
+        return $this->hasMany(DocumentSignaturePosition::class);
+    }
+
+    /**
      * Get all comments for this document.
      */
     public function comments(): HasMany

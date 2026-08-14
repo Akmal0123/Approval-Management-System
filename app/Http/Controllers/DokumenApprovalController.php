@@ -210,14 +210,26 @@ class DokumenApprovalController extends Controller
 
         // Post-processing outside transaction to avoid blocking DB connections
         try {
-            // NOTE: PDF signature embedding removed for storage optimization.
-            // Signatures are now rendered on-demand when viewing/downloading documents
-            // using PdfSignatureService::generateSignedPdfStream()
-            Log::info('Approval completed - signature stored for on-demand rendering', [
-                'signature_path' => $signaturePath,
-                'approval_id' => $approval->id,
-                'dokumen_id' => $approval->dokumen_id,
-            ]);
+            // Embed signature into the physical file immediately
+            $pdfSignatureService = app(\App\Services\PdfSignatureService::class);
+            $version = $approval->dokumen->latestVersion;
+            
+            if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && $signaturePath) {
+                // Generate a PDF stream with just the current signature overlaid on the existing file
+                $pdfContent = $pdfSignatureService->generateSignedPdfStream(
+                    $version->file_url,
+                    collect([$approval])
+                );
+                
+                // Overwrite original file
+                \Illuminate\Support\Facades\Storage::disk('public')->put($version->file_url, $pdfContent);
+                
+                Log::info('Approval completed - signature embedded into physical file', [
+                    'signature_path' => $signaturePath,
+                    'approval_id' => $approval->id,
+                    'dokumen_id' => $approval->dokumen_id,
+                ]);
+            }
 
             // Broadcast dokumen updated event for real-time updates (minimal payload)
             $dokumen = $approval->dokumen->fresh();

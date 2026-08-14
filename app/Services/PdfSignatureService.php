@@ -233,67 +233,109 @@ class PdfSignatureService
     public function generateSignedPdfStream(string $pdfPath, $approvals): string
     {
         try {
-            $pdf = new Fpdi();
-
             $fullPdfPath = Storage::disk('public')->path($pdfPath);
 
             if (!file_exists($fullPdfPath)) {
                 throw new Exception("PDF file not found: {$fullPdfPath}");
             }
 
-            $pageCount = $pdf->setSourceFile($fullPdfPath);
+            $signaturesData = [];
+            
+            if ($approvals && $approvals->count() > 0) {
+                // Determine page count using FPDI for unpositioned signatures fallback
+                // (Note: FPDI might fail on compressed PDFs, so we wrap it)
+                $pageCount = 1;
+                try {
+                    $pdf = new Fpdi();
+                    $pageCount = $pdf->setSourceFile($fullPdfPath);
+                } catch (\Exception $e) {
+                    // Ignore FPDI compression error, assume large page count for unpositioned
+                    $pageCount = 999;
+                }
 
-            // Import all pages
-            for ($i = 1; $i <= $pageCount; $i++) {
-                $pdf->AddPage();
-                $tplIdx = $pdf->importPage($i);
-                $pdf->useTemplate($tplIdx);
+                $unpositionedIndex = 0;
+                $yPosition = 220; // Starting Y position for fallback
+                $xPosition = 20; // Starting X position for fallback
+                $signaturesPerRow = 3;
+                $spacing = 60; // Horizontal spacing
 
-                // Add signatures on the last page
-                if ($i == $pageCount && $approvals->count() > 0) {
-                    $yPosition = 220; // Starting Y position
-                    $xPosition = 20; // Starting X position
-                    $signaturesPerRow = 3;
-                    $signatureWidth = 35;
-                    $signatureHeight = 13;
-                    $spacing = 60; // Horizontal spacing
+                foreach ($approvals as $approval) {
+                    if (!$approval->signature_path) {
+                        continue;
+                    }
+                    
+                    $fullSignaturePath = Storage::disk('public')->path($approval->signature_path);
+                    if (!file_exists($fullSignaturePath)) {
+                        continue;
+                    }
 
-                    foreach ($approvals as $index => $approval) {
-                        if (!$approval->signature_path) {
-                            continue;
-                        }
-
-                        $fullSignaturePath = Storage::disk('public')->path($approval->signature_path);
-
-                        if (!file_exists($fullSignaturePath)) {
-                            continue; // Skip if signature file not found
-                        }
-
-                        // Calculate position
-                        $row = floor($index / $signaturesPerRow);
-                        $col = $index % $signaturesPerRow;
-
-                        $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
-
-                        $options = [
-                            'x' => $x,
-                            'y' => $y,
-                            'width' => $signatureWidth,
-                            'height' => $signatureHeight,
+                    $pos = $approval->signaturePosition;
+                    
+                    if ($pos) {
+                        $signaturesData[] = [
+                            'imagePath' => $fullSignaturePath,
+                            'page' => $pos->page,
+                            'x' => $pos->x,
+                            'y' => $pos->y,
+                            'width' => $pos->width,
+                            'height' => $pos->height,
                             'add_text' => true,
                             'text' => $approval->masterflowStep?->step_name ?? 'Approved',
                             'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
                             'name' => $approval->user?->name ?? null,
                         ];
+                    } else {
+                        // Fallback positioning
+                        $row = floor($unpositionedIndex / $signaturesPerRow);
+                        $col = $unpositionedIndex % $signaturesPerRow;
 
-                        $this->addSignatureToPage($pdf, $fullSignaturePath, $options);
+                        $x = $xPosition + ($col * $spacing);
+                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
+                        
+                        $signaturesData[] = [
+                            'imagePath' => $fullSignaturePath,
+                            'page' => $pageCount, // Last page
+                            'x' => $x,
+                            'y' => $y,
+                            'width' => 35,
+                            'height' => 13,
+                            'add_text' => true,
+                            'text' => $approval->masterflowStep?->step_name ?? 'Approved',
+                            'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
+                            'name' => $approval->user?->name ?? null,
+                        ];
+                        $unpositionedIndex++;
                     }
                 }
             }
 
-            // Return PDF content as string (no file saved)
-            return $pdf->Output('S');
+            // Write config to temp file
+            $config = [
+                'pdfPath' => $fullPdfPath,
+                'signatures' => $signaturesData
+            ];
+            
+            $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';
+            file_put_contents($tempConfigFile, json_encode($config));
+
+            $nodeScriptPath = base_path('scripts/sign-pdf.cjs');
+            
+            // Execute node script
+            $process = new \Symfony\Component\Process\Process(['node', $nodeScriptPath, $tempConfigFile]);
+            // Increase timeout for large PDFs
+            $process->setTimeout(60); 
+            $process->run();
+
+            // Cleanup config file
+            if (file_exists($tempConfigFile)) {
+                unlink($tempConfigFile);
+            }
+
+            if (!$process->isSuccessful()) {
+                throw new \Symfony\Component\Process\Exception\ProcessFailedException($process);
+            }
+
+            return $process->getOutput();
         } catch (Exception $e) {
             throw new Exception("Failed to generate signed PDF stream: " . $e->getMessage());
         }

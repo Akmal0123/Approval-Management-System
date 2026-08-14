@@ -190,10 +190,8 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
             return;
         }
 
-        // Use the full URL of the saved signature
-        const signatureUrl = selectedSignature.signature_url.startsWith('http')
-            ? selectedSignature.signature_url
-            : `${window.location.origin}${selectedSignature.signature_url}`;
+        // Use the storage path directly to ensure it works regardless of APP_URL
+        const signatureUrl = `/storage/${selectedSignature.signature_path}`;
 
         onSignatureComplete(signatureUrl);
     };
@@ -297,11 +295,7 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                                         <CardContent className="p-4">
                                             <div className="relative flex aspect-[3/1] items-center justify-center rounded border bg-white">
                                                 <img
-                                                    src={
-                                                        signature.signature_url.startsWith('http')
-                                                            ? signature.signature_url
-                                                            : `${window.location.origin}${signature.signature_url}`
-                                                    }
+                                                    src={`/storage/${signature.signature_path}`}
                                                     alt="Signature"
                                                     className="max-h-full max-w-full object-contain"
                                                 />

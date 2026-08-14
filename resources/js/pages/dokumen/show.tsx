@@ -1,6 +1,7 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
+import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -172,6 +173,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
+    const [isPlacementDialogOpen, setIsPlacementDialogOpen] = useState(false);
     const [previewFileUrl, setPreviewFileUrl] = useState<string>('');
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [revisionFile, setRevisionFile] = useState<File | null>(null);
@@ -594,7 +596,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 submitData.append('file', formData.file);
             }
 
-            router.post(`/dokumen/${dokumen.id}`, submitData, {
+            router.post(`/api/dokumen/${dokumen.id}`, submitData, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -667,7 +669,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         setIsSubmitting(true);
 
         router.post(
-            `/dokumen/${dokumen.id}/submit`,
+            `/api/dokumen/${dokumen.id}/submit`,
             {},
             {
                 preserveState: false, // Force full reload to get fresh data
@@ -916,6 +918,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             {/* Primary Actions (Desktop) */}
                             <div className="hidden items-center gap-2 sm:flex">
                                 {dokumen?.status === 'draft' && (
+                                    <Button onClick={() => setIsPlacementDialogOpen(true)} variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                                        <IconEdit className="mr-2 h-4 w-4" />
+                                        Atur Posisi TTD
+                                    </Button>
+                                )}
+                                {dokumen?.status === 'draft' && (
                                     <Button onClick={handleSubmitForApproval} className="bg-green-600 hover:bg-green-700">
                                         <IconSend className="mr-2 h-4 w-4" />
                                         Submit Approval
@@ -996,15 +1004,14 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                         <div key={approval.id} className="relative flex gap-4 pb-8 last:pb-0">
                                                             {/* Status Dot */}
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
-                                                                    isCompleted
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
                                                                         ? 'border-green-600 text-green-600'
                                                                         : isRejected
-                                                                          ? 'border-red-600 text-red-600'
-                                                                          : isPending
-                                                                            ? 'border-yellow-500 text-yellow-500'
-                                                                            : 'border-muted text-muted-foreground'
-                                                                }`}
+                                                                            ? 'border-red-600 text-red-600'
+                                                                            : isPending
+                                                                                ? 'border-yellow-500 text-yellow-500'
+                                                                                : 'border-muted text-muted-foreground'
+                                                                    }`}
                                                             >
                                                                 {isCompleted ? (
                                                                     <CheckCircle2Icon className="h-4 w-4" />
@@ -1023,8 +1030,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                             {isCustomApproval
                                                                                 ? approval.approver_email || 'Unknown User'
                                                                                 : approval.user?.name ||
-                                                                                  approval.masterflow_step?.jabatan?.name ||
-                                                                                  'Unknown Position'}
+                                                                                approval.masterflow_step?.jabatan?.name ||
+                                                                                'Unknown Position'}
                                                                         </div>
                                                                         <div className="text-sm text-muted-foreground">
                                                                             {isCustomApproval
@@ -1075,8 +1082,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
                                                         : anyRejected // If any rejected and type is all_required -> rejected.
-                                                          ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500'; // Pending default
+                                                            ? 'border-red-600 text-red-600'
+                                                            : 'border-yellow-500 text-yellow-500'; // Pending default
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
@@ -1222,25 +1229,25 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                 <div className="flex gap-1">
                                                                     {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                         version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                        <>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePreview(version)}
-                                                                                title="Lihat"
-                                                                            >
-                                                                                <IconEye className="h-4 w-4" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePrint(version)}
-                                                                                title="Print"
-                                                                            >
-                                                                                <IconPrinter className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </>
-                                                                    )}
+                                                                            <>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePreview(version)}
+                                                                                    title="Lihat"
+                                                                                >
+                                                                                    <IconEye className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePrint(version)}
+                                                                                    title="Print"
+                                                                                >
+                                                                                    <IconPrinter className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </>
+                                                                        )}
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
@@ -1583,6 +1590,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             </div>
                         </DialogContent>
                     </Dialog>
+
+                    {/* Signature Placement Dialog */}
+                    <SignaturePlacementDialog
+                        open={isPlacementDialogOpen}
+                        onOpenChange={setIsPlacementDialogOpen}
+                        dokumenId={dokumen.id}
+                        fileUrl={dokumen.versions && dokumen.versions.length > 0 ? `/api/dokumen/${dokumen.id}/signed-pdf/${dokumen.versions[0].id}` : ''}
+                        approvals={sortedApprovals.filter(a => a.approval_status !== 'skipped')}
+                    />
                 </SidebarInset>
             </SidebarProvider>
         </>

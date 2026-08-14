@@ -427,11 +427,11 @@ export default function SignatureManager() {
                                         </div>
                                         <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
                                             <img
-                                                src={signature.signature_url}
+                                                src={`/storage/${signature.signature_path}`}
                                                 alt="Tanda Tangan"
                                                 className="max-h-full max-w-full object-contain"
                                                 onError={(e) => {
-                                                    console.error('Failed to load signature image:', signature.signature_url);
+                                                    console.error('Failed to load signature image:', signature.signature_path);
                                                     e.currentTarget.src =
                                                         'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
                                                 }}
