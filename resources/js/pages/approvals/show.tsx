@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { showToast } from '@/lib/toast';
+import api from '@/lib/api';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     IconAlertCircle,
@@ -273,18 +274,23 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     };
 
     // Handle preview
-    const handlePreview = (version?: DokumenVersion) => {
+    const handlePreview = async (version?: DokumenVersion) => {
         const targetVersion = version || approval.dokumen_version;
         if (!targetVersion) return;
 
         const fileType = targetVersion.tipe_file.toLowerCase();
         if (fileType === 'pdf' || fileType === 'application/pdf') {
-            // Use streaming endpoint for on-demand signature rendering
-            const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
-            setPreviewFileUrl(url);
-            setPreviewFileName(targetVersion.nama_file);
-            setPreviewVersionId(targetVersion.id);
-            setIsPreviewDialogOpen(true);
+            try {
+                const response = await api.get(`/dokumen/${approval.dokumen.id}/get-secure-url`, {
+                    params: { version: targetVersion.id },
+                });
+                setPreviewFileUrl(response.data.url);
+                setPreviewFileName(targetVersion.nama_file);
+                setPreviewVersionId(targetVersion.id);
+                setIsPreviewDialogOpen(true);
+            } catch (error: any) {
+                showToast.error(error.response?.data?.message || 'Gagal membuat URL preview yang aman.');
+            }
         } else {
             showToast.error('❌ Preview hanya tersedia untuk file PDF.');
         }

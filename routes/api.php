@@ -77,3 +77,10 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     //History Document API Routes
     Route::get('/dokumen/{id}/history', [DokumenController::class, 'getHistory']);
 });
+
+// 3. Secure PDF Signed Routes (Ditaruh di luar auth agar tidak mental ke Dashboard)
+Route::get('/dokumen/{dokumen}/get-secure-url', [DokumenController::class, 'getSecureUrl']);
+
+Route::get('/dokumen/{dokumen}/secure-stream', [DokumenController::class, 'streamSignedPdf'])
+    ->name('dokumen.secure-stream')
+    ->middleware('signed');

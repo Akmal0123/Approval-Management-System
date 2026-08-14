@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use App\Services\ContextService;
@@ -414,30 +415,26 @@ class DokumenController extends Controller
      * Display the specified resource.
      */
     public function show(Request $request, $id)
-    {
-        $dokumen = Dokumen::where('id', $id)->first();
+{
+    $dokumen = Dokumen::where('id', $id)->first();
 
-        if (!$dokumen) {
-            if ($request->expectsJson() || $request->wantsJson()) {
-                return response()->json(['message' => 'Dokumen tidak ditemukan'], 404);
-            }
-            return Inertia::render('Dokumen/Show', [
-                'dokumen' => null,
-            ]);
+    if (!$dokumen) {
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json(['message' => 'Dokumen tidak ditemukan'], 404);
         }
+        return back()->withErrors(['error' => 'Dokumen tidak ditemukan.']);
+    }
 
-        $isOwner       = $dokumen->user_id === Auth::id();
-        $isSuperAdmin  = $this->contextService->isSuperAdmin();
-        $isSameCompany = $dokumen->company_id === $this->contextService->getCurrentCompanyId();
+    $isOwner       = $dokumen->user_id === Auth::id();
+    $isSuperAdmin  = $this->contextService->isSuperAdmin();
+    $isSameCompany = $dokumen->company_id === $this->contextService->getCurrentCompanyId();
 
-        if (!$isOwner && !$isSuperAdmin && !$isSameCompany) {
-            if ($request->expectsJson() || $request->wantsJson()) {
-                return response()->json(['message' => 'Unauthorized'], 403);
-            }
-            return Inertia::render('Dokumen/Show', [
-                'dokumen' => null,
-            ]);
+    if (!$isOwner && !$isSuperAdmin && !$isSameCompany) {
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
+        return back()->withErrors(['error' => 'Anda tidak memiliki akses ke dokumen ini.']);
+    }
 
         $dokumen->load([
             'user',
@@ -981,49 +978,6 @@ class DokumenController extends Controller
     }
 
     /**
-     * Stream signed PDF with all approved signatures.
-     */
-    public function streamSignedPdf(Dokumen $dokumen, PdfSignatureService $pdfSignatureService, $versionId = null)
-    {
-        $version = $versionId
-            ? $dokumen->versions()->findOrFail($versionId)
-            : $dokumen->latestVersion;
-
-        if (!$version || !$version->file_url || !Storage::disk('public')->exists($version->file_url)) {
-            abort(404, 'File tidak ditemukan.');
-        }
-
-        $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
-            ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
-            ->with(['user', 'masterflowStep'])
-            ->orderBy('created_at')
-            ->get();
-
-        if ($approvedSignatures->count() === 0 || strtolower($version->tipe_file) !== 'pdf') {
-            $filePath = Storage::disk('public')->path($version->file_url);
-            return response()->file($filePath, ['Content-Type' => 'application/pdf']);
-        }
-
-        try {
-            $pdfContent = $pdfSignatureService->generateSignedPdfStream(
-                $version->file_url,
-                $approvedSignatures
-            );
-
-            return response($pdfContent)
-                ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'inline; filename="signed_' . $version->nama_file . '"')
-                ->header('Content-Length', strlen($pdfContent));
-        } catch (\Exception $e) {
-            Log::error('Failed to generate signed PDF stream: ' . $e->getMessage());
-
-            $filePath = Storage::disk('public')->path($version->file_url);
-            return response()->file($filePath, ['Content-Type' => 'application/pdf']);
-        }
-    }
-
-    /**
      * API: Get history / revision logs for a document.
      */
     public function getHistory($id)
@@ -1048,6 +1002,100 @@ class DokumenController extends Controller
                 'success' => false,
                 'message' => 'Gagal mengambil riwayat dokumen: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+
+    /**
+     * Membuat temporary Signed URL untuk preview/download PDF (Valid 30 menit).
+     */
+    public function getSecureUrl(Dokumen $dokumen)
+{
+    $isOwner      = $dokumen->user_id === Auth::id();
+    $isSuperAdmin = $this->contextService->isSuperAdmin();
+    $isApprover   = $dokumen->approvals()->where('user_id', Auth::id())->exists();
+
+    if (!$isOwner && !$isSuperAdmin && !$isApprover) {
+        abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+    }
+
+    $secureUrl = URL::temporarySignedRoute(
+        'dokumen.secure-stream',
+        now()->addMinutes(30),
+        ['dokumen' => $dokumen->id]
+    );
+
+    return response()->json([
+        'success' => true,
+        'url' => $secureUrl,
+    ]);
+}
+
+    /**
+     * Menampilkan/Stream PDF yang sudah diproteksi Token.
+     */
+    public function streamSignedPdf(Dokumen $dokumen, PdfSignatureService $pdfSignatureService, $versionId = null)
+{
+    // 1. Cek Token Validasi
+    if (!request()->hasValidSignature()) {
+        abort(403, 'Akses ditolak! Token URL tidak valid atau sudah kedaluwarsa.');
+    }
+
+    // 1b. Cek otorisasi user - meskipun signature valid, harus tetap owner/approver/superadmin
+    $isOwner      = $dokumen->user_id === Auth::id();
+    $isSuperAdmin = $this->contextService->isSuperAdmin();
+    $isApprover   = $dokumen->approvals()->where('user_id', Auth::id())->exists();
+
+    if (!$isOwner && !$isSuperAdmin && !$isApprover) {
+        abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+    }
+
+    $version = $versionId
+            ? $dokumen->versions()->findOrFail($versionId)
+            : $dokumen->latestVersion;
+
+        // 2. Cek apakah file ada di storage
+        if (!$version || !$version->file_url || !Storage::disk('public')->exists($version->file_url)) {
+            abort(404, 'File dokumen tidak ditemukan di server.');
+        }
+
+        $filePath = Storage::disk('public')->path($version->file_url);
+
+        // 3. Ambil tanda tangan yang sudah diapprove
+        $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
+            ->where('approval_status', 'approved')
+            ->whereNotNull('signature_path')
+            ->with(['user', 'masterflowStep'])
+            ->orderBy('created_at')
+            ->get();
+
+        // 4. Jika belum ada signature / bukan PDF, langsung tampilkan file aslinya
+        if ($approvedSignatures->count() === 0 || strtolower($version->tipe_file) !== 'pdf') {
+            return response()->file($filePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
+            ]);
+        }
+
+        // 5. Generate signed PDF jika ada signature
+        try {
+            $pdfContent = $pdfSignatureService->generateSignedPdfStream(
+                $version->file_url,
+                $approvedSignatures
+            );
+
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="signed_' . $version->nama_file . '"',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Gagal generate signed PDF: ' . $e->getMessage());
+
+            // Fallback kirim file asli jika generate gagal
+            return response()->file($filePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
+            ]);
         }
     }
 }

@@ -137,8 +137,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{dokumen}/cancel', [\App\Http\Controllers\DokumenController::class, 'cancel'])->name('dokumen.cancel');
         Route::get('/{dokumen}/download/{version}', [\App\Http\Controllers\DokumenController::class, 'download'])->name('dokumen.download');
 
-        // Stream signed PDF (on-demand generation for preview)
-        Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
     });
 
     // Document detail page

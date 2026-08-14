@@ -642,9 +642,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     };
 
     // Handle preview document
-    const handlePreview = (version: DokumenVersion) => {
-        // Use streaming endpoint for on-demand signature rendering
-        const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
+    const handlePreview = async (version: DokumenVersion) => {
         const fileType = version.tipe_file.toLowerCase();
         const isPDF = fileType === 'pdf' || fileType === 'application/pdf';
 
@@ -653,9 +651,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             return;
         }
 
-        setPreviewFileUrl(fileUrl);
-        setPreviewFileName(version.nama_file);
-        setIsPreviewDialogOpen(true);
+        try {
+            const response = await api.get(`/dokumen/${dokumen.id}/get-secure-url`, {
+                params: { version: version.id },
+            });
+            setPreviewFileUrl(response.data.url);
+            setPreviewFileName(version.nama_file);
+            setIsPreviewDialogOpen(true);
+        } catch (error: any) {
+            showToast.error(error.response?.data?.message || 'Gagal membuat URL preview yang aman.');
+        }
     };
 
     // Handle submit for approval (untuk draft dokumen)
@@ -787,13 +792,19 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     };
 
     // Print file - opens PDF in new tab and triggers print
-    const handlePrint = (version: DokumenVersion) => {
-        const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
-        const printWindow = window.open(fileUrl, '_blank');
+    const handlePrint = async (version: DokumenVersion) => {
+        try {
+            const response = await api.get(`/dokumen/${dokumen.id}/get-secure-url`, {
+                params: { version: version.id },
+            });
+            const printWindow = window.open(response.data.url, '_blank');
         if (printWindow) {
             printWindow.addEventListener('load', () => {
                 printWindow.print();
             });
+        }
+        } catch (error: any) {
+            showToast.error(error.response?.data?.message || 'Gagal membuat URL cetak yang aman.');
         }
     };
 
