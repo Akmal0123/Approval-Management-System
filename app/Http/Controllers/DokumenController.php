@@ -214,6 +214,8 @@ class DokumenController extends Controller
             $status = $submitType === 'draft' ? 'draft' : 'submitted';
             $statusCurrent = $submitType === 'draft' ? 'draft' : 'waiting_approval_1';
 
+            $frontendIdToApprovalId = [];
+
             // Create document
             $dokumen = Dokumen::create([
                 'nomor_dokumen' => $validated['nomor_dokumen'],
@@ -262,7 +264,7 @@ class DokumenController extends Controller
                     // Custom approval flow
                     $minOrder = collect($validated['custom_approvers'])->min('order');
                     
-                    foreach ($validated['custom_approvers'] as $approver) {
+                    foreach ($validated['custom_approvers'] as $index => $approver) {
                         $targetUser = \App\Models\User::where('email', $approver['email'])->first();
 
                         $isFirstLevel = $approver['order'] == $minOrder;
@@ -276,6 +278,8 @@ class DokumenController extends Controller
                             'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                             'tgl_deadline' => $validated['tgl_deadline'],
                         ]);
+                        
+                        $frontendIdToApprovalId["custom_{$index}"] = $approval->id;
 
                         if ($approval->user_id && $isFirstLevel && $submitType !== 'draft') {
                             SendApprovalNotification::dispatch($approval);
@@ -320,6 +324,11 @@ class DokumenController extends Controller
                                     'group_index' => $groupIndex,
                                     'jenis_group' => $stepApprover['jenis_group'],
                                 ]);
+                                
+                                if (!isset($frontendIdToApprovalId["group_{$step->id}"])) {
+                                    $frontendIdToApprovalId["group_{$step->id}"] = [];
+                                }
+                                $frontendIdToApprovalId["group_{$step->id}"][] = $approval->id;
 
                                 if ($isFirstLevel && $submitType !== 'draft') {
                                     // Broadcast new approval event
@@ -359,6 +368,9 @@ class DokumenController extends Controller
                                     'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                                     'tgl_deadline' => $validated['tgl_deadline'],
                                 ]);
+                                
+                                $userId = $validated['approvers'][$step->id];
+                                $frontendIdToApprovalId["step_{$step->id}_user_{$userId}"] = $approval->id;
 
                                 if ($isFirstLevel && $submitType !== 'draft') {
                                     // Broadcast new approval event
@@ -383,6 +395,44 @@ class DokumenController extends Controller
                                 }
                             }
                         }
+                    }
+                }
+            }
+            
+            // Handle signature positions if any
+            if ($request->has('signature_positions')) {
+                $positions = json_decode($request->signature_positions, true);
+                if (is_array($positions)) {
+                    $positionsData = [];
+                    foreach ($positions as $pos) {
+                        $frontendId = $pos['dokumen_approval_id'];
+                        $approvalIds = [];
+                        
+                        if (isset($frontendIdToApprovalId[$frontendId])) {
+                            $mapped = $frontendIdToApprovalId[$frontendId];
+                            if (is_array($mapped)) {
+                                $approvalIds = $mapped;
+                            } else {
+                                $approvalIds = [$mapped];
+                            }
+                        }
+                        
+                        foreach ($approvalIds as $approvalId) {
+                            $positionsData[] = [
+                                'dokumen_id' => $dokumen->id,
+                                'dokumen_approval_id' => $approvalId,
+                                'page' => $pos['page'],
+                                'x' => $pos['x'],
+                                'y' => $pos['y'],
+                                'width' => $pos['width'],
+                                'height' => $pos['height'],
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
+                    }
+                    if (count($positionsData) > 0) {
+                        \App\Models\DocumentSignaturePosition::insert($positionsData);
                     }
                 }
             }

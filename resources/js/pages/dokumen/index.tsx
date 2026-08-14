@@ -1,4 +1,5 @@
 import { AppSidebar } from '@/components/app-sidebar';
+import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { NotificationListener } from '@/components/NotificationListener';
 import { SiteHeader } from '@/components/site-header';
 import { Badge } from '@/components/ui/badge';
@@ -131,6 +132,7 @@ interface FormData {
     approvers: Record<number, number | ''>; // stepId -> userId (for single approver mode)
     custom_approvers: CustomApprover[]; // for custom approvals
     step_approvers: Record<number, StepApprovers>; // stepId -> { userIds, jenisGroup } (for group mode)
+    signature_positions: any[] | null;
 }
 
 const initialFormData: FormData = {
@@ -144,6 +146,7 @@ const initialFormData: FormData = {
     approvers: {},
     custom_approvers: [{ email: '', order: 1 }],
     step_approvers: {},
+    signature_positions: null,
 };
 
 export default function UserDokumen() {
@@ -164,6 +167,10 @@ export default function UserDokumen() {
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
     const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
+
+    const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+    const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
+    const [pendingApprovalsForDialog, setPendingApprovalsForDialog] = useState<any[]>([]);
 
     // Fetch dokumen from backend
     const fetchDokumen = async () => {
@@ -475,6 +482,12 @@ export default function UserDokumen() {
                 ...prev,
                 file: file,
             }));
+            
+            // Create a local URL for the PDF preview in the signature placement dialog
+            if (localFileUrl) {
+                URL.revokeObjectURL(localFileUrl);
+            }
+            setLocalFileUrl(URL.createObjectURL(file));
 
             if (errors.file) {
                 setErrors((prev) => ({
@@ -704,6 +717,58 @@ export default function UserDokumen() {
         setIsCreateDialogOpen(true);
     };
 
+    const openSignatureDialog = () => {
+        if (!formData.file || !localFileUrl) {
+            showToast.error('Silakan upload file PDF terlebih dahulu.');
+            return;
+        }
+
+        const generatedApprovals: any[] = [];
+        
+        if (formData.masterflow_id === 'custom') {
+            formData.custom_approvers.forEach((app, idx) => {
+                if (app.email) {
+                    generatedApprovals.push({
+                        id: `custom_${idx}`,
+                        approver_email: app.email,
+                        step_name: `Tingkat ${app.order}`,
+                        user: { name: app.email }
+                    });
+                }
+            });
+        } else if (selectedMasterflow && selectedMasterflow.steps) {
+            selectedMasterflow.steps.forEach(step => {
+                if (stepModes[step.id] === 'group') {
+                    generatedApprovals.push({
+                        id: `group_${step.id}`,
+                        step_name: step.step_name,
+                        jabatan_name: step.jabatan?.name || 'Group',
+                        user: { name: `Group Approval (${step.step_name})` }
+                    });
+                } else {
+                    const userId = formData.approvers[step.id];
+                    const user = availableApprovers[step.id]?.find(u => u.id === userId);
+                    if (userId) {
+                        generatedApprovals.push({
+                            id: `step_${step.id}_user_${userId}`,
+                            step_name: step.step_name,
+                            jabatan_name: step.jabatan?.name,
+                            user: { name: user ? user.name : `Approver ${step.step_name}` }
+                        });
+                    }
+                }
+            });
+        }
+        
+        if (generatedApprovals.length === 0) {
+            showToast.error('Silakan tentukan minimal 1 approver terlebih dahulu.');
+            return;
+        }
+        
+        setPendingApprovalsForDialog(generatedApprovals);
+        setSignatureDialogOpen(true);
+    };
+
     // Submit form to create document
     const handleSubmit = async (e: React.FormEvent, type: 'draft' | 'submit') => {
         e.preventDefault();
@@ -731,6 +796,10 @@ export default function UserDokumen() {
 
             if (formData.file) {
                 submitData.append('file', formData.file);
+            }
+
+            if (formData.signature_positions && formData.signature_positions.length > 0) {
+                submitData.append('signature_positions', JSON.stringify(formData.signature_positions));
             }
 
             // Add approvers based on masterflow type
@@ -1494,15 +1563,27 @@ export default function UserDokumen() {
                                 </div>
 
                                 <DialogFooter className="sm:justify-between">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setIsCreateDialogOpen(false)}
-                                        disabled={isSubmitting}
-                                        className="font-sans"
-                                    >
-                                        Batal
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsCreateDialogOpen(false)}
+                                            disabled={isSubmitting}
+                                            className="font-sans"
+                                        >
+                                            Batal
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={openSignatureDialog}
+                                            disabled={isSubmitting || !formData.file}
+                                            className="font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                        >
+                                            <IconEdit className="mr-2 h-4 w-4" />
+                                            Atur Posisi Tanda Tangan
+                                        </Button>
+                                    </div>
                                     <div className="flex gap-2">
                                         <Button
                                             type="button"
@@ -1546,6 +1627,23 @@ export default function UserDokumen() {
                             </form>
                         </DialogContent>
                     </Dialog>
+
+                    {/* Signature Placement Dialog (Offline Mode) */}
+                    {localFileUrl && (
+                        <SignaturePlacementDialog
+                            open={signatureDialogOpen}
+                            onOpenChange={setSignatureDialogOpen}
+                            fileUrl={localFileUrl}
+                            approvals={pendingApprovalsForDialog}
+                            initialPositions={formData.signature_positions || []}
+                            onSaved={(positions) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    signature_positions: positions
+                                }));
+                            }}
+                        />
+                    )}
 
                     {/* Delete Confirmation Dialog */}
                     <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

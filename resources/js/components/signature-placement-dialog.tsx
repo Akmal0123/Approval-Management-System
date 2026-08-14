@@ -11,15 +11,27 @@ import { Document, Page, pdfjs } from 'react-pdf';
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface Approval {
-    id: number;
+    id: number | string;
     step_name?: string;
     jabatan_name?: string;
     user?: { name: string };
     approver_email?: string;
 }
 
-interface SignaturePosition {
-    dokumen_approval_id: number;
+
+
+interface Props {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    dokumenId?: number;
+    fileUrl: string;
+    approvals: Approval[];
+    initialPositions?: SignaturePosition[];
+    onSaved?: (positions: SignaturePosition[]) => void;
+}
+
+export interface SignaturePosition {
+    dokumen_approval_id: number | string; // Allow string IDs for offline mode
     page: number;
     x: number;
     y: number;
@@ -27,16 +39,7 @@ interface SignaturePosition {
     height: number;
 }
 
-interface Props {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    dokumenId: number;
-    fileUrl: string;
-    approvals: Approval[];
-    onSaved?: () => void;
-}
-
-const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumenId, fileUrl, approvals, onSaved }) => {
+const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumenId, fileUrl, approvals, initialPositions, onSaved }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [scale, setScale] = useState<number>(1.0);
@@ -44,8 +47,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
     const [saving, setSaving] = useState<boolean>(false);
     
     // Positions map: approval_id -> SignaturePosition
-    const [positions, setPositions] = useState<Record<number, SignaturePosition>>({});
-    const [activeApprovalId, setActiveApprovalId] = useState<number | null>(null);
+    const [positions, setPositions] = useState<Record<string | number, SignaturePosition>>({});
+    const [activeApprovalId, setActiveApprovalId] = useState<number | string | null>(null);
 
     // References for dragging
     const containerRef = useRef<HTMLDivElement>(null);
@@ -60,48 +63,57 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
     const PDF_TO_MM = 0.352778; // 1 point = 0.352778 mm
     
     useEffect(() => {
-        if (open && dokumenId) {
-            fetchExistingPositions();
+        if (open) {
+            if (dokumenId) {
+                fetchExistingPositions();
+            } else {
+                initializePositions(initialPositions || []);
+            }
             if (approvals.length > 0 && !activeApprovalId) {
                 setActiveApprovalId(approvals[0].id);
             }
         }
     }, [open, dokumenId]);
 
+    const initializePositions = (existingPositions: SignaturePosition[]) => {
+        if (existingPositions && existingPositions.length > 0) {
+            const newPositions: Record<string | number, SignaturePosition> = {};
+            existingPositions.forEach((pos: any) => {
+                newPositions[pos.dokumen_approval_id] = {
+                    dokumen_approval_id: pos.dokumen_approval_id,
+                    page: pos.page,
+                    x: pos.x,
+                    y: pos.y,
+                    width: pos.width,
+                    height: pos.height,
+                };
+            });
+            setPositions(newPositions);
+        } else {
+            // Initialize defaults
+            const newPositions: Record<string | number, SignaturePosition> = {};
+            approvals.forEach((app, idx) => {
+                newPositions[app.id] = {
+                    dokumen_approval_id: app.id,
+                    page: 1,
+                    x: 20 + (idx * 40), // Default mm
+                    y: 220, // Default mm
+                    width: 35, // Default mm
+                    height: 13, // Default mm
+                };
+            });
+            setPositions(newPositions);
+        }
+    };
+
     const fetchExistingPositions = async () => {
         try {
             const response = await api.get(`/dokumen/${dokumenId}/signature-positions`);
-            if (response.data.positions && response.data.positions.length > 0) {
-                const newPositions: Record<number, SignaturePosition> = {};
-                response.data.positions.forEach((pos: any) => {
-                    newPositions[pos.dokumen_approval_id] = {
-                        dokumen_approval_id: pos.dokumen_approval_id,
-                        page: pos.page,
-                        x: pos.x,
-                        y: pos.y,
-                        width: pos.width,
-                        height: pos.height,
-                    };
-                });
-                setPositions(newPositions);
-            } else {
-                // Initialize defaults
-                const newPositions: Record<number, SignaturePosition> = {};
-                approvals.forEach((app, idx) => {
-                    newPositions[app.id] = {
-                        dokumen_approval_id: app.id,
-                        page: 1,
-                        x: 20 + (idx * 40), // Default mm
-                        y: 220, // Default mm
-                        width: 35, // Default mm
-                        height: 13, // Default mm
-                    };
-                });
-                setPositions(newPositions);
-            }
+            initializePositions(response.data.positions);
         } catch (error) {
             console.error('Failed to fetch positions:', error);
             showToast.error('Gagal mengambil data posisi tanda tangan.');
+            initializePositions([]);
         }
     };
 
@@ -109,11 +121,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         setSaving(true);
         try {
             const positionsArray = Object.values(positions);
-            await api.post(`/dokumen/${dokumenId}/signature-positions`, {
-                positions: positionsArray
-            });
-            showToast.success('Posisi tanda tangan berhasil disimpan.');
-            if (onSaved) onSaved();
+            
+            if (dokumenId) {
+                await api.post(`/dokumen/${dokumenId}/signature-positions`, {
+                    positions: positionsArray
+                });
+                showToast.success('Posisi tanda tangan berhasil disimpan.');
+            } else {
+                showToast.success('Posisi tanda tangan disimpan sementara.');
+            }
+            
+            if (onSaved) onSaved(positionsArray as any);
             onOpenChange(false);
         } catch (error) {
             console.error('Failed to save positions:', error);
@@ -145,7 +163,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         return (px / scale) * PDF_TO_MM;
     };
 
-    const handleMouseDown = (e: React.MouseEvent, approvalId: number) => {
+    const handleMouseDown = (e: React.MouseEvent, approvalId: number | string) => {
         e.preventDefault();
         e.stopPropagation();
         setActiveApprovalId(approvalId);
@@ -156,7 +174,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         setInitialPos({ x: mmToPx(pos.x), y: mmToPx(pos.y) });
     };
 
-    const handleResizeMouseDown = (e: React.MouseEvent, approvalId: number) => {
+    const handleResizeMouseDown = (e: React.MouseEvent, approvalId: number | string) => {
         e.preventDefault();
         e.stopPropagation();
         setActiveApprovalId(approvalId);
@@ -221,7 +239,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         setIsResizing(false);
     };
 
-    const moveToPage = (approvalId: number, targetPage: number) => {
+    const moveToPage = (approvalId: number | string, targetPage: number) => {
         setPositions(prev => ({
             ...prev,
             [approvalId]: {

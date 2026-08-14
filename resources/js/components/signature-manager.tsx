@@ -425,7 +425,7 @@ export default function SignatureManager() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
+                                        <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2">
                                             <img
                                                 src={`/storage/${signature.signature_path}`}
                                                 alt="Tanda Tangan"
