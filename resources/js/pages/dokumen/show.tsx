@@ -1342,7 +1342,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                 </Card>
 
                                 {/* Manage Actions */}
-                                {(dokumen?.status === 'draft' || dokumen?.status === 'rejected') && (
+                                {(dokumen?.status === 'draft' || dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && (
                                     <Card>
                                         <CardHeader className="pb-3">
                                             <CardTitle className="text-base font-medium">Kelola Dokumen</CardTitle>
