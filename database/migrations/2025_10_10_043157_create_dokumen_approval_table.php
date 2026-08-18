@@ -18,17 +18,17 @@ return new class extends Migration
             $table->unsignedBigInteger('dokumen_version_id');
             $table->unsignedBigInteger('masterflow_step_id'); // Direct reference to masterflow_step
 
-            // Remove redundant fields that already exist in masterflow_steps:
-            // - masterflow_id (can get from masterflow_step.masterflow_id)
-            // - index/step_order (exists in masterflow_step.step_order)
-            // - role (can get from masterflow_step.jabatan)
+            // Ditambahkan 'revision_requested' untuk menangani status minta revisi
+            $table->enum('approval_status', ['pending', 'approved', 'rejected', 'revision_requested', 'skipped'])->default('pending');
+            
+            // Kolom lokasi file TTD di storage (akan diset null jika ada revisi)
+            $table->string('signature_path')->nullable(); 
 
-            $table->enum('approval_status', ['pending', 'approved', 'rejected', 'skipped'])->default('pending');
             $table->datetime('tgl_approve')->nullable();
             $table->datetime('tgl_deadline')->nullable();
             $table->string('group_index')->nullable(); // For parallel approval groups
             $table->enum('jenis_group', ['all_required', 'any_one', 'majority'])->nullable(); // Group approval type
-            $table->text('alasan_reject')->nullable();
+            $table->text('alasan_reject')->nullable(); // Catatan penolakan / revisi
             $table->text('comment')->nullable(); // Optional comment when approving/rejecting
             $table->timestamps();
 

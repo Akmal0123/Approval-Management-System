@@ -176,7 +176,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         if (!nominalVal || Number(nominalVal) === 0) return null;
         const num = Number(nominalVal);
         if (isNominalMasked) {
-            return 'Rp xxxxxx';
+            return 'Rp *.***.***';
         }
         return `Rp ${num.toLocaleString('id-ID')}`;
     };
@@ -186,6 +186,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
+    const [previewMode, setPreviewMode] = useState<'signed' | 'original'>('signed');
+    const [selectedPreviewVersion, setSelectedPreviewVersion] = useState<DokumenVersion | null>(null);
     const [previewFileUrl, setPreviewFileUrl] = useState<string>('');
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [revisionFile, setRevisionFile] = useState<File | null>(null);
@@ -690,10 +692,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         }
     };
 
-    // Handle preview document
-    const handlePreview = (version: DokumenVersion) => {
-        // Use streaming endpoint for on-demand signature rendering
-        const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
+    // Handle preview document (supports both signed & raw original PDF)
+    const handlePreview = (version: DokumenVersion, mode: 'signed' | 'original' = 'signed') => {
         const fileType = version.tipe_file.toLowerCase();
         const isPDF = fileType === 'pdf' || fileType === 'application/pdf';
 
@@ -702,9 +702,25 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             return;
         }
 
+        const fileUrl = mode === 'original'
+            ? `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}?original=1`
+            : `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
+
+        setSelectedPreviewVersion(version);
+        setPreviewMode(mode);
         setPreviewFileUrl(fileUrl);
         setPreviewFileName(version.nama_file);
         setIsPreviewDialogOpen(true);
+    };
+
+    // Toggle preview mode inside modal
+    const togglePreviewMode = (newMode: 'signed' | 'original') => {
+        if (!selectedPreviewVersion) return;
+        setPreviewMode(newMode);
+        const fileUrl = newMode === 'original'
+            ? `/api/dokumen/${dokumen.id}/signed-pdf/${selectedPreviewVersion.id}?original=1`
+            : `/api/dokumen/${dokumen.id}/signed-pdf/${selectedPreviewVersion.id}`;
+        setPreviewFileUrl(fileUrl);
     };
 
     // Handle submit for approval (untuk draft dokumen)
@@ -1034,7 +1050,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
-                                            {dokumen.tipe_dokumen === 'proposal' && dokumen.nominal && Number(dokumen.nominal) > 0 && (
+                                            {['proposal', 'po', 'pr'].includes(dokumen.tipe_dokumen || '') && dokumen.nominal && Number(dokumen.nominal) > 0 && (
                                                 <div className="space-y-1.5">
                                                     <div className="flex items-center gap-2">
                                                         <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Nominal Transaksi</Label>
@@ -1720,8 +1736,30 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                     <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
                         <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
-                                <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
-                                <DialogDescription className="font-sans">{previewFileName}</DialogDescription>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-6">
+                                    <div>
+                                        <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                        <DialogDescription className="font-sans">{previewFileName}</DialogDescription>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant={previewMode === 'signed' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => togglePreviewMode('signed')}
+                                            className={`h-8 text-xs font-sans ${previewMode === 'signed' ? 'bg-blue-600 hover:bg-blue-700 text-white font-medium' : 'border-gray-300 text-gray-700'}`}
+                                        >
+                                            ✍️ Ber-TTD & QR
+                                        </Button>
+                                        <Button
+                                            variant={previewMode === 'original' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => togglePreviewMode('original')}
+                                            className={`h-8 text-xs font-sans ${previewMode === 'original' ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-medium' : 'border-gray-300 text-gray-700'}`}
+                                        >
+                                            📄 PDF Asli (Tanpa TTD)
+                                        </Button>
+                                    </div>
+                                </div>
                             </DialogHeader>
                             <div className="flex-1 overflow-auto p-4">
                                 {previewFileUrl && (

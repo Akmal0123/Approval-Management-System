@@ -62,6 +62,9 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
     Route::post('/dokumen/{dokumen}/upload-revision', [DokumenController::class, 'uploadRevision']);
     Route::delete('/dokumen/{dokumen}', [DokumenController::class, 'destroy']);
+    // Signed PDF streaming & download (called by frontend via /api/)
+    Route::get('/dokumen/{dokumen}/signed-pdf/{version?}', [DokumenController::class, 'streamSignedPdf']);
+    Route::get('/dokumen/{dokumen}/download/{version?}', [DokumenController::class, 'download']);
 
     // Masterflow API Routes (via UserDashboardController)
     Route::get('/masterflows', [UserDashboardController::class, 'getMasterflowsApi']);

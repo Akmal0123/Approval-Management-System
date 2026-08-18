@@ -49,13 +49,13 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Set canvas size
+        // Set canvas size (larger canvas height & thicker line width)
         canvas.width = 600;
-        canvas.height = 200;
+        canvas.height = 240;
 
         // Set canvas drawing style
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 

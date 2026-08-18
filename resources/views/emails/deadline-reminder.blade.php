@@ -9,14 +9,23 @@
 
 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);">
 
-    <!-- Header Banner - Vibrant Orange Theme -->
-    <div style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); padding: 32px 24px; text-align: center;">
-        <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai Logo" style="max-height: 75px; width: auto; margin: 0 auto 16px auto; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));" />
-        <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.3px;">
+    <!-- Header Banner - Sunset Orange Reminder Theme -->
+    <div style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 50%, #7c2d12 100%); padding: 28px 24px 32px 24px; text-align: center;">
+        <!-- Top Left Corporate Logo -->
+        <div style="text-align: left; margin-bottom: 6px;">
+            <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai" style="max-height: 48px; width: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;" />
+        </div>
+
+        <!-- Center Reminder Icon -->
+        <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; padding: 12px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            <span style="font-size: 32px; line-height: 1; display: block;">⏰</span>
+        </div>
+
+        <h2 style="color: #ffffff; margin: 0; font-size: 23px; font-weight: 800; letter-spacing: -0.5px;">
             Pengingat Batas Waktu Persetujuan
         </h2>
         <p style="color: #ffedd5; margin: 6px 0 0 0; font-size: 13px; font-weight: 500;">
-            Sistem Persetujuan Dokumen Terintegrasi
+            Sistem Persetujuan Dokumen Terintegrasi - PT Tiga Serangkai
         </p>
     </div>
 

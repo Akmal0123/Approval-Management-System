@@ -870,110 +870,67 @@ class DokumenController extends Controller
 
             // Handle based on document status
             if ($dokumen->status === 'needs_revision') {
-                // Step-level revision: Reset approvals and notify appropriately
+                // Find the approval that triggered revision
                 $revisionApproval = DokumenApproval::where('dokumen_id', $dokumen->id)
                     ->where('approval_status', 'revision_requested')
                     ->first();
 
                 if ($revisionApproval) {
-                    // Check if this approval is part of a group
-                    if ($revisionApproval->group_index) {
-                        // Group approval scenario: Reset ALL approvals in the same group
-                        $groupApprovals = DokumenApproval::where('dokumen_id', $dokumen->id)
-                            ->where('group_index', $revisionApproval->group_index)
-                            ->get();
-
-                        foreach ($groupApprovals as $groupApproval) {
-                            // Reset each group member's approval
-                            $groupApproval->update([
-                                'dokumen_version_id' => $dokumenVersion->id,
-                                'approval_status' => 'pending',
-                                'tgl_approve' => null,
-                                'comment' => null,
-                                'signature_path' => null,
-                                'revision_notes' => null,
-                                'revision_requested_by' => null,
-                                'revision_requested_at' => null,
-                            ]);
-
-                            // Send email notification to each group member
-                            $targetEmail = $groupApproval->user?->email;
-                            if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
-                                $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
-                            }
-                            Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail(
-                                $dokumen,
-                                $groupApproval->fresh(),
-                                $newVersion
-                            ));
-
-                            // Broadcast browser notification to each group member
-                            $groupUserId = $groupApproval->user_id ?? ($groupApproval->approver_email ? \App\Models\User::where('email', $groupApproval->approver_email)->value('id') : null);
-                            if ($groupUserId) {
-                                broadcast(new BrowserNotificationEvent(
-                                    userId: (int) $groupUserId,
-                                    title: 'Revisi Dokumen Telah Diupload',
-                                    body: "Dokumen '{$dokumen->judul_dokumen}' (v{$newVersion}) telah direvisi dan membutuhkan persetujuan ulang.",
-                                    url: route('approvals.show', $groupApproval->id),
-                                    type: 'info'
-                                ));
-                            }
-
-                            Log::info('Notified group member about revision', [
-                                'approval_id' => $groupApproval->id,
-                                'user_id' => $groupApproval->user_id,
-                                'group_index' => $revisionApproval->group_index,
-                            ]);
-                        }
-                    } else {
-                        // Single approver scenario: Just reset the one who requested revision
-                        $revisionApproval->update([
-                            'dokumen_version_id' => $dokumenVersion->id,
-                            'approval_status' => 'pending',
-                            'revision_notes' => null,
-                            'revision_requested_by' => null,
-                            'revision_requested_at' => null,
-                        ]);
-
-                        // Dispatch email notification for the reset approval
-                        $targetEmail = $revisionApproval->user?->email;
-                        if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
-                            $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
-                        }
-                        Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail($dokumen, $revisionApproval->fresh(), $newVersion));
-
-                        // Broadcast browser notification to approver
-                        $targetUserId = $revisionApproval->user_id ?? ($revisionApproval->approver_email ? \App\Models\User::where('email', $revisionApproval->approver_email)->value('id') : null);
-                        if ($targetUserId) {
-                            broadcast(new BrowserNotificationEvent(
-                                userId: (int) $targetUserId,
-                                title: 'Dokumen Telah Direvisi',
-                                body: "Dokumen '{$dokumen->judul_dokumen}' telah direvisi dan membutuhkan persetujuan Anda.",
-                                url: route('approvals.show', $revisionApproval->id),
-                                type: 'info'
-                            ));
-                        }
-                    }
-
-                    // Update document status back to under_review
-                    $dokumen->update([
-                        'status' => 'under_review',
-                        'status_current' => 'waiting_approval_' . ($revisionApproval->masterflowStep?->step_order ?? 1),
+                    // Reset the revision_requested approval back to pending
+                    $revisionApproval->update([
+                        'dokumen_version_id' => $dokumenVersion->id,
+                        'approval_status'    => 'pending',
+                        'tgl_approve'        => null,
+                        'comment'            => null,
+                        'signature_path'     => null,
+                        'revision_notes'     => null,
+                        'revision_requested_by'  => null,
+                        'revision_requested_at'  => null,
                     ]);
                 }
 
-                // Update all other pending approvals to use new version
-                DokumenApproval::where('dokumen_id', $dokumen->id)
+                // Update ALL other pending approvals (includes those previously reset from 'approved')
+                // to point to the new document version
+                $allPendingApprovals = DokumenApproval::where('dokumen_id', $dokumen->id)
                     ->where('approval_status', 'pending')
-                    ->where('id', '!=', $revisionApproval?->id)
-                    ->when($revisionApproval?->group_index, function ($query) use ($revisionApproval) {
-                        // Exclude group members that were already updated above
-                        $query->where(function ($q) use ($revisionApproval) {
-                            $q->whereNull('group_index')
-                                ->orWhere('group_index', '!=', $revisionApproval->group_index);
-                        });
-                    })
-                    ->update(['dokumen_version_id' => $dokumenVersion->id]);
+                    ->get();
+
+                foreach ($allPendingApprovals as $pendingApproval) {
+                    $pendingApproval->update([
+                        'dokumen_version_id' => $dokumenVersion->id,
+                    ]);
+
+                    // Notify every pending approver that a new revision is ready
+                    $targetEmail = $pendingApproval->user?->email;
+                    if (!$targetEmail || str_ends_with(strtolower($targetEmail), '@example.com')) {
+                        $targetEmail = Auth::user()?->email ?? 'cukakyay@gmail.com';
+                    }
+                    Mail::to($targetEmail)->send(new \App\Mail\RevisionUploadedMail(
+                        $dokumen,
+                        $pendingApproval->fresh(),
+                        $newVersion
+                    ));
+
+                    // Broadcast browser notification to each pending approver
+                    $targetUserId = $pendingApproval->user_id ?? ($pendingApproval->approver_email
+                        ? \App\Models\User::where('email', $pendingApproval->approver_email)->value('id')
+                        : null);
+                    if ($targetUserId) {
+                        broadcast(new BrowserNotificationEvent(
+                            userId: (int) $targetUserId,
+                            title: 'Revisi Dokumen Telah Diupload',
+                            body: "Dokumen '{$dokumen->judul_dokumen}' (v{$newVersion}) telah direvisi dan membutuhkan persetujuan Anda.",
+                            url: route('approvals.show', $pendingApproval->id),
+                            type: 'info'
+                        ));
+                    }
+                }
+
+                // Update document status back to under_review
+                $dokumen->update([
+                    'status'         => 'under_review',
+                    'status_current' => 'waiting_approval_' . ($revisionApproval?->masterflowStep?->step_order ?? 1),
+                ]);
             } else {
                 // Rejection at specific step: Only reset from rejected step onwards
                 // Find the rejected approval to determine which step was rejected
@@ -1175,9 +1132,10 @@ class DokumenController extends Controller
      * Download document file.
      * Uses on-demand PDF generation for signed documents.
      */
-    public function download(Dokumen $dokumen, $versionId = null, PdfSignatureService $pdfSignatureService = null)
+    public function download(Dokumen $dokumen, $version = null, PdfSignatureService $pdfSignatureService = null)
     {
         $pdfSignatureService = $pdfSignatureService ?? app(PdfSignatureService::class);
+        $versionId = $version; // Support both route parameter name styles
 
         $version = $versionId
             ? $dokumen->versions()->findOrFail($versionId)
@@ -1197,25 +1155,16 @@ class DokumenController extends Controller
         if ($user) {
             $isOwner = (int)$dokumen->user_id === (int)$user->id;
             $isSuperAdmin = $this->contextService->isSuperAdmin();
-            $isApproved = $dokumen->status === 'approved';
+            $isAdmin = $this->contextService->isAdmin() || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
             $isAssignedApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
-                ->where('user_id', $user->id)
+                ->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('approver_email', $user->email);
+                })
                 ->exists();
 
-            if (!$isSuperAdmin && !$isOwner) {
-                if ($isApproved) {
-                    if (!$isAssignedApprover) {
-                        abort(403, 'Dokumen ini hanya dapat diakses oleh pihak yang terlibat.');
-                    }
-                } else {
-                    $isPendingApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
-                        ->where('approval_status', 'pending')
-                        ->where('user_id', $user->id)
-                        ->exists();
-                    if (!$isPendingApprover) {
-                        abort(403, 'Dokumen belum sepenuhnya disetujui. Hanya approver aktif saat ini yang dapat mengunduh berkas.');
-                    }
-                }
+            if (!$isSuperAdmin && !$isAdmin && !$isOwner && !$isAssignedApprover) {
+                abort(403, 'Dokumen ini hanya dapat diakses oleh pihak yang terlibat.');
             }
         }
 
@@ -1225,11 +1174,10 @@ class DokumenController extends Controller
             return response()->download($filePath, 'ASLI_' . $version->nama_file);
         }
 
-        // Get approved signatures for this document
+        // Get approved signatures for this document (including user fallback signatures)
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
-            ->with(['user', 'masterflowStep'])
+            ->with(['user.defaultSignature', 'user.signatures', 'masterflowStep'])
             ->orderBy('created_at')
             ->get();
 
@@ -1267,8 +1215,10 @@ class DokumenController extends Controller
      * Stream signed PDF with all approved signatures and QR code (on-demand generation).
      * This endpoint is used for PDF preview in the browser.
      */
-    public function streamSignedPdf(Dokumen $dokumen, PdfSignatureService $pdfSignatureService, $versionId = null)
+    public function streamSignedPdf(Dokumen $dokumen, $version = null, ?PdfSignatureService $pdfSignatureService = null)
     {
+        $pdfSignatureService = $pdfSignatureService ?? app(PdfSignatureService::class);
+        $versionId = $version; // Support both route parameter name styles
         $version = $versionId
             ? $dokumen->versions()->findOrFail($versionId)
             : $dokumen->latestVersion;
@@ -1287,33 +1237,31 @@ class DokumenController extends Controller
         if ($user) {
             $isOwner = (int)$dokumen->user_id === (int)$user->id;
             $isSuperAdmin = $this->contextService->isSuperAdmin();
-            $isApproved = $dokumen->status === 'approved';
+            $isAdmin = $this->contextService->isAdmin() || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
             $isAssignedApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
-                ->where('user_id', $user->id)
+                ->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('approver_email', $user->email);
+                })
                 ->exists();
 
-            if (!$isSuperAdmin && !$isOwner) {
-                if ($isApproved) {
-                    if (!$isAssignedApprover) {
-                        abort(403, 'Dokumen ini hanya dapat diakses oleh pihak yang terlibat.');
-                    }
-                } else {
-                    $isPendingApprover = DokumenApproval::where('dokumen_id', $dokumen->id)
-                        ->where('approval_status', 'pending')
-                        ->where('user_id', $user->id)
-                        ->exists();
-                    if (!$isPendingApprover) {
-                        abort(403, 'Dokumen belum sepenuhnya disetujui. Hanya approver aktif saat ini yang dapat membuka berkas.');
-                    }
-                }
+            if (!$isSuperAdmin && !$isAdmin && !$isOwner && !$isAssignedApprover) {
+                abort(403, 'Dokumen ini hanya dapat diakses oleh pihak yang terlibat.');
             }
         }
 
-        // Get approved signatures for this document
+        // Stream original file without signatures if requested
+        if (request()->has('original') && request('original') == '1') {
+            $filePath = Storage::disk('public')->path($version->file_url);
+            return response()->file($filePath, [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
+
+        // Get approved signatures for this document (including user fallback signatures)
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
-            ->with(['user', 'masterflowStep'])
+            ->with(['user.defaultSignature', 'user.signatures', 'masterflowStep'])
             ->orderBy('created_at')
             ->get();
 
@@ -1344,10 +1292,11 @@ class DokumenController extends Controller
                 'version_id' => $version->id,
             ]);
 
-            // Fallback to original file
+            // Fallback to original file with clean inline headers
             $filePath = Storage::disk('public')->path($version->file_url);
             return response()->file($filePath, [
-                'Content-Type' => 'application/pdf',
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
             ]);
         }
     }

@@ -9,16 +9,23 @@
 
 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
 
-    <!-- Header Banner - Red Gradient -->
-    <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%); padding: 36px 28px; text-align: center;">
-        <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 50%; padding: 14px; margin-bottom: 12px;">
-            <span style="font-size: 32px; line-height: 1;">❌</span>
+    <!-- Header Banner - Crimson Red Rejected Theme -->
+    <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #7f1d1d 100%); padding: 28px 24px 32px 24px; text-align: center;">
+        <!-- Top Left Corporate Logo -->
+        <div style="text-align: left; margin-bottom: 6px;">
+            <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai" style="max-height: 48px; width: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;" />
         </div>
-        <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
+
+        <!-- Center Rejected Cross Icon -->
+        <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; padding: 12px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            <span style="font-size: 32px; line-height: 1; display: block;">❌</span>
+        </div>
+
+        <h2 style="color: #ffffff; margin: 0; font-size: 23px; font-weight: 800; letter-spacing: -0.5px;">
             Pengajuan Dokumen Ditolak
         </h2>
-        <p style="color: #fca5a5; margin: 8px 0 0 0; font-size: 13px; font-weight: 500;">
-            Sistem Persetujuan Dokumen Digital
+        <p style="color: #fca5a5; margin: 6px 0 0 0; font-size: 13px; font-weight: 500;">
+            Sistem Persetujuan Dokumen Digital - PT Tiga Serangkai
         </p>
     </div>
 

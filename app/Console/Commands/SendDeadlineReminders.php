@@ -95,7 +95,8 @@ class SendDeadlineReminders extends Command
         $count = 0;
 
         foreach ($approvals as $approval) {
-            if (!$approval->user?->email) {
+            $userEmail = strtolower($approval->user?->email ?? '');
+            if (!$userEmail || str_ends_with($userEmail, '@example.com') || str_ends_with($userEmail, '@example.org')) {
                 continue;
             }
 
@@ -150,7 +151,8 @@ class SendDeadlineReminders extends Command
         $count = 0;
 
         foreach ($overdueApprovals as $approval) {
-            if (!$approval->user?->email) {
+            $userEmail = strtolower($approval->user?->email ?? '');
+            if (!$userEmail || str_ends_with($userEmail, '@example.com') || str_ends_with($userEmail, '@example.org')) {
                 continue;
             }
 

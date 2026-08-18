@@ -40,11 +40,13 @@ class SendApprovalNotification implements ShouldQueue
     {
         $approval = $this->approval->load(['dokumen.user', 'user', 'masterflowStep']);
 
-        // Check if user has email and email notifications enabled
-        if (!$approval->user || !$approval->user->email) {
-            Log::warning('SendApprovalNotification: No email found for approval', [
+        // Check if user has email and email is valid (not a dummy example.com domain)
+        $userEmail = strtolower($approval->user->email ?? '');
+        if (!$approval->user || !$userEmail || str_ends_with($userEmail, '@example.com') || str_ends_with($userEmail, '@example.org')) {
+            Log::info('SendApprovalNotification: Skipped dummy or missing email', [
                 'approval_id' => $approval->id,
                 'user_id' => $approval->user_id,
+                'email' => $approval->user->email ?? null,
             ]);
             return;
         }

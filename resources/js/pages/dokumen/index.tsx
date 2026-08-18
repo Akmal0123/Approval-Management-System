@@ -1139,14 +1139,14 @@ export default function UserDokumen() {
                                             <CardContent className="p-0">
                                                 <Table>
                                                     <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead className="w-16 font-sans">No</TableHead>
-                                                            <TableHead className="min-w-64 font-sans">Judul Dokumen</TableHead>
-                                                            <TableHead className="w-48 font-sans">Masterflow</TableHead>
-                                                            <TableHead className="w-40 font-sans">Status</TableHead>
-                                                            <TableHead className="min-w-64 font-sans">Current Step</TableHead>
-                                                            <TableHead className="w-40 font-sans">Tanggal Pengajuan</TableHead>
-                                                            <TableHead className="w-32 text-right font-sans">Aksi</TableHead>
+                                                        <TableRow className="bg-muted/40 text-sm font-semibold">
+                                                            <TableHead className="w-12 text-center font-sans">No</TableHead>
+                                                            <TableHead className="w-56 font-sans">Judul Dokumen</TableHead>
+                                                            <TableHead className="w-40 font-sans">Masterflow</TableHead>
+                                                            <TableHead className="w-32 font-sans">Status</TableHead>
+                                                            <TableHead className="w-52 font-sans">Current Step</TableHead>
+                                                            <TableHead className="w-32 font-sans">Tanggal</TableHead>
+                                                            <TableHead className="w-24 text-right font-sans pr-4">Aksi</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
@@ -1154,50 +1154,54 @@ export default function UserDokumen() {
                                                             filteredDokumen.map((doc, index) => (
                                                                 <TableRow
                                                                     key={doc.id}
-                                                                    className={`transition-all duration-500 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
+                                                                    className={`transition-all duration-300 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
                                                                         }`}
                                                                 >
-                                                                    <TableCell className="font-mono">{index + 1}</TableCell>
+                                                                    <TableCell className="text-center font-mono text-sm font-medium">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <span className="font-medium">{doc.judul_dokumen}</span>
+                                                                        <div className="flex flex-col gap-0.5 max-w-[220px]">
+                                                                            <span className="font-semibold text-sm text-foreground truncate" title={doc.judul_dokumen}>
+                                                                                {doc.judul_dokumen}
+                                                                            </span>
                                                                             {doc.deskripsi && (
-                                                                                <span className="text-xs text-muted-foreground">
-                                                                                    {doc.deskripsi.substring(0, 80)}
-                                                                                    {doc.deskripsi.length > 80 ? '...' : ''}
+                                                                                <span className="text-xs text-muted-foreground truncate" title={doc.deskripsi}>
+                                                                                    {doc.deskripsi}
                                                                                 </span>
                                                                             )}
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans">{doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}</TableCell>
-                                                                    <TableCell className="font-sans">{getStatusBadge(doc.status)}</TableCell>
-                                                                    <TableCell className="font-sans">
+                                                                    <TableCell className="font-sans text-sm">
+                                                                        <div className="max-w-[150px] truncate font-medium text-foreground/90" title={doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}>
+                                                                            {doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="font-sans text-sm">{getStatusBadge(doc.status)}</TableCell>
+                                                                    <TableCell className="font-sans text-sm">
                                                                         {doc.detailed_status?.current_step_description ? (
-                                                                            <div className="flex flex-col gap-1">
-                                                                                <span className="text-xs text-muted-foreground">
-                                                                                    {doc.detailed_status.current_step_description}
-                                                                                </span>
+                                                                            <div className="max-w-[200px] text-xs font-medium text-foreground/80 line-clamp-2 leading-snug" title={doc.detailed_status.current_step_description}>
+                                                                                {doc.detailed_status.current_step_description}
                                                                             </div>
                                                                         ) : doc.detailed_status?.is_fully_approved ? (
-                                                                            <span className="text-xs font-medium text-green-600">
-                                                                                ✓ Semua sudah approve
+                                                                            <span className="text-xs font-semibold text-green-600">
+                                                                                ✓ Semua disetujui
                                                                             </span>
                                                                         ) : doc.detailed_status?.is_rejected ? (
-                                                                            <span className="text-xs font-medium text-red-600">✗ Ditolak</span>
+                                                                            <span className="text-xs font-semibold text-red-600">✗ Ditolak</span>
                                                                         ) : (
                                                                             <span className="text-xs text-gray-400">-</span>
                                                                         )}
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans">
+                                                                    <TableCell className="font-sans text-sm font-medium whitespace-nowrap">
                                                                         {new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}
                                                                     </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <div className="flex justify-end gap-2">
+                                                                    <TableCell className="text-right pr-4">
+                                                                        <div className="flex justify-end gap-1.5">
                                                                             <Link href={`/dokumen/${doc.id}`}>
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
                                                                                     className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                                    title="Lihat Detail Dokumen"
                                                                                 >
                                                                                     <Eye className="h-4 w-4" />
                                                                                 </Button>
@@ -1211,7 +1215,7 @@ export default function UserDokumen() {
                                                                                         title="Unggah Berkas Revisi Baru"
                                                                                     >
                                                                                         <IconRefresh className="mr-1 h-3.5 w-3.5" />
-                                                                                        Unggah Revisi
+                                                                                        Revisi
                                                                                     </Button>
                                                                                 </Link>
                                                                             )}
@@ -1232,6 +1236,7 @@ export default function UserDokumen() {
                                                                                         size="sm"
                                                                                         onClick={() => handleDelete(doc)}
                                                                                         className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                                        title="Hapus Draft Dokumen"
                                                                                     >
                                                                                         <IconTrash className="h-4 w-4" />
                                                                                     </Button>
@@ -1273,39 +1278,40 @@ export default function UserDokumen() {
 
                                 <div className="grid gap-4 py-4">
                                     {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                                         <div className="grid gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <Label htmlFor="nomor_dokumen" className="font-sans font-medium">
-                                                    Nomor Dokumen <span className="text-xs text-muted-foreground">(Bisa Manual / Auto)</span>
-                                                </Label>
-                                                <button
+                                            <Label htmlFor="nomor_dokumen" className="font-sans font-medium">
+                                                Nomor Dokumen
+                                            </Label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    id="nomor_dokumen"
+                                                    name="nomor_dokumen"
+                                                    value={formData.nomor_dokumen}
+                                                    onChange={handleInputChange}
+                                                    className="font-mono"
+                                                    placeholder="001/FIN/2026 atau Auto"
+                                                />
+                                                <Button
                                                     type="button"
+                                                    variant="outline"
                                                     onClick={() => {
                                                         const autoNum = generateDocumentNumber();
                                                         setFormData((prev) => ({ ...prev, nomor_dokumen: autoNum }));
                                                         showToast.success('⚡ Nomor dokumen otomatis dibuat');
                                                     }}
-                                                    className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                                    className="shrink-0 text-xs font-semibold text-blue-600 border-blue-200 hover:bg-blue-50 font-sans"
                                                 >
                                                     ⚡ Auto Generate
-                                                </button>
+                                                </Button>
                                             </div>
-                                            <Input
-                                                id="nomor_dokumen"
-                                                name="nomor_dokumen"
-                                                value={formData.nomor_dokumen}
-                                                onChange={handleInputChange}
-                                                className="font-mono"
-                                                placeholder="Ketik manual (contoh: 001/FIN/2026) atau klik Auto"
-                                            />
                                             <p className="text-[11px] text-muted-foreground">
-                                                Bebas diketik nomor manual atau tekan tombol Auto Generate.
+                                                Bebas diketik nomor manual atau tekan Auto Generate.
                                             </p>
                                         </div>
 
                                         <div className="grid gap-2">
-                                            <Label htmlFor="tgl_pengajuan" className="font-sans">
+                                            <Label htmlFor="tgl_pengajuan" className="font-sans font-medium">
                                                 Tanggal Pengajuan
                                             </Label>
                                             <Input
@@ -1358,7 +1364,7 @@ export default function UserDokumen() {
                                             </Select>
                                         </div>
 
-                                        {formData.tipe_dokumen === 'proposal' && (
+                                        {['proposal', 'po', 'pr'].includes(formData.tipe_dokumen) && (
                                             <div className="grid gap-2">
                                                 <Label htmlFor="nominal" className="font-sans">
                                                     Nominal Transaksi (Rp)
@@ -1731,10 +1737,10 @@ export default function UserDokumen() {
                                                                 <SelectValue placeholder="Pilih Posisi Preset" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="70-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
-                                                                <SelectItem value="15-80" className="font-sans">↙️ Bawah Kiri</SelectItem>
-                                                                <SelectItem value="70-18" className="font-sans">↗️ Atas Kanan</SelectItem>
-                                                                <SelectItem value="15-18" className="font-sans">↖️ Atas Kiri</SelectItem>
+                                                                <SelectItem value="72-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
+                                                                <SelectItem value="22-80" className="font-sans">↙️ Bawah Kiri (Sejajar Teks)</SelectItem>
+                                                                <SelectItem value="72-18" className="font-sans">↗️ Atas Kanan</SelectItem>
+                                                                <SelectItem value="22-18" className="font-sans">↖️ Atas Kiri</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
@@ -1778,7 +1784,7 @@ export default function UserDokumen() {
                                                             <span>[ KOTAK APPROVED TTD ]</span>
                                                         </div>
                                                         <div className="text-[9px] text-emerald-800 font-medium mt-0.5">
-                                                            Tanda tangan & QR akan distempel di sini
+                                                            Tanda tangan akan distempel di sini
                                                         </div>
                                                     </div>
                                                 </div>

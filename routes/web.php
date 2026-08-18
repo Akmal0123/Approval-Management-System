@@ -13,6 +13,63 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
+// Auto-generate transparent & white Tiga Serangkai logo files if not present
+(function () {
+    $srcPath = public_path('images/logo-tiga-serangkai.png');
+    $whitePath = public_path('images/logo-tiga-serangkai-white.png');
+    $transparentPath = public_path('images/logo-tiga-serangkai-transparent.png');
+
+    if (file_exists($srcPath) && (!file_exists($whitePath) || !file_exists($transparentPath))) {
+        try {
+            $img = @imagecreatefrompng($srcPath);
+            if ($img) {
+                $w = imagesx($img);
+                $h = imagesy($img);
+
+                // Create transparent original logo
+                $transImg = imagecreatetruecolor($w, $h);
+                imagealphablending($transImg, false);
+                imagesavealpha($transImg, true);
+                $transColor = imagecolorallocatealpha($transImg, 0, 0, 0, 127);
+                imagefill($transImg, 0, 0, $transColor);
+
+                // Create white logo for dark background
+                $whiteImg = imagecreatetruecolor($w, $h);
+                imagealphablending($whiteImg, false);
+                imagesavealpha($whiteImg, true);
+                imagefill($whiteImg, 0, 0, $transColor);
+                $pureWhite = imagecolorallocatealpha($whiteImg, 255, 255, 255, 0);
+
+                for ($x = 0; $x < $w; $x++) {
+                    for ($y = 0; $y < $h; $y++) {
+                        $rgb = imagecolorat($img, $x, $y);
+                        $r = ($rgb >> 16) & 0xFF;
+                        $g = ($rgb >> 8) & 0xFF;
+                        $b = $rgb & 0xFF;
+
+                        if ($r > 235 && $g > 235 && $b > 235) {
+                            imagesetpixel($transImg, $x, $y, $transColor);
+                            imagesetpixel($whiteImg, $x, $y, $transColor);
+                        } else {
+                            imagesetpixel($transImg, $x, $y, $rgb);
+                            imagesetpixel($whiteImg, $x, $y, $pureWhite);
+                        }
+                    }
+                }
+
+                @imagepng($transImg, $transparentPath);
+                @imagepng($whiteImg, $whitePath);
+
+                @imagedestroy($img);
+                @imagedestroy($transImg);
+                @imagedestroy($whiteImg);
+            }
+        } catch (\Throwable $e) {
+            // Ignore GD processing errors
+        }
+    }
+})();
+
 Route::get('/', function () {
     if (Auth::check()) {
         return redirect('/dashboard');

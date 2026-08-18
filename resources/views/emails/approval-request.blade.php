@@ -9,16 +9,23 @@
 
 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
 
-    <!-- Header Banner - Blue Gradient -->
-    <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%); padding: 36px 28px; text-align: center;">
-        <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 50%; padding: 14px; margin-bottom: 12px;">
-            <span style="font-size: 32px; line-height: 1;">📝</span>
+    <!-- Header Banner - Royal Sapphire Blue Request Theme -->
+    <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e3a8a 100%); padding: 28px 24px 32px 24px; text-align: center;">
+        <!-- Top Left Corporate Logo -->
+        <div style="text-align: left; margin-bottom: 6px;">
+            <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai" style="max-height: 48px; width: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;" />
         </div>
-        <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
+
+        <!-- Center Request Icon -->
+        <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; padding: 12px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            <span style="font-size: 32px; line-height: 1; display: block;">📝</span>
+        </div>
+
+        <h2 style="color: #ffffff; margin: 0; font-size: 23px; font-weight: 800; letter-spacing: -0.5px;">
             Permohonan Persetujuan Dokumen
         </h2>
-        <p style="color: #bfdbfe; margin: 8px 0 0 0; font-size: 13px; font-weight: 500;">
-            Sistem Persetujuan Dokumen Digital
+        <p style="color: #bfdbfe; margin: 6px 0 0 0; font-size: 13px; font-weight: 500;">
+            Sistem Persetujuan Dokumen Digital - PT Tiga Serangkai
         </p>
     </div>
 

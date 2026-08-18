@@ -128,17 +128,17 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
+    const [previewMode, setPreviewMode] = useState<'signed' | 'original'>('signed');
+    const [selectedPreviewVersion, setSelectedPreviewVersion] = useState<DokumenVersion | null>(null);
+    const [previewFileUrl, setPreviewFileUrl] = useState<string>('');
     const [signatureData, setSignatureData] = useState<string | null>(null);
-    const [isNominalMasked, setIsNominalMasked] = useState(false);
+    const [isNominalMasked, setIsNominalMasked] = useState(true);
 
     const formatNominalDisplay = (nominalVal: number | string | null | undefined) => {
         if (!nominalVal || Number(nominalVal) === 0) return null;
         const num = Number(nominalVal);
         if (isNominalMasked) {
-            const numStr = Math.round(num).toString();
-            if (numStr.length <= 4) return 'Rp ' + '•'.repeat(numStr.length);
-            const prefix = numStr.substring(0, 1);
-            return `Rp ${prefix}.***.***.***`;
+            return 'Rp *.***.***';
         }
         return `Rp ${num.toLocaleString('id-ID')}`;
     };
@@ -165,20 +165,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             const channelName = `dokumen.${approval.dokumen.id}`;
             const channel = window.Echo.channel(channelName);
 
-            // Listen for dokumen updates
             channel.listen('dokumen.updated', (event: any) => {
                 console.log('📡 Real-time dokumen update received on approval page:', event);
-
-                // Reload the page to get fresh approval data
                 router.visit(window.location.href, { preserveScroll: true });
 
-                // Show toast notification
                 if (event.dokumen?.judul_dokumen) {
                     showToast.success(`📡 Dokumen "${event.dokumen.judul_dokumen}" telah diupdate!`);
                 }
             });
 
-            // Monitor subscription
             channel.subscribed(() => {
                 console.log('✅ Successfully subscribed to channel:', channelName);
             });
@@ -187,26 +182,20 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 console.error('❌ Channel subscription error:', error);
             });
 
-            console.log('📻 Subscribed to channel:', channelName);
-
-            // Cleanup
             return () => {
                 console.log('🔌 Leaving channel:', channelName);
                 window.Echo.leave(channelName);
             };
         } else {
             if (!window.Echo) {
-                console.error('❌ window.Echo not initialized! Check app.tsx');
+                console.error('❌ window.Echo not initialized!');
             }
         }
     }, [approval?.dokumen?.id]);
 
-    // State for preview
-    const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
 
-    // Handle signature complete
     const handleSignatureComplete = (signature: string) => {
         setSignatureData(signature);
         approveForm.setData('signature', signature);
@@ -214,20 +203,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         showToast.success('✅ Tanda tangan berhasil ditambahkan!');
     };
 
-    // Handle approve
     const handleApprove = () => {
         if (!signatureData) {
             showToast.error('❌ Silakan tanda tangani dokumen terlebih dahulu');
             return;
         }
 
-        console.log('Submitting approval with signature:', {
-            signatureLength: signatureData.length,
-            signaturePreview: signatureData.substring(0, 50) + '...',
-            hasComment: !!approveForm.data.comment,
-        });
-
-        // Set signature to form data
         approveForm.data.signature = signatureData;
 
         approveForm.post(route('approvals.approve', approval.id), {
@@ -246,7 +227,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         });
     };
 
-    // Handle reject
     const handleReject = () => {
         rejectForm.post(route('approvals.reject', approval.id), {
             preserveScroll: true,
@@ -263,7 +243,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         });
     };
 
-    // Handle request revision
+    /**
+     * JS HANDLER FOR REVISION REQUEST
+     * Direct Inertia POST to backend requestRevision controller method
+     */
     const handleRequestRevision = () => {
         if (!revisionForm.data.revision_notes.trim()) {
             showToast.error('❌ Harap isi catatan revisi terlebih dahulu.');
@@ -273,7 +256,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         revisionForm.post(route('approvals.request-revision', approval.id), {
             preserveScroll: true,
             onSuccess: () => {
-                showToast.success('✅ Permintaan revisi berhasil dikirim ke pengaju!');
+                showToast.success('✅ Request revisi dikirim! Seluruh TTD sebelumnya telah di-reset.');
                 setIsRevisionDialogOpen(false);
                 revisionForm.reset();
             },
@@ -285,22 +268,23 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         });
     };
 
-    // Handle download - uses on-demand signature generation
     const handleDownload = () => {
         if (approval.dokumen_version) {
             window.location.href = `/api/dokumen/${approval.dokumen.id}/download/${approval.dokumen_version.id}`;
         }
     };
 
-    // Handle preview
-    const handlePreview = (version?: DokumenVersion) => {
+    const handlePreview = (version?: DokumenVersion, mode: 'signed' | 'original' = 'signed') => {
         const targetVersion = version || approval.dokumen_version;
         if (!targetVersion) return;
 
         const fileType = targetVersion.tipe_file.toLowerCase();
         if (fileType === 'pdf' || fileType === 'application/pdf') {
-            // Use streaming endpoint for on-demand signature rendering
-            const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
+            const url = mode === 'original'
+                ? `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}?original=1`
+                : `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
+            setSelectedPreviewVersion(targetVersion);
+            setPreviewMode(mode);
             setPreviewFileUrl(url);
             setPreviewFileName(targetVersion.nama_file);
             setPreviewVersionId(targetVersion.id);
@@ -310,7 +294,16 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         }
     };
 
-    // Format date
+    const togglePreviewMode = (newMode: 'signed' | 'original') => {
+        const targetVersion = selectedPreviewVersion || approval.dokumen_version;
+        if (!targetVersion) return;
+        setPreviewMode(newMode);
+        const url = newMode === 'original'
+            ? `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}?original=1`
+            : `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
+        setPreviewFileUrl(url);
+    };
+
     const formatDate = (dateString: string | null | undefined) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -321,7 +314,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         });
     };
 
-    // Format date with time (for timeline)
     const formatDateTime = (dateString: string | null | undefined) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -338,7 +330,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         return `${dateStr}, ${timeStr} WIB`;
     };
 
-    // Format file size
     const formatFileSize = (bytes: number) => {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -347,7 +338,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
     };
 
-    // Get status badge
     const getStatusBadge = (status: string) => {
         const config: Record<string, { label: string; className: string; icon: any }> = {
             pending: {
@@ -375,6 +365,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 className: 'bg-gray-100 text-gray-800 border-gray-300',
                 icon: IconClock,
             },
+            revision_requested: {
+                label: 'Revisi Diminta',
+                className: 'bg-amber-100 text-amber-800 border-amber-300',
+                icon: IconRefresh,
+            },
         };
 
         const { label, className, icon: Icon } = config[status] || config.pending;
@@ -387,13 +382,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         );
     };
 
-    // Check if overdue
     const isOverdue = approval.tgl_deadline && new Date(approval.tgl_deadline) < new Date();
 
-    // Use signed PDF if available, otherwise use original
-    // const fileUrl = approval.dokumen_version ? `/storage/${approval.dokumen_version.signed_file_url || approval.dokumen_version.file_url}` : '';
-
-    // Sort approvals by step order
     const sortedApprovals = [...(allApprovals || [])].sort((a, b) => {
         if (a.masterflow_step && b.masterflow_step) {
             return a.masterflow_step.step_order - b.masterflow_step.step_order;
@@ -401,7 +391,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         return 0;
     });
 
-    // Group approvals logic - handles non-consecutive group members
     type TimelineItem =
         | { type: 'single'; data: DokumenApproval }
         | { type: 'group'; data: DokumenApproval[]; groupIndex: string; groupType: string; firstStepOrder: number };
@@ -429,7 +418,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         }
     });
 
-    // Build timeline items
     const allItems: { item: TimelineItem; stepOrder: number }[] = [];
 
     Object.entries(groupedApprovalsMap).forEach(([groupIndex, groupData]) => {
@@ -567,14 +555,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             </div>
                                         </div>
 
-                                        {/* Tipe Dokumen, Nominal & QR Code Badge */}
-                                        <div className="grid gap-4 sm:grid-cols-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                        {/* Tipe Dokumen & Nominal */}
+                                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
                                             <div className="space-y-1">
                                                 <Label className="text-xs font-medium text-emerald-900 uppercase">Tipe Dokumen</Label>
                                                 <div className="font-semibold text-emerald-950 capitalize">
                                                     {approval.dokumen.tipe_dokumen || 'Proposal'}
                                                 </div>
-                                                {approval.dokumen.nominal && Number(approval.dokumen.nominal) > 0 && (
+                                                {['proposal', 'po', 'pr'].includes(approval.dokumen.tipe_dokumen || '') && approval.dokumen.nominal && Number(approval.dokumen.nominal) > 0 && (
                                                     <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 mt-1">
                                                         <span>Nominal: {formatNominalDisplay(approval.dokumen.nominal)}</span>
                                                         <button
@@ -588,15 +576,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         </button>
                                                     </div>
                                                 )}
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm">
-                                                    QR
-                                                </div>
-                                                <div className="text-xs text-emerald-900">
-                                                    <div className="font-bold">Verifikasi Auto QR Code v2.0</div>
-                                                    <div className="text-emerald-700">QR Code distempel otomatis pada PDF preview & download</div>
-                                                </div>
                                             </div>
                                         </div>
 
@@ -652,15 +631,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <div className="flex shrink-0 justify-end gap-2">
                                                     {(approval.dokumen_version.tipe_file.toLowerCase() === 'pdf' ||
                                                         approval.dokumen_version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handlePreview(approval.dokumen_version)}
-                                                            title="Preview"
-                                                        >
-                                                            <IconEye className="h-5 w-5" />
-                                                        </Button>
-                                                    )}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handlePreview(approval.dokumen_version)}
+                                                                title="Preview"
+                                                            >
+                                                                <IconEye className="h-5 w-5" />
+                                                            </Button>
+                                                        )}
                                                     <Button variant="ghost" size="icon" onClick={handleDownload} title="Download">
                                                         <IconDownload className="h-5 w-5" />
                                                     </Button>
@@ -694,13 +673,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-4">
                                                                         <div
-                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
-                                                                                isLatest
+                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
                                                                                     ? 'border-blue-200 bg-blue-100 text-blue-700'
                                                                                     : rejectionLog
-                                                                                      ? 'border-red-200 bg-red-100 text-red-700'
-                                                                                      : 'bg-background text-muted-foreground'
-                                                                            }`}
+                                                                                        ? 'border-red-200 bg-red-100 text-red-700'
+                                                                                        : 'bg-background text-muted-foreground'
+                                                                                }`}
                                                                         >
                                                                             <IconFileText className="h-5 w-5" />
                                                                         </div>
@@ -736,14 +714,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     <div className="flex gap-2">
                                                                         {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                             version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePreview(version)}
-                                                                            >
-                                                                                <IconEye className="h-4 w-4" />
-                                                                            </Button>
-                                                                        )}
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePreview(version)}
+                                                                                >
+                                                                                    <IconEye className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
@@ -774,7 +752,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     </Card>
                                 )}
 
-                                {/* Revision History */}
+                                {/* Revision History Component */}
                                 <RevisionHistory dokumenId={approval.dokumen.id} />
 
                                 {/* Approval Timeline */}
@@ -801,15 +779,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                             )}
 
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
-                                                                    isCompleted
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
                                                                         ? 'border-green-600 text-green-600'
                                                                         : isRejected
-                                                                          ? 'border-red-600 text-red-600'
-                                                                          : isPending
-                                                                            ? 'border-yellow-500 text-yellow-500'
-                                                                            : 'border-muted text-muted-foreground'
-                                                                }`}
+                                                                            ? 'border-red-600 text-red-600'
+                                                                            : isPending
+                                                                                ? 'border-yellow-500 text-yellow-500'
+                                                                                : 'border-muted text-muted-foreground'
+                                                                    }`}
                                                             >
                                                                 {isCompleted ? (
                                                                     <CheckCircle2Icon className="h-4 w-4" />
@@ -877,7 +854,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         </div>
                                                     );
                                                 } else {
-                                                    // GROUP RENDERING
                                                     const group = item;
                                                     const allApproved = group.data.every(
                                                         (a) => a.approval_status === 'approved' || a.approval_status === 'skipped',
@@ -889,8 +865,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
                                                         : anyRejected
-                                                          ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500';
+                                                            ? 'border-red-600 text-red-600'
+                                                            : 'border-yellow-500 text-yellow-500';
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
@@ -921,7 +897,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     </div>
                                                                     <div className="divide-y p-0">
                                                                         {group.data.map((app) => {
-                                                                            // Check if this member should show as auto-skipped
                                                                             const isAnyOneGroup = group.groupType === 'any_one';
                                                                             const someoneElseApproved = group.data.some(
                                                                                 (a) => a.id !== app.id && a.approval_status === 'approved',
@@ -931,7 +906,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                 someoneElseApproved &&
                                                                                 app.approval_status === 'pending';
 
-                                                                            // Check if this member is skipped (either from DB or auto-calculated)
                                                                             const isSkipped = app.approval_status === 'skipped' || isAutoSkipped;
 
                                                                             return (
@@ -950,8 +924,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                         </div>
                                                                                         {isSkipped && (
                                                                                             <div className="text-[10px] text-muted-foreground italic">
-                                                                                                *Otomatis di-skip karena grup sudah menyelesaikan
-                                                                                                approval.
+                                                                                                *Otomatis di-skip karena grup sudah menyelesaikan approval.
                                                                                             </div>
                                                                                         )}
                                                                                     </div>
@@ -1023,35 +996,33 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     </Card>
                                 ) : (
                                     <Card
-                                        className={`border shadow-sm ${
-                                            approval.approval_status === 'approved'
+                                        className={`border shadow-sm ${approval.approval_status === 'approved'
                                                 ? 'border-green-200 bg-green-50/50'
                                                 : approval.approval_status === 'rejected'
-                                                  ? 'border-red-200 bg-red-50/50'
-                                                  : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
-                                                    ? 'border-yellow-200 bg-yellow-50/50'
-                                                    : 'border-dashed bg-muted/30'
-                                        }`}
+                                                    ? 'border-red-200 bg-red-50/50'
+                                                    : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
+                                                        ? 'border-yellow-200 bg-yellow-50/50'
+                                                        : 'border-dashed bg-muted/30'
+                                            }`}
                                     >
                                         <CardHeader className="pb-3">
                                             <CardTitle
-                                                className={`flex items-center gap-2 text-base font-bold ${
-                                                    approval.approval_status === 'approved'
+                                                className={`flex items-center gap-2 text-base font-bold ${approval.approval_status === 'approved'
                                                         ? 'text-green-700'
                                                         : approval.approval_status === 'rejected'
-                                                          ? 'text-red-700'
-                                                          : approval.approval_status === 'waiting' ||
-                                                              (approval.approval_status === 'pending' && !canApprove)
-                                                            ? 'text-yellow-700'
-                                                            : 'text-muted-foreground'
-                                                }`}
+                                                            ? 'text-red-700'
+                                                            : approval.approval_status === 'waiting' ||
+                                                                (approval.approval_status === 'pending' && !canApprove)
+                                                                ? 'text-yellow-700'
+                                                                : 'text-muted-foreground'
+                                                    }`}
                                             >
                                                 {approval.approval_status === 'approved' ? (
                                                     <IconCheck className="h-5 w-5" />
                                                 ) : approval.approval_status === 'rejected' ? (
                                                     <IconX className="h-5 w-5" />
                                                 ) : approval.approval_status === 'waiting' ||
-                                                  (approval.approval_status === 'pending' && !canApprove) ? (
+                                                    (approval.approval_status === 'pending' && !canApprove) ? (
                                                     <IconClock className="h-5 w-5" />
                                                 ) : (
                                                     <IconAlertCircle className="h-5 w-5" />
@@ -1105,13 +1076,13 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 )}
                                                 {((approval.approval_status as string) === 'waiting' ||
                                                     ((approval.approval_status as string) === 'pending' && !canApprove)) && (
-                                                    <>
-                                                        <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
-                                                        <p className="text-sm text-yellow-700">
-                                                            Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
-                                                        </p>
-                                                    </>
-                                                )}
+                                                        <>
+                                                            <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
+                                                            <p className="text-sm text-yellow-700">
+                                                                Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
+                                                            </p>
+                                                        </>
+                                                    )}
                                                 {!['approved', 'rejected', 'waiting', 'revision_requested'].includes(approval.approval_status as string) && ((approval.approval_status as string) !== 'pending' || !canApprove) && (
                                                     <>
                                                         <p className="font-semibold text-gray-900">Menunggu Persetujuan</p>
@@ -1142,105 +1113,86 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                     {/* Reject Dialog */}
                     <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-                        <DialogContent>
+                        <DialogContent className="sm:max-w-md">
                             <DialogHeader>
-                                <DialogTitle className="font-serif text-red-700">Tolak Dokumen</DialogTitle>
+                                <DialogTitle className="flex items-center gap-2 text-red-600 font-serif">
+                                    <IconX className="h-5 w-5" />
+                                    Tolak Dokumen
+                                </DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    Silakan berikan alasan penolakan atau catatan perbaikan untuk dokumen "{approval.dokumen.judul_dokumen}"
+                                    Apakah Anda yakin ingin menolak dokumen ini? Alasan penolakan akan dikirimkan ke pembuat dokumen.
                                 </DialogDescription>
                             </DialogHeader>
-
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="alasan_reject" className="font-sans">
-                                        Alasan Penolakan / Catatan Perbaikan <span className="text-red-500">*</span>
+                                        Alasan Penolakan <span className="text-red-500">*</span>
                                     </Label>
                                     <Textarea
                                         id="alasan_reject"
-                                        placeholder="Jelaskan alasan penolakan atau catatan perbaikan detail yang wajib dilakukan oleh pengaju dokumen..."
+                                        placeholder="Tuliskan alasan penolakan dokumen secara jelas..."
                                         value={rejectForm.data.alasan_reject}
                                         onChange={(e) => rejectForm.setData('alasan_reject', e.target.value)}
-                                        className="font-sans"
                                         rows={4}
-                                        required
-                                    />
-                                    {rejectForm.errors.alasan_reject && (
-                                        <p className="font-sans text-sm text-red-600">{rejectForm.errors.alasan_reject}</p>
-                                    )}
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="reject_comment" className="font-sans">
-                                        Komentar Tambahan (Opsional)
-                                    </Label>
-                                    <Textarea
-                                        id="reject_comment"
-                                        placeholder="Tambahkan komentar jika diperlukan..."
-                                        value={rejectForm.data.comment}
-                                        onChange={(e) => rejectForm.setData('comment', e.target.value)}
                                         className="font-sans"
-                                        rows={3}
                                     />
                                 </div>
                             </div>
-
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setIsRejectDialogOpen(false)} className="font-sans">
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)} disabled={rejectForm.processing}>
                                     Batal
                                 </Button>
                                 <Button
-                                    type="button"
+                                    variant="destructive"
                                     onClick={handleReject}
-                                    disabled={rejectForm.processing || !rejectForm.data.alasan_reject}
-                                    className="border-red-300 bg-red-600 font-sans hover:bg-red-700"
+                                    disabled={rejectForm.processing || !rejectForm.data.alasan_reject.trim()}
                                 >
-                                    {rejectForm.processing ? 'Memproses...' : 'Tolak Dokumen'}
+                                    {rejectForm.processing ? 'Memproses...' : 'Konfirmasi Tolak'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
 
-                    {/* Request Revision Dialog */}
+                    {/* Request Revision Dialog Modal */}
                     <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
-                        <DialogContent>
+                        <DialogContent className="sm:max-w-md">
                             <DialogHeader>
-                                <DialogTitle className="font-serif">Minta Revisi Dokumen</DialogTitle>
+                                <DialogTitle className="flex items-center gap-2 text-amber-700 font-serif">
+                                    <IconRefresh className="h-5 w-5 text-amber-600" />
+                                    Minta Revisi Dokumen
+                                </DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    Berikan catatan perbaikan detail yang perlu dilakukan oleh pengaju dokumen "{approval.dokumen.judul_dokumen}"
+                                    Kirimkan instruksi perbaikan kepada pengaju agar mengunggah versi berkas PDF yang diperbaiki.
                                 </DialogDescription>
                             </DialogHeader>
-
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="revision_notes" className="font-sans">
-                                        Catatan Instruktur Revisi <span className="text-red-500">*</span>
+                                        Catatan Instruksi Revisi <span className="text-amber-600">*</span>
                                     </Label>
                                     <Textarea
                                         id="revision_notes"
-                                        placeholder="Jelaskan bagian mana saja yang perlu diperbaiki atau dilengkapi..."
+                                        placeholder="Jelaskan secara spesifik bagian mana yang harus diperbaiki oleh pembuat dokumen..."
                                         value={revisionForm.data.revision_notes}
                                         onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
-                                        className="font-sans"
                                         rows={4}
-                                        required
+                                        className="font-sans"
                                     />
                                     {revisionForm.errors.revision_notes && (
                                         <p className="font-sans text-sm text-red-600">{revisionForm.errors.revision_notes}</p>
                                     )}
                                 </div>
                             </div>
-
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setIsRevisionDialogOpen(false)} className="font-sans">
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button variant="outline" onClick={() => setIsRevisionDialogOpen(false)} disabled={revisionForm.processing}>
                                     Batal
                                 </Button>
                                 <Button
-                                    type="button"
+                                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
                                     onClick={handleRequestRevision}
                                     disabled={revisionForm.processing || !revisionForm.data.revision_notes.trim()}
-                                    className="border-amber-300 bg-amber-600 font-sans text-white hover:bg-amber-700"
                                 >
-                                    {revisionForm.processing ? 'Memproses...' : 'Kirim Minta Revisi'}
+                                    {revisionForm.processing ? 'Memproses...' : 'Kirim Instruksi Revisi'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -1259,31 +1211,48 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                     >
                         <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
-                                <div className="space-y-1">
-                                    <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
-                                    <DialogDescription className="font-sans">
-                                        {previewFileName || approval.dokumen_version?.nama_file}
-                                    </DialogDescription>
-                                    {/* Show status info */}
-                                    {approval.approval_status !== 'pending' && (
-                                        <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
-                                            Dokumen ini sudah {approval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
-                                        </div>
-                                    )}
-                                    {!canApprove && approval.approval_status === 'pending' && (
-                                        <div className="rounded-md bg-yellow-50 p-2 text-xs text-yellow-700">
-                                            Approval ini bukan untuk Anda atau sedang menunggu giliran.
-                                        </div>
-                                    )}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-6">
+                                    <div className="space-y-1">
+                                        <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                        <DialogDescription className="font-sans">
+                                            {previewFileName || approval.dokumen_version?.nama_file}
+                                        </DialogDescription>
+                                        {approval.approval_status !== 'pending' && (
+                                            <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
+                                                Dokumen ini sudah {approval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
+                                            </div>
+                                        )}
+                                        {!canApprove && approval.approval_status === 'pending' && (
+                                            <div className="rounded-md bg-yellow-50 p-2 text-xs text-yellow-700">
+                                                Approval ini bukan untuk Anda atau sedang menunggu giliran.
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <Button
+                                            variant={previewMode === 'signed' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => togglePreviewMode('signed')}
+                                            className={`h-8 text-xs font-sans ${previewMode === 'signed' ? 'bg-blue-600 hover:bg-blue-700 text-white font-medium' : 'border-gray-300 text-gray-700'}`}
+                                        >
+                                            ✍️ Ber-TTD & QR
+                                        </Button>
+                                        <Button
+                                            variant={previewMode === 'original' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => togglePreviewMode('original')}
+                                            className={`h-8 text-xs font-sans ${previewMode === 'original' ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-medium' : 'border-gray-300 text-gray-700'}`}
+                                        >
+                                            📄 PDF Asli (Tanpa TTD)
+                                        </Button>
+                                    </div>
                                 </div>
                             </DialogHeader>
 
                             <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 lg:flex-row">
-                                {/* PDF Preview - Left Side */}
                                 <div
-                                    className={`${
-                                        canApprove && approval.approval_status === 'pending' ? 'min-h-[300px] flex-1 lg:h-auto' : 'w-full'
-                                    } overflow-auto rounded-lg border`}
+                                    className={`${canApprove && approval.approval_status === 'pending' ? 'min-h-[300px] flex-1 lg:h-auto' : 'w-full'
+                                        } overflow-auto rounded-lg border`}
                                 >
                                     {previewFileUrl && (
                                         <PDFViewer
@@ -1295,7 +1264,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     )}
                                 </div>
 
-                                {/* Signature Panel - Right Side - Only show for pending approvals that user can approve AND viewing current version */}
                                 {canApprove &&
                                     approval.approval_status === 'pending' &&
                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId) && (
@@ -1375,7 +1343,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             {signatureData && (
                                                 <>
                                                     <Separator />
-
                                                     <div className="space-y-3">
                                                         <div className="space-y-2">
                                                             <Label htmlFor="preview-comment" className="font-sans">
@@ -1417,90 +1384,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         </div>
                                     )}
                             </div>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* Reject Dialog Modal */}
-                    <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-red-600">
-                                    <IconX className="h-5 w-5" />
-                                    Tolak Dokumen
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Apakah Anda yakin ingin menolak dokumen ini? Alasan penolakan akan dikirimkan ke pembuat dokumen.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="alasan_reject">
-                                        Alasan Penolakan <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Textarea
-                                        id="alasan_reject"
-                                        placeholder="Tuliskan alasan penolakan dokumen secara jelas..."
-                                        value={rejectForm.data.alasan_reject}
-                                        onChange={(e) => rejectForm.setData('alasan_reject', e.target.value)}
-                                        rows={4}
-                                        className="font-sans"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter className="gap-2 sm:gap-0">
-                                <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)} disabled={rejectForm.processing}>
-                                    Batal
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={handleReject}
-                                    disabled={rejectForm.processing || !rejectForm.data.alasan_reject.trim()}
-                                >
-                                    {rejectForm.processing ? 'Memproses...' : 'Konfirmasi Tolak'}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* Request Revision Dialog Modal */}
-                    <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-amber-700">
-                                    <IconRefresh className="h-5 w-5 text-amber-600" />
-                                    Minta Revisi Dokumen
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Kirimkan instruksi perbaikan kepada pengaju agar mengunggah versi berkas PDF yang diperbaiki.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="revision_notes">
-                                        Catatan Instuksi Revisi <span className="text-amber-600">*</span>
-                                    </Label>
-                                    <Textarea
-                                        id="revision_notes"
-                                        placeholder="Jelaskan secara spesifik bagian mana yang harus diperbaiki oleh pembuat dokumen..."
-                                        value={revisionForm.data.revision_notes}
-                                        onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
-                                        rows={4}
-                                        className="font-sans"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter className="gap-2 sm:gap-0">
-                                <Button variant="outline" onClick={() => setIsRevisionDialogOpen(false)} disabled={revisionForm.processing}>
-                                    Batal
-                                </Button>
-                                <Button
-                                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
-                                    onClick={handleRequestRevision}
-                                    disabled={revisionForm.processing || !revisionForm.data.revision_notes.trim()}
-                                >
-                                    {revisionForm.processing ? 'Memproses...' : 'Kirim Instruksi Revisi'}
-                                </Button>
-                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </SidebarInset>

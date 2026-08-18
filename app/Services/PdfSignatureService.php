@@ -163,25 +163,28 @@ class PdfSignatureService
 
         // Add text information below signature
         if ($options['add_text']) {
-            $pdf->SetFont('Arial', '', 8);
-            $pdf->SetTextColor(0, 0, 0);
-
-            $textY = $options['y'] + $options['height'] + 2;
+            $textY = $options['y'] + $options['height'] + 1;
 
             // Add name if provided
-            if ($options['name']) {
-                $pdf->SetXY($options['x'], $textY);
-                $pdf->Cell($options['width'], 4, $options['name'], 0, 0, 'C');
-                $textY += 4;
+            if (!empty($options['name'])) {
+                $pdf->SetFont('Arial', 'B', 9.5);
+                $pdf->SetTextColor(30, 41, 59);
+                $pdf->SetXY($options['x'] - 5, $textY);
+                $pdf->Cell($options['width'] + 10, 5, $options['name'], 0, 0, 'C');
+                $textY += 5;
             }
 
-            // Add signed text
-            $pdf->SetXY($options['x'], $textY);
-            $pdf->Cell($options['width'], 4, $options['text'], 0, 0, 'C');
+            // Add step / role text
+            $pdf->SetFont('Arial', '', 8.5);
+            $pdf->SetTextColor(71, 85, 105);
+            $pdf->SetXY($options['x'] - 5, $textY);
+            $pdf->Cell($options['width'] + 10, 4.5, $options['text'], 0, 0, 'C');
 
             // Add date
-            $pdf->SetXY($options['x'], $textY + 4);
-            $pdf->Cell($options['width'], 4, $options['date'], 0, 0, 'C');
+            $pdf->SetFont('Arial', '', 7.5);
+            $pdf->SetTextColor(100, 116, 139);
+            $pdf->SetXY($options['x'] - 5, $textY + 4.5);
+            $pdf->Cell($options['width'] + 10, 4.5, 'Tgl: ' . $options['date'], 0, 0, 'C');
         }
     }
 
@@ -304,49 +307,96 @@ class PdfSignatureService
                 if ($qrCodePath) {
                     $fullQrPath = Storage::disk('public')->path($qrCodePath);
                     if (file_exists($fullQrPath)) {
-                        $pdf->Image($fullQrPath, 170, 10, 25, 25, 'PNG');
+                        $pdf->Image($fullQrPath, 182, 8, 14, 14, 'PNG');
+                        $pdf->SetFont('Arial', 'B', 5);
+                        $pdf->SetTextColor(71, 85, 105);
+                        $pdf->SetXY(174, 22.5);
+                        $pdf->Cell(30, 3, 'VERIFIED DOCUMENT', 0, 0, 'C');
                     }
                 }
 
                 // Add signatures on the last page
                 if ($i == $pageCount && $approvals->count() > 0) {
-                    $yPosition = 220; // Starting Y position
-                    $xPosition = 20; // Starting X position
-                    $signaturesPerRow = 3;
-                    $signatureWidth = 35;
-                    $signatureHeight = 13;
-                    $spacing = 60; // Horizontal spacing
+                    $yPosition = 195; // Starting Y position for perfectly aligned row
+                    $signatureWidth = 50;  // 50mm width per signature block
+                    $signatureHeight = 22; // 22mm height per signature block
+                    // A4 = 210mm. Symmetric 22mm margins (aligns left signature with paragraph text indent)
+                    // Kanan: x=138 (138+50=188mm), Tengah: x=80 (80+50=130mm), Kiri: x=22 (22+50=72mm)
+                    $columnXPositions = [138, 80, 22]; // Order: 0=Kanan, 1=Tengah, 2=Kiri
 
-                    foreach ($approvals as $index => $approval) {
-                        if (!$approval->signature_path) {
+                    // Sort by step_order so Kepala Divisi (highest step) gets correct column
+                    $sortedApprovals = $approvals->sortBy(fn($a) => $a->masterflowStep?->step_order ?? 999);
+
+                    $sigIndex = 0; // Separate counter — only increments for approvals with a valid signature
+
+                    \Illuminate\Support\Facades\Log::info('[PdfSignature] Rendering signatures', [
+                        'total_approvals' => $sortedApprovals->count(),
+                    ]);
+
+                    foreach ($sortedApprovals as $approval) {
+                        $sigPath = $approval->signature_path;
+                        $fullSignaturePath = $sigPath ? Storage::disk('public')->path($sigPath) : null;
+
+                        // Fallback to user default/first signature if missing or file deleted
+                        if (!$fullSignaturePath || !file_exists($fullSignaturePath)) {
+                            $userSig = $approval->user?->defaultSignature?->signature_path
+                                    ?? $approval->user?->signatures?->first()?->signature_path;
+
+                            if ($userSig) {
+                                $candidatePath = Storage::disk('public')->path($userSig);
+                                if (file_exists($candidatePath)) {
+                                    $sigPath = $userSig;
+                                    $fullSignaturePath = $candidatePath;
+
+                                    // Persist repaired signature path back to database
+                                    try {
+                                        $approval->update(['signature_path' => $sigPath]);
+                                    } catch (\Throwable $e) {
+                                        // Ignore DB write errors during PDF rendering
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!$fullSignaturePath || !file_exists($fullSignaturePath)) {
+                            \Illuminate\Support\Facades\Log::warning('[PdfSignature] Skipping - no valid signature file found', [
+                                'approval_id' => $approval->id,
+                                'user'        => $approval->user?->name,
+                                'step'        => $approval->masterflowStep?->step_name,
+                            ]);
                             continue;
                         }
 
-                        $fullSignaturePath = Storage::disk('public')->path($approval->signature_path);
+                        // Calculate position (Kanan → Tengah → Kiri) using sigIndex, not collection key
+                        $col = $sigIndex % 3;
+                        $row = floor($sigIndex / 3);
 
-                        if (!file_exists($fullSignaturePath)) {
-                            continue; // Skip if signature file not found
-                        }
+                        $x = $columnXPositions[$col];
+                        $y = $yPosition + ($row * 40); // 40mm vertical spacing if wrapping past 3
 
-                        // Calculate position
-                        $row = floor($index / $signaturesPerRow);
-                        $col = $index % $signaturesPerRow;
-
-                        $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
-
-                        $options = [
+                        \Illuminate\Support\Facades\Log::info('[PdfSignature] Placing signature', [
+                            'approval_id' => $approval->id,
+                            'user' => $approval->user?->name,
+                            'step' => $approval->masterflowStep?->step_name,
+                            'sigIndex' => $sigIndex,
+                            'col' => $col,
                             'x' => $x,
                             'y' => $y,
-                            'width' => $signatureWidth,
-                            'height' => $signatureHeight,
+                        ]);
+
+                        $options = [
+                            'x'        => $x,
+                            'y'        => $y,
+                            'width'    => $signatureWidth,
+                            'height'   => $signatureHeight,
                             'add_text' => true,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Approved',
-                            'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
-                            'name' => $approval->user?->name ?? null,
+                            'text'     => $approval->masterflowStep?->step_name ?? 'Approved',
+                            'date'     => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
+                            'name'     => $approval->user?->name ?? null,
                         ];
 
                         $this->addSignatureToPage($pdf, $fullSignaturePath, $options);
+                        $sigIndex++; // Only increment after a valid signature is placed
                     }
                 }
             }
