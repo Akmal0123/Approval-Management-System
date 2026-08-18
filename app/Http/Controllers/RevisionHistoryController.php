@@ -26,6 +26,7 @@ class RevisionHistoryController extends Controller
                     'tgl_upload' => $version->tgl_upload,
                     'tipe_file' => $version->tipe_file,
                     'file_url' => $version->file_url,
+                    'full_file_url' => $version->full_file_url,
                     'size_file' => $version->size_file,
                     'status' => $version->status,
                     'created_at' => $version->created_at,

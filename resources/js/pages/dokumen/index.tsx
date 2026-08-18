@@ -174,6 +174,12 @@ export default function UserDokumen() {
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
     const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+    const [sigBoxPosition, setSigBoxPosition] = useState<{ x: number; y: number; page: string }>({
+        x: 70,
+        y: 80,
+        page: 'last',
+    });
 
     // Helper to check if text or any word starts with query
     const startsWithWord = (text: string | null | undefined, query: string): boolean => {
@@ -514,6 +520,14 @@ export default function UserDokumen() {
                 file: file,
             }));
 
+            // Create Object URL for PDF Preview & Interactive Signature Placement
+            try {
+                const objectUrl = URL.createObjectURL(file);
+                setPdfPreviewUrl(objectUrl);
+            } catch (err) {
+                console.warn('Failed to create PDF preview object URL:', err);
+            }
+
             if (errors.file) {
                 setErrors((prev) => ({
                     ...prev,
@@ -738,6 +752,7 @@ export default function UserDokumen() {
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         setStepModes({}); // Reset step modes
+        setPdfPreviewUrl(null);
         setErrors({});
         setIsCreateDialogOpen(true);
     };
@@ -1334,44 +1349,34 @@ export default function UserDokumen() {
                                                     <SelectValue placeholder="Pilih Tipe Dokumen" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="proposal" className="font-sans">📊 Proposal Business</SelectItem>
-                                                    <SelectItem value="transaksi" className="font-sans">💳 Transaksi Keuangan</SelectItem>
-                                                    <SelectItem value="memo" className="font-sans">📝 Internal Memo</SelectItem>
-                                                    <SelectItem value="contract" className="font-sans">📜 Perjanjian / Kontrak</SelectItem>
+                                                    <SelectItem value="proposal" className="font-sans">📊 Proposal</SelectItem>
+                                                    <SelectItem value="pengadaan" className="font-sans">📦 Pengadaan</SelectItem>
+                                                    <SelectItem value="po" className="font-sans">🛒 PO (Purchase Order)</SelectItem>
+                                                    <SelectItem value="pr" className="font-sans">📋 PR (Purchase Requisition)</SelectItem>
+                                                    <SelectItem value="memo_internal" className="font-sans">📝 Memo Internal</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="nominal" className="font-sans">
-                                                Nominal Transaksi (Rp)
-                                            </Label>
-                                            <Input
-                                                id="nominal"
-                                                name="nominal"
-                                                type="number"
-                                                placeholder="Contoh: 4500000"
-                                                value={formData.nominal}
-                                                onChange={handleInputChange}
-                                                className="font-sans"
-                                            />
-                                            <span className="text-[11px] text-emerald-700 font-medium">
-                                                💡 Nominal &lt; 5 Juta otomatis rute Manager level
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* QR Code Auto Badge Banner */}
-                                    <div className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-50/70 p-3 text-xs text-emerald-900 shadow-sm">
-                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
-                                            QR
-                                        </div>
-                                        <div className="space-y-0.5">
-                                            <div className="font-bold text-emerald-950">Auto QR Code Verification (System v2.0)</div>
-                                            <div className="text-emerald-800/90">
-                                                QR Code verifikasi unik akan otomatis di-generate dan distempel pada header berkas PDF.
+                                        {formData.tipe_dokumen === 'proposal' && (
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="nominal" className="font-sans">
+                                                    Nominal Transaksi (Rp)
+                                                </Label>
+                                                <Input
+                                                    id="nominal"
+                                                    name="nominal"
+                                                    type="number"
+                                                    placeholder="Contoh: 4500000"
+                                                    value={formData.nominal}
+                                                    onChange={handleInputChange}
+                                                    className="font-sans"
+                                                />
+                                                <span className="text-[11px] text-emerald-700 font-medium">
+                                                    💡 Nominal &lt; 5 Juta otomatis rute Manager level
+                                                </span>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
 
                                     {/* Deadline */}
@@ -1700,21 +1705,85 @@ export default function UserDokumen() {
                                             📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF. (Max 10MB)
                                         </p>
 
-                                        {/* Auto QR Code Feature Info */}
-                                        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 mt-1">
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 font-bold text-xs text-white shadow-sm">
-                                                QR
-                                            </div>
-                                            <div className="text-xs text-emerald-950">
-                                                <div className="flex items-center gap-2 font-bold">
-                                                    <span>Auto QR Code Verifikasi v2.0</span>
-                                                    <Badge className="bg-emerald-600 text-[10px] text-white">Otomatis Tergenerasi</Badge>
+                                        {/* Live PDF File Preview & Interactive Signature Placement Box */}
+                                        {pdfPreviewUrl && (
+                                            <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 font-bold text-sm text-blue-950">
+                                                        <FileTextIcon className="h-4 w-4 text-blue-600" />
+                                                        <span>Preview File & Kotak Tanda Tangan Approved</span>
+                                                    </div>
+                                                    <Badge className="bg-blue-600 text-white text-[10px]">Pratinjau Interaktif</Badge>
                                                 </div>
-                                                <div className="mt-0.5 text-emerald-800">
-                                                    QR Code verifikasi unik akan dibuat secara otomatis dan distempel pada setiap lembar PDF.
+
+                                                {/* Signature Box Placement Controls & Presets */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                    <div>
+                                                        <Label className="text-xs text-blue-900 font-medium">Posisi Stempel Tanda Tangan</Label>
+                                                        <Select
+                                                            value={`${sigBoxPosition.x}-${sigBoxPosition.y}`}
+                                                            onValueChange={(val) => {
+                                                                const [x, y] = val.split('-').map(Number);
+                                                                setSigBoxPosition((prev) => ({ ...prev, x, y }));
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="mt-1 h-8 bg-white text-xs font-sans">
+                                                                <SelectValue placeholder="Pilih Posisi Preset" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="70-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
+                                                                <SelectItem value="15-80" className="font-sans">↙️ Bawah Kiri</SelectItem>
+                                                                <SelectItem value="70-18" className="font-sans">↗️ Atas Kanan</SelectItem>
+                                                                <SelectItem value="15-18" className="font-sans">↖️ Atas Kiri</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div>
+                                                        <Label className="text-xs text-blue-900 font-medium">Halaman Penempatan</Label>
+                                                        <Select
+                                                            value={sigBoxPosition.page}
+                                                            onValueChange={(val) => setSigBoxPosition((prev) => ({ ...prev, page: val }))}
+                                                        >
+                                                            <SelectTrigger className="mt-1 h-8 bg-white text-xs font-sans">
+                                                                <SelectValue placeholder="Pilih Halaman" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="last" className="font-sans">📄 Halaman Terakhir (Last Page)</SelectItem>
+                                                                <SelectItem value="first" className="font-sans">📄 Halaman Pertama (First Page)</SelectItem>
+                                                                <SelectItem value="all" className="font-sans">📑 Semua Halaman (All Pages)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Visual PDF Preview Canvas Container with Positioned Stamp Box */}
+                                                <div className="relative overflow-hidden rounded-lg border border-blue-300 bg-slate-100 shadow-inner min-h-[300px] h-[350px]">
+                                                    <iframe
+                                                        src={`${pdfPreviewUrl}#toolbar=0`}
+                                                        className="w-full h-full border-0"
+                                                        title="Preview PDF"
+                                                    />
+                                                    {/* Interactive Approval Signature Box Overlay */}
+                                                    <div
+                                                        className="absolute border-2 border-dashed border-emerald-600 bg-emerald-100/90 rounded-md p-2 shadow-lg cursor-move transition-all"
+                                                        style={{
+                                                            left: `${sigBoxPosition.x}%`,
+                                                            top: `${sigBoxPosition.y}%`,
+                                                            transform: 'translate(-50%, -50%)',
+                                                            zIndex: 10,
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950">
+                                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                            <span>[ KOTAK APPROVED TTD ]</span>
+                                                        </div>
+                                                        <div className="text-[9px] text-emerald-800 font-medium mt-0.5">
+                                                            Tanda tangan & QR akan distempel di sini
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                         {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
                                     </div>
                                 </div>

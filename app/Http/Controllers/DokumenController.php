@@ -646,19 +646,35 @@ class DokumenController extends Controller
      */
     public function destroy(Dokumen $dokumen)
     {
+        // Access control check
+        $user = Auth::user();
+        if ($user && (int)$dokumen->user_id !== (int)$user->id && !app(ContextService::class)->isSuperAdmin()) {
+            if (request()->expectsJson() || request()->wantsJson()) {
+                return response()->json(['message' => 'Anda tidak berhak menghapus dokumen ini.'], 403);
+            }
+            return back()->withErrors(['error' => 'Anda tidak berhak menghapus dokumen ini.']);
+        }
+
         // Only allow delete if document is draft
         if ($dokumen->status !== 'draft') {
+            if (request()->expectsJson() || request()->wantsJson()) {
+                return response()->json(['message' => 'Hanya dokumen draft yang dapat dihapus.'], 422);
+            }
             return back()->withErrors(['error' => 'Hanya dokumen draft yang dapat dihapus.']);
         }
 
         // Delete associated files
         foreach ($dokumen->versions as $version) {
-            if (Storage::disk('public')->exists($version->file_url)) {
+            if ($version->file_url && Storage::disk('public')->exists($version->file_url)) {
                 Storage::disk('public')->delete($version->file_url);
             }
         }
 
         $dokumen->delete();
+
+        if (request()->expectsJson() || request()->wantsJson()) {
+            return response()->json(['message' => 'Dokumen berhasil dihapus!']);
+        }
 
         return redirect()->route('dokumen.index')
             ->with('success', 'Dokumen berhasil dihapus!');

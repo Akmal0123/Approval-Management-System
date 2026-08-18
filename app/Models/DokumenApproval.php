@@ -342,7 +342,7 @@ class DokumenApproval extends Model
     }
 
     /**
-     * Get the full URL of the signature file.
+     * Get the full URL of the signature file with access token.
      */
     public function getSignatureUrlAttribute(): ?string
     {
@@ -350,6 +350,6 @@ class DokumenApproval extends Model
             return null;
         }
 
-        return \Illuminate\Support\Facades\Storage::url($this->signature_path);
+        return \App\Services\StorageTokenService::generateUrl($this->signature_path, $this->user_id);
     }
 }

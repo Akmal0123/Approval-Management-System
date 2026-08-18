@@ -102,6 +102,8 @@ interface Dokumen {
     id: number;
     nomor_dokumen: string;
     judul_dokumen: string;
+    tipe_dokumen?: string | null;
+    nominal?: number | string | null;
     user_id: number;
     company_id?: number;
     aplikasi_id?: number;
@@ -168,16 +170,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     }
 
     const [dokumen, setDokumen] = useState<Dokumen>(initialDokumen);
-    const [isNominalMasked, setIsNominalMasked] = useState(false);
+    const [isNominalMasked, setIsNominalMasked] = useState(true);
 
     const formatNominalDisplay = (nominalVal: number | string | null | undefined) => {
         if (!nominalVal || Number(nominalVal) === 0) return null;
         const num = Number(nominalVal);
         if (isNominalMasked) {
-            const numStr = Math.round(num).toString();
-            if (numStr.length <= 4) return 'Rp ' + '•'.repeat(numStr.length);
-            const prefix = numStr.substring(0, 1);
-            return `Rp ${prefix}.***.***.***`;
+            return 'Rp xxxxxx';
         }
         return `Rp ${num.toLocaleString('id-ID')}`;
     };
@@ -682,6 +681,11 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             showToast.success('🎉 Dokumen berhasil dihapus!');
             router.visit('/dokumen');
         } catch (error: any) {
+            if (error.response?.status === 404) {
+                showToast.info('ℹ️ Dokumen sudah tidak ditemukan atau telah dihapus sebelumnya.');
+                router.visit('/dokumen');
+                return;
+            }
             showToast.error(`❌ Gagal menghapus dokumen. ${error.response?.data?.message || error.message}`);
         }
     };
@@ -998,7 +1002,20 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         <CardTitle className="font-serif text-lg">Informasi Dokumen</CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        <div className="grid gap-6 sm:grid-cols-3">
+                                        <div className="grid gap-6 sm:grid-cols-4">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                    Tipe Dokumen
+                                                </Label>
+                                                <div className="font-medium">
+                                                    {dokumen.tipe_dokumen === 'proposal' && '📊 Proposal'}
+                                                    {dokumen.tipe_dokumen === 'pengadaan' && '📦 Pengadaan'}
+                                                    {dokumen.tipe_dokumen === 'po' && '🛒 PO (Purchase Order)'}
+                                                    {dokumen.tipe_dokumen === 'pr' && '📋 PR (Purchase Requisition)'}
+                                                    {dokumen.tipe_dokumen === 'memo_internal' && '📝 Memo Internal'}
+                                                    {!['proposal', 'pengadaan', 'po', 'pr', 'memo_internal'].includes(dokumen.tipe_dokumen || '') && (dokumen.tipe_dokumen || '-')}
+                                                </div>
+                                            </div>
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Masterflow
@@ -1017,7 +1034,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
-                                            {dokumen.nominal && Number(dokumen.nominal) > 0 && (
+                                            {dokumen.tipe_dokumen === 'proposal' && dokumen.nominal && Number(dokumen.nominal) > 0 && (
                                                 <div className="space-y-1.5">
                                                     <div className="flex items-center gap-2">
                                                         <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Nominal Transaksi</Label>

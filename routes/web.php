@@ -139,6 +139,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Stream signed PDF (on-demand generation for preview)
         Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
+
+        // Document revision history & comparison
+        Route::get('/{dokumen}/history', [\App\Http\Controllers\RevisionHistoryController::class, 'index'])->name('api.dokumen.history');
+        Route::get('/{dokumen}/compare', [\App\Http\Controllers\RevisionHistoryController::class, 'compare'])->name('api.dokumen.compare');
     });
 
     // Masterflows API endpoint for document creation
@@ -149,6 +153,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dokumen/{dokumen}/detail', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
     Route::get('/dokumen/{dokumen}/edit', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.edit');
     Route::match(['post', 'put'], '/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->where('dokumen', '[0-9]+')->name('dokumen.web_update');
+    Route::delete('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'destroy'])->where('dokumen', '[0-9]+')->name('dokumen.web_destroy');
     Route::post('/dokumen/{dokumen}/submit', [\App\Http\Controllers\DokumenController::class, 'submit'])->where('dokumen', '[0-9]+')->name('dokumen.web_submit');
 });
 
@@ -225,11 +230,32 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/debug.php';
 require __DIR__ . '/test-broadcast.php';
 
-// Storage fallback route for Windows / missing storage symlink
-Route::get('/storage/{path}', function ($path) {
-    $filePath = storage_path('app/public/' . $path);
+use App\Services\StorageTokenService;
+
+// Storage fallback route for Windows / missing storage symlink with token security
+Route::get('/storage/{path}', function (\Illuminate\Http\Request $request, $path) {
+    $diskPath = \Illuminate\Support\Facades\Storage::disk('public')->path($path);
+    $filePath = file_exists($diskPath) ? $diskPath : storage_path('app/public/' . $path);
+
     if (!file_exists($filePath)) {
-        abort(404);
+        abort(404, 'Berkas tidak ditemukan.');
     }
+
+    $token = $request->query('token');
+    $user = Auth::user();
+    $isSuperAdmin = false;
+    if ($user) {
+        try {
+            $contextService = app(ContextService::class);
+            $isSuperAdmin = $contextService->isSuperAdmin();
+        } catch (\Throwable $e) {
+            $isSuperAdmin = false;
+        }
+    }
+
+    if (!StorageTokenService::validateToken($path, $token, $user ? $user->id : null, $isSuperAdmin)) {
+        abort(403, 'Akses ditolak: Token storage tidak valid, kadaluarsa, atau Anda tidak berhak mengakses berkas ini.');
+    }
+
     return response()->file($filePath);
 })->where('path', '.*')->name('storage.fallback');

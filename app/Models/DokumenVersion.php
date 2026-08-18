@@ -74,11 +74,21 @@ class DokumenVersion extends Model
     }
 
     /**
-     * Get the full file URL.
+     * The accessors to append to the model's array form.
+     */
+    protected $appends = [
+        'full_file_url',
+    ];
+
+    /**
+     * Get the full file URL with access token.
      */
     public function getFullFileUrlAttribute(): string
     {
-        return Storage::url($this->file_url);
+        if (!$this->file_url) {
+            return '';
+        }
+        return \App\Services\StorageTokenService::generateUrl($this->file_url);
     }
 
     /**

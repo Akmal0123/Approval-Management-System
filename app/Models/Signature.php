@@ -71,7 +71,7 @@ class Signature extends Model
         }
 
         $path = ltrim($this->signature_path ?? '', '/');
-        return '/storage/' . $path;
+        return \App\Services\StorageTokenService::generateUrl($path, $this->user_id);
     }
 
     /**
