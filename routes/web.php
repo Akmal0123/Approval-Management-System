@@ -184,6 +184,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('signatures', [\App\Http\Controllers\SignatureController::class, 'index'])->name('signatures.index');
     Route::post('signatures', [\App\Http\Controllers\SignatureController::class, 'store'])->name('signatures.store');
     Route::post('signatures/upload', [\App\Http\Controllers\SignatureController::class, 'upload'])->name('signatures.upload');
+    Route::get('signatures/{signature}/file', [\App\Http\Controllers\SignatureController::class, 'file'])->name('signatures.file');
     Route::post('signatures/{signature}/set-default', [\App\Http\Controllers\SignatureController::class, 'setDefault'])->name('signatures.setDefault');
     Route::delete('signatures/{signature}', [\App\Http\Controllers\SignatureController::class, 'destroy'])->name('signatures.destroy');
 

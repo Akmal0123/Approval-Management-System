@@ -59,7 +59,7 @@ class Signature extends Model
      */
     public function getSignatureUrlAttribute(): string
     {
-        return Storage::disk('public')->url($this->signature_path);
+        return route('signatures.file', ['signature' => $this->id]);
     }
 
     /**
@@ -111,16 +111,16 @@ class Signature extends Model
         static::deleting(function ($signature) {
             if (!$signature->isForceDeleting()) {
                 // This is a soft delete, delete the file
-                if ($signature->signature_path && Storage::disk('public')->exists($signature->signature_path)) {
-                    Storage::disk('public')->delete($signature->signature_path);
+                if ($signature->signature_path && Storage::disk('local')->exists($signature->signature_path)) {
+                    Storage::disk('local')->delete($signature->signature_path);
                 }
             }
         });
 
         // When force deleting (permanent delete), also ensure file is deleted
         static::forceDeleting(function ($signature) {
-            if ($signature->signature_path && Storage::disk('public')->exists($signature->signature_path)) {
-                Storage::disk('public')->delete($signature->signature_path);
+            if ($signature->signature_path && Storage::disk('local')->exists($signature->signature_path)) {
+                Storage::disk('local')->delete($signature->signature_path);
             }
         });
     }

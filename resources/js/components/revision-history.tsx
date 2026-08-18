@@ -230,7 +230,7 @@ export default function RevisionHistory({ dokumenId, className = '' }: RevisionH
                                                 </Badge>
                                             )}
                                             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                                <a href={`/storage/${version.file_url}`} target="_blank" rel="noopener noreferrer">
+                                                <a href={`/api/dokumen/${dokumenId}/download/${version.id}`} target="_blank" rel="noopener noreferrer">
                                                     <Download className="h-4 w-4" />
                                                 </a>
                                             </Button>

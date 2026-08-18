@@ -247,7 +247,7 @@ class DokumenController extends Controller
                 $filename = $validated['nomor_dokumen'] . '_' . $cleanJudul . '_v1.' . $extension;
 
                 // Store file in document-specific folder
-                $path = $file->storeAs($folderPath, $filename, 'public');
+                $path = $file->storeAs($folderPath, $filename, 'local');
 
                 $version = DokumenVersion::create([
                     'dokumen_id' => $dokumen->id,
@@ -263,7 +263,7 @@ class DokumenController extends Controller
                 if ($request->masterflow_id === 'custom') {
                     // Custom approval flow
                     $minOrder = collect($validated['custom_approvers'])->min('order');
-                    
+
                     foreach ($validated['custom_approvers'] as $index => $approver) {
                         $targetUser = \App\Models\User::where('email', $approver['email'])->first();
 
@@ -278,7 +278,7 @@ class DokumenController extends Controller
                             'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                             'tgl_deadline' => $validated['tgl_deadline'],
                         ]);
-                        
+
                         $frontendIdToApprovalId["custom_{$index}"] = $approval->id;
 
                         if ($approval->user_id && $isFirstLevel && $submitType !== 'draft') {
@@ -288,7 +288,7 @@ class DokumenController extends Controller
                 } else {
                     // Existing masterflow - create approvals from selected approvers
                     $masterflow = Masterflow::with('steps')->find($validated['masterflow_id']);
-                    
+
                     $minStepOrder = $masterflow->steps->min('step_order');
 
                     Log::info('Processing masterflow steps', [
@@ -324,7 +324,7 @@ class DokumenController extends Controller
                                     'group_index' => $groupIndex,
                                     'jenis_group' => $stepApprover['jenis_group'],
                                 ]);
-                                
+
                                 if (!isset($frontendIdToApprovalId["group_{$step->id}"])) {
                                     $frontendIdToApprovalId["group_{$step->id}"] = [];
                                 }
@@ -338,10 +338,10 @@ class DokumenController extends Controller
                                         'dokumen_id' => $dokumen->id,
                                     ]);
                                     broadcast(new ApprovalCreated($approval))->toOthers();
-    
+
                                     // Dispatch email notification job
                                     SendApprovalNotification::dispatch($approval);
-    
+
                                     // Broadcast browser notification to approver
                                     broadcast(new BrowserNotificationEvent(
                                         userId: $userId,
@@ -368,7 +368,7 @@ class DokumenController extends Controller
                                     'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
                                     'tgl_deadline' => $validated['tgl_deadline'],
                                 ]);
-                                
+
                                 $userId = $validated['approvers'][$step->id];
                                 $frontendIdToApprovalId["step_{$step->id}_user_{$userId}"] = $approval->id;
 
@@ -380,10 +380,10 @@ class DokumenController extends Controller
                                         'dokumen_id' => $dokumen->id,
                                     ]);
                                     broadcast(new ApprovalCreated($approval))->toOthers();
-    
+
                                     // Dispatch email notification job
                                     SendApprovalNotification::dispatch($approval);
-    
+
                                     // Broadcast browser notification to approver
                                     broadcast(new BrowserNotificationEvent(
                                         userId: $validated['approvers'][$step->id],
@@ -398,7 +398,7 @@ class DokumenController extends Controller
                     }
                 }
             }
-            
+
             // Handle signature positions if any
             if ($request->has('signature_positions')) {
                 $positions = json_decode($request->signature_positions, true);
@@ -407,7 +407,7 @@ class DokumenController extends Controller
                     foreach ($positions as $pos) {
                         $frontendId = $pos['dokumen_approval_id'];
                         $approvalIds = [];
-                        
+
                         if (isset($frontendIdToApprovalId[$frontendId])) {
                             $mapped = $frontendIdToApprovalId[$frontendId];
                             if (is_array($mapped)) {
@@ -416,7 +416,7 @@ class DokumenController extends Controller
                                 $approvalIds = [$mapped];
                             }
                         }
-                        
+
                         foreach ($approvalIds as $approvalId) {
                             $positionsData[] = [
                                 'dokumen_id' => $dokumen->id,
@@ -563,7 +563,7 @@ class DokumenController extends Controller
                 // Get latest version number and increment
                 $latestVersion = $dokumen->versions()->latest()->first();
                 $versionParts = explode('.', $latestVersion->version);
-                $newVersion = $versionParts[0] . '.' . ((int)$versionParts[1] + 1);
+                $newVersion = $versionParts[0] . '.' . ((int) $versionParts[1] + 1);
 
                 // Create filename: nomor_dokumen_judul_dokumen_v{version}.ext
                 $extension = $file->getClientOriginalExtension();
@@ -571,7 +571,7 @@ class DokumenController extends Controller
                 $filename = $dokumen->nomor_dokumen . '_' . $cleanJudul . '_v' . $versionNumber . '.' . $extension;
 
                 // Store file in document-specific folder
-                $path = $file->storeAs($folderPath, $filename, 'public');
+                $path = $file->storeAs($folderPath, $filename, 'local');
 
                 // Set old versions to inactive
                 $dokumen->versions()->update(['status' => 'inactive']);
@@ -613,8 +613,8 @@ class DokumenController extends Controller
 
         // Delete associated files
         foreach ($dokumen->versions as $version) {
-            if (Storage::disk('public')->exists($version->file_url)) {
-                Storage::disk('public')->delete($version->file_url);
+            if (Storage::disk('local')->exists($version->file_url)) {
+                Storage::disk('local')->delete($version->file_url);
             }
         }
 
@@ -643,12 +643,12 @@ class DokumenController extends Controller
 
             // Notify first-level approvers that are pending
             $firstLevelApprovals = $dokumen->approvals()->where('approval_status', 'pending')->get();
-            
+
             foreach ($firstLevelApprovals as $approval) {
                 if ($approval->user_id) {
                     // Dispatch email notification job
                     SendApprovalNotification::dispatch($approval);
-    
+
                     // Broadcast browser notification to approver
                     broadcast(new BrowserNotificationEvent(
                         userId: $approval->user_id,
@@ -677,7 +677,7 @@ class DokumenController extends Controller
     {
         $masterflow = $dokumen->masterflow;
         $latestVersion = $dokumen->latestVersion;
-        
+
         $minStepOrder = $masterflow->steps->min('step_order');
 
         foreach ($masterflow->steps as $step) {
@@ -789,7 +789,7 @@ class DokumenController extends Controller
             $filename = $dokumen->nomor_dokumen . '_' . $cleanJudul . '_v' . str_replace('.', '', $newVersion) . '.' . $extension;
 
             // Store file in document-specific folder
-            $path = $file->storeAs($folderPath, $filename, 'public');
+            $path = $file->storeAs($folderPath, $filename, 'local');
 
             // Create new version
             $dokumenVersion = DokumenVersion::create([
@@ -1102,8 +1102,12 @@ class DokumenController extends Controller
             return back()->withErrors(['error' => 'Versi dokumen tidak ditemukan.']);
         }
 
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
         // Check if original file exists
-        if (!$version->file_url || !Storage::disk('public')->exists($version->file_url)) {
+        if (!$version->file_url || !Storage::disk('local')->exists($version->file_url)) {
             return back()->withErrors(['error' => 'File tidak ditemukan.']);
         }
 
@@ -1140,7 +1144,7 @@ class DokumenController extends Controller
         }
 
         // Download original file
-        $filePath = Storage::disk('public')->path($version->file_url);
+        $filePath = Storage::disk('local')->path($version->file_url);
         return response()->download($filePath, $version->nama_file);
     }
 
@@ -1158,8 +1162,12 @@ class DokumenController extends Controller
             abort(404, 'Versi dokumen tidak ditemukan.');
         }
 
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
         // Check if original file exists
-        if (!$version->file_url || !Storage::disk('public')->exists($version->file_url)) {
+        if (!$version->file_url || !Storage::disk('local')->exists($version->file_url)) {
             abort(404, 'File tidak ditemukan.');
         }
 
@@ -1173,7 +1181,7 @@ class DokumenController extends Controller
 
         // If no signatures or not a PDF, stream original file
         if ($approvedSignatures->count() === 0 || strtolower($version->tipe_file) !== 'pdf') {
-            $filePath = Storage::disk('public')->path($version->file_url);
+            $filePath = Storage::disk('local')->path($version->file_url);
             return response()->file($filePath, [
                 'Content-Type' => 'application/pdf',
             ]);
@@ -1198,10 +1206,43 @@ class DokumenController extends Controller
             ]);
 
             // Fallback to original file
-            $filePath = Storage::disk('public')->path($version->file_url);
+            $filePath = Storage::disk('local')->path($version->file_url);
             return response()->file($filePath, [
                 'Content-Type' => 'application/pdf',
             ]);
         }
+    }
+
+    /**
+     * Check if user has access to view/download this document
+     */
+    private function canAccessDokumen(\App\Models\Dokumen $dokumen)
+    {
+        if ($this->contextService->isSuperAdmin()) {
+            return true;
+        }
+
+        $userId = \Illuminate\Support\Facades\Auth::id();
+        
+        // Is creator?
+        if ($dokumen->user_id === $userId) {
+            return true;
+        }
+
+        // Is approver?
+        $isApprover = $dokumen->approvals()->where('user_id', $userId)->exists();
+        if ($isApprover) {
+            return true;
+        }
+        
+        // Or Admin in the same context
+        $context = $this->contextService->getContext();
+        if ($context && $context->role && strtolower($context->role->role_name) === 'admin') {
+            if ($dokumen->company_id === $context->company_id && $dokumen->aplikasi_id === $context->aplikasi_id) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -427,7 +427,7 @@ export default function SignatureManager() {
                                         </div>
                                         <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2">
                                             <img
-                                                src={`/storage/${signature.signature_path}`}
+                                                src={`/signatures/${signature.id}/file`}
                                                 alt="Tanda Tangan"
                                                 className="max-h-full max-w-full object-contain"
                                                 onError={(e) => {

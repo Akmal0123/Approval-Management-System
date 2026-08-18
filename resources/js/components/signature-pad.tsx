@@ -191,7 +191,7 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
         }
 
         // Use the storage path directly to ensure it works regardless of APP_URL
-        const signatureUrl = `/storage/${selectedSignature.signature_path}`;
+        const signatureUrl = `/signatures/${selectedSignature.id}/file`;
 
         onSignatureComplete(signatureUrl);
     };
@@ -295,7 +295,7 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                                         <CardContent className="p-4">
                                             <div className="relative flex aspect-[3/1] items-center justify-center rounded border bg-white">
                                                 <img
-                                                    src={`/storage/${signature.signature_path}`}
+                                                    src={`/signatures/${signature.id}/file`}
                                                     alt="Signature"
                                                     className="max-h-full max-w-full object-contain"
                                                 />

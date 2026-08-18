@@ -78,7 +78,7 @@ class DokumenVersionController extends Controller
             // Store file
             $file = $request->file('file');
             $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('dokumen', $filename, 'public');
+            $path = $file->storeAs('dokumen', $filename, 'local');
 
             // Create new version
             $version = DokumenVersion::create([
@@ -209,8 +209,8 @@ class DokumenVersionController extends Controller
         }
 
         // Delete file from storage
-        if (Storage::disk('public')->exists($version->file_url)) {
-            Storage::disk('public')->delete($version->file_url);
+        if (Storage::disk('local')->exists($version->file_url)) {
+            Storage::disk('local')->delete($version->file_url);
         }
 
         $version->delete();
@@ -229,12 +229,12 @@ class DokumenVersionController extends Controller
             abort(404);
         }
 
-        if (!Storage::disk('public')->exists($version->file_url)) {
+        if (!Storage::disk('local')->exists($version->file_url)) {
             return back()->withErrors(['error' => 'File tidak ditemukan.']);
         }
 
         return response()->download(
-            Storage::disk('public')->path($version->file_url),
+            Storage::disk('local')->path($version->file_url),
             $version->nama_file
         );
     }

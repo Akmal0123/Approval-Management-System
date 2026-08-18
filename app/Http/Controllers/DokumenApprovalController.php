@@ -160,10 +160,17 @@ class DokumenApprovalController extends Controller
             $filename = 'approval_signature_' . time() . '_' . \Illuminate\Support\Str::random(10) . '.png';
             $path = 'signatures/approvals/' . $approval->id . '/' . $filename;
 
-            \Illuminate\Support\Facades\Storage::disk('public')->put($path, $imageData);
+            \Illuminate\Support\Facades\Storage::disk('local')->put($path, $imageData);
             $signaturePath = $path;
+        } elseif (preg_match('/\/signatures\/(\d+)\/file/', $signatureData, $matches)) {
+            // New signature URL format - extract ID and get path from DB
+            $signatureId = $matches[1];
+            $signature = \App\Models\Signature::find($signatureId);
+            if ($signature) {
+                $signaturePath = $signature->signature_path;
+            }
         } elseif (str_starts_with($signatureData, 'http') || str_starts_with($signatureData, '/storage')) {
-            // Existing signature URL - extract path
+            // Existing signature URL - extract path (legacy)
             $signaturePath = str_replace('/storage/', '', parse_url($signatureData, PHP_URL_PATH));
         }
 
@@ -222,7 +229,7 @@ class DokumenApprovalController extends Controller
                 );
                 
                 // Overwrite original file
-                \Illuminate\Support\Facades\Storage::disk('public')->put($version->file_url, $pdfContent);
+                \Illuminate\Support\Facades\Storage::disk('local')->put($version->file_url, $pdfContent);
                 
                 Log::info('Approval completed - signature embedded into physical file', [
                     'signature_path' => $signaturePath,

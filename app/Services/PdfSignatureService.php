@@ -23,8 +23,8 @@ class PdfSignatureService
             $pdf = new Fpdi();
 
             // Get full paths
-            $fullPdfPath = Storage::disk('public')->path($pdfPath);
-            $fullSignaturePath = Storage::disk('public')->path($signaturePath);
+            $fullPdfPath = Storage::disk('local')->path($pdfPath);
+            $fullSignaturePath = Storage::disk('local')->path($signaturePath);
 
             // Validate files exist
             if (!file_exists($fullPdfPath)) {
@@ -69,7 +69,7 @@ class PdfSignatureService
             $pathInfo = pathinfo($pdfPath);
             $signedFilename = $pathInfo['filename'] . '_signed_' . time() . '.pdf';
             $signedPath = $pathInfo['dirname'] . '/' . $signedFilename;
-            $fullSignedPath = Storage::disk('public')->path($signedPath);
+            $fullSignedPath = Storage::disk('local')->path($signedPath);
 
             // Ensure directory exists
             $directory = dirname($fullSignedPath);
@@ -147,7 +147,7 @@ class PdfSignatureService
         try {
             $pdf = new Fpdi();
 
-            $fullPdfPath = Storage::disk('public')->path($pdfPath);
+            $fullPdfPath = Storage::disk('local')->path($pdfPath);
 
             if (!file_exists($fullPdfPath)) {
                 throw new Exception("PDF file not found: {$fullPdfPath}");
@@ -171,7 +171,7 @@ class PdfSignatureService
                     $spacing = 60; // Horizontal spacing
 
                     foreach ($signatures as $index => $signature) {
-                        $fullSignaturePath = Storage::disk('public')->path($signature['path']);
+                        $fullSignaturePath = Storage::disk('local')->path($signature['path']);
 
                         if (!file_exists($fullSignaturePath)) {
                             continue; // Skip if signature file not found
@@ -204,7 +204,7 @@ class PdfSignatureService
             $pathInfo = pathinfo($pdfPath);
             $signedFilename = $pathInfo['filename'] . '_fully_signed_' . time() . '.pdf';
             $signedPath = $pathInfo['dirname'] . '/' . $signedFilename;
-            $fullSignedPath = Storage::disk('public')->path($signedPath);
+            $fullSignedPath = Storage::disk('local')->path($signedPath);
 
             // Ensure directory exists
             $directory = dirname($fullSignedPath);
@@ -233,7 +233,7 @@ class PdfSignatureService
     public function generateSignedPdfStream(string $pdfPath, $approvals): string
     {
         try {
-            $fullPdfPath = Storage::disk('public')->path($pdfPath);
+            $fullPdfPath = Storage::disk('local')->path($pdfPath);
 
             if (!file_exists($fullPdfPath)) {
                 throw new Exception("PDF file not found: {$fullPdfPath}");
@@ -264,7 +264,7 @@ class PdfSignatureService
                         continue;
                     }
                     
-                    $fullSignaturePath = Storage::disk('public')->path($approval->signature_path);
+                    $fullSignaturePath = Storage::disk('local')->path($approval->signature_path);
                     if (!file_exists($fullSignaturePath)) {
                         continue;
                     }
@@ -351,7 +351,7 @@ class PdfSignatureService
     {
         try {
             $pdf = new Fpdi();
-            $fullPdfPath = Storage::disk('public')->path($pdfPath);
+            $fullPdfPath = Storage::disk('local')->path($pdfPath);
 
             $pageCount = $pdf->setSourceFile($fullPdfPath);
             $pdf->AddPage();

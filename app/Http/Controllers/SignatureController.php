@@ -57,7 +57,7 @@ class SignatureController extends Controller
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the image
-            Storage::disk('public')->put($path, $imageData);
+            Storage::disk('local')->put($path, $imageData);
 
             // Create signature record
             $signature = Signature::create([
@@ -101,7 +101,7 @@ class SignatureController extends Controller
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the file
-            $file->storeAs('signatures/user_' . Auth::id(), $filename, 'public');
+            $file->storeAs('signatures/user_' . Auth::id(), $filename, 'local');
 
             // Create signature record
             $signature = Signature::create([
@@ -192,5 +192,30 @@ class SignatureController extends Controller
                 'message' => 'Gagal menghapus tanda tangan: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get signature file securely
+     */
+    public function file(Signature $signature)
+    {
+        // Ensure user owns this signature or is admin
+        $contextService = app(\App\Services\ContextService::class);
+        if ($signature->user_id !== Auth::id() && !$contextService->isSuperAdmin()) {
+             abort(403, 'Unauthorized');
+        }
+
+        $path = Storage::disk('local')->path($signature->signature_path);
+        
+        // Fallback to public if not found (for backwards compatibility)
+        if (!file_exists($path)) {
+            $path = Storage::disk('public')->path($signature->signature_path);
+            if (!file_exists($path)) {
+                abort(404, 'Signature file not found');
+            }
+        }
+        
+        $mime = mime_content_type($path);
+        return response()->file($path, ['Content-Type' => $mime]);
     }
 }
