@@ -30,7 +30,9 @@ interface DokumenVersion {
 
 interface Dokumen {
     id: number;
+    id_dokumen?: string;
     nomor_dokumen: string;
+    tipe_dokumen?: string;
     judul_dokumen: string;
     status: string;
     tgl_pengajuan: string;
@@ -499,6 +501,20 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                                                                 <h3 className="font-serif font-semibold">
                                                                                     {approval.dokumen.judul_dokumen}
                                                                                 </h3>
+                                                                                {approval.dokumen.tipe_dokumen && (
+                                                                                    <Badge variant="outline" className="font-sans text-xs">
+                                                                                        {approval.dokumen.tipe_dokumen}
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+
+                                                                            <div className="flex flex-col items-end gap-1">
+                                                                                {approval.dokumen.id_dokumen && (
+                                                                                    <p className="font-mono text-sm text-muted-foreground">
+                                                                                        ID: {approval.dokumen.id_dokumen}
+                                                                                    </p>
+                                                                                )}
+
                                                                                 <p className="font-mono text-sm text-muted-foreground">
                                                                                     {approval.dokumen.nomor_dokumen}
                                                                                 </p>

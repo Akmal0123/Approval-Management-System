@@ -29,7 +29,9 @@ class Dokumen extends Model
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        'id_dokumen',
         'nomor_dokumen',
+        'tipe_dokumen',
         'judul_dokumen',
         'user_id',
         'company_id',

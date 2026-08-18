@@ -70,6 +70,8 @@ interface MasterflowStep {
 
 interface Dokumen {
     id: number;
+    id_dokumen?: string;
+    tipe_dokumen?: string;
     nomor_dokumen: string;
     judul_dokumen: string;
     status: string;
@@ -485,6 +487,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     <div className="shrink-0">{getStatusBadge(approval.approval_status)}</div>
                                 </div>
                                 <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
+                                    {approval.dokumen.id_dokumen && (
+                                    <>
+                                        <span className="font-mono">ID: {approval.dokumen.id_dokumen}</span>
+                                        <span>•</span>
+                                    </>
+                                    )}
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
                                         <span className="truncate font-mono">{approval.dokumen.nomor_dokumen}</span>
@@ -537,6 +545,16 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     <p className="pl-8 text-xs text-muted-foreground">{approval.dokumen.user.profile.jabatan}</p>
                                                 )}
                                             </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                                    Tipe Dokumen
+                                                </Label>
+                                                <div className ="font-medium">
+                                                    {approval.dokumen.tipe_dokumen || '-'}
+                                                </div>
+                                            </div>
+                                    
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Deadline Approval

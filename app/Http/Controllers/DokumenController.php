@@ -198,18 +198,20 @@ class DokumenController extends Controller
             return back()->withErrors(['error' => 'User tidak memiliki akses ke company atau aplikasi. Silakan pilih context terlebih dahulu.']);
         }
 
-        // Auto-fix duplicate nomor_dokumen if collision occurs
-        if ($request->has('nomor_dokumen')) {
-            $nomor = $request->input('nomor_dokumen');
-            if (Dokumen::where('nomor_dokumen', $nomor)->exists()) {
+        // Auto-fix duplicate id_dokumen if collision occurs
+        if ($request->has('id_dokumen')) {
+            $nomor = $request->input('id_dokumen');
+            if (Dokumen::where('id_dokumen', $nomor)->exists()) {
                 $newNomor = $nomor . '-' . rand(1000, 9999);
-                $request->merge(['nomor_dokumen' => $newNomor]);
+                $request->merge(['id_dokumen' => $newNomor]);
             }
         }
 
         // Determine validation rules based on masterflow_id
         $rules = [
-            'nomor_dokumen' => 'required|string',
+            'id_dokumen' => 'required|string',
+            'nomor_dokumen' => 'nullable|string',
+            'tipe_dokumen' => 'nullable|string',
             'judul_dokumen' => 'required|string|max:255',
             'tgl_pengajuan' => 'required|date',
             'tgl_deadline' => 'required|date|after_or_equal:tgl_pengajuan',
@@ -245,7 +247,9 @@ class DokumenController extends Controller
             $masterflowIdVal = ($request->masterflow_id === 'custom' || empty($request->masterflow_id)) ? null : $request->masterflow_id;
 
             $dokumen = Dokumen::create([
-                'nomor_dokumen' => $validated['nomor_dokumen'],
+                'id_dokumen' => $validated['id_dokumen'],
+                'nomor_dokumen' => $validated['nomor_dokumen'] ?? null,
+                'tipe_dokumen' => $validated['tipe_dokumen'] ?? null,
                 'judul_dokumen' => $validated['judul_dokumen'],
                 'user_id' => Auth::id(),
                 'company_id' => $context->company_id,
@@ -260,13 +264,13 @@ class DokumenController extends Controller
 
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
-                $folderPath = 'dokumen/' . $validated['nomor_dokumen'];
+                $folderPath = 'dokumen/' . $validated['id_dokumen'];
 
                 $cleanJudul = preg_replace('/[^A-Za-z0-9\-_]/', '_', $validated['judul_dokumen']);
                 $cleanJudul = preg_replace('/_+/', '_', $cleanJudul);
 
                 $extension = $file->getClientOriginalExtension();
-                $filename = $validated['nomor_dokumen'] . '_' . $cleanJudul . '_v1.' . $extension;
+                $filename = $validated['id_dokumen'] . '_' . $cleanJudul . '_v1.' . $extension;
 
                 $path = $file->storeAs($folderPath, $filename, 'public');
 
@@ -505,7 +509,7 @@ class DokumenController extends Controller
 
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
-                $folderPath = 'dokumen/' . $dokumen->nomor_dokumen;
+                $folderPath = 'dokumen/' . $dokumen->id_dokumen;
 
                 $cleanJudul = preg_replace('/[^A-Za-z0-9\-_]/', '_', $dokumen->judul_dokumen);
                 $cleanJudul = preg_replace('/_+/', '_', $cleanJudul);
@@ -516,7 +520,7 @@ class DokumenController extends Controller
 
                 $extension = $file->getClientOriginalExtension();
                 $versionNumber = str_replace('.', '', $newVersion);
-                $filename = $dokumen->nomor_dokumen . '_' . $cleanJudul . '_v' . $versionNumber . '.' . $extension;
+                $filename = $dokumen->id_dokumen . '_' . $cleanJudul . '_v' . $versionNumber . '.' . $extension;
 
                 $path = $file->storeAs($folderPath, $filename, 'public');
 
@@ -690,13 +694,13 @@ class DokumenController extends Controller
             $newVersion = number_format($currentVersion + 1.0, 1);
 
             $file = $request->file('file');
-            $folderPath = 'dokumen/' . $dokumen->nomor_dokumen;
+            $folderPath = 'dokumen/' . $dokumen->id_dokumen;
 
             $cleanJudul = preg_replace('/[^A-Za-z0-9\-_]/', '_', $dokumen->judul_dokumen);
             $cleanJudul = preg_replace('/_+/', '_', $cleanJudul);
 
             $extension = $file->getClientOriginalExtension();
-            $filename = $dokumen->nomor_dokumen . '_' . $cleanJudul . '_v' . str_replace('.', '', $newVersion) . '.' . $extension;
+            $filename = $dokumen->id_dokumen . '_' . $cleanJudul . '_v' . str_replace('.', '', $newVersion) . '.' . $extension;
 
             $path = $file->storeAs($folderPath, $filename, 'public');
 

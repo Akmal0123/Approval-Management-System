@@ -60,8 +60,10 @@ interface DokumenVersion {
 
 interface DokumenApproval {
     id: number;
+    id_dokumen?: string;
     dokumen_id: number;
     user_id?: number;
+    tipe_dokumen?: string;
     approver_email?: string;
     approval_order?: number;
     masterflow_step_id?: number;
@@ -100,7 +102,9 @@ interface DetailedStatus {
 
 interface Dokumen {
     id: number;
+    id_dokumen?: string;
     nomor_dokumen: string;
+    tipe_dokumen?: string;
     judul_dokumen: string;
     user_id: number;
     company_id?: number;
@@ -126,7 +130,9 @@ interface CustomApprover {
 }
 
 interface FormData {
+    id_dokumen?: string;
     nomor_dokumen: string;
+    tipe_dokumen?: string;
     judul_dokumen: string;
     masterflow_id: number | '' | 'custom';
     tgl_pengajuan: string;
@@ -391,6 +397,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         // Populate form with current dokumen data
         setFormData({
             nomor_dokumen: dokumen.nomor_dokumen,
+            id_dokumen: dokumen.id_dokumen,
             judul_dokumen: dokumen.judul_dokumen,
             masterflow_id: dokumen.masterflow_id || '',
             tgl_pengajuan: dokumen.tgl_pengajuan,
@@ -923,6 +930,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     {getStatusBadge(dokumen?.status || 'draft')}
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                {dokumen?.id_dokumen && (
+                                <>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="font-mono text-xs text-muted-foreground">ID:</span>
+                                        <span className="font-mono">{dokumen.id_dokumen}</span>
+                                    </div>
+                                    <span>•</span>
+                                </>
+                            )}
+                    
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-4 w-4" />
                                         <span className="font-mono">{dokumen?.nomor_dokumen || '-'}</span>

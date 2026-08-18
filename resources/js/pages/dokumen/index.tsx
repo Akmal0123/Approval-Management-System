@@ -121,7 +121,9 @@ interface StepApprovers {
 }
 
 interface FormData {
+    id_dokumen: string;
     nomor_dokumen: string;
+    tipe_dokumen: string;
     judul_dokumen: string;
     masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
     tgl_pengajuan: string;
@@ -134,7 +136,9 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
+    id_dokumen: '',
     nomor_dokumen: '',
+    tipe_dokumen: '',
     judul_dokumen: '',
     masterflow_id: '',
     tgl_pengajuan: new Date().toISOString().split('T')[0],
@@ -691,7 +695,9 @@ export default function UserDokumen() {
         // Generate new document number
         const newFormData = {
             ...initialFormData,
-            nomor_dokumen: generateDocumentNumber(),
+            id_dokumen: generateDocumentNumber(),
+            nomor_dokumen: '',
+            tipe_dokumen: '',
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
         };
@@ -752,7 +758,9 @@ export default function UserDokumen() {
 
             // Create FormData for file upload
             const submitData = new FormData();
-            submitData.append('nomor_dokumen', formData.nomor_dokumen || generateDocumentNumber());
+            submitData.append('id_dokumen', formData.id_dokumen || generateDocumentNumber());
+            submitData.append('nomor_dokumen', formData.nomor_dokumen || '');
+            submitData.append('tipe_dokumen', formData.tipe_dokumen || '');
             submitData.append('judul_dokumen', formData.judul_dokumen);
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
@@ -1143,13 +1151,13 @@ export default function UserDokumen() {
                                     {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="nomor_dokumen" className="font-sans">
-                                                Nomor Dokumen
+                                            <Label htmlFor="id_dokumen" className="font-sans">
+                                                ID Dokumen
                                             </Label>
                                             <Input
-                                                id="nomor_dokumen"
-                                                name="nomor_dokumen"
-                                                value={formData.nomor_dokumen}
+                                                id="id_dokumen"
+                                                name="id_dokumen"
+                                                value={formData.id_dokumen}
                                                 onChange={handleInputChange}
                                                 className="font-mono"
                                                 placeholder="Auto-generated"
@@ -1172,6 +1180,45 @@ export default function UserDokumen() {
                                         </div>
                                     </div>
 
+
+                                    {/* Row 2: Nomor Dokumen Manual & Tipe Dokumen */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="nomor_dokumen" className="font-sans">
+                                                Nomor Dokumen <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="nomor_dokumen"
+                                                name="nomor_dokumen"
+                                                value={formData.nomor_dokumen}
+                                                onChange={handleInputChange}
+                                                className={errors.nomor_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
+                                                placeholder="Contoh: 001/PROP/VIII/2026"
+                                            />
+                                            {errors.nomor_dokumen && <p className="text-sm text-red-500">{renderError(errors.nomor_dokumen)}</p>}
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tipe_dokumen" className="font-sans">
+                                                Tipe Dokumen <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Select
+                                                value={formData.tipe_dokumen}
+                                                onValueChange={(value) => setFormData((prev) => ({ ...prev, tipe_dokumen: value }))}
+                                            >
+                                                <SelectTrigger className={errors.tipe_dokumen ? 'border-red-500 font-sans' : 'font-sans'}>
+                                                    <SelectValue placeholder="Pilih tipe dokumen" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Proposal" className="font-sans">Proposal</SelectItem>
+                                                    <SelectItem value="Transaksi" className="font-sans">Pengajuan Transaksi / Dana</SelectItem>
+                                                    <SelectItem value="Surat Keputusan" className="font-sans">Surat Keputusan (SK)</SelectItem>
+                                                    <SelectItem value="Memo Internal" className="font-sans">Memo Internal</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {errors.tipe_dokumen && <p className="text-sm text-red-500">{renderError(errors.tipe_dokumen)}</p>}
+                                        </div>
+</div>
                                     {/* Judul Dokumen */}
                                     <div className="grid gap-2">
                                         <Label htmlFor="judul_dokumen" className="font-sans">
