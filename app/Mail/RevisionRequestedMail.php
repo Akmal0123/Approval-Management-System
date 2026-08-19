@@ -48,7 +48,7 @@ class RevisionRequestedMail extends Mailable implements ShouldQueue
                 'requester' => $this->approval->user,
                 'revisionNotes' => $this->approval->revision_notes,
                 'stepName' => $this->approval->masterflowStep?->step_name ?? 'Approval',
-                'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'documentUrl' => 'http://localhost:8000/api/dokumen/' . $this->dokumen->id,
             ],
         );
     }

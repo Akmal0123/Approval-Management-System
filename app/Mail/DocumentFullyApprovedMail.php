@@ -42,7 +42,7 @@ class DocumentFullyApprovedMail extends Mailable implements ShouldQueue
             markdown: 'emails.document-approved',
             with: [
                 'dokumen' => $this->dokumen,
-                'documentUrl' => route('dokumen.detail', $this->dokumen->id),
+                'documentUrl' => 'http://localhost:8000/api/dokumen/' . $this->dokumen->id,
             ],
         );
     }

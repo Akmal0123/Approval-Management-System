@@ -690,8 +690,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
     // Handle upload revision for rejected document
     const handleUploadRevision = () => {
-        if (dokumen.status !== 'rejected') {
-            showToast.error('❌ Hanya dokumen yang di-reject yang dapat direvisi.');
+        if (dokumen.status !== 'rejected' && dokumen.status !== 'needs_revision') {
+            showToast.error('❌ Hanya dokumen yang memerlukan revisi atau di-reject yang dapat direvisi.');
             return;
         }
 
@@ -927,12 +927,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     <Button onClick={handleSubmitForApproval} className="bg-green-600 hover:bg-green-700">
                                         <IconSend className="mr-2 h-4 w-4" />
                                         Submit Approval
-                                    </Button>
-                                )}
-                                {(dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && dokumen?.user_id === auth.user.id && (
-                                    <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700">
-                                        <IconFileText className="mr-2 h-4 w-4" />
-                                        Upload Revisi
                                     </Button>
                                 )}
                             </div>

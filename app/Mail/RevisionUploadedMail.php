@@ -48,7 +48,7 @@ class RevisionUploadedMail extends Mailable implements ShouldQueue
                 'approval' => $this->approval,
                 'newVersion' => $this->newVersion,
                 'stepName' => $this->approval->masterflowStep?->step_name ?? 'Approval',
-                'approvalUrl' => route('approvals.show', $this->approval->id),
+                'approvalUrl' => 'http://localhost:8000/api/dokumen/' . $this->dokumen->id,
             ],
         );
     }
