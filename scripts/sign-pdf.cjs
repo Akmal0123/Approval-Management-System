@@ -67,6 +67,37 @@ async function run() {
             }
         }
 
+        // Draw QR Code if provided in configuration
+        if (inputData.qrCode) {
+            const qr = inputData.qrCode;
+            const pageIndex = Math.min(Math.max(qr.page - 1, 0), pages.length - 1);
+            const page = pages[pageIndex];
+
+            const QRCode = require('qrcode');
+            const qrPngBuffer = await QRCode.toBuffer(qr.text, {
+                type: 'png',
+                margin: 1,
+                width: 300 // sufficiently high resolution
+            });
+
+            const qrImg = await pdfDoc.embedPng(qrPngBuffer);
+
+            const mmToPt = 2.83465;
+            const width = qr.width * mmToPt;
+            const height = qr.height * mmToPt;
+            const x = qr.x * mmToPt;
+
+            const pageHeight = page.getHeight();
+            const yFromBottom = pageHeight - (qr.y * mmToPt) - height;
+
+            page.drawImage(qrImg, {
+                x: x,
+                y: yFromBottom,
+                width: width,
+                height: height,
+            });
+        }
+
         const signedBytes = await pdfDoc.save();
         if (inputData.outPath) {
             fs.writeFileSync(inputData.outPath, signedBytes);

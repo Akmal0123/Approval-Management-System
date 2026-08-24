@@ -32,14 +32,25 @@ class SignaturePositionController extends Controller
     {
         $dokumen = Dokumen::findOrFail($dokumenId);
         
-        // Ensure user is the owner
-        if ($dokumen->user_id !== auth()->id()) {
+        // Ensure user is the owner or an assigned approver
+        $isApprover = \App\Models\DokumenApproval::where('dokumen_id', $dokumen->id)
+            ->where('user_id', auth()->id())
+            ->exists();
+
+        if ($dokumen->user_id !== auth()->id() && !$isApprover) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validator = Validator::make($request->all(), [
             'positions' => 'required|array',
-            'positions.*.dokumen_approval_id' => 'required|exists:dokumen_approval,id',
+            'positions.*.dokumen_approval_id' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if ($value !== 'qr_code' && !empty($value) && !\App\Models\DokumenApproval::where('id', $value)->exists()) {
+                        $fail("The selected {$attribute} is invalid.");
+                    }
+                }
+            ],
             'positions.*.page' => 'required|integer|min:1',
             'positions.*.x' => 'required|numeric',
             'positions.*.y' => 'required|numeric',
@@ -58,9 +69,13 @@ class SignaturePositionController extends Controller
 
             // Insert new positions
             $positionsData = array_map(function($pos) use ($dokumen) {
+                $approvalId = $pos['dokumen_approval_id'];
+                if ($approvalId === 'qr_code' || empty($approvalId)) {
+                    $approvalId = null;
+                }
                 return [
                     'dokumen_id' => $dokumen->id,
-                    'dokumen_approval_id' => $pos['dokumen_approval_id'],
+                    'dokumen_approval_id' => $approvalId,
                     'page' => $pos['page'],
                     'x' => $pos['x'],
                     'y' => $pos['y'],

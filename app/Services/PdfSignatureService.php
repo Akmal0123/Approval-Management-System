@@ -227,10 +227,11 @@ class PdfSignatureService
      *
      * @param string $pdfPath Path to the original PDF file
      * @param \Illuminate\Support\Collection $approvals Collection of approved DokumenApproval models
+     * @param \App\Models\Dokumen|null $dokumen
      * @return string PDF binary content
      * @throws Exception
      */
-    public function generateSignedPdfStream(string $pdfPath, $approvals): string
+    public function generateSignedPdfStream(string $pdfPath, $approvals, $dokumen = null): string
     {
         try {
             $fullPdfPath = Storage::disk('local')->path($pdfPath);
@@ -309,10 +310,36 @@ class PdfSignatureService
                 }
             }
 
+            if (!$dokumen && $approvals && $approvals->count() > 0) {
+                $firstApproval = $approvals->first();
+                if ($firstApproval) {
+                    $dokumen = $firstApproval->dokumen;
+                }
+            }
+
+            $qrCodeData = null;
+            if ($dokumen) {
+                $qrPosition = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
+                    ->whereNull('dokumen_approval_id')
+                    ->first();
+                
+                if ($qrPosition) {
+                    $qrCodeData = [
+                        'text' => url('/api/dokumen/' . $dokumen->id),
+                        'page' => $qrPosition->page,
+                        'x' => $qrPosition->x,
+                        'y' => $qrPosition->y,
+                        'width' => $qrPosition->width,
+                        'height' => $qrPosition->height,
+                    ];
+                }
+            }
+
             // Write config to temp file
             $config = [
                 'pdfPath' => $fullPdfPath,
-                'signatures' => $signaturesData
+                'signatures' => $signaturesData,
+                'qrCode' => $qrCodeData
             ];
             
             $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';

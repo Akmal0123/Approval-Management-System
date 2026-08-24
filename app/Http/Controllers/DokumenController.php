@@ -406,21 +406,11 @@ class DokumenController extends Controller
                     $positionsData = [];
                     foreach ($positions as $pos) {
                         $frontendId = $pos['dokumen_approval_id'];
-                        $approvalIds = [];
 
-                        if (isset($frontendIdToApprovalId[$frontendId])) {
-                            $mapped = $frontendIdToApprovalId[$frontendId];
-                            if (is_array($mapped)) {
-                                $approvalIds = $mapped;
-                            } else {
-                                $approvalIds = [$mapped];
-                            }
-                        }
-
-                        foreach ($approvalIds as $approvalId) {
+                        if ($frontendId === 'qr_code' || empty($frontendId)) {
                             $positionsData[] = [
                                 'dokumen_id' => $dokumen->id,
-                                'dokumen_approval_id' => $approvalId,
+                                'dokumen_approval_id' => null,
                                 'page' => $pos['page'],
                                 'x' => $pos['x'],
                                 'y' => $pos['y'],
@@ -429,6 +419,23 @@ class DokumenController extends Controller
                                 'created_at' => now(),
                                 'updated_at' => now(),
                             ];
+                        } else if (isset($frontendIdToApprovalId[$frontendId])) {
+                            $mapped = $frontendIdToApprovalId[$frontendId];
+                            $approvalIds = is_array($mapped) ? $mapped : [$mapped];
+
+                            foreach ($approvalIds as $approvalId) {
+                                $positionsData[] = [
+                                    'dokumen_id' => $dokumen->id,
+                                    'dokumen_approval_id' => $approvalId,
+                                    'page' => $pos['page'],
+                                    'x' => $pos['x'],
+                                    'y' => $pos['y'],
+                                    'width' => $pos['width'],
+                                    'height' => $pos['height'],
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                            }
                         }
                     }
                     if (count($positionsData) > 0) {
@@ -1179,8 +1186,13 @@ class DokumenController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        // If no signatures or not a PDF, stream original file
-        if ($approvedSignatures->count() === 0 || strtolower($version->tipe_file) !== 'pdf') {
+        // Check if QR code position is configured for this document
+        $hasQrCode = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
+            ->whereNull('dokumen_approval_id')
+            ->exists();
+
+        // If no signatures and no QR code, or not a PDF, stream original file
+        if (($approvedSignatures->count() === 0 && !$hasQrCode) || strtolower($version->tipe_file) !== 'pdf') {
             $filePath = Storage::disk('local')->path($version->file_url);
             return response()->file($filePath, [
                 'Content-Type' => 'application/pdf',
@@ -1191,7 +1203,8 @@ class DokumenController extends Controller
         try {
             $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                 $version->file_url,
-                $approvedSignatures
+                $approvedSignatures,
+                $dokumen
             );
 
             return response($pdfContent)

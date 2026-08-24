@@ -16,6 +16,7 @@ interface Approval {
     jabatan_name?: string;
     user?: { name: string };
     approver_email?: string;
+    approval_status?: string;
 }
 
 
@@ -79,8 +80,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         if (existingPositions && existingPositions.length > 0) {
             const newPositions: Record<string | number, SignaturePosition> = {};
             existingPositions.forEach((pos: any) => {
-                newPositions[pos.dokumen_approval_id] = {
-                    dokumen_approval_id: pos.dokumen_approval_id,
+                const key = pos.dokumen_approval_id || 'qr_code';
+                newPositions[key] = {
+                    dokumen_approval_id: key,
                     page: pos.page,
                     x: pos.x,
                     y: pos.y,
@@ -219,9 +221,16 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
             let newWidth = initialSize.width + dx;
             let newHeight = initialSize.height + dy;
             
-            // Min sizes in px
-            newWidth = Math.max(40 * scale, newWidth);
-            newHeight = Math.max(15 * scale, newHeight);
+            if (activeApprovalId === 'qr_code') {
+                const minQrSize = Math.max(25 * scale, 25);
+                const qrSize = Math.max(minQrSize, newWidth);
+                newWidth = qrSize;
+                newHeight = qrSize;
+            } else {
+                // Min sizes in px
+                newWidth = Math.max(40 * scale, newWidth);
+                newHeight = Math.max(15 * scale, newHeight);
+            }
             
             setPositions(prev => ({
                 ...prev,
@@ -253,16 +262,24 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
     const renderSignatureBoxes = () => {
         if (loading) return null;
         
-        return approvals.map((approval) => {
+        const boxes = approvals.map((approval) => {
             const pos = positions[approval.id];
             if (!pos || pos.page !== currentPage) return null;
             
             const isActive = activeApprovalId === approval.id;
+            const isApproved = approval.approval_status === 'approved';
+            
+            let boxClass = 'border-blue-400 bg-blue-100/50 z-0';
+            if (isActive) {
+                boxClass = 'border-primary bg-primary/20 z-10';
+            } else if (isApproved) {
+                boxClass = 'border-green-500 bg-green-500/10 z-0';
+            }
             
             return (
                 <div
                     key={approval.id}
-                    className={`absolute border-2 flex flex-col items-center justify-center transition-colors shadow-sm select-none ${isActive ? 'border-primary bg-primary/20 z-10' : 'border-blue-400 bg-blue-100/50 z-0'}`}
+                    className={`absolute border-2 flex flex-col items-center justify-center transition-colors shadow-sm select-none ${boxClass}`}
                     style={{
                         left: `${mmToPx(pos.x)}px`,
                         top: `${mmToPx(pos.y)}px`,
@@ -275,6 +292,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                     <div className="flex items-center gap-1 bg-white/80 px-1 py-0.5 rounded text-[10px] sm:text-xs font-semibold shadow-sm overflow-hidden whitespace-nowrap max-w-[90%] pointer-events-none">
                         <GripHorizontal className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate">{approval.step_name || approval.user?.name || approval.approver_email}</span>
+                        {isApproved && (
+                            <span className="ml-1 text-[8px] bg-green-100 text-green-700 px-1 rounded border border-green-200 uppercase font-bold shrink-0">
+                                Stamped
+                            </span>
+                        )}
                     </div>
                     
                     {/* Resize Handle */}
@@ -286,7 +308,53 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                     )}
                 </div>
             );
-        });
+        }).filter(Boolean) as React.ReactNode[];
+
+        const qrPos = positions['qr_code'];
+        if (qrPos && qrPos.page === currentPage) {
+            const isActive = activeApprovalId === 'qr_code';
+            boxes.push(
+                <div
+                    key="qr_code"
+                    className={`absolute border-2 border-dashed flex flex-col items-center justify-center transition-colors shadow-sm select-none ${isActive ? 'border-amber-600 bg-amber-500/20 z-10' : 'border-amber-500 bg-amber-100/50 z-0'}`}
+                    style={{
+                        left: `${mmToPx(qrPos.x)}px`,
+                        top: `${mmToPx(qrPos.y)}px`,
+                        width: `${mmToPx(qrPos.width)}px`,
+                        height: `${mmToPx(qrPos.height)}px`,
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                    }}
+                    onMouseDown={(e) => handleMouseDown(e, 'qr_code')}
+                >
+                    <div className="flex flex-col items-center gap-1 p-2 text-amber-700 pointer-events-none">
+                        <span className="font-bold text-[8px] sm:text-[10px] text-center uppercase tracking-wider">QR Code</span>
+                        <div className="border border-amber-300 bg-white p-1 rounded">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                                <rect width="5" height="5" x="3" y="3" rx="1" />
+                                <rect width="5" height="5" x="16" y="3" rx="1" />
+                                <rect width="5" height="5" x="3" y="16" rx="1" />
+                                <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+                                <path d="M21 21v.01" />
+                                <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+                                <path d="M12 12v.01" />
+                                <path d="M12 17v.01" />
+                                <path d="M17 12v.01" />
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    {/* Resize Handle */}
+                    {isActive && (
+                        <div 
+                            className="absolute bottom-0 right-0 w-4 h-4 bg-amber-600 cursor-se-resize rounded-tl-sm rounded-br-sm"
+                            onMouseDown={(e) => handleResizeMouseDown(e, 'qr_code')}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        return boxes;
     };
 
     return (
@@ -322,7 +390,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                                 }
                                             }}
                                         >
-                                            <div className="font-medium">{approval.step_name || 'Approval'}</div>
+                                            <div className="font-medium flex items-center justify-between gap-2">
+                                                <span className="truncate">{approval.step_name || 'Approval'}</span>
+                                                {approval.approval_status === 'approved' ? (
+                                                    <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200 uppercase font-bold shrink-0">
+                                                        Stamped
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full border border-blue-200 uppercase font-bold shrink-0">
+                                                        Pending
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-muted-foreground text-xs truncate">
                                                 {approval.user?.name || approval.approver_email}
                                             </div>
@@ -351,6 +430,92 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                         </div>
                                     );
                                 })}
+                            </div>
+                        </div>
+
+                        {/* QR Code Section */}
+                        <div className="border-t pt-4">
+                            <h3 className="text-sm font-semibold mb-3">QR Code Dokumen</h3>
+                            <div className="flex flex-col gap-3">
+                                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox" 
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={!!positions['qr_code']}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            if (checked) {
+                                                setPositions(prev => ({
+                                                    ...prev,
+                                                    'qr_code': {
+                                                        dokumen_approval_id: 'qr_code',
+                                                        page: currentPage,
+                                                        x: 20,
+                                                        y: 20,
+                                                        width: 25,
+                                                        height: 25,
+                                                    }
+                                                }));
+                                                setActiveApprovalId('qr_code');
+                                            } else {
+                                                setPositions(prev => {
+                                                    const next = { ...prev };
+                                                    delete next['qr_code'];
+                                                    return next;
+                                                });
+                                                if (activeApprovalId === 'qr_code') {
+                                                    setActiveApprovalId(approvals.length > 0 ? approvals[0].id : null);
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    Aktifkan QR Code
+                                </label>
+                                
+                                {positions['qr_code'] && (
+                                    <div 
+                                        className={`p-3 rounded-lg border text-sm cursor-pointer transition-colors ${activeApprovalId === 'qr_code' ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted/50'}`}
+                                        onClick={() => {
+                                            setActiveApprovalId('qr_code');
+                                            const qrPos = positions['qr_code'];
+                                            if (qrPos.page !== currentPage) {
+                                                setCurrentPage(qrPos.page);
+                                            }
+                                        }}
+                                    >
+                                        <div className="font-medium flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                            Posisi QR Code
+                                        </div>
+                                        <div className="text-muted-foreground text-xs mt-1">
+                                            Ukuran: {Math.round(positions['qr_code'].width)} x {Math.round(positions['qr_code'].height)} mm
+                                        </div>
+                                        <div className="mt-2 flex items-center justify-between">
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${positions['qr_code'].page === currentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                                Hal. {positions['qr_code'].page}
+                                            </span>
+                                            {positions['qr_code'].page !== currentPage && (
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="h-6 text-xs px-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setPositions(prev => ({
+                                                            ...prev,
+                                                            'qr_code': {
+                                                                ...prev['qr_code'],
+                                                                page: currentPage
+                                                            }
+                                                        }));
+                                                    }}
+                                                >
+                                                    Pindah ke sini
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         
