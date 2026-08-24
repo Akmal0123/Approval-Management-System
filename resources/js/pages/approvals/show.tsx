@@ -2,7 +2,6 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
 import SignaturePad from '@/components/signature-pad';
-import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -120,7 +119,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
-    const [isPlacementDialogOpen, setIsPlacementDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
     const [signatureData, setSignatureData] = useState<string | null>(null);
 
@@ -589,15 +587,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <div className="flex shrink-0 justify-end gap-2">
                                                     {(approval.dokumen_version.tipe_file.toLowerCase() === 'pdf' ||
                                                         approval.dokumen_version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handlePreview(approval.dokumen_version)}
-                                                            title="Preview"
-                                                        >
-                                                            <IconEye className="h-5 w-5" />
-                                                        </Button>
-                                                    )}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handlePreview(approval.dokumen_version)}
+                                                                title="Preview"
+                                                            >
+                                                                <IconEye className="h-5 w-5" />
+                                                            </Button>
+                                                        )}
                                                     <Button variant="ghost" size="icon" onClick={handleDownload} title="Download">
                                                         <IconDownload className="h-5 w-5" />
                                                     </Button>
@@ -631,13 +629,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-4">
                                                                         <div
-                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
-                                                                                isLatest
+                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
                                                                                     ? 'border-blue-200 bg-blue-100 text-blue-700'
                                                                                     : rejectionLog
-                                                                                      ? 'border-red-200 bg-red-100 text-red-700'
-                                                                                      : 'bg-background text-muted-foreground'
-                                                                            }`}
+                                                                                        ? 'border-red-200 bg-red-100 text-red-700'
+                                                                                        : 'bg-background text-muted-foreground'
+                                                                                }`}
                                                                         >
                                                                             <IconFileText className="h-5 w-5" />
                                                                         </div>
@@ -673,14 +670,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     <div className="flex gap-2">
                                                                         {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                             version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePreview(version)}
-                                                                            >
-                                                                                <IconEye className="h-4 w-4" />
-                                                                            </Button>
-                                                                        )}
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePreview(version)}
+                                                                                >
+                                                                                    <IconEye className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
@@ -735,15 +732,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                             )}
 
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
-                                                                    isCompleted
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
                                                                         ? 'border-green-600 text-green-600'
                                                                         : isRejected
-                                                                          ? 'border-red-600 text-red-600'
-                                                                          : isPending
-                                                                            ? 'border-yellow-500 text-yellow-500'
-                                                                            : 'border-muted text-muted-foreground'
-                                                                }`}
+                                                                            ? 'border-red-600 text-red-600'
+                                                                            : isPending
+                                                                                ? 'border-yellow-500 text-yellow-500'
+                                                                                : 'border-muted text-muted-foreground'
+                                                                    }`}
                                                             >
                                                                 {isCompleted ? (
                                                                     <CheckCircle2Icon className="h-4 w-4" />
@@ -823,8 +819,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
                                                         : anyRejected
-                                                          ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500';
+                                                            ? 'border-red-600 text-red-600'
+                                                            : 'border-yellow-500 text-yellow-500';
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
@@ -955,35 +951,33 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     </Card>
                                 ) : (
                                     <Card
-                                        className={`border shadow-sm ${
-                                            approval.approval_status === 'approved'
+                                        className={`border shadow-sm ${approval.approval_status === 'approved'
                                                 ? 'border-green-200 bg-green-50/50'
                                                 : approval.approval_status === 'rejected'
-                                                  ? 'border-red-200 bg-red-50/50'
-                                                  : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
-                                                    ? 'border-yellow-200 bg-yellow-50/50'
-                                                    : 'border-dashed bg-muted/30'
-                                        }`}
+                                                    ? 'border-red-200 bg-red-50/50'
+                                                    : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
+                                                        ? 'border-yellow-200 bg-yellow-50/50'
+                                                        : 'border-dashed bg-muted/30'
+                                            }`}
                                     >
                                         <CardHeader className="pb-3">
                                             <CardTitle
-                                                className={`flex items-center gap-2 text-base font-bold ${
-                                                    approval.approval_status === 'approved'
+                                                className={`flex items-center gap-2 text-base font-bold ${approval.approval_status === 'approved'
                                                         ? 'text-green-700'
                                                         : approval.approval_status === 'rejected'
-                                                          ? 'text-red-700'
-                                                          : approval.approval_status === 'waiting' ||
-                                                              (approval.approval_status === 'pending' && !canApprove)
-                                                            ? 'text-yellow-700'
-                                                            : 'text-muted-foreground'
-                                                }`}
+                                                            ? 'text-red-700'
+                                                            : approval.approval_status === 'waiting' ||
+                                                                (approval.approval_status === 'pending' && !canApprove)
+                                                                ? 'text-yellow-700'
+                                                                : 'text-muted-foreground'
+                                                    }`}
                                             >
                                                 {approval.approval_status === 'approved' ? (
                                                     <IconCheck className="h-5 w-5" />
                                                 ) : approval.approval_status === 'rejected' ? (
                                                     <IconX className="h-5 w-5" />
                                                 ) : approval.approval_status === 'waiting' ||
-                                                  (approval.approval_status === 'pending' && !canApprove) ? (
+                                                    (approval.approval_status === 'pending' && !canApprove) ? (
                                                     <IconClock className="h-5 w-5" />
                                                 ) : (
                                                     <IconAlertCircle className="h-5 w-5" />
@@ -1011,13 +1005,13 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 )}
                                                 {(approval.approval_status === 'waiting' ||
                                                     (approval.approval_status === 'pending' && !canApprove)) && (
-                                                    <>
-                                                        <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
-                                                        <p className="text-sm text-yellow-700">
-                                                            Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
-                                                        </p>
-                                                    </>
-                                                )}
+                                                        <>
+                                                            <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
+                                                            <p className="text-sm text-yellow-700">
+                                                                Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
+                                                            </p>
+                                                        </>
+                                                    )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1162,24 +1156,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                     >
                         <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
-                                <div className="flex flex-row items-center justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
-                                        <DialogDescription className="font-sans text-xs">
-                                            {previewFileName || approval.dokumen_version?.nama_file}
-                                        </DialogDescription>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setIsPlacementDialogOpen(true)}
-                                        className="font-sans flex items-center gap-1.5"
-                                    >
-                                        <IconPencil className="h-4 w-4" />
-                                        Atur / Koreksi Posisi Tanda Tangan
-                                    </Button>
-                                </div>
+                                <div className="space-y-1">
+                                    <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                    <DialogDescription className="font-sans">
+                                        {previewFileName || approval.dokumen_version?.nama_file}
+                                    </DialogDescription>
                                     {/* Show status info */}
                                     {approval.approval_status !== 'pending' && (
                                         <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
@@ -1191,6 +1172,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             Approval ini bukan untuk Anda atau sedang menunggu giliran.
                                         </div>
                                     )}
+                                </div>
                             </DialogHeader>
 
                             <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 lg:flex-row">
@@ -1334,21 +1316,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             </div>
                         </DialogContent>
                     </Dialog>
-
-                    {/* Signature Placement Dialog */}
-                    <SignaturePlacementDialog
-                        open={isPlacementDialogOpen}
-                        onOpenChange={setIsPlacementDialogOpen}
-                        dokumenId={approval.dokumen.id}
-                        fileUrl={approval.dokumen_version ? `/api/dokumen/${approval.dokumen.id}/signed-pdf/${approval.dokumen_version.id}` : ''}
-                        approvals={allApprovals.filter(a => a.approval_status !== 'skipped')}
-                        onSaved={() => {
-                            if (previewFileUrl) {
-                                const baseUrl = previewFileUrl.split('?')[0];
-                                setPreviewFileUrl(`${baseUrl}?t=${Date.now()}`);
-                            }
-                        }}
-                    />
                 </SidebarInset>
             </SidebarProvider>
         </>

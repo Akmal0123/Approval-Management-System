@@ -29,6 +29,7 @@ interface Props {
     approvals: Approval[];
     initialPositions?: SignaturePosition[];
     onSaved?: (positions: SignaturePosition[]) => void;
+    isEmbedded?: boolean;
 }
 
 export interface SignaturePosition {
@@ -40,13 +41,13 @@ export interface SignaturePosition {
     height: number;
 }
 
-const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumenId, fileUrl, approvals, initialPositions, onSaved }) => {
+const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumenId, fileUrl, approvals, initialPositions, onSaved, isEmbedded = false }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [scale, setScale] = useState<number>(1.0);
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
-    
+
     // Positions map: approval_id -> SignaturePosition
     const [positions, setPositions] = useState<Record<string | number, SignaturePosition>>({});
     const [activeApprovalId, setActiveApprovalId] = useState<number | string | null>(null);
@@ -62,7 +63,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
     const [pageDimensions, setPageDimensions] = useState({ width: 0, height: 0 });
 
     const PDF_TO_MM = 0.352778; // 1 point = 0.352778 mm
-    
+
     useEffect(() => {
         if (open) {
             if (dokumenId) {
@@ -123,7 +124,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         setSaving(true);
         try {
             const positionsArray = Object.values(positions);
-            
+
             if (dokumenId) {
                 await api.post(`/dokumen/${dokumenId}/signature-positions`, {
                     positions: positionsArray
@@ -132,7 +133,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
             } else {
                 showToast.success('Posisi tanda tangan disimpan sementara.');
             }
-            
+
             if (onSaved) onSaved(positionsArray as any);
             onOpenChange(false);
         } catch (error) {
@@ -149,9 +150,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
     }
 
     const onPageLoadSuccess = (page: any) => {
-        setPageDimensions({ 
-            width: page.originalWidth * scale, 
-            height: page.originalHeight * scale 
+        setPageDimensions({
+            width: page.originalWidth * scale,
+            height: page.originalHeight * scale
         });
     };
 
@@ -171,7 +172,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         setActiveApprovalId(approvalId);
         setIsDragging(true);
         setDragStart({ x: e.clientX, y: e.clientY });
-        
+
         const pos = positions[approvalId];
         setInitialPos({ x: mmToPx(pos.x), y: mmToPx(pos.y) });
     };
@@ -182,30 +183,30 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         setActiveApprovalId(approvalId);
         setIsResizing(true);
         setResizeStart({ x: e.clientX, y: e.clientY });
-        
+
         const pos = positions[approvalId];
         setInitialSize({ width: mmToPx(pos.width), height: mmToPx(pos.height) });
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!activeApprovalId || !containerRef.current) return;
-        
+
         if (isDragging) {
             const dx = e.clientX - dragStart.x;
             const dy = e.clientY - dragStart.y;
-            
+
             let newX = initialPos.x + dx;
             let newY = initialPos.y + dy;
-            
+
             // Boundaries using accurate page dimensions
             const boxWidth = mmToPx(positions[activeApprovalId].width);
             const boxHeight = mmToPx(positions[activeApprovalId].height);
             const containerWidth = pageDimensions.width > 0 ? pageDimensions.width : containerRef.current.clientWidth;
             const containerHeight = pageDimensions.height > 0 ? pageDimensions.height : containerRef.current.clientHeight;
-            
+
             newX = Math.max(0, Math.min(newX, containerWidth - boxWidth));
             newY = Math.max(0, Math.min(newY, containerHeight - boxHeight));
-            
+
             setPositions(prev => ({
                 ...prev,
                 [activeApprovalId]: {
@@ -217,10 +218,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
         } else if (isResizing) {
             const dx = e.clientX - resizeStart.x;
             const dy = e.clientY - resizeStart.y;
-            
+
             let newWidth = initialSize.width + dx;
             let newHeight = initialSize.height + dy;
-            
+
             if (activeApprovalId === 'qr_code') {
                 const minQrSize = Math.max(25 * scale, 25);
                 const qrSize = Math.max(minQrSize, newWidth);
@@ -231,7 +232,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                 newWidth = Math.max(40 * scale, newWidth);
                 newHeight = Math.max(15 * scale, newHeight);
             }
-            
+
             setPositions(prev => ({
                 ...prev,
                 [activeApprovalId]: {
@@ -261,21 +262,21 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
 
     const renderSignatureBoxes = () => {
         if (loading) return null;
-        
+
         const boxes = approvals.map((approval) => {
             const pos = positions[approval.id];
             if (!pos || pos.page !== currentPage) return null;
-            
+
             const isActive = activeApprovalId === approval.id;
             const isApproved = approval.approval_status === 'approved';
-            
+
             let boxClass = 'border-blue-400 bg-blue-100/50 z-0';
             if (isActive) {
                 boxClass = 'border-primary bg-primary/20 z-10';
             } else if (isApproved) {
                 boxClass = 'border-green-500 bg-green-500/10 z-0';
             }
-            
+
             return (
                 <div
                     key={approval.id}
@@ -298,10 +299,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                             </span>
                         )}
                     </div>
-                    
+
                     {/* Resize Handle */}
                     {isActive && (
-                        <div 
+                        <div
                             className="absolute bottom-0 right-0 w-4 h-4 bg-primary cursor-se-resize rounded-tl-sm rounded-br-sm"
                             onMouseDown={(e) => handleResizeMouseDown(e, approval.id)}
                         />
@@ -342,10 +343,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                             </svg>
                         </div>
                     </div>
-                    
+
                     {/* Resize Handle */}
                     {isActive && (
-                        <div 
+                        <div
                             className="absolute bottom-0 right-0 w-4 h-4 bg-amber-600 cursor-se-resize rounded-tl-sm rounded-br-sm"
                             onMouseDown={(e) => handleResizeMouseDown(e, 'qr_code')}
                         />
@@ -363,7 +364,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                 <DialogHeader className="px-6 py-4 border-b shrink-0">
                     <DialogTitle>Atur Posisi Tanda Tangan</DialogTitle>
                     <DialogDescription>
-                        Geser kotak tanda tangan ke lokasi yang Anda inginkan di dokumen PDF ini. 
+                        Geser kotak tanda tangan ke lokasi yang Anda inginkan di dokumen PDF ini.
                         Tanda tangan approver akan otomatis ditempatkan pada posisi tersebut.
                     </DialogDescription>
                 </DialogHeader>
@@ -378,9 +379,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                     const pos = positions[approval.id];
                                     const isActive = activeApprovalId === approval.id;
                                     const isCurrentPage = pos?.page === currentPage;
-                                    
+
                                     return (
-                                        <div 
+                                        <div
                                             key={approval.id}
                                             className={`p-3 rounded-lg border text-sm cursor-pointer transition-colors ${isActive ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted/50'}`}
                                             onClick={() => {
@@ -405,17 +406,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                             <div className="text-muted-foreground text-xs truncate">
                                                 {approval.user?.name || approval.approver_email}
                                             </div>
-                                            
+
                                             {pos && (
                                                 <div className="mt-2 flex items-center justify-between">
                                                     <span className={`text-xs px-2 py-0.5 rounded-full ${isCurrentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
                                                         Hal. {pos.page}
                                                     </span>
-                                                    
+
                                                     {!isCurrentPage && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
                                                             className="h-6 text-xs px-2"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -438,8 +439,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                             <h3 className="text-sm font-semibold mb-3">QR Code Dokumen</h3>
                             <div className="flex flex-col gap-3">
                                 <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                                         checked={!!positions['qr_code']}
                                         onChange={(e) => {
@@ -471,9 +472,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                     />
                                     Aktifkan QR Code
                                 </label>
-                                
+
                                 {positions['qr_code'] && (
-                                    <div 
+                                    <div
                                         className={`p-3 rounded-lg border text-sm cursor-pointer transition-colors ${activeApprovalId === 'qr_code' ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted/50'}`}
                                         onClick={() => {
                                             setActiveApprovalId('qr_code');
@@ -495,9 +496,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                                 Hal. {positions['qr_code'].page}
                                             </span>
                                             {positions['qr_code'].page !== currentPage && (
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     className="h-6 text-xs px-2"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -518,7 +519,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                 )}
                             </div>
                         </div>
-                        
+
                         <div className="mt-auto">
                             <h3 className="text-sm font-semibold mb-3">Kontrol Tampilan</h3>
                             <div className="flex items-center gap-2 mb-3">
@@ -530,11 +531,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                     <ZoomIn className="w-4 h-4" />
                                 </Button>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="flex-1"
                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                     disabled={currentPage <= 1 || loading}
@@ -542,9 +543,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                     Prev
                                 </Button>
                                 <span className="text-sm w-16 text-center">Hal {currentPage}/{numPages || '-'}</span>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="flex-1"
                                     onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
                                     disabled={currentPage >= numPages || loading}
@@ -556,16 +557,16 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                     </div>
 
                     {/* PDF Viewer Area */}
-                    <div 
+                    <div
                         className="flex-1 bg-gray-100 overflow-auto flex justify-center p-8 relative"
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
                     >
-                        <div 
+                        <div
                             ref={containerRef}
                             className="relative shadow-xl bg-white select-none"
-                            style={{ 
+                            style={{
                                 // Scale is applied to the Document/Page component natively by react-pdf
                             }}
                         >
@@ -574,16 +575,16 @@ const SignaturePlacementDialog: React.FC<Props> = ({ open, onOpenChange, dokumen
                                 onLoadSuccess={onDocumentLoadSuccess}
                                 loading={<div className="p-10 flex items-center justify-center">Memuat dokumen PDF...</div>}
                             >
-                                <Page 
-                                    pageNumber={currentPage} 
-                                    scale={scale} 
-                                    renderTextLayer={false} 
+                                <Page
+                                    pageNumber={currentPage}
+                                    scale={scale}
+                                    renderTextLayer={false}
                                     renderAnnotationLayer={false}
                                     className="shadow-sm"
                                     onLoadSuccess={onPageLoadSuccess}
                                 />
                             </Document>
-                            
+
                             {renderSignatureBoxes()}
                         </div>
                     </div>
