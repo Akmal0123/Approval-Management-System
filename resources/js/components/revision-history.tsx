@@ -14,7 +14,6 @@ interface Version {
     tgl_upload: string;
     tipe_file: string;
     file_url: string;
-    full_file_url?: string;
     size_file: number;
     status: string;
     created_at: string;
@@ -231,7 +230,7 @@ export default function RevisionHistory({ dokumenId, className = '' }: RevisionH
                                                 </Badge>
                                             )}
                                             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                                <a href={version.full_file_url || `/storage/${version.file_url}`} target="_blank" rel="noopener noreferrer">
+                                                <a href={`/api/dokumen/${dokumenId}/download/${version.id}`} target="_blank" rel="noopener noreferrer">
                                                     <Download className="h-4 w-4" />
                                                 </a>
                                             </Button>

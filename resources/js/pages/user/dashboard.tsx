@@ -151,9 +151,8 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                                     <div className="mt-4">
                                                         <Link href="/approvals?status=approved">
                                                             <Button
-                                                                variant="outline"
                                                                 size="sm"
-                                                                className="w-full border-blue-200 text-blue-700 hover:bg-blue-100"
+                                                                className="w-full bg-blue-600 text-white hover:bg-blue-700"
                                                             >
                                                                 View History
                                                             </Button>

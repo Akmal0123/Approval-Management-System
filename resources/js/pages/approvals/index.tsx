@@ -9,8 +9,8 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { showToast } from '@/lib/toast';
 import { Head, router, usePage } from '@inertiajs/react';
-import { IconAlertCircle, IconCalendar, IconCheck, IconClock, IconEye, IconFileText, IconRefresh, IconSearch, IconUser, IconX } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { IconAlertCircle, IconCalendar, IconCheck, IconClock, IconEye, IconFileText, IconSearch, IconUser, IconX } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 
 interface User {
     id: number;
@@ -32,7 +32,6 @@ interface Dokumen {
     id: number;
     nomor_dokumen: string;
     judul_dokumen: string;
-    deskripsi?: string;
     status: string;
     tgl_pengajuan: string;
     tgl_deadline?: string;
@@ -76,7 +75,6 @@ interface PaginatedApprovals {
 
 interface Stats {
     pending: number;
-    revision_requested?: number;
     approved: number;
     rejected: number;
     overdue: number;
@@ -99,36 +97,6 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
     const [approvalsData, setApprovalsData] = useState<DokumenApproval[]>(approvals.data);
     const [statsData, setStatsData] = useState<Stats>(stats);
     const [updatedApprovalIds, setUpdatedApprovalIds] = useState<Set<number>>(new Set()); // Track recently updated approvals
-
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-    // Helper to check if text or any word starts with query
-    const startsWithWord = (text: string | null | undefined, query: string): boolean => {
-        if (!text || !query) return false;
-        const cleanText = text.trim().toLowerCase();
-        const cleanQuery = query.trim().toLowerCase();
-
-        if (cleanText.startsWith(cleanQuery)) return true;
-        const words = cleanText.split(/[\s\-_\/]+/);
-        return words.some((word) => word.startsWith(cleanQuery));
-    };
-
-    // Compute live search recommendations by prefix / startsWith word (max 5 items)
-    const suggestions = useMemo(() => {
-        const query = search.trim().toLowerCase();
-        if (!query || query.length < 1) return [];
-
-        return approvalsData
-            .filter((item) => {
-                const titleMatch = startsWithWord(item.dokumen?.judul_dokumen, query);
-                const numberMatch = startsWithWord(item.dokumen?.nomor_dokumen, query);
-                const userMatch = startsWithWord(item.dokumen?.user?.name, query);
-                const fileName = item.dokumen_version?.nama_file || item.dokumen?.latest_version?.nama_file;
-                const fileMatch = startsWithWord(fileName, query);
-                return titleMatch || numberMatch || userMatch || fileMatch;
-            })
-            .slice(0, 5);
-    }, [approvalsData, search]);
 
     // Update local state when props change (e.g., pagination, filter)
     useEffect(() => {
@@ -332,52 +300,16 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
         }
     }, [approvalsData.length, auth.user?.id]);
 
-    // Instant live search per character with tab filtering
-    const filteredApprovals = useMemo(() => {
-        let result = approvalsData;
-
-        // Filter by selected tab
-        if (selectedTab !== 'all') {
-            result = result.filter((item) => item.approval_status === selectedTab);
-        }
-
-        const query = search.trim().toLowerCase();
-        if (!query) return result;
-
-        return result.filter((item) => {
-            const titleMatch = startsWithWord(item.dokumen?.judul_dokumen, query) || Boolean(query.length >= 3 && item.dokumen?.judul_dokumen?.toLowerCase()?.includes(query));
-            const numberMatch = startsWithWord(item.dokumen?.nomor_dokumen, query) || Boolean(query.length >= 3 && item.dokumen?.nomor_dokumen?.toLowerCase()?.includes(query));
-            const userMatch = startsWithWord(item.dokumen?.user?.name, query);
-            const descMatch = startsWithWord(item.dokumen?.deskripsi, query) || Boolean(query.length >= 3 && item.dokumen?.deskripsi?.toLowerCase()?.includes(query));
-            const stepMatch = startsWithWord(item.masterflow_step?.step_name, query);
-            return titleMatch || numberMatch || userMatch || descMatch || stepMatch;
-        });
-    }, [approvalsData, search, selectedTab]);
-
     // Handle search
-    const handleSearch = (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        router.get(
-            route('approvals.index'),
-            { search: search.trim() || undefined, status: selectedTab !== 'all' ? selectedTab : undefined },
-            { preserveState: true, replace: true }
-        );
-    };
-
-    // Handle clear search
-    const handleClearSearch = () => {
-        setSearch('');
-        setIsDropdownOpen(false);
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.get(route('approvals.index'), { search, status: selectedTab !== 'all' ? selectedTab : undefined }, { preserveState: true });
     };
 
     // Handle tab change
     const handleTabChange = (value: string) => {
         setSelectedTab(value);
-        router.get(
-            route('approvals.index'),
-            { status: value !== 'all' ? value : undefined, search: search.trim() || undefined },
-            { preserveState: true, replace: true }
-        );
+        router.get(route('approvals.index'), { status: value !== 'all' ? value : undefined, search }, { preserveState: true });
     };
 
     // Handle view detail
@@ -403,11 +335,6 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                 label: 'Menunggu',
                 className: 'bg-yellow-100 text-yellow-800 border-yellow-300',
                 icon: IconClock,
-            },
-            revision_requested: {
-                label: 'Perlu Revisi',
-                className: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-                icon: IconRefresh,
             },
             approved: {
                 label: 'Disetujui',
@@ -455,47 +382,51 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
 
                             {/* Stats Cards */}
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Menunggu</CardTitle>
-                                        <IconClock className="h-4 w-4 text-yellow-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.pending}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Perlu persetujuan</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.pending}</p>
+                                            </div>
+                                            <IconClock className="h-8 w-8 text-yellow-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Perlu Revisi</CardTitle>
-                                        <IconRefresh className="h-4 w-4 text-amber-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold text-amber-700">{statsData.revision_requested || 0}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Menunggu perbaikan</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.approved}</p>
+                                            </div>
+                                            <IconCheck className="h-8 w-8 text-green-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Disetujui</CardTitle>
-                                        <IconCheck className="h-4 w-4 text-green-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.approved}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Total disetujui</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Ditolak</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.rejected}</p>
+                                            </div>
+                                            <IconX className="h-8 w-8 text-red-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="font-sans text-sm font-medium">Ditolak</CardTitle>
-                                        <IconX className="h-4 w-4 text-red-600" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="font-mono text-2xl font-bold">{statsData.rejected}</div>
-                                        <p className="font-sans text-xs text-muted-foreground">Total ditolak</p>
+                                <Card className="border-border bg-card">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-sans text-sm font-medium text-muted-foreground">Terlambat</p>
+                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.overdue}</p>
+                                            </div>
+                                            <IconAlertCircle className="h-8 w-8 text-orange-500" />
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -513,70 +444,11 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                             <IconSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                             <Input
                                                 type="text"
-                                                placeholder="Cari berdasarkan judul, nomor, atau nama berkas..."
+                                                placeholder="Cari berdasarkan judul dokumen..."
                                                 value={search}
-                                                onChange={(e) => {
-                                                    setSearch(e.target.value);
-                                                    setIsDropdownOpen(true);
-                                                }}
-                                                onFocus={() => setIsDropdownOpen(true)}
-                                                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                                                className="pl-10 pr-10 font-sans"
+                                                onChange={(e) => setSearch(e.target.value)}
+                                                className="pl-10 font-sans"
                                             />
-                                            {search && (
-                                                <button
-                                                    type="button"
-                                                    onClick={handleClearSearch}
-                                                    className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                                    title="Hapus Pencarian"
-                                                >
-                                                    <IconX className="h-4 w-4" />
-                                                </button>
-                                            )}
-
-                                            {/* Live Recommendation Dropdown */}
-                                            {isDropdownOpen && suggestions.length > 0 && (
-                                                <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-emerald-300 bg-[#f4fbf6] p-2.5 shadow-2xl backdrop-blur-md">
-                                                    <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold tracking-wider text-emerald-900 uppercase bg-emerald-100/90 rounded-xl mb-1.5">
-                                                        <span>💡 REKOMENDASI BERKAS DOKUMEN ({suggestions.length})</span>
-                                                        <span className="text-[10px] font-medium text-emerald-700">Awalan kata: "{search}"</span>
-                                                    </div>
-                                                    <div className="divide-y divide-emerald-100/80">
-                                                        {suggestions.map((item) => {
-                                                            const fileName = item.dokumen_version?.nama_file || item.dokumen?.latest_version?.nama_file;
-                                                            return (
-                                                                <div
-                                                                    key={item.id}
-                                                                    onMouseDown={() => {
-                                                                        setSearch(item.dokumen?.judul_dokumen || '');
-                                                                        setIsDropdownOpen(false);
-                                                                        handleViewDetail(item.id);
-                                                                    }}
-                                                                    className="group flex cursor-pointer items-center justify-between rounded-xl p-2.5 hover:bg-emerald-100/80 transition-all"
-                                                                >
-                                                                    <div className="flex items-center gap-3 min-w-0">
-                                                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm">
-                                                                            <IconFileText className="h-5 w-5" />
-                                                                        </div>
-                                                                        <div className="min-w-0">
-                                                                            <div className="truncate text-xs font-bold text-emerald-950 group-hover:text-emerald-800 sm:text-sm">
-                                                                                {item.dokumen?.judul_dokumen}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 text-[11px] font-medium text-emerald-800/80">
-                                                                                {item.dokumen?.nomor_dokumen && <span>{item.dokumen.nomor_dokumen}</span>}
-                                                                                {fileName && <span className="truncate max-w-[220px]">📁 {fileName}</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="text-xs font-bold text-emerald-700 group-hover:translate-x-1 transition-transform shrink-0 pl-2">
-                                                                        Buka →
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                         <Button type="submit" className="font-sans">
                                             Cari
@@ -592,9 +464,6 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                             <TabsTrigger value="pending" className="font-sans">
                                                 Menunggu ({statsData.pending})
                                             </TabsTrigger>
-                                            <TabsTrigger value="revision_requested" className="font-sans text-amber-800">
-                                                Perlu Revisi ({statsData.revision_requested || 0})
-                                            </TabsTrigger>
                                             <TabsTrigger value="approved" className="font-sans">
                                                 Disetujui ({statsData.approved})
                                             </TabsTrigger>
@@ -604,22 +473,17 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                         </TabsList>
 
                                         <TabsContent value={selectedTab} className="mt-6 space-y-4">
-                                            {filteredApprovals.length === 0 ? (
+                                            {approvalsData.length === 0 ? (
                                                 <div className="py-12 text-center">
                                                     <IconFileText className="mx-auto h-12 w-12 text-muted-foreground" />
                                                     <h3 className="mt-4 font-serif text-lg font-semibold">Tidak ada dokumen</h3>
                                                     <p className="mt-2 font-sans text-sm text-muted-foreground">
-                                                        {search ? `Tidak ada dokumen yang cocok dengan kata pencarian "${search}".` : 'Belum ada dokumen yang perlu di-approve pada kategori ini.'}
+                                                        Belum ada dokumen yang perlu di-approve pada kategori ini.
                                                     </p>
-                                                    {search && (
-                                                        <Button variant="outline" size="sm" onClick={handleClearSearch} className="mt-4 font-sans">
-                                                            Reset Pencarian
-                                                        </Button>
-                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3">
-                                                    {filteredApprovals.map((approval) => (
+                                                    {approvalsData.map((approval) => (
                                                         <Card
                                                             key={approval.id}
                                                             className={`transition-all duration-500 hover:shadow-md ${

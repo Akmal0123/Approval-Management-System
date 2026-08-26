@@ -1,4 +1,5 @@
 import { AppSidebar } from '@/components/app-sidebar';
+import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { NotificationListener } from '@/components/NotificationListener';
 import { SiteHeader } from '@/components/site-header';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconEdit, IconFileText, IconPlus, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
+import { IconEdit, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
 import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface User {
     id: number;
@@ -94,12 +95,7 @@ interface DetailedStatus {
 
 interface Dokumen {
     id: number;
-    nomor_dokumen: string;
     judul_dokumen: string;
-    tipe_dokumen?: string;
-    nominal?: number | string;
-    qr_code_path?: string;
-    qr_code_hash?: string;
     user_id: number;
     masterflow_id: number;
     status: string;
@@ -128,8 +124,6 @@ interface StepApprovers {
 interface FormData {
     nomor_dokumen: string;
     judul_dokumen: string;
-    tipe_dokumen: string;
-    nominal: string;
     masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
     tgl_pengajuan: string;
     tgl_deadline: string;
@@ -138,13 +132,12 @@ interface FormData {
     approvers: Record<number, number | ''>; // stepId -> userId (for single approver mode)
     custom_approvers: CustomApprover[]; // for custom approvals
     step_approvers: Record<number, StepApprovers>; // stepId -> { userIds, jenisGroup } (for group mode)
+    signature_positions: any[] | null;
 }
 
 const initialFormData: FormData = {
     nomor_dokumen: '',
     judul_dokumen: '',
-    tipe_dokumen: 'proposal',
-    nominal: '',
     masterflow_id: '',
     tgl_pengajuan: new Date().toISOString().split('T')[0],
     tgl_deadline: '',
@@ -153,6 +146,7 @@ const initialFormData: FormData = {
     approvers: {},
     custom_approvers: [{ email: '', order: 1 }],
     step_approvers: {},
+    signature_positions: null,
 };
 
 export default function UserDokumen() {
@@ -166,48 +160,17 @@ export default function UserDokumen() {
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft'); // Track button clicked
-    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
     const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-    const [sigBoxPosition, setSigBoxPosition] = useState<{ x: number; y: number; page: string }>({
-        x: 70,
-        y: 80,
-        page: 'last',
-    });
 
-    // Helper to check if text or any word starts with query
-    const startsWithWord = (text: string | null | undefined, query: string): boolean => {
-        if (!text || !query) return false;
-        const cleanText = text.trim().toLowerCase();
-        const cleanQuery = query.trim().toLowerCase();
-
-        if (cleanText.startsWith(cleanQuery)) return true;
-        const words = cleanText.split(/[\s\-_\/]+/);
-        return words.some((word) => word.startsWith(cleanQuery));
-    };
-
-    // Compute live search recommendations for Dokumen Saya (max 5 items)
-    const suggestions = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-        if (!query || query.length < 1) return [];
-
-        return dokumen
-            .filter((item) => {
-                const titleMatch = startsWithWord(item.judul_dokumen, query);
-                const numberMatch = startsWithWord(item.nomor_dokumen, query);
-                const descMatch = startsWithWord(item.deskripsi, query);
-                const fileName = item.latest_version?.nama_file;
-                const fileMatch = startsWithWord(fileName, query);
-                return titleMatch || numberMatch || descMatch || fileMatch;
-            })
-            .slice(0, 5);
-    }, [dokumen, searchQuery]);
+    const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+    const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
+    const [pendingApprovalsForDialog, setPendingApprovalsForDialog] = useState<any[]>([]);
 
     // Fetch dokumen from backend
     const fetchDokumen = async () => {
@@ -223,7 +186,7 @@ export default function UserDokumen() {
             });
 
             console.log('Dokumen fetched:', response.data);
-            const newDokumen = Array.isArray(response.data) ? response.data : response.data.data || [];
+            const newDokumen = response.data.data || response.data;
             console.log('📊 Total dokumen received:', newDokumen.length);
             console.log(
                 '📊 Dokumen list:',
@@ -250,7 +213,7 @@ export default function UserDokumen() {
             const response = await api.get('/masterflows');
             console.log('Masterflows fetched:', response.data);
             // API returns { masterflows: [...] }, not direct array
-            setMasterflows(response.data.masterflows || response.data || []);
+            setMasterflows(response.data.masterflows || []);
         } catch (error) {
             console.error('Error fetching masterflows:', error);
             showToast.error('❌ Failed to load masterflows.');
@@ -490,7 +453,7 @@ export default function UserDokumen() {
         if (errors[name]) {
             setErrors((prev) => ({
                 ...prev,
-                [name]: [],
+                [name]: '',
             }));
         }
     };
@@ -519,19 +482,17 @@ export default function UserDokumen() {
                 ...prev,
                 file: file,
             }));
-
-            // Create Object URL for PDF Preview & Interactive Signature Placement
-            try {
-                const objectUrl = URL.createObjectURL(file);
-                setPdfPreviewUrl(objectUrl);
-            } catch (err) {
-                console.warn('Failed to create PDF preview object URL:', err);
+            
+            // Create a local URL for the PDF preview in the signature placement dialog
+            if (localFileUrl) {
+                URL.revokeObjectURL(localFileUrl);
             }
+            setLocalFileUrl(URL.createObjectURL(file));
 
             if (errors.file) {
                 setErrors((prev) => ({
                     ...prev,
-                    file: [],
+                    file: '',
                 }));
             }
         }
@@ -574,7 +535,7 @@ export default function UserDokumen() {
         if (errors.masterflow_id) {
             setErrors((prev) => ({
                 ...prev,
-                masterflow_id: [],
+                masterflow_id: '',
             }));
         }
 
@@ -752,44 +713,65 @@ export default function UserDokumen() {
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         setStepModes({}); // Reset step modes
-        setPdfPreviewUrl(null);
         setErrors({});
         setIsCreateDialogOpen(true);
     };
 
-    // Helper function to safely render validation error message
-    const renderError = (err: any) => {
-        if (!err) return null;
-        if (Array.isArray(err)) return err[0];
-        return String(err);
+    const openSignatureDialog = () => {
+        if (!formData.file || !localFileUrl) {
+            showToast.error('Silakan upload file PDF terlebih dahulu.');
+            return;
+        }
+
+        const generatedApprovals: any[] = [];
+        
+        if (formData.masterflow_id === 'custom') {
+            formData.custom_approvers.forEach((app, idx) => {
+                if (app.email) {
+                    generatedApprovals.push({
+                        id: `custom_${idx}`,
+                        approver_email: app.email,
+                        step_name: `Tingkat ${app.order}`,
+                        user: { name: app.email }
+                    });
+                }
+            });
+        } else if (selectedMasterflow && selectedMasterflow.steps) {
+            selectedMasterflow.steps.forEach(step => {
+                if (stepModes[step.id] === 'group') {
+                    generatedApprovals.push({
+                        id: `group_${step.id}`,
+                        step_name: step.step_name,
+                        jabatan_name: step.jabatan?.name || 'Group',
+                        user: { name: `Group Approval (${step.step_name})` }
+                    });
+                } else {
+                    const userId = formData.approvers[step.id];
+                    const user = availableApprovers[step.id]?.find(u => u.id === userId);
+                    if (userId) {
+                        generatedApprovals.push({
+                            id: `step_${step.id}_user_${userId}`,
+                            step_name: step.step_name,
+                            jabatan_name: step.jabatan?.name,
+                            user: { name: user ? user.name : `Approver ${step.step_name}` }
+                        });
+                    }
+                }
+            });
+        }
+        
+        if (generatedApprovals.length === 0) {
+            showToast.error('Silakan tentukan minimal 1 approver terlebih dahulu.');
+            return;
+        }
+        
+        setPendingApprovalsForDialog(generatedApprovals);
+        setSignatureDialogOpen(true);
     };
 
     // Submit form to create document
     const handleSubmit = async (e: React.FormEvent, type: 'draft' | 'submit') => {
         e.preventDefault();
-
-        // Perform client-side validation check
-        const validationErrors: Record<string, string> = {};
-        if (!formData.judul_dokumen.trim()) {
-            validationErrors.judul_dokumen = 'Judul dokumen wajib diisi.';
-        }
-        if (!formData.file) {
-            validationErrors.file = 'File dokumen (PDF) wajib diunggah.';
-        }
-        if (!formData.tgl_deadline) {
-            validationErrors.tgl_deadline = 'Tanggal deadline wajib diisi.';
-        }
-        if (formData.masterflow_id === '') {
-            validationErrors.masterflow_id = 'Pilih Masterflow atau Custom Approval.';
-        }
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors as any);
-            const firstMsg = Object.values(validationErrors)[0];
-            showToast.error(`❌ ${firstMsg}`);
-            return;
-        }
-
         setSubmitType(type);
         setIsSubmitting(true);
         setErrors({});
@@ -805,17 +787,19 @@ export default function UserDokumen() {
 
             // Create FormData for file upload
             const submitData = new FormData();
-            submitData.append('nomor_dokumen', formData.nomor_dokumen || generateDocumentNumber());
+            submitData.append('nomor_dokumen', formData.nomor_dokumen);
             submitData.append('judul_dokumen', formData.judul_dokumen);
-            submitData.append('tipe_dokumen', formData.tipe_dokumen || 'proposal');
-            submitData.append('nominal', formData.nominal || '0');
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
-            submitData.append('deskripsi', formData.deskripsi || '');
+            submitData.append('deskripsi', formData.deskripsi);
             submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
 
             if (formData.file) {
                 submitData.append('file', formData.file);
+            }
+
+            if (formData.signature_positions && formData.signature_positions.length > 0) {
+                submitData.append('signature_positions', JSON.stringify(formData.signature_positions));
             }
 
             // Add approvers based on masterflow type
@@ -823,17 +807,15 @@ export default function UserDokumen() {
                 submitData.append('masterflow_id', 'custom');
                 // Send custom approvers array
                 formData.custom_approvers.forEach((approver, index) => {
-                    if (approver.email) {
-                        submitData.append(`custom_approvers[${index}][email]`, approver.email);
-                        submitData.append(`custom_approvers[${index}][order]`, approver.order.toString());
-                    }
+                    submitData.append(`custom_approvers[${index}][email]`, approver.email);
+                    submitData.append(`custom_approvers[${index}][order]`, approver.order.toString());
                 });
             } else {
                 submitData.append('masterflow_id', formData.masterflow_id.toString());
 
                 // Send step_approvers for group mode steps
                 Object.entries(formData.step_approvers).forEach(([stepId, stepApprover]) => {
-                    if (stepApprover.userIds && stepApprover.userIds.length > 0 && stepApprover.jenisGroup) {
+                    if (stepApprover.userIds.length > 0 && stepApprover.jenisGroup) {
                         console.log(`Adding group approvers for step ${stepId}:`, stepApprover);
                         submitData.append(`step_approvers[${stepId}][jenis_group]`, stepApprover.jenisGroup);
                         stepApprover.userIds.forEach((userId, index) => {
@@ -862,7 +844,7 @@ export default function UserDokumen() {
             // Use Inertia router for form submission with file
             router.post('/api/dokumen', submitData, {
                 forceFormData: true,
-                preserveState: false,
+                preserveState: true,
                 preserveScroll: false,
                 onSuccess: (page) => {
                     const message =
@@ -877,11 +859,10 @@ export default function UserDokumen() {
                 },
                 onError: (errors) => {
                     console.error('Form submission errors:', errors);
-                    setErrors(errors as unknown as Record<string, string[]>);
+                    setErrors(errors);
 
                     // Show specific error message if available
-                    const firstVal = Object.values(errors)[0];
-                    const errorMessage = Array.isArray(firstVal) ? firstVal[0] : (typeof firstVal === 'string' ? firstVal : 'Failed to create document. Please check the form.');
+                    const errorMessage = errors.error || 'Failed to create document. Please check the form.';
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -929,11 +910,10 @@ export default function UserDokumen() {
             under_review: { label: 'Under Review', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
             approved: { label: 'Approved', className: 'bg-green-100 text-green-800 border-green-300' },
             rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800 border-red-300' },
-            revision_requested: { label: 'Perlu Revisi', className: 'bg-orange-100 text-orange-800 border-orange-300' },
-            needs_revision: { label: 'Perlu Revisi', className: 'bg-orange-100 text-orange-800 border-orange-300' },
+            needs_revision: { label: 'Perlu Revisi', className: 'bg-purple-100 text-purple-800 border-purple-300' },
         };
 
-        const config = statusConfig[status] || statusConfig.draft;
+        const config = statusConfig[status] ?? { label: status, className: 'bg-gray-100 text-gray-800 border-gray-300' };
         return (
             <Badge variant="outline" className={`font-sans ${config.className}`}>
                 {config.label}
@@ -943,14 +923,10 @@ export default function UserDokumen() {
 
     // Filter documents
     const filteredDokumen = dokumen.filter((doc) => {
-        const query = searchQuery.trim().toLowerCase();
         const matchesSearch =
-            !query ||
-            startsWithWord(doc.judul_dokumen, query) ||
-            startsWithWord(doc.nomor_dokumen, query) ||
-            startsWithWord(doc.deskripsi, query) ||
-            startsWithWord(doc.masterflow?.name, query) ||
-            (query.length >= 3 && doc.judul_dokumen?.toLowerCase().includes(query));
+            doc.judul_dokumen.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            doc.deskripsi?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            doc.masterflow?.name.toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
 
@@ -969,7 +945,7 @@ export default function UserDokumen() {
         <>
             <Head title="My Documents" />
             <SidebarProvider>
-                <NotificationListener userId={auth.user?.id} />
+                <NotificationListener />
                 <AppSidebar variant="inset" />
                 <SidebarInset>
                     <SiteHeader />
@@ -994,39 +970,47 @@ export default function UserDokumen() {
                                 {/* Stats Cards */}
                                 <div className="grid gap-4 md:grid-cols-4">
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</h3>
-                                            <FileTextIcon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.total}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.total}</p>
+                                                </div>
+                                                <FileTextIcon className="h-8 w-8 text-blue-500" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Draft</h3>
-                                            <UserIcon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.draft}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Draft</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.draft}</p>
+                                                </div>
+                                                <UserIcon className="h-8 w-8 text-gray-400" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</h3>
-                                            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.submitted}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.submitted}</p>
+                                                </div>
+                                                <CalendarIcon className="h-8 w-8 text-orange-500" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Disetujui</h3>
-                                            <Activity className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        <CardContent>
-                                            <div className="font-sans text-2xl font-bold text-foreground">{stats.approved}</div>
+                                        <CardContent className="p-6">
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.approved}</p>
+                                                </div>
+                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 </div>
@@ -1036,70 +1020,11 @@ export default function UserDokumen() {
                                     <div className="relative flex-1">
                                         <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
-                                            placeholder="Cari berdasarkan judul, nomor, atau nama berkas..."
+                                            placeholder="Cari dokumen..."
                                             value={searchQuery}
-                                            onChange={(e) => {
-                                                setSearchQuery(e.target.value);
-                                                setIsDropdownOpen(true);
-                                            }}
-                                            onFocus={() => setIsDropdownOpen(true)}
-                                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                                            className="pl-10 pr-10 font-sans"
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-10 font-sans"
                                         />
-                                        {searchQuery && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setSearchQuery('')}
-                                                className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                                title="Hapus pencarian"
-                                            >
-                                                <IconX className="h-4 w-4" />
-                                            </button>
-                                        )}
-
-                                        {/* Live Recommendation Dropdown */}
-                                        {isDropdownOpen && suggestions.length > 0 && (
-                                            <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-blue-300 bg-[#f4f8fb] p-2.5 shadow-2xl backdrop-blur-md">
-                                                <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold tracking-wider text-blue-900 uppercase bg-blue-100/90 rounded-xl mb-1.5">
-                                                    <span>💡 REKOMENDASI BERKAS DOKUMEN SAYA ({suggestions.length})</span>
-                                                    <span className="text-[10px] font-medium text-blue-700">Awalan kata: "{searchQuery}"</span>
-                                                </div>
-                                                <div className="divide-y divide-blue-100/80">
-                                                    {suggestions.map((item) => {
-                                                        const fileName = item.latest_version?.nama_file;
-                                                        return (
-                                                            <div
-                                                                key={item.id}
-                                                                onMouseDown={() => {
-                                                                    setSearchQuery(item.judul_dokumen || '');
-                                                                    setIsDropdownOpen(false);
-                                                                    router.visit(route('dokumen.show', item.id));
-                                                                }}
-                                                                className="group flex cursor-pointer items-center justify-between rounded-xl p-2.5 hover:bg-blue-100/80 transition-all"
-                                                            >
-                                                                <div className="flex items-center gap-3 min-w-0">
-                                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
-                                                                        <IconFileText className="h-5 w-5" />
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <div className="truncate text-xs font-bold text-blue-950 group-hover:text-blue-800 sm:text-sm">
-                                                                            {item.judul_dokumen}
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2 text-[11px] font-medium text-blue-800/80">
-                                                                            {item.nomor_dokumen && <span>{item.nomor_dokumen}</span>}
-                                                                            {fileName && <span className="truncate max-w-[220px]">📁 {fileName}</span>}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="text-xs font-bold text-blue-700 group-hover:translate-x-1 transition-transform shrink-0 pl-2">
-                                                                    Lihat →
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                                         <SelectTrigger className="w-[180px] font-sans">
@@ -1139,14 +1064,14 @@ export default function UserDokumen() {
                                             <CardContent className="p-0">
                                                 <Table>
                                                     <TableHeader>
-                                                        <TableRow className="bg-muted/40 text-sm font-semibold">
-                                                            <TableHead className="w-12 text-center font-sans">No</TableHead>
-                                                            <TableHead className="w-56 font-sans">Judul Dokumen</TableHead>
-                                                            <TableHead className="w-40 font-sans">Masterflow</TableHead>
-                                                            <TableHead className="w-32 font-sans">Status</TableHead>
-                                                            <TableHead className="w-52 font-sans">Current Step</TableHead>
-                                                            <TableHead className="w-32 font-sans">Tanggal</TableHead>
-                                                            <TableHead className="w-24 text-right font-sans pr-4">Aksi</TableHead>
+                                                        <TableRow>
+                                                            <TableHead className="w-16 font-sans">No</TableHead>
+                                                            <TableHead className="min-w-64 font-sans">Judul Dokumen</TableHead>
+                                                            <TableHead className="w-48 font-sans">Masterflow</TableHead>
+                                                            <TableHead className="w-40 font-sans">Status</TableHead>
+                                                            <TableHead className="min-w-64 font-sans">Current Step</TableHead>
+                                                            <TableHead className="w-40 font-sans">Tanggal Pengajuan</TableHead>
+                                                            <TableHead className="w-32 text-right font-sans">Aksi</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
@@ -1154,79 +1079,61 @@ export default function UserDokumen() {
                                                             filteredDokumen.map((doc, index) => (
                                                                 <TableRow
                                                                     key={doc.id}
-                                                                    className={`transition-all duration-300 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
+                                                                    className={`transition-all duration-500 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
                                                                         }`}
                                                                 >
-                                                                    <TableCell className="text-center font-mono text-sm font-medium">{index + 1}</TableCell>
+                                                                    <TableCell className="font-mono">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
-                                                                        <div className="flex flex-col gap-0.5 max-w-[220px]">
-                                                                            <span className="font-semibold text-sm text-foreground truncate" title={doc.judul_dokumen}>
-                                                                                {doc.judul_dokumen}
-                                                                            </span>
+                                                                        <div className="flex flex-col gap-1">
+                                                                            <span className="font-medium">{doc.judul_dokumen}</span>
                                                                             {doc.deskripsi && (
-                                                                                <span className="text-xs text-muted-foreground truncate" title={doc.deskripsi}>
-                                                                                    {doc.deskripsi}
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    {doc.deskripsi.substring(0, 80)}
+                                                                                    {doc.deskripsi.length > 80 ? '...' : ''}
                                                                                 </span>
                                                                             )}
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans text-sm">
-                                                                        <div className="max-w-[150px] truncate font-medium text-foreground/90" title={doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}>
-                                                                            {doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                    <TableCell className="font-sans text-sm">{getStatusBadge(doc.status)}</TableCell>
-                                                                    <TableCell className="font-sans text-sm">
+                                                                    <TableCell className="font-sans">{doc.masterflow?.name || '-'}</TableCell>
+                                                                    <TableCell className="font-sans">{getStatusBadge(doc.status)}</TableCell>
+                                                                    <TableCell className="font-sans">
                                                                         {doc.detailed_status?.current_step_description ? (
-                                                                            <div className="max-w-[200px] text-xs font-medium text-foreground/80 line-clamp-2 leading-snug" title={doc.detailed_status.current_step_description}>
-                                                                                {doc.detailed_status.current_step_description}
+                                                                            <div className="flex flex-col gap-1">
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    {doc.detailed_status.current_step_description}
+                                                                                </span>
                                                                             </div>
                                                                         ) : doc.detailed_status?.is_fully_approved ? (
-                                                                            <span className="text-xs font-semibold text-green-600">
-                                                                                ✓ Semua disetujui
+                                                                            <span className="text-xs font-medium text-green-600">
+                                                                                ✓ Semua sudah approve
                                                                             </span>
                                                                         ) : doc.detailed_status?.is_rejected ? (
-                                                                            <span className="text-xs font-semibold text-red-600">✗ Ditolak</span>
+                                                                            <span className="text-xs font-medium text-red-600">✗ Ditolak</span>
                                                                         ) : (
                                                                             <span className="text-xs text-gray-400">-</span>
                                                                         )}
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans text-sm font-medium whitespace-nowrap">
+                                                                    <TableCell className="font-sans">
                                                                         {new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}
                                                                     </TableCell>
-                                                                    <TableCell className="text-right pr-4">
-                                                                        <div className="flex justify-end gap-1.5">
-                                                                            <Link href={`/dokumen/${doc.id}`}>
+                                                                    <TableCell className="text-right">
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <Link href={`/api/dokumen/${doc.id}`}>
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
                                                                                     className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
-                                                                                    title="Lihat Detail Dokumen"
                                                                                 >
                                                                                     <Eye className="h-4 w-4" />
                                                                                 </Button>
                                                                             </Link>
-                                                                            {(doc.status === 'needs_revision' || doc.status === 'revision_requested') && (
-                                                                                <Link href={`/dokumen/${doc.id}`}>
-                                                                                    <Button
-                                                                                        variant="outline"
-                                                                                        size="sm"
-                                                                                        className="h-8 border-amber-400 bg-amber-50 px-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
-                                                                                        title="Unggah Berkas Revisi Baru"
-                                                                                    >
-                                                                                        <IconRefresh className="mr-1 h-3.5 w-3.5" />
-                                                                                        Revisi
-                                                                                    </Button>
-                                                                                </Link>
-                                                                            )}
                                                                             {doc.status === 'draft' && (
                                                                                 <>
-                                                                                    <Link href={`/dokumen/${doc.id}`}>
+                                                                                    <Link href={`/dokumen/${doc.id}/edit`}>
                                                                                         <Button
                                                                                             variant="outline"
                                                                                             size="sm"
                                                                                             className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50"
-                                                                                            title="Edit Informasi Dokumen"
                                                                                         >
                                                                                             <IconEdit className="h-4 w-4" />
                                                                                         </Button>
@@ -1236,7 +1143,6 @@ export default function UserDokumen() {
                                                                                         size="sm"
                                                                                         onClick={() => handleDelete(doc)}
                                                                                         className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
-                                                                                        title="Hapus Draft Dokumen"
                                                                                     >
                                                                                         <IconTrash className="h-4 w-4" />
                                                                                     </Button>
@@ -1278,40 +1184,24 @@ export default function UserDokumen() {
 
                                 <div className="grid gap-4 py-4">
                                     {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="nomor_dokumen" className="font-sans font-medium">
+                                            <Label htmlFor="nomor_dokumen" className="font-sans">
                                                 Nomor Dokumen
                                             </Label>
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    id="nomor_dokumen"
-                                                    name="nomor_dokumen"
-                                                    value={formData.nomor_dokumen}
-                                                    onChange={handleInputChange}
-                                                    className="font-mono"
-                                                    placeholder="001/FIN/2026 atau Auto"
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() => {
-                                                        const autoNum = generateDocumentNumber();
-                                                        setFormData((prev) => ({ ...prev, nomor_dokumen: autoNum }));
-                                                        showToast.success('⚡ Nomor dokumen otomatis dibuat');
-                                                    }}
-                                                    className="shrink-0 text-xs font-semibold text-blue-600 border-blue-200 hover:bg-blue-50 font-sans"
-                                                >
-                                                    ⚡ Auto Generate
-                                                </Button>
-                                            </div>
-                                            <p className="text-[11px] text-muted-foreground">
-                                                Bebas diketik nomor manual atau tekan Auto Generate.
-                                            </p>
+                                            <Input
+                                                id="nomor_dokumen"
+                                                name="nomor_dokumen"
+                                                value={formData.nomor_dokumen}
+                                                onChange={handleInputChange}
+                                                className="font-mono"
+                                                placeholder="Auto-generated"
+                                                readOnly
+                                            />
                                         </div>
 
                                         <div className="grid gap-2">
-                                            <Label htmlFor="tgl_pengajuan" className="font-sans font-medium">
+                                            <Label htmlFor="tgl_pengajuan" className="font-sans">
                                                 Tanggal Pengajuan
                                             </Label>
                                             <Input
@@ -1336,53 +1226,9 @@ export default function UserDokumen() {
                                             value={formData.judul_dokumen}
                                             onChange={handleInputChange}
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-                                            placeholder="Proposal Pengadaan / Transaksi Operational"
+                                            placeholder="Jurnal Besar Keuangan"
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
-                                    </div>
-
-                                    {/* Tipe Dokumen & Nominal */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="tipe_dokumen" className="font-sans">
-                                                Tipe Dokumen / Transaksi <span className="text-red-500">*</span>
-                                            </Label>
-                                            <Select
-                                                value={formData.tipe_dokumen}
-                                                onValueChange={(val) => setFormData((prev) => ({ ...prev, tipe_dokumen: val }))}
-                                            >
-                                                <SelectTrigger className="font-sans">
-                                                    <SelectValue placeholder="Pilih Tipe Dokumen" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="proposal" className="font-sans">📊 Proposal</SelectItem>
-                                                    <SelectItem value="pengadaan" className="font-sans">📦 Pengadaan</SelectItem>
-                                                    <SelectItem value="po" className="font-sans">🛒 PO (Purchase Order)</SelectItem>
-                                                    <SelectItem value="pr" className="font-sans">📋 PR (Purchase Requisition)</SelectItem>
-                                                    <SelectItem value="memo_internal" className="font-sans">📝 Memo Internal</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        {['proposal', 'po', 'pr'].includes(formData.tipe_dokumen) && (
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="nominal" className="font-sans">
-                                                    Nominal Transaksi (Rp)
-                                                </Label>
-                                                <Input
-                                                    id="nominal"
-                                                    name="nominal"
-                                                    type="number"
-                                                    placeholder="Contoh: 4500000"
-                                                    value={formData.nominal}
-                                                    onChange={handleInputChange}
-                                                    className="font-sans"
-                                                />
-                                                <span className="text-[11px] text-emerald-700 font-medium">
-                                                    💡 Nominal &lt; 5 Juta otomatis rute Manager level
-                                                </span>
-                                            </div>
-                                        )}
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
                                     {/* Deadline */}
@@ -1398,7 +1244,7 @@ export default function UserDokumen() {
                                             onChange={handleInputChange}
                                             className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
-                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{renderError(errors.tgl_deadline)}</p>}
+                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline}</p>}
                                     </div>
 
                                     {/* Masterflow Selection (includes Custom option) */}
@@ -1424,7 +1270,7 @@ export default function UserDokumen() {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {errors.masterflow_id && <p className="text-sm text-red-500">{renderError(errors.masterflow_id)}</p>}
+                                        {errors.masterflow_id && <p className="text-sm text-red-500">{errors.masterflow_id}</p>}
                                     </div>
 
                                     {/* Approval Flow - Dynamic based on masterflow selection */}
@@ -1692,7 +1538,7 @@ export default function UserDokumen() {
                                             placeholder="Lapor bapak,,"
                                             rows={4}
                                         />
-                                        {errors.deskripsi && <p className="text-sm text-red-500">{renderError(errors.deskripsi)}</p>}
+                                        {errors.deskripsi && <p className="text-sm text-red-500">{errors.deskripsi}</p>}
                                     </div>
 
                                     {/* Upload File */}
@@ -1707,103 +1553,37 @@ export default function UserDokumen() {
                                             onChange={handleFileChange}
                                             className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
+                                        {errors.file && <p className="text-sm text-red-500">{errors.file}</p>}
                                         <p className="text-xs text-muted-foreground">
-                                            📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF. (Max 10MB)
+                                            📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
+                                            (Max 10MB)
                                         </p>
-
-                                        {/* Live PDF File Preview & Interactive Signature Placement Box */}
-                                        {pdfPreviewUrl && (
-                                            <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 font-bold text-sm text-blue-950">
-                                                        <FileTextIcon className="h-4 w-4 text-blue-600" />
-                                                        <span>Preview File & Kotak Tanda Tangan Approved</span>
-                                                    </div>
-                                                    <Badge className="bg-blue-600 text-white text-[10px]">Pratinjau Interaktif</Badge>
-                                                </div>
-
-                                                {/* Signature Box Placement Controls & Presets */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                                    <div>
-                                                        <Label className="text-xs text-blue-900 font-medium">Posisi Stempel Tanda Tangan</Label>
-                                                        <Select
-                                                            value={`${sigBoxPosition.x}-${sigBoxPosition.y}`}
-                                                            onValueChange={(val) => {
-                                                                const [x, y] = val.split('-').map(Number);
-                                                                setSigBoxPosition((prev) => ({ ...prev, x, y }));
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="mt-1 h-8 bg-white text-xs font-sans">
-                                                                <SelectValue placeholder="Pilih Posisi Preset" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="72-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
-                                                                <SelectItem value="22-80" className="font-sans">↙️ Bawah Kiri (Sejajar Teks)</SelectItem>
-                                                                <SelectItem value="72-18" className="font-sans">↗️ Atas Kanan</SelectItem>
-                                                                <SelectItem value="22-18" className="font-sans">↖️ Atas Kiri</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-xs text-blue-900 font-medium">Halaman Penempatan</Label>
-                                                        <Select
-                                                            value={sigBoxPosition.page}
-                                                            onValueChange={(val) => setSigBoxPosition((prev) => ({ ...prev, page: val }))}
-                                                        >
-                                                            <SelectTrigger className="mt-1 h-8 bg-white text-xs font-sans">
-                                                                <SelectValue placeholder="Pilih Halaman" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="last" className="font-sans">📄 Halaman Terakhir (Last Page)</SelectItem>
-                                                                <SelectItem value="first" className="font-sans">📄 Halaman Pertama (First Page)</SelectItem>
-                                                                <SelectItem value="all" className="font-sans">📑 Semua Halaman (All Pages)</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-
-                                                {/* Visual PDF Preview Canvas Container with Positioned Stamp Box */}
-                                                <div className="relative overflow-hidden rounded-lg border border-blue-300 bg-slate-100 shadow-inner min-h-[300px] h-[350px]">
-                                                    <iframe
-                                                        src={`${pdfPreviewUrl}#toolbar=0`}
-                                                        className="w-full h-full border-0"
-                                                        title="Preview PDF"
-                                                    />
-                                                    {/* Interactive Approval Signature Box Overlay */}
-                                                    <div
-                                                        className="absolute border-2 border-dashed border-emerald-600 bg-emerald-100/90 rounded-md p-2 shadow-lg cursor-move transition-all"
-                                                        style={{
-                                                            left: `${sigBoxPosition.x}%`,
-                                                            top: `${sigBoxPosition.y}%`,
-                                                            transform: 'translate(-50%, -50%)',
-                                                            zIndex: 10,
-                                                        }}
-                                                    >
-                                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950">
-                                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                                            <span>[ KOTAK APPROVED TTD ]</span>
-                                                        </div>
-                                                        <div className="text-[9px] text-emerald-800 font-medium mt-0.5">
-                                                            Tanda tangan akan distempel di sini
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
+                                        {errors.file && <p className="text-sm text-red-500">{errors.file[0]}</p>}
                                     </div>
                                 </div>
-                                    
+
                                 <DialogFooter className="sm:justify-between">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setIsCreateDialogOpen(false)}
-                                        disabled={isSubmitting}
-                                        className="font-sans"
-                                    >
-                                        Batal
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsCreateDialogOpen(false)}
+                                            disabled={isSubmitting}
+                                            className="font-sans"
+                                        >
+                                            Batal
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={openSignatureDialog}
+                                            disabled={isSubmitting || !formData.file}
+                                            className="font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                        >
+                                            <IconEdit className="mr-2 h-4 w-4" />
+                                            Atur Posisi Tanda Tangan
+                                        </Button>
+                                    </div>
                                     <div className="flex gap-2">
                                         <Button
                                             type="button"
@@ -1847,6 +1627,23 @@ export default function UserDokumen() {
                             </form>
                         </DialogContent>
                     </Dialog>
+
+                    {/* Signature Placement Dialog (Offline Mode) */}
+                    {localFileUrl && (
+                        <SignaturePlacementDialog
+                            open={signatureDialogOpen}
+                            onOpenChange={setSignatureDialogOpen}
+                            fileUrl={localFileUrl}
+                            approvals={pendingApprovalsForDialog}
+                            initialPositions={formData.signature_positions || []}
+                            onSaved={(positions) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    signature_positions: positions
+                                }));
+                            }}
+                        />
+                    )}
 
                     {/* Delete Confirmation Dialog */}
                     <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

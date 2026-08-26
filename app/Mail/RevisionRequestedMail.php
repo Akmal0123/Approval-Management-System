@@ -30,12 +30,8 @@ class RevisionRequestedMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
-        $requesterEmail = $this->approval->user?->email ?? $this->approval->approver_email;
-        $replyTo = $requesterEmail ? [new \Illuminate\Mail\Mailables\Address($requesterEmail, $this->approval->user?->name ?? $requesterEmail)] : [];
-
         return new Envelope(
-            subject: '[Permintaan Revisi] ' . $this->dokumen->judul_dokumen,
-            replyTo: $replyTo,
+            subject: '[Revision Required] ' . $this->dokumen->judul_dokumen,
         );
     }
 
@@ -45,15 +41,14 @@ class RevisionRequestedMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            view: 'emails.revision-requested',
+            markdown: 'emails.revision-requested',
             with: [
                 'dokumen' => $this->dokumen,
                 'approval' => $this->approval,
-                'requesterName' => $this->approval->user?->name ?? $this->approval->approver_email ?? 'Approver',
+                'requester' => $this->approval->user,
                 'revisionNotes' => $this->approval->revision_notes,
-                'stepName' => $this->approval->step_name ?? 'Approval',
-                'documentUrl' => route('dokumen.show', $this->dokumen->id),
-                'pdfUrl' => route('dokumen.signed-pdf', $this->dokumen->id),
+                'stepName' => $this->approval->masterflowStep?->step_name ?? 'Approval',
+                'documentUrl' => 'http://localhost:8000/api/dokumen/' . $this->dokumen->id,
             ],
         );
     }

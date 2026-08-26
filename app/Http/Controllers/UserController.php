@@ -107,14 +107,14 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'pin' => 'nullable|string',
+            'pin' => 'required|string|size:8',
             'address' => 'nullable|string',
             'phone_number' => 'nullable|string',
             'user_auths' => 'required|array|min:1',
-            'user_auths.*.role_id' => 'required|integer',
-            'user_auths.*.company_id' => 'nullable|integer',
-            'user_auths.*.jabatan_id' => 'required|integer',
-            'user_auths.*.aplikasi_id' => 'nullable|integer',
+            'user_auths.*.role_id' => 'required|integer|exists:usersroles,id',
+            'user_auths.*.company_id' => 'required|integer|exists:companies,id',
+            'user_auths.*.jabatan_id' => 'required|integer|exists:jabatans,id',
+            'user_auths.*.aplikasi_id' => 'required|integer|exists:aplikasis,id',
         ]);
 
         if ($validator->fails()) {
@@ -131,28 +131,23 @@ class UserController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'pin' => $request->pin ?? rand(10000000, 99999999),
+                'pin' => $request->pin,
             ]);
 
-            // Create profile
+            // Create user profile
             $user->profile()->create([
                 'address' => $request->address,
                 'phone_number' => $request->phone_number,
             ]);
 
             // Create user auths
-            $defaultCompanyId = \App\Models\Company::first()?->id ?? 1;
-            $defaultAplikasiId = \App\Models\Aplikasi::first()?->id ?? 1;
-
             foreach ($request->user_auths as $authData) {
-                if (!empty($authData['role_id']) && !empty($authData['jabatan_id'])) {
-                    $user->userAuths()->create([
-                        'role_id' => $authData['role_id'],
-                        'company_id' => !empty($authData['company_id']) ? $authData['company_id'] : $defaultCompanyId,
-                        'jabatan_id' => $authData['jabatan_id'],
-                        'aplikasi_id' => !empty($authData['aplikasi_id']) ? $authData['aplikasi_id'] : $defaultAplikasiId,
-                    ]);
-                }
+                $user->userAuths()->create([
+                    'role_id' => $authData['role_id'],
+                    'company_id' => $authData['company_id'],
+                    'jabatan_id' => $authData['jabatan_id'],
+                    'aplikasi_id' => $authData['aplikasi_id'],
+                ]);
             }
 
             DB::commit();
@@ -209,14 +204,14 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $id,
             'password' => 'nullable|string|min:6',
-            'pin' => 'nullable|string',
+            'pin' => 'required|string|size:8',
             'address' => 'nullable|string',
             'phone_number' => 'nullable|string',
-            'user_auths' => 'nullable|array',
-            'user_auths.*.role_id' => 'nullable|integer',
-            'user_auths.*.company_id' => 'nullable|integer',
-            'user_auths.*.jabatan_id' => 'nullable|integer',
-            'user_auths.*.aplikasi_id' => 'nullable|integer',
+            'user_auths' => 'required|array|min:1',
+            'user_auths.*.role_id' => 'required|integer|exists:usersroles,id',
+            'user_auths.*.company_id' => 'required|integer|exists:companies,id',
+            'user_auths.*.jabatan_id' => 'required|integer|exists:jabatans,id',
+            'user_auths.*.aplikasi_id' => 'required|integer|exists:aplikasis,id',
         ]);
 
         if ($validator->fails()) {
@@ -232,11 +227,8 @@ class UserController extends Controller
             $updateData = [
                 'name' => $request->name,
                 'email' => $request->email,
+                'pin' => $request->pin,
             ];
-
-            if ($request->filled('pin')) {
-                $updateData['pin'] = $request->pin;
-            }
 
             // Only update password if provided
             if ($request->filled('password')) {
@@ -258,26 +250,35 @@ class UserController extends Controller
                 ]);
             }
 
-            // Delete existing user auths and create new ones if provided
-            if ($request->has('user_auths') && is_array($request->user_auths) && count($request->user_auths) > 0) {
-                $user->userAuths()->delete();
+            $hadNoAuths = $user->userAuths()->count() === 0;
 
-                $defaultCompanyId = \App\Models\Company::first()?->id ?? 1;
-                $defaultAplikasiId = \App\Models\Aplikasi::first()?->id ?? 1;
+            // Delete existing user auths and create new ones
+            $user->userAuths()->delete();
 
-                foreach ($request->user_auths as $authData) {
-                    if (!empty($authData['role_id']) && !empty($authData['jabatan_id'])) {
-                        $user->userAuths()->create([
-                            'role_id' => $authData['role_id'],
-                            'company_id' => !empty($authData['company_id']) ? $authData['company_id'] : $defaultCompanyId,
-                            'jabatan_id' => $authData['jabatan_id'],
-                            'aplikasi_id' => !empty($authData['aplikasi_id']) ? $authData['aplikasi_id'] : $defaultAplikasiId,
-                        ]);
-                    }
-                }
+            foreach ($request->user_auths as $authData) {
+                $user->userAuths()->create([
+                    'role_id' => $authData['role_id'],
+                    'company_id' => $authData['company_id'],
+                    'jabatan_id' => $authData['jabatan_id'],
+                    'aplikasi_id' => $authData['aplikasi_id'],
+                ]);
             }
 
             DB::commit();
+
+            // Send registration approved email if this is their first role assignment
+            if ($hadNoAuths && count($request->user_auths) > 0) {
+                $firstAuth = $user->userAuths()->with(['role', 'company', 'jabatan', 'aplikasi'])->first();
+                if ($firstAuth) {
+                    $authDetails = [
+                        'role' => $firstAuth->role->role_name ?? 'N/A',
+                        'company' => $firstAuth->company->name ?? 'N/A',
+                        'jabatan' => $firstAuth->jabatan->name ?? 'N/A',
+                        'aplikasi' => $firstAuth->aplikasi->name ?? 'N/A',
+                    ];
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\UserRegistrationApprovedMail($user, $authDetails));
+                }
+            }
 
             return response()->json([
                 'message' => 'User updated successfully',

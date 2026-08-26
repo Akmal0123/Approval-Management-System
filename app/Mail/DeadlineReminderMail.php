@@ -40,14 +40,13 @@ class DeadlineReminderMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            view: 'emails.deadline-reminder',
+            markdown: 'emails.deadline-reminder',
             with: [
                 'approval' => $this->approval,
                 'dokumen' => $this->approval->dokumen,
                 'timeLabel' => $this->timeLabel,
                 'deadline' => $this->approval->tgl_deadline,
-                'approvalUrl' => route('approvals.show', $this->approval->id),
-                'pdfUrl' => route('dokumen.signed-pdf', $this->approval->dokumen_id),
+                'approvalUrl' => 'http://localhost:8000/api/dokumen/' . $this->approval->dokumen_id,
             ],
         );
     }

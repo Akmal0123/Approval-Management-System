@@ -1,6 +1,7 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
+import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +15,8 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import RevisionHistory from '@/components/revision-history';
 import { Head, router, usePage } from '@inertiajs/react';
-import { IconDownload, IconEdit, IconEye, IconEyeOff, IconFileText, IconPencil, IconPrinter, IconRefresh, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
+import { IconDownload, IconEdit, IconEye, IconFileText, IconPrinter, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
 import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -102,8 +102,6 @@ interface Dokumen {
     id: number;
     nomor_dokumen: string;
     judul_dokumen: string;
-    tipe_dokumen?: string | null;
-    nominal?: number | string | null;
     user_id: number;
     company_id?: number;
     aplikasi_id?: number;
@@ -158,7 +156,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             <div className="text-center">
                                 <h1 className="text-2xl font-bold">Dokumen Tidak Ditemukan</h1>
                                 <p className="mt-2 text-muted-foreground">Data dokumen tidak tersedia</p>
-                                <Button className="mt-4" onClick={() => router.visit('/dokumen')}>
+                                <Button className="mt-4" onClick={() => router.visit('/user/dokumen')}>
                                     Kembali ke Daftar Dokumen
                                 </Button>
                             </div>
@@ -170,24 +168,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     }
 
     const [dokumen, setDokumen] = useState<Dokumen>(initialDokumen);
-    const [isNominalMasked, setIsNominalMasked] = useState(true);
-
-    const formatNominalDisplay = (nominalVal: number | string | null | undefined) => {
-        if (!nominalVal || Number(nominalVal) === 0) return null;
-        const num = Number(nominalVal);
-        if (isNominalMasked) {
-            return 'Rp *.***.***';
-        }
-        return `Rp ${num.toLocaleString('id-ID')}`;
-    };
-
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
-    const [previewMode, setPreviewMode] = useState<'signed' | 'original'>('signed');
-    const [selectedPreviewVersion, setSelectedPreviewVersion] = useState<DokumenVersion | null>(null);
+    const [isPlacementDialogOpen, setIsPlacementDialogOpen] = useState(false);
     const [previewFileUrl, setPreviewFileUrl] = useState<string>('');
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [revisionFile, setRevisionFile] = useState<File | null>(null);
@@ -208,7 +194,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         custom_approvers: [],
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Debug log
     useEffect(() => {
@@ -224,12 +210,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             const response = await api.get(`/dokumen/${dokumen.id}`);
             console.log('Fetched dokumen:', response.data);
 
-            const docData = response.data?.dokumen || response.data;
-
             // Check if response has dokumen data
-            if (docData && docData.id) {
-                setDokumen(docData);
-                return docData;
+            if (response.data && response.data.id) {
+                setDokumen(response.data);
+                return response.data;
             } else {
                 console.warn('Invalid dokumen data received:', response.data);
                 return null;
@@ -297,30 +281,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const progress = getApprovalProgress();
     const isCustomApproval = !dokumen.masterflow_id;
 
-    const isSuperAdmin = pageProps.context?.is_super_admin || pageProps.auth?.user?.userAuths?.some((ua: any) => ua.role?.role_name === 'Super Admin') || false;
-
-    // Find pending approval ONLY for assigned approver or Super Admin
-    const activePendingApproval = (() => {
-        if (!dokumen?.approvals || dokumen.approvals.length === 0) return null;
-
-        // 1. Direct match by user_id or email
-        const directApproval = dokumen.approvals.find(
-            (a) =>
-                (a.approval_status === 'pending' || a.approval_status === 'waiting') &&
-                (a.user_id === auth?.user?.id ||
-                    (a.approver_email && a.approver_email.toLowerCase() === auth?.user?.email?.toLowerCase())),
-        );
-        if (directApproval) return directApproval;
-
-        // 2. If Super Admin, allow approving active pending step
-        if (isSuperAdmin) {
-            return dokumen.approvals.find((a) => a.approval_status === 'pending') || null;
-        }
-
-        // 3. Regular users who are NOT the assigned approver get null (no action card)
-        return null;
-    })();
-
     // Get status badge
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
@@ -354,15 +314,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 icon: XCircleIcon,
                 className: 'bg-red-100 text-red-800 border-red-300',
             },
-            revision_requested: {
-                label: 'Perlu Revisi',
-                icon: AlertCircleIcon,
-                className: 'bg-orange-100 text-orange-800 border-orange-300',
-            },
             needs_revision: {
                 label: 'Perlu Revisi',
                 icon: AlertCircleIcon,
-                className: 'bg-orange-100 text-orange-800 border-orange-300',
+                className: 'bg-purple-100 text-purple-800 border-purple-300',
             },
         };
 
@@ -385,6 +340,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             skipped: { label: 'Disetujui', className: 'bg-green-100 text-green-800 border-green-300' },
             rejected: { label: 'Ditolak', className: 'bg-red-100 text-red-800 border-red-300' },
             waiting: { label: 'Menunggu Giliran', className: 'bg-gray-100 text-gray-800 border-gray-300' },
+            revision_requested: { label: 'Perlu Revisi', className: 'bg-purple-100 text-purple-800 border-purple-300' },
         };
 
         const config = statusConfig[status] || statusConfig.pending;
@@ -424,15 +380,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
     // Handle edit
     const handleEdit = () => {
-        if (!['draft', 'rejected', 'revision_requested', 'needs_revision'].includes(dokumen.status)) {
-            showToast.error('❌ Hanya dokumen dengan status Draft, Ditolak, atau Perlu Revisi yang dapat diedit.');
+        if (dokumen.status !== 'draft' && dokumen.status !== 'rejected') {
+            showToast.error('❌ Hanya dokumen dengan status Draft atau Rejected yang dapat diedit.');
             return;
         }
-
-        // Format deadline date for HTML date input (YYYY-MM-DD)
-        const formattedDeadline = dokumen.tgl_deadline
-            ? (dokumen.tgl_deadline.includes('T') ? dokumen.tgl_deadline.split('T')[0] : dokumen.tgl_deadline)
-            : '';
 
         // Populate form with current dokumen data
         setFormData({
@@ -440,7 +391,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             judul_dokumen: dokumen.judul_dokumen,
             masterflow_id: dokumen.masterflow_id || '',
             tgl_pengajuan: dokumen.tgl_pengajuan,
-            tgl_deadline: formattedDeadline,
+            tgl_deadline: dokumen.tgl_deadline || '',
             deskripsi: dokumen.deskripsi || '',
             file: null,
             approvers: {},
@@ -521,7 +472,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         if (errors[name]) {
             setErrors((prev) => ({
                 ...prev,
-                [name]: [],
+                [name]: '',
             }));
         }
     };
@@ -554,7 +505,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             if (errors.file) {
                 setErrors((prev) => ({
                     ...prev,
-                    file: [],
+                    file: '',
                 }));
             }
         }
@@ -637,7 +588,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             const submitData = new FormData();
             submitData.append('_method', 'PUT');
             submitData.append('judul_dokumen', formData.judul_dokumen);
-            submitData.append('deskripsi', formData.deskripsi || '');
+            submitData.append('deskripsi', formData.deskripsi);
             if (formData.tgl_deadline) {
                 submitData.append('tgl_deadline', formData.tgl_deadline);
             }
@@ -645,23 +596,23 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 submitData.append('file', formData.file);
             }
 
-            await api.post(`/dokumen/${dokumen.id}`, submitData);
-
-            showToast.success('🎉 Dokumen berhasil diupdate!');
-            setIsEditDialogOpen(false);
-            fetchDokumen();
+            router.post(`/api/dokumen/${dokumen.id}`, submitData, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    showToast.success('🎉 Dokumen berhasil diupdate!');
+                    setIsEditDialogOpen(false);
+                    fetchDokumen();
+                },
+                onError: (errors) => {
+                    console.error('Form submission errors:', errors);
+                    setErrors(errors);
+                    showToast.error('❌ Gagal update dokumen. Silakan cek form.');
+                },
+            });
         } catch (error: any) {
             console.error('Form submission error:', error);
-            if (error.response?.data?.errors) {
-                setErrors(error.response.data.errors);
-                const firstKey = Object.keys(error.response.data.errors)[0];
-                const firstVal = error.response.data.errors[firstKey];
-                const errMsg = Array.isArray(firstVal) ? firstVal[0] : firstVal;
-                showToast.error(`❌ Gagal update: ${errMsg}`);
-            } else {
-                const message = error.response?.data?.message || '❌ Gagal update dokumen. Silakan cek form.';
-                showToast.error(message);
-            }
+            showToast.error(`❌ Gagal update dokumen. ${error.response?.data?.message || error.message}`);
         } finally {
             setIsSubmitting(false);
         }
@@ -681,19 +632,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         try {
             await api.delete(`/dokumen/${dokumen.id}`);
             showToast.success('🎉 Dokumen berhasil dihapus!');
-            router.visit('/dokumen');
+            router.visit('/user/dokumen');
         } catch (error: any) {
-            if (error.response?.status === 404) {
-                showToast.info('ℹ️ Dokumen sudah tidak ditemukan atau telah dihapus sebelumnya.');
-                router.visit('/dokumen');
-                return;
-            }
             showToast.error(`❌ Gagal menghapus dokumen. ${error.response?.data?.message || error.message}`);
         }
     };
 
-    // Handle preview document (supports both signed & raw original PDF)
-    const handlePreview = (version: DokumenVersion, mode: 'signed' | 'original' = 'signed') => {
+    // Handle preview document
+    const handlePreview = (version: DokumenVersion) => {
+        // Use streaming endpoint for on-demand signature rendering
+        const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
         const fileType = version.tipe_file.toLowerCase();
         const isPDF = fileType === 'pdf' || fileType === 'application/pdf';
 
@@ -702,25 +650,9 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             return;
         }
 
-        const fileUrl = mode === 'original'
-            ? `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}?original=1`
-            : `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
-
-        setSelectedPreviewVersion(version);
-        setPreviewMode(mode);
         setPreviewFileUrl(fileUrl);
         setPreviewFileName(version.nama_file);
         setIsPreviewDialogOpen(true);
-    };
-
-    // Toggle preview mode inside modal
-    const togglePreviewMode = (newMode: 'signed' | 'original') => {
-        if (!selectedPreviewVersion) return;
-        setPreviewMode(newMode);
-        const fileUrl = newMode === 'original'
-            ? `/api/dokumen/${dokumen.id}/signed-pdf/${selectedPreviewVersion.id}?original=1`
-            : `/api/dokumen/${dokumen.id}/signed-pdf/${selectedPreviewVersion.id}`;
-        setPreviewFileUrl(fileUrl);
     };
 
     // Handle submit for approval (untuk draft dokumen)
@@ -736,24 +668,30 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const confirmSubmitForApproval = async () => {
         setIsSubmitting(true);
 
-        try {
-            await api.post(`/dokumen/${dokumen.id}/submit`);
-            showToast.success('🎉 Dokumen berhasil disubmit untuk approval!');
-            setIsSubmitDialogOpen(false);
-            fetchDokumen();
-        } catch (error: any) {
-            console.error('Submit error:', error);
-            const message = error.response?.data?.message || error.message || 'Silakan coba lagi.';
-            showToast.error(`❌ Gagal submit dokumen: ${message}`);
-        } finally {
-            setIsSubmitting(false);
-        }
+        router.post(
+            `/api/dokumen/${dokumen.id}/submit`,
+            {},
+            {
+                preserveState: false, // Force full reload to get fresh data
+                preserveScroll: true,
+                onSuccess: () => {
+                    showToast.success('🎉 Dokumen berhasil disubmit untuk approval!');
+                    setIsSubmitDialogOpen(false);
+                    setIsSubmitting(false);
+                },
+                onError: (errors: any) => {
+                    console.error('Submit error:', errors);
+                    showToast.error(`❌ Gagal submit dokumen. ${errors.error || 'Silakan coba lagi.'}`);
+                    setIsSubmitting(false);
+                },
+            },
+        );
     };
 
-    // Handle upload revision for rejected/needs_revision document
+    // Handle upload revision for rejected document
     const handleUploadRevision = () => {
-        if (!['rejected', 'revision_requested', 'needs_revision'].includes(dokumen.status)) {
-            showToast.error('❌ Dokumen ini tidak sedang dalam status yang membutuhkan revisi.');
+        if (dokumen.status !== 'rejected' && dokumen.status !== 'needs_revision') {
+            showToast.error('❌ Hanya dokumen yang memerlukan revisi atau di-reject yang dapat direvisi.');
             return;
         }
 
@@ -836,12 +774,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     // Download file - uses on-demand signature generation
     const handleDownload = (versionId?: number) => {
         const url = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}` : `/api/dokumen/${dokumen.id}/download`;
-        window.location.href = url;
-    };
-
-    // Download original file - download raw PDF without signatures
-    const handleDownloadOriginal = (versionId?: number) => {
-        const url = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}?original=1` : `/api/dokumen/${dokumen.id}/download?original=1`;
         window.location.href = url;
     };
 
@@ -960,7 +892,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-1">
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/dokumen')}>
+                                    <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/user/dokumen')}>
                                         Dokumen Saya
                                     </Button>
                                     <span>/</span>
@@ -985,25 +917,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
                             {/* Primary Actions (Desktop) */}
                             <div className="hidden items-center gap-2 sm:flex">
-                                {activePendingApproval && (
-                                    <Button
-                                        onClick={() => router.get(`/approvals/${activePendingApproval.id}`)}
-                                        className="bg-emerald-600 hover:bg-emerald-700 font-sans font-medium text-white shadow-sm"
-                                    >
-                                        <CheckCircle2Icon className="mr-2 h-4 w-4" />
-                                        ✍️ Proses TTD & Approval
+                                {dokumen?.status === 'draft' && (
+                                    <Button onClick={() => setIsPlacementDialogOpen(true)} variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                                        <IconEdit className="mr-2 h-4 w-4" />
+                                        Atur Posisi TTD
                                     </Button>
                                 )}
                                 {dokumen?.status === 'draft' && (
                                     <Button onClick={handleSubmitForApproval} className="bg-green-600 hover:bg-green-700">
                                         <IconSend className="mr-2 h-4 w-4" />
                                         Submit Approval
-                                    </Button>
-                                )}
-                                {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
-                                    <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700 font-sans">
-                                        <IconFileText className="mr-2 h-4 w-4" />
-                                        Upload Revisi
                                     </Button>
                                 )}
                             </div>
@@ -1018,20 +941,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         <CardTitle className="font-serif text-lg">Informasi Dokumen</CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        <div className="grid gap-6 sm:grid-cols-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                                                    Tipe Dokumen
-                                                </Label>
-                                                <div className="font-medium">
-                                                    {dokumen.tipe_dokumen === 'proposal' && '📊 Proposal'}
-                                                    {dokumen.tipe_dokumen === 'pengadaan' && '📦 Pengadaan'}
-                                                    {dokumen.tipe_dokumen === 'po' && '🛒 PO (Purchase Order)'}
-                                                    {dokumen.tipe_dokumen === 'pr' && '📋 PR (Purchase Requisition)'}
-                                                    {dokumen.tipe_dokumen === 'memo_internal' && '📝 Memo Internal'}
-                                                    {!['proposal', 'pengadaan', 'po', 'pr', 'memo_internal'].includes(dokumen.tipe_dokumen || '') && (dokumen.tipe_dokumen || '-')}
-                                                </div>
-                                            </div>
+                                        <div className="grid gap-6 sm:grid-cols-2">
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Masterflow
@@ -1050,25 +960,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
-                                            {['proposal', 'po', 'pr'].includes(dokumen.tipe_dokumen || '') && dokumen.nominal && Number(dokumen.nominal) > 0 && (
-                                                <div className="space-y-1.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Nominal Transaksi</Label>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setIsNominalMasked(!isNominalMasked)}
-                                                            className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 transition-colors"
-                                                            title={isNominalMasked ? "Buka Sensor Nominal" : "Sensor Nominal"}
-                                                        >
-                                                            {isNominalMasked ? <IconEyeOff className="h-3 w-3" /> : <IconEye className="h-3 w-3" />}
-                                                            <span>{isNominalMasked ? "Buka" : "Sensor"}</span>
-                                                        </button>
-                                                    </div>
-                                                    <div className="font-semibold text-foreground font-mono">
-                                                        {formatNominalDisplay(dokumen.nominal)}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
 
                                         {dokumen.deskripsi && (
@@ -1352,24 +1243,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                             </>
                                                                         )}
                                                                     <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleDownloadOriginal(version.id)}
-                                                                        title="Download File PDF Asli Mentah"
-                                                                        className="h-8 border-gray-300 text-xs hover:bg-gray-100"
-                                                                    >
-                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-gray-600" />
-                                                                        PDF Asli
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        size="icon"
                                                                         onClick={() => handleDownload(version.id)}
-                                                                        title="Download PDF Ber-Tanda Tangan"
-                                                                        className="h-8 border-blue-300 bg-blue-50/50 text-xs text-blue-700 hover:bg-blue-100"
+                                                                        title="Download"
                                                                     >
-                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-blue-600" />
-                                                                        Signed PDF
+                                                                        <IconDownload className="h-4 w-4" />
                                                                     </Button>
                                                                 </div>
                                                             </div>
@@ -1379,9 +1258,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         </CardContent>
                                     </Card>
                                 )}
-
-                                {/* Revision History Component */}
-                                <RevisionHistory dokumenId={dokumen.id} />
                             </div>
 
                             {/* RIGHT COLUMN - Sidebar Actions & Status */}
@@ -1466,46 +1342,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     </CardContent>
                                 </Card>
 
-                                {/* Approval Action Card with 3 buttons */}
-                                {activePendingApproval && (
-                                    <Card className="border-primary shadow-md">
-                                        <CardHeader className="bg-primary/5 pb-3">
-                                            <CardTitle className="flex items-center gap-2 text-base font-bold text-primary sm:text-lg">
-                                                <IconPencil className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-                                                Tindakan Diperlukan
-                                            </CardTitle>
-                                            <CardDescription className="text-xs sm:text-sm">Dokumen ini membutuhkan persetujuan Anda.</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-3 pt-4">
-                                            <Button
-                                                onClick={() => router.get(`/approvals/${activePendingApproval.id}`)}
-                                                className="w-full bg-green-600 hover:bg-green-700 font-sans font-bold text-white shadow-sm"
-                                            >
-                                                <CheckCircle2Icon className="mr-2 h-4 w-4" />
-                                                Setujui Dokumen
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => router.get(`/approvals/${activePendingApproval.id}`)}
-                                                className="w-full border-amber-300 text-amber-800 bg-amber-50/80 hover:bg-amber-100 hover:text-amber-900 font-sans font-bold shadow-sm"
-                                            >
-                                                <IconRefresh className="mr-2 h-4 w-4" />
-                                                Minta Revisi
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => router.get(`/approvals/${activePendingApproval.id}`)}
-                                                className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 font-sans font-bold shadow-sm"
-                                            >
-                                                <XCircleIcon className="mr-2 h-4 w-4" />
-                                                Tolak Dokumen
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
                                 {/* Manage Actions */}
-                                {(dokumen?.status === 'draft' || dokumen?.status === 'rejected') && (
+                                {(dokumen?.status === 'draft' || dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && (
                                     <Card>
                                         <CardHeader className="pb-3">
                                             <CardTitle className="text-base font-medium">Kelola Dokumen</CardTitle>
@@ -1520,8 +1358,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                     Submit Approval
                                                 </Button>
                                             )}
-                                            {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
-                                                <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700 font-sans">
+                                            {(dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && dokumen?.user_id === auth.user.id && (
+                                                <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700">
                                                     <IconFileText className="mr-2 h-4 w-4" />
                                                     Upload Revisi
                                                 </Button>
@@ -1566,7 +1404,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                             onChange={handleInputChange}
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen[0]}</p>}
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
                                     <div className="grid gap-2">
@@ -1736,30 +1574,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                     <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
                         <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-6">
-                                    <div>
-                                        <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
-                                        <DialogDescription className="font-sans">{previewFileName}</DialogDescription>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant={previewMode === 'signed' ? 'default' : 'outline'}
-                                            size="sm"
-                                            onClick={() => togglePreviewMode('signed')}
-                                            className={`h-8 text-xs font-sans ${previewMode === 'signed' ? 'bg-blue-600 hover:bg-blue-700 text-white font-medium' : 'border-gray-300 text-gray-700'}`}
-                                        >
-                                            ✍️ Ber-TTD & QR
-                                        </Button>
-                                        <Button
-                                            variant={previewMode === 'original' ? 'default' : 'outline'}
-                                            size="sm"
-                                            onClick={() => togglePreviewMode('original')}
-                                            className={`h-8 text-xs font-sans ${previewMode === 'original' ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-medium' : 'border-gray-300 text-gray-700'}`}
-                                        >
-                                            📄 PDF Asli (Tanpa TTD)
-                                        </Button>
-                                    </div>
-                                </div>
+                                <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                <DialogDescription className="font-sans">{previewFileName}</DialogDescription>
                             </DialogHeader>
                             <div className="flex-1 overflow-auto p-4">
                                 {previewFileUrl && (
@@ -1768,6 +1584,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             </div>
                         </DialogContent>
                     </Dialog>
+
+                    {/* Signature Placement Dialog */}
+                    <SignaturePlacementDialog
+                        open={isPlacementDialogOpen}
+                        onOpenChange={setIsPlacementDialogOpen}
+                        dokumenId={dokumen.id}
+                        fileUrl={dokumen.versions && dokumen.versions.length > 0 ? `/api/dokumen/${dokumen.id}/signed-pdf/${dokumen.versions[0].id}` : ''}
+                        approvals={sortedApprovals.filter(a => a.approval_status !== 'skipped')}
+                    />
                 </SidebarInset>
             </SidebarProvider>
         </>

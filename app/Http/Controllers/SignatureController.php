@@ -15,17 +15,6 @@ class SignatureController extends Controller
      */
     public function index()
     {
-        // Purge orphaned signatures whose physical files do not exist on disk
-        $allSignatures = Signature::byUser(Auth::id())->get();
-        foreach ($allSignatures as $sig) {
-            $fullPath = Storage::disk('public')->path($sig->signature_path);
-            if (!file_exists($fullPath)) {
-                $sig->forceDelete();
-            } else {
-                $this->processSignatureImage($fullPath);
-            }
-        }
-
         $signatures = Signature::byUser(Auth::id())
             ->orderBy('is_default', 'desc')
             ->orderBy('created_at', 'desc')
@@ -51,14 +40,10 @@ class SignatureController extends Controller
             // Decode base64 image
             $signatureData = $validated['signature'];
 
-            // Check if it's a base64 string
-            $ext = 'png';
+            // Check if it's a base64 string or file upload
             if (str_starts_with($signatureData, 'data:image')) {
-                if (str_contains($signatureData, 'image/jpeg') || str_contains($signatureData, 'image/jpg')) {
-                    $ext = 'jpg';
-                }
-                // Safely extract base64 data regardless of mime header
-                $image = preg_replace('/^data:image\/\w+;base64,/', '', $signatureData);
+                // Extract base64 data
+                $image = str_replace('data:image/png;base64,', '', $signatureData);
                 $image = str_replace(' ', '+', $image);
                 $imageData = base64_decode($image);
             } else {
@@ -67,16 +52,12 @@ class SignatureController extends Controller
                 ], 422);
             }
 
-            // Generate filename with correct extension
-            $filename = 'signature_' . time() . '_' . Str::random(10) . '.' . $ext;
+            // Generate filename
+            $filename = 'signature_' . time() . '_' . Str::random(10) . '.png';
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the image
-            Storage::disk('public')->put($path, $imageData);
-
-            // Ensure background is solid white (prevents black background box for transparent PNGs)
-            $fullPath = Storage::disk('public')->path($path);
-            $this->processSignatureImage($fullPath);
+            Storage::disk('local')->put($path, $imageData);
 
             // Create signature record
             $signature = Signature::create([
@@ -120,11 +101,7 @@ class SignatureController extends Controller
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the file
-            $file->storeAs('signatures/user_' . Auth::id(), $filename, 'public');
-
-            // Ensure background is solid white (prevents black background box for transparent PNGs)
-            $fullPath = Storage::disk('public')->path($path);
-            $this->processSignatureImage($fullPath);
+            $file->storeAs('signatures/user_' . Auth::id(), $filename, 'local');
 
             // Create signature record
             $signature = Signature::create([
@@ -218,52 +195,27 @@ class SignatureController extends Controller
     }
 
     /**
-     * Process signature image to composite onto a clean solid white background.
-     * Prevents transparent PNGs from turning into solid black blocks in storage/previews.
+     * Get signature file securely
      */
-    private function processSignatureImage(string $fullPath): void
+    public function file(Signature $signature)
     {
-        if (!file_exists($fullPath)) return;
-
-        $imageInfo = @getimagesize($fullPath);
-        if (!$imageInfo) return;
-
-        try {
-            $srcImg = null;
-            if ($imageInfo[2] === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) {
-                $srcImg = @imagecreatefrompng($fullPath);
-            } elseif ($imageInfo[2] === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) {
-                $srcImg = @imagecreatefromjpeg($fullPath);
-            }
-
-            if ($srcImg) {
-                $width = imagesx($srcImg);
-                $height = imagesy($srcImg);
-
-                // Create truecolor image with solid white background
-                $destImg = imagecreatetruecolor($width, $height);
-                $white = imagecolorallocate($destImg, 255, 255, 255);
-                imagefill($destImg, 0, 0, $white);
-
-                // Preserve ink strokes and composite alpha channel over white background
-                imagealphablending($srcImg, true);
-                imagealphablending($destImg, true);
-                imagecopy($destImg, $srcImg, 0, 0, 0, 0, $width, $height);
-
-                // Save image matching file extension
-                if ($imageInfo[2] === IMAGETYPE_PNG) {
-                    imagealphablending($destImg, false);
-                    imagesavealpha($destImg, false); // Disable alpha channel to ensure solid white 24-bit RGB PNG
-                    imagepng($destImg, $fullPath);
-                } else {
-                    imagejpeg($destImg, $fullPath, 95);
-                }
-
-                imagedestroy($srcImg);
-                imagedestroy($destImg);
-            }
-        } catch (\Throwable $t) {
-            // Ignore if processing fails
+        // Ensure user owns this signature or is admin
+        $contextService = app(\App\Services\ContextService::class);
+        if ($signature->user_id !== Auth::id() && !$contextService->isSuperAdmin()) {
+             abort(403, 'Unauthorized');
         }
+
+        $path = Storage::disk('local')->path($signature->signature_path);
+        
+        // Fallback to public if not found (for backwards compatibility)
+        if (!file_exists($path)) {
+            $path = Storage::disk('public')->path($signature->signature_path);
+            if (!file_exists($path)) {
+                abort(404, 'Signature file not found');
+            }
+        }
+        
+        $mime = mime_content_type($path);
+        return response()->file($path, ['Content-Type' => $mime]);
     }
 }
