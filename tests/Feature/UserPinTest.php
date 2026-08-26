@@ -6,6 +6,9 @@ use App\Models\Company;
 use App\Models\Jabatan;
 use App\Models\Aplikasi;
 use App\Models\UsersAuth;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 test('users can have duplicate PINs', function () {
     // Create test data

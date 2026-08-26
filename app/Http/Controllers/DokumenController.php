@@ -589,7 +589,7 @@ class DokumenController extends Controller
                 // Get latest version number and increment
                 $latestVersion = $dokumen->versions()->latest()->first();
                 $versionParts = explode('.', $latestVersion->version);
-                $newVersion = $versionParts[0] . '.' . ((int)$versionParts[1] + 1);
+                $newVersion = $versionParts[0] . '.' . ((int) $versionParts[1] + 1);
 
                 // Create filename: nomor_dokumen_judul_dokumen_v{version}.ext
                 $extension = $file->getClientOriginalExtension();
