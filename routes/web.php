@@ -203,6 +203,10 @@ Route::middleware(['auth'])->group(function () {
     })->name('masterflows.steps');
 });
 
+// Public Signature Verification Routes
+Route::get('/verify/signature/{token}', [\App\Http\Controllers\DokumenApprovalController::class, 'verifySignature'])->name('verify.signature');
+Route::get('/verify/signature/{token}/download', [\App\Http\Controllers\DokumenApprovalController::class, 'downloadSignedDocument'])->name('verify.signature.download');
+
 // Legacy SPA Routes (redirect to appropriate role dashboards)
 Route::get('/spa', function () {
     return redirect('/admin/dashboard');

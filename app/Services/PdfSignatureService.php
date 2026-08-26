@@ -261,30 +261,26 @@ class PdfSignatureService
                 $spacing = 60; // Horizontal spacing
 
                 foreach ($approvals as $approval) {
-                    if (!$approval->signature_path) {
+                    if ($approval->signature_method !== 'qr' && !$approval->signature_path) {
                         continue;
                     }
                     
-                    $fullSignaturePath = Storage::disk('local')->path($approval->signature_path);
-                    if (!file_exists($fullSignaturePath)) {
-                        continue;
+                    $fullSignaturePath = null;
+                    if ($approval->signature_method !== 'qr') {
+                        $fullSignaturePath = Storage::disk('local')->path($approval->signature_path);
+                        if (!file_exists($fullSignaturePath)) {
+                            continue;
+                        }
                     }
 
                     $pos = $approval->signaturePosition;
                     
                     if ($pos) {
-                        $signaturesData[] = [
-                            'imagePath' => $fullSignaturePath,
-                            'page' => $pos->page,
-                            'x' => $pos->x,
-                            'y' => $pos->y,
-                            'width' => $pos->width,
-                            'height' => $pos->height,
-                            'add_text' => true,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Approved',
-                            'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
-                            'name' => $approval->user?->name ?? null,
-                        ];
+                        $x = $pos->x;
+                        $y = $pos->y;
+                        $page = $pos->page;
+                        $width = $pos->width;
+                        $height = $pos->height;
                     } else {
                         // Fallback positioning
                         $row = floor($unpositionedIndex / $signaturesPerRow);
@@ -292,21 +288,35 @@ class PdfSignatureService
 
                         $x = $xPosition + ($col * $spacing);
                         $y = $yPosition + ($row * 30); // 30mm vertical spacing
-                        
-                        $signaturesData[] = [
-                            'imagePath' => $fullSignaturePath,
-                            'page' => $pageCount, // Last page
-                            'x' => $x,
-                            'y' => $y,
-                            'width' => 35,
-                            'height' => 13,
-                            'add_text' => true,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Approved',
-                            'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
-                            'name' => $approval->user?->name ?? null,
-                        ];
+                        $page = $pageCount; // Last page
+                        $width = 35;
+                        $height = 13;
                         $unpositionedIndex++;
                     }
+
+                    if ($approval->signature_method === 'qr') {
+                        $width = $height;
+                    }
+
+                    $sigDetails = [
+                        'page' => $page,
+                        'x' => $x,
+                        'y' => $y,
+                        'width' => $width,
+                        'height' => $height,
+                        'add_text' => true,
+                        'text' => $approval->masterflowStep?->step_name ?? 'Approved',
+                        'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
+                        'name' => $approval->user?->name ?? null,
+                    ];
+
+                    if ($approval->signature_method === 'qr') {
+                        $sigDetails['qrText'] = url('/verify/signature/' . $approval->verification_token);
+                    } else {
+                        $sigDetails['imagePath'] = $fullSignaturePath;
+                    }
+
+                    $signaturesData[] = $sigDetails;
                 }
             }
 

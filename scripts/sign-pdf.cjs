@@ -23,11 +23,18 @@ async function run() {
             const pageIndex = Math.min(Math.max(sig.page - 1, 0), pages.length - 1);
             const page = pages[pageIndex];
 
-            // Load signature image
-            if (fs.existsSync(sig.imagePath)) {
+            let img;
+            if (sig.qrText) {
+                const QRCode = require('qrcode');
+                const qrPngBuffer = await QRCode.toBuffer(sig.qrText, {
+                    type: 'png',
+                    margin: 1,
+                    width: 300 // sufficiently high resolution
+                });
+                img = await pdfDoc.embedPng(qrPngBuffer);
+            } else if (sig.imagePath && fs.existsSync(sig.imagePath)) {
                 const imgBytes = fs.readFileSync(sig.imagePath);
                 
-                let img;
                 if (sig.imagePath.toLowerCase().endsWith('.png')) {
                     img = await pdfDoc.embedPng(imgBytes);
                 } else if (sig.imagePath.toLowerCase().endsWith('.jpg') || sig.imagePath.toLowerCase().endsWith('.jpeg')) {
@@ -35,34 +42,36 @@ async function run() {
                 } else {
                     continue; // Unsupported image
                 }
+            } else {
+                continue; // Missing image or QR text
+            }
 
-                // Convert mm to PDF points (1 mm = 2.83465 points)
-                const mmToPt = 2.83465;
-                const width = sig.width * mmToPt;
-                const height = sig.height * mmToPt;
-                const x = sig.x * mmToPt;
-                
-                // In PDF-lib, Y is from bottom to top. 
-                // So Y from top (in mm) needs to be inverted.
-                const pageHeight = page.getHeight();
-                const yFromBottom = pageHeight - (sig.y * mmToPt) - height;
+            // Convert mm to PDF points (1 mm = 2.83465 points)
+            const mmToPt = 2.83465;
+            const width = sig.width * mmToPt;
+            const height = sig.height * mmToPt;
+            const x = sig.x * mmToPt;
+            
+            // In PDF-lib, Y is from bottom to top. 
+            // So Y from top (in mm) needs to be inverted.
+            const pageHeight = page.getHeight();
+            const yFromBottom = pageHeight - (sig.y * mmToPt) - height;
 
-                page.drawImage(img, {
-                    x: x,
-                    y: yFromBottom,
-                    width: width,
-                    height: height,
-                });
+            page.drawImage(img, {
+                x: x,
+                y: yFromBottom,
+                width: width,
+                height: height,
+            });
 
-                if (sig.add_text) {
-                    const fontSize = 8;
-                    const textY = yFromBottom - 10;
-                    if (sig.text) {
-                        page.drawText(sig.text, { x: x, y: textY, size: fontSize, font: font });
-                    }
-                    if (sig.date) {
-                        page.drawText(sig.date, { x: x, y: textY - 10, size: fontSize, font: font });
-                    }
+            if (sig.add_text) {
+                const fontSize = 8;
+                const textY = yFromBottom - 10;
+                if (sig.text) {
+                    page.drawText(sig.text, { x: x, y: textY, size: fontSize, font: font });
+                }
+                if (sig.date) {
+                    page.drawText(sig.date, { x: x, y: textY - 10, size: fontSize, font: font });
                 }
             }
         }
