@@ -15,22 +15,8 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconEdit, IconFileText, IconPlus, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
-import {
-    Activity,
-    CalendarIcon,
-    CheckCircle2,
-    ClipboardList,
-    Eye,
-    FileCheck,
-    FileTextIcon,
-    Lightbulb,
-    Receipt,
-    SearchIcon,
-    ShoppingCart,
-    Store,
-    UserIcon,
-    Users,
-} from 'lucide-react';
+import { Activity, CalendarIcon, CheckCircle2, ClipboardList, Eye, FileCheck, FileTextIcon, Lightbulb, Receipt, SearchIcon, ShoppingCart, Store, UserIcon, Users, QrCode } from 'lucide-react';
+import SignaturePositionModal, { ApproverBox, QRBox } from '@/components/SignaturePositionModal';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface User {
@@ -195,6 +181,12 @@ interface FormData {
     approvers: Record<number, number | ''>;
     custom_approvers: CustomApprover[];
     step_approvers: Record<number, StepApprovers>;
+    approver_positions?: Record<string, { x: number; y: number; page: string }>;
+    custom_approver_positions?: Record<string, { x: number; y: number; page: string }>;
+    is_qr_active?: boolean;
+    qr_pos_x?: number;
+    qr_pos_y?: number;
+    qr_page?: string;
 }
 
 const initialFormData: FormData = {
@@ -222,6 +214,12 @@ const initialFormData: FormData = {
     approvers: {},
     custom_approvers: [{ email: '', order: 1 }],
     step_approvers: {},
+    approver_positions: {},
+    custom_approver_positions: {},
+    is_qr_active: false,
+    qr_pos_x: 80,
+    qr_pos_y: 80,
+    qr_page: 'last',
 };
 
 export default function UserDokumen() {
@@ -245,14 +243,7 @@ export default function UserDokumen() {
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
     const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set());
     const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-    const [sigBoxPosition, setSigBoxPosition] = useState<{ x: number; y: number; page: 'last' | 'first' | 'all' }>({
-        x: 70,
-        y: 80,
-        page: 'last',
-    });
-
-    const pdfContainerRef = useRef<HTMLDivElement | null>(null);
-    const isDraggingRef = useRef(false);
+    const [isSigModalOpen, setIsSigModalOpen] = useState(false);
 
     const isNeedsPayment = useMemo(() => {
         if (formData.jenis_pengajuan === 'transaksi' && formData.modul_transaksi === 'hris') {
@@ -456,53 +447,7 @@ export default function UserDokumen() {
         };
     }, [clearPdfPreview]);
 
-    const handleDragMove = useCallback((clientX: number, clientY: number) => {
-        if (!isDraggingRef.current || !pdfContainerRef.current) return;
-        const rect = pdfContainerRef.current.getBoundingClientRect();
 
-        let posX = ((clientX - rect.left) / rect.width) * 100;
-        let posY = ((clientY - rect.top) / rect.height) * 100;
-
-        posX = Math.max(5, Math.min(95, posX));
-        posY = Math.max(5, Math.min(95, posY));
-
-        setSigBoxPosition((prev) => ({
-            ...prev,
-            x: Math.round(posX),
-            y: Math.round(posY),
-        }));
-    }, []);
-
-    const handleMouseDown = () => {
-        isDraggingRef.current = true;
-    };
-
-    const handleMouseUp = useCallback(() => {
-        isDraggingRef.current = false;
-    }, []);
-
-    useEffect(() => {
-        const onGlobalMouseMove = (e: MouseEvent) => {
-            if (isDraggingRef.current) handleDragMove(e.clientX, e.clientY);
-        };
-        const onGlobalTouchMove = (e: TouchEvent) => {
-            if (isDraggingRef.current && e.touches.length > 0) {
-                handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
-            }
-        };
-
-        window.addEventListener('mousemove', onGlobalMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-        window.addEventListener('touchmove', onGlobalTouchMove);
-        window.addEventListener('touchend', handleMouseUp);
-
-        return () => {
-            window.removeEventListener('mousemove', onGlobalMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-            window.removeEventListener('touchmove', onGlobalTouchMove);
-            window.removeEventListener('touchend', handleMouseUp);
-        };
-    }, [handleDragMove, handleMouseUp]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -761,10 +706,73 @@ export default function UserDokumen() {
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         setStepModes({});
-        setSigBoxPosition({ x: 70, y: 80, page: 'last' });
         setErrors({});
         setIsCreateDialogOpen(true);
     };
+
+    const handleOpenSigModal = () => {
+        setIsSigModalOpen(true);
+    };
+
+    const handleSavePositions = (approvers: ApproverBox[], qr: QRBox) => {
+        const newApproverPositions: Record<string, any> = {};
+        const newCustomPositions: Record<string, any> = {};
+
+        approvers.forEach(app => {
+            if (app.id.startsWith('custom_')) {
+                const idx = app.id.replace('custom_', '');
+                newCustomPositions[idx] = { x: app.x, y: app.y, page: app.page };
+            } else {
+                newApproverPositions[app.id] = { x: app.x, y: app.y, page: app.page };
+            }
+        });
+
+        setFormData(prev => ({
+            ...prev,
+            approver_positions: newApproverPositions,
+            custom_approver_positions: newCustomPositions,
+            is_qr_active: qr.active,
+            qr_pos_x: qr.x,
+            qr_pos_y: qr.y,
+            qr_page: qr.page
+        }));
+    };
+
+    const buildInitialApprovers = (): ApproverBox[] => {
+        const list: ApproverBox[] = [];
+        
+        if (formData.masterflow_id === 'custom') {
+            formData.custom_approvers.forEach((app, idx) => {
+                if (!app.email) return;
+                const existing = formData.custom_approver_positions?.[idx];
+                list.push({
+                    id: `custom_${idx}`,
+                    label: `Custom ${idx + 1}`,
+                    subLabel: app.email,
+                    x: existing?.x || 70,
+                    y: existing?.y || (20 + idx * 10),
+                    page: existing?.page || 'last',
+                    color: '#3b82f6'
+                });
+            });
+        } else if (selectedMasterflow && selectedMasterflow.steps) {
+            selectedMasterflow.steps.forEach((step, idx) => {
+                const existing = formData.approver_positions?.[step.id];
+                list.push({
+                    id: step.id.toString(),
+                    label: step.step_name,
+                    subLabel: step.jabatan?.name || 'Approver',
+                    x: existing?.x || 70,
+                    y: existing?.y || (20 + idx * 10),
+                    page: existing?.page || 'last',
+                    color: '#10b981'
+                });
+            });
+        }
+
+        return list;
+    };
+
 
     const renderError = (err: unknown) => {
         if (!err) return null;
@@ -842,9 +850,28 @@ export default function UserDokumen() {
             submitData.append('deskripsi', formData.deskripsi || '');
             submitData.append('submit_type', type);
 
-            submitData.append('sig_x', sigBoxPosition.x.toString());
-            submitData.append('sig_y', sigBoxPosition.y.toString());
-            submitData.append('sig_page', sigBoxPosition.page);
+            if (formData.is_qr_active !== undefined) {
+                submitData.append('is_qr_active', formData.is_qr_active ? '1' : '0');
+                submitData.append('qr_pos_x', formData.qr_pos_x?.toString() || '80');
+                submitData.append('qr_pos_y', formData.qr_pos_y?.toString() || '80');
+                submitData.append('qr_page', formData.qr_page || 'last');
+            }
+
+            if (formData.approver_positions) {
+                Object.entries(formData.approver_positions).forEach(([key, pos]) => {
+                    submitData.append(`approver_positions[${key}][x]`, pos.x.toString());
+                    submitData.append(`approver_positions[${key}][y]`, pos.y.toString());
+                    submitData.append(`approver_positions[${key}][page]`, pos.page);
+                });
+            }
+
+            if (formData.custom_approver_positions) {
+                Object.entries(formData.custom_approver_positions).forEach(([key, pos]) => {
+                    submitData.append(`custom_approver_positions[${key}][x]`, pos.x.toString());
+                    submitData.append(`custom_approver_positions[${key}][y]`, pos.y.toString());
+                    submitData.append(`custom_approver_positions[${key}][page]`, pos.page);
+                });
+            }
 
             if (formData.file) {
                 submitData.append('file', formData.file);
@@ -2074,87 +2101,20 @@ export default function UserDokumen() {
                                         📄 <strong>File PDF (Maksimal 10MB).</strong> Tanda tangan digital akan ditempatkan pada halaman PDF ini.
                                     </p>
 
-                                    {/* Preview File PDF Interaktif */}
+                                    {/* Tombol Atur Posisi Tanda Tangan */}
                                     {pdfPreviewUrl && (
-                                        <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2 text-sm font-bold text-blue-950">
-                                                    <FileTextIcon className="h-4 w-4 text-blue-600" />
-                                                    <span>Preview File & Kotak Tanda Tangan Approved</span>
-                                                </div>
-                                                <Badge className="bg-blue-600 text-[10px] text-white">Pratinjau Interaktif</Badge>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                                                <div>
-                                                    <Label className="text-xs font-medium text-blue-900">Posisi Stempel Tanda Tangan</Label>
-                                                    <Select
-                                                        value={`${sigBoxPosition.x}-${sigBoxPosition.y}`}
-                                                        onValueChange={(val) => {
-                                                            const [x, y] = val.split('-').map(Number);
-                                                            setSigBoxPosition((prev) => ({ ...prev, x, y }));
-                                                        }}
-                                                    >
-                                                        <SelectTrigger className="mt-1 h-8 bg-white font-sans text-xs">
-                                                            <SelectValue placeholder="Pilih Posisi Preset" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="70-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
-                                                            <SelectItem value="22-80" className="font-sans">↙️ Bawah Kiri (Sejajar Teks)</SelectItem>
-                                                            <SelectItem value="70-18" className="font-sans">↗️ Atas Kanan</SelectItem>
-                                                            <SelectItem value="22-18" className="font-sans">↖️ Atas Kiri</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div>
-                                                    <Label className="text-xs font-medium text-blue-900">Halaman Penempatan</Label>
-                                                    <Select
-                                                        value={sigBoxPosition.page}
-                                                        onValueChange={(val: 'last' | 'first' | 'all') =>
-                                                            setSigBoxPosition((prev) => ({ ...prev, page: val }))
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="mt-1 h-8 bg-white font-sans text-xs">
-                                                            <SelectValue placeholder="Pilih Halaman" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="last" className="font-sans">📄 Halaman Terakhir (Last Page)</SelectItem>
-                                                            <SelectItem value="first" className="font-sans">📄 Halaman Pertama (First Page)</SelectItem>
-                                                            <SelectItem value="all" className="font-sans">📑 Semua Halaman (All Pages)</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-
-                                            <div
-                                                ref={pdfContainerRef}
-                                                className="relative h-[350px] min-h-[300px] select-none overflow-hidden rounded-lg border border-blue-300 bg-slate-100 shadow-inner"
+                                        <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm flex flex-col items-center justify-center">
+                                            <FileTextIcon className="h-10 w-10 text-blue-400 mb-2" />
+                                            <p className="text-sm text-blue-900 font-medium text-center">
+                                                File PDF berhasil diupload. Selanjutnya, atur posisi tanda tangan approver dan QR code.
+                                            </p>
+                                            <Button 
+                                                type="button" 
+                                                onClick={handleOpenSigModal}
+                                                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-sans"
                                             >
-                                                <iframe
-                                                    src={`${pdfPreviewUrl}#toolbar=0`}
-                                                    className="pointer-events-none h-full w-full border-0"
-                                                    title="Preview PDF"
-                                                />
-                                                <div
-                                                    onMouseDown={handleMouseDown}
-                                                    onTouchStart={handleMouseDown}
-                                                    className="absolute cursor-move rounded-md border-2 border-dashed border-emerald-600 bg-emerald-100/90 p-2 shadow-lg transition-all active:scale-95"
-                                                    style={{
-                                                        left: `${sigBoxPosition.x}%`,
-                                                        top: `${sigBoxPosition.y}%`,
-                                                        transform: 'translate(-50%, -50%)',
-                                                        zIndex: 10,
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950">
-                                                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                                                        <span>[ KOTAK APPROVED TTD ]</span>
-                                                    </div>
-                                                    <div className="mt-0.5 text-[9px] font-medium text-emerald-800">
-                                                        Geser kotak ini untuk mengatur lokasi ({sigBoxPosition.x}%, {sigBoxPosition.y}%)
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                Atur Posisi Tanda Tangan
+                                            </Button>
                                         </div>
                                     )}
                                     {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}

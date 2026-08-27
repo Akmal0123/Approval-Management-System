@@ -193,6 +193,12 @@ class DokumenController extends Controller
             'signature_position_x' => 'nullable|numeric|min:0|max:100',
             'signature_position_y' => 'nullable|numeric|min:0|max:100',
             'signature_page' => 'nullable|string|in:first,last,all',
+            'approver_positions' => 'nullable|array',
+            'custom_approver_positions' => 'nullable|array',
+            'is_qr_active' => 'nullable|boolean',
+            'qr_pos_x' => 'nullable|numeric|min:0|max:100',
+            'qr_pos_y' => 'nullable|numeric|min:0|max:100',
+            'qr_page' => 'nullable|string',
         ];
 
         if ($request->masterflow_id === 'custom') {
@@ -275,6 +281,10 @@ class DokumenController extends Controller
                 'signature_position_x' => $sigX,
                 'signature_position_y' => $sigY,
                 'signature_page' => $sigPage,
+                'is_qr_active' => $validated['is_qr_active'] ?? false,
+                'qr_pos_x' => $validated['qr_pos_x'] ?? null,
+                'qr_pos_y' => $validated['qr_pos_y'] ?? null,
+                'qr_page' => $validated['qr_page'] ?? 'last',
             ]);
 
             try {
@@ -372,6 +382,9 @@ class DokumenController extends Controller
                                         'jenis_group' => $stepApprover['jenis_group'] ?? null,
                                         'comment' => null,
                                         'tgl_approve' => $isSkippedByThreshold ? now() : null,
+                                        'pos_x' => $validated['approver_positions'][$step->id]['x'] ?? $sigX,
+                                        'pos_y' => $validated['approver_positions'][$step->id]['y'] ?? $sigY,
+                                        'page' => $validated['approver_positions'][$step->id]['page'] ?? $sigPage,
                                     ]);
 
                                     if ($initialStatus === 'pending') {
@@ -398,6 +411,9 @@ class DokumenController extends Controller
                                     'tgl_deadline' => $validated['tgl_deadline'],
                                     'comment' => null,
                                     'tgl_approve' => $isSkippedByThreshold ? now() : null,
+                                    'pos_x' => $validated['approver_positions'][$step->id]['x'] ?? $sigX,
+                                    'pos_y' => $validated['approver_positions'][$step->id]['y'] ?? $sigY,
+                                    'page' => $validated['approver_positions'][$step->id]['page'] ?? $sigPage,
                                 ]);
 
                                 if ($initialStatus === 'pending') {
