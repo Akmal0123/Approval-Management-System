@@ -140,7 +140,8 @@ interface FormData {
 export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Dokumen }) {
     // Call usePage at top level (before any conditional returns)
     const pageProps = usePage().props as any;
-    const { auth } = pageProps;
+const { auth } = pageProps;
+const dokumenId = pageProps.id;
 
     // Add null check and provide default
     if (!initialDokumen || !initialDokumen.id) {
@@ -205,24 +206,29 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     }, []);
 
     // Fetch latest dokumen data
-    const fetchDokumen = async () => {
-        try {
-            const response = await api.get(`/dokumen/${dokumen.id}`);
-            console.log('Fetched dokumen:', response.data);
-
-            // Check if response has dokumen data
-            if (response.data && response.data.id) {
-                setDokumen(response.data);
-                return response.data;
-            } else {
-                console.warn('Invalid dokumen data received:', response.data);
-                return null;
-            }
-        } catch (error) {
-            console.error('Error fetching dokumen:', error);
-            return null;
+   const fetchDokumen = async () => {
+    try {
+        if (!dokumenId) {
+            console.error('❌ Dokumen ID tidak tersedia');
+            return;
         }
-    };
+
+        const response = await api.get(`/dokumen/${dokumenId}`);
+
+        console.log('Fetched dokumen:', response.data);
+
+        setDokumen(response.data);
+    } catch (error) {
+        console.error('Error fetching dokumen:', error);
+    }
+};
+// INITIAL FETCH
+useEffect(() => {
+    if (dokumenId) {
+        console.log('📄 Initial fetch dokumen:', dokumenId);
+        fetchDokumen();
+    }
+}, [dokumenId]);
 
     // Fetch masterflows
     const fetchMasterflows = async () => {
@@ -379,11 +385,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     };
 
     // Handle edit
-    const handleEdit = () => {
-        if (dokumen.status !== 'draft' && dokumen.status !== 'rejected') {
-            showToast.error('❌ Hanya dokumen dengan status Draft atau Rejected yang dapat diedit.');
-            return;
-        }
+    const handleEdit = () => {    
+             if (dokumen.status !== 'draft' && dokumen.status !== 'rejected') {       
+                      showToast.error('❌ Hanya dokumen dengan status Draft atau Rejected yang dapat diedit.');      
+                       return;         }
 
         // Populate form with current dokumen data
         setFormData({
@@ -690,8 +695,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
     // Handle upload revision for rejected document
     const handleUploadRevision = () => {
-        if (dokumen.status !== 'rejected' && dokumen.status !== 'needs_revision') {
-            showToast.error('❌ Hanya dokumen yang memerlukan revisi atau di-reject yang dapat direvisi.');
+        if (dokumen.status !== 'rejected') {
+            showToast.error('❌ Hanya dokumen yang di-reject yang dapat direvisi.');
             return;
         }
 
@@ -927,6 +932,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     <Button onClick={handleSubmitForApproval} className="bg-green-600 hover:bg-green-700">
                                         <IconSend className="mr-2 h-4 w-4" />
                                         Submit Approval
+                                    </Button>
+                                )}
+                                {(dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && dokumen?.user_id === auth.user.id && (
+                                    <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700">
+                                        <IconFileText className="mr-2 h-4 w-4" />
+                                        Upload Revisi
                                     </Button>
                                 )}
                             </div>
