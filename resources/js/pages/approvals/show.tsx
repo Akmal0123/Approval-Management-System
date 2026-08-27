@@ -1043,9 +1043,22 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 {approval.approval_status === 'rejected' && (
                                                     <>
                                                         <p className="font-semibold text-red-900">Ditolak</p>
-                                                        <p className="text-sm text-red-700">
-                                                            Anda menolak dokumen ini pada {formatDate(approval.tgl_approve)}
-                                                        </p>
+                                                        {isOwner ? (
+                                                            <p className="text-sm text-red-700">
+                                                                Dokumen Anda ditolak oleh{' '}
+                                                                <span className="font-semibold">
+                                                                    {approval.user?.name ?? 'Approver'}
+                                                                </span>
+                                                                {approval.user?.profile?.jabatan ? (
+                                                                    <span className="text-red-600"> ({approval.user.profile.jabatan})</span>
+                                                                ) : null}{' '}
+                                                                pada {formatDate(approval.tgl_approve)}.
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-sm text-red-700">
+                                                                Anda telah menolak dokumen ini pada {formatDate(approval.tgl_approve)}.
+                                                            </p>
+                                                        )}
                                                     </>
                                                 )}
                                                 {(approval.approval_status as string) === 'revision_requested' && (

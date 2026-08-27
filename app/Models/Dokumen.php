@@ -32,6 +32,17 @@ class Dokumen extends Model
         'nomor_dokumen',
         'judul_dokumen',
         'tipe_dokumen',
+        'jenis_pengajuan',
+        'modul_transaksi',
+        'aplikasi_unit_id', // Foreign key ke Master Aplikasi Management
+        'kategori_hris',
+        'nama_karyawan_nip',
+        'vendor_name',
+        'payment_terms',
+        'urgensi_memo',
+        'metode_pembayaran',
+        'rekening_vendor',
+        'items_transaksi',
         'nominal',
         'user_id',
         'company_id',
@@ -51,6 +62,7 @@ class Dokumen extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
+        'items_transaksi' => 'array',
         'tgl_pengajuan' => 'date',
         'tgl_deadline' => 'date',
         'created_at' => 'datetime',
@@ -82,11 +94,27 @@ class Dokumen extends Model
     }
 
     /**
-     * Get the aplikasi for this document.
+     * Get the aplikasi for this document (legacy relationship).
      */
     public function aplikasi(): BelongsTo
     {
         return $this->belongsTo(Aplikasi::class);
+    }
+
+    /**
+     * Relasi ke Master Aplikasi Management (Dinamis Unit Aplikasi)
+     */
+    public function aplikasiManagement(): BelongsTo
+    {
+        return $this->belongsTo(Aplikasi::class, 'aplikasi_unit_id');
+    }
+
+    /**
+     * Alias relasi aplikasiManagement untuk penamaan alternatif
+     */
+    public function aplikasi_management(): BelongsTo
+    {
+        return $this->aplikasiManagement();
     }
 
     /**
@@ -253,7 +281,6 @@ class Dokumen extends Model
                     $names = collect($nextApprovers)->pluck('user.name')->filter()->implode(', ');
                     return "Menunggu persetujuan dari salah satu: {$names} ({$stepName})";
                 case 'majority':
-                    $count = count($nextApprovers);
                     $names = collect($nextApprovers)->pluck('user.name')->filter()->implode(', ');
                     return "Menunggu persetujuan mayoritas dari: {$names} ({$stepName})";
             }

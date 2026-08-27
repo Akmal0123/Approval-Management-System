@@ -29,10 +29,9 @@ class ApprovalRequestMail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
-        $nomorStr = $this->approval->dokumen->nomor_dokumen ? ' (' . $this->approval->dokumen->nomor_dokumen . ')' : '';
         return new Envelope(
-            from: new Address(config('mail.from.address'), config('mail.from.name', 'Sistem Persetujuan Dokumen')),
-            subject: '[Persetujuan Dokumen] 📝 Permohonan Persetujuan: ' . $this->approval->dokumen->judul_dokumen . $nomorStr,
+            from: new Address(config('mail.from.address'), config('mail.from.name', 'Approval Management System')),
+            subject: '[Approval Required] ' . $this->approval->dokumen->judul_dokumen,
         );
     }
 

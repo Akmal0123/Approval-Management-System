@@ -10,15 +10,11 @@
 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
 
     <!-- Header Banner - Emerald Green Approved Theme -->
-    <div style="background: linear-gradient(135deg, #059669 0%, #047857 50%, #064e3b 100%); padding: 28px 24px 32px 24px; text-align: center;">
-        <!-- Top Left Corporate Logo -->
-        <div style="text-align: left; margin-bottom: 6px;">
-            <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai" style="max-height: 48px; width: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;" />
-        </div>
+    <div style="background: linear-gradient(135deg, #059669 0%, #047857 50%, #064e3b 100%); padding: 32px 24px; text-align: center;">
         
-        <!-- Center Checkmark Icon -->
-        <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; padding: 12px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
-            <span style="font-size: 32px; line-height: 1; display: block;">✅</span>
+        <!-- Logo Rata Tengah -->
+        <div style="text-align: center; margin-bottom: 16px;">
+            <img src="{{ $message->embed(public_path('images/logo-tiga-serangkai.png')) }}" alt="Tiga Serangkai" style="max-height: 52px; width: auto; display: inline-block; margin: 0 auto; filter: brightness(0) invert(1); opacity: 0.95;" />
         </div>
 
         <h2 style="color: #ffffff; margin: 0; font-size: 23px; font-weight: 800; letter-spacing: -0.5px;">

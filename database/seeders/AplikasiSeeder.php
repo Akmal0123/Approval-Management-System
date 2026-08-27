@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Aplikasi;
 use App\Models\Company;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class AplikasiSeeder extends Seeder
@@ -14,50 +13,40 @@ class AplikasiSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get existing companies from seeder
-        $companies = Company::whereIn('name', [
-            'PT. Digital Approval Indonesia',
-            'PT. K33 Distribusi',
-            'PT. Assalaam Niaga Utama'
-        ])->get();
-
-        if ($companies->isEmpty()) {
-            $this->command->error('No companies found! Please run CompanySeeder first.');
-            return;
-        }
+        $assalam = Company::where('name', 'Assalam Hypermarket')->first();
+        $perpus  = Company::where('name', 'Perpus Kita')->first();
+        $tisera  = Company::where('name', 'Tisera')->first();
 
         $aplikasis = [
             [
-                'name' => 'DocuFlow Engine',
-                'company_id' => $companies->where('name', 'PT. Digital Approval Indonesia')->first()?->id ?? $companies->first()->id,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'nama_aplikasi'        => 'Assalam Hypermarket',
+                'transaksi_management' => 'PO (Purchase Order)',
+                'company_id'           => $assalam?->id,
             ],
             [
-                'name' => 'Approval Portal',
-                'company_id' => $companies->where('name', 'PT. Digital Approval Indonesia')->first()?->id ?? $companies->first()->id,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'nama_aplikasi'        => 'Perpus Kita',
+                'transaksi_management' => 'Internal Memo',
+                'company_id'           => $perpus?->id,
             ],
             [
-                'name' => 'Assalaam Hypermarket',
-                'company_id' => $companies->where('name', 'PT. Assalaam Niaga Utama')->first()->id,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'nama_aplikasi'        => 'Tisera',
+                'transaksi_management' => 'PR (Purchase Requisition)',
+                'company_id'           => $tisera?->id,
             ],
         ];
 
         foreach ($aplikasis as $aplikasi) {
-            Aplikasi::firstOrCreate(
+            Aplikasi::updateOrCreate(
+                ['nama_aplikasi' => $aplikasi['nama_aplikasi']],
                 [
-                    'name' => $aplikasi['name'],
-                    'company_id' => $aplikasi['company_id']
-                ],
-                $aplikasi
+                    'transaksi_management' => $aplikasi['transaksi_management'],
+                    'company_id'           => $aplikasi['company_id'],
+                    'created_at'           => now(),
+                    'updated_at'           => now(),
+                ]
             );
         }
 
         $this->command->info('Aplikasi seeder completed successfully!');
-        $this->command->info('Created 3 aplikasi records across 3 companies.');
     }
 }

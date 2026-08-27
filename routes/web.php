@@ -4,13 +4,23 @@ use App\Http\Controllers\RoleManagementController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\DokumenController;
+use App\Http\Controllers\AplikasiController;
 use App\Http\Controllers\DokumenVersionController;
 use App\Http\Controllers\DokumenApprovalController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ContextController;
+use App\Http\Controllers\RevisionHistoryController;
+use App\Http\Controllers\SignatureController;
+use App\Http\Controllers\Admin\MasterflowController;
+use App\Models\Aplikasi;
+use App\Models\Company;
 use App\Models\Masterflow;
 use App\Services\ContextService;
+use App\Services\StorageTokenService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 // Auto-generate transparent & white Tiga Serangkai logo files if not present
@@ -114,14 +124,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('waiting-room');
 
     // Context Management Routes
-    Route::get('/contexts', [\App\Http\Controllers\ContextController::class, 'index'])->name('context.index');
-    Route::get('/contexts/current', [\App\Http\Controllers\ContextController::class, 'current'])->name('context.current');
-    Route::post('/contexts/switch', [\App\Http\Controllers\ContextController::class, 'switch'])->name('context.switch');
-    Route::get('/context/select', [\App\Http\Controllers\ContextController::class, 'select'])->name('context.select');
+    Route::get('/contexts', [ContextController::class, 'index'])->name('context.index');
+    Route::get('/contexts/current', [ContextController::class, 'current'])->name('context.current');
+    Route::post('/contexts/switch', [ContextController::class, 'switch'])->name('context.switch');
+    Route::get('/context/select', [ContextController::class, 'select'])->name('context.select');
 });
 
-
-// Role-based Routes (No middleware - handle auth via Sanctum in frontend)
+// Role-based Routes
 
 // Super Admin Routes
 Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
@@ -141,8 +150,12 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
         return Inertia::render('super-admin/jabatan-management');
     })->name('super-admin.jabatan-management');
 
+    // Aplikasi Management: Passing props data dari DB ke Inertia View
     Route::get('/super-admin/aplikasi-management', function () {
-        return Inertia::render('super-admin/aplikasi-management');
+        return Inertia::render('super-admin/aplikasi-management', [
+            'aplikasis' => Aplikasi::with('company')->latest()->get(),
+            'companies' => Company::all(),
+        ]);
     })->name('super-admin.aplikasi-management');
 
     Route::get('/super-admin/user-management', function () {
@@ -160,8 +173,8 @@ Route::middleware(['auth', 'check.role:Admin'])->group(function () {
 
     // Masterflow Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {
-        Route::resource('masterflows', \App\Http\Controllers\Admin\MasterflowController::class);
-        Route::patch('masterflows/{masterflow}/toggle-status', [\App\Http\Controllers\Admin\MasterflowController::class, 'toggleStatus'])
+        Route::resource('masterflows', MasterflowController::class);
+        Route::patch('masterflows/{masterflow}/toggle-status', [MasterflowController::class, 'toggleStatus'])
             ->name('masterflows.toggle-status');
     });
 });
@@ -174,8 +187,16 @@ Route::middleware(['auth', 'check.role:User'])->group(function () {
     Route::get('/user/masterflows', [UserDashboardController::class, 'getMasterflows'])->name('user.masterflows');
 });
 
-// Document Management Routes (Available for all authenticated users)
+// Document & API Management Routes (Available for all authenticated users)
 Route::middleware(['auth'])->group(function () {
+    // API endpoints untuk Aplikasi Management (GET, POST, PUT, DELETE)
+    Route::prefix('api/aplikasis')->group(function () {
+        Route::get('/', [DokumenController::class, 'getAplikasiList'])->name('api.aplikasis.index');
+        Route::post('/', [AplikasiController::class, 'store'])->name('api.aplikasis.store');
+        Route::put('/{id}', [AplikasiController::class, 'update'])->name('api.aplikasis.update');
+        Route::delete('/{id}', [AplikasiController::class, 'destroy'])->name('api.aplikasis.destroy');
+    });
+
     // Document pages (Inertia) - Must be defined BEFORE API routes to avoid conflicts
     Route::get('/dokumen', function () {
         return Inertia::render('dokumen/index');
@@ -183,41 +204,41 @@ Route::middleware(['auth'])->group(function () {
 
     // Document API endpoints with /api prefix to avoid conflicts with page routes
     Route::prefix('api/dokumen')->group(function () {
-        Route::get('/', [\App\Http\Controllers\DokumenController::class, 'index'])->name('dokumen.index');
-        Route::post('/', [\App\Http\Controllers\DokumenController::class, 'store'])->name('dokumen.store');
-        Route::get('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->name('api.dokumen.show');
-        Route::put('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->name('dokumen.update');
-        Route::delete('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'destroy'])->name('dokumen.destroy');
+        Route::get('/', [DokumenController::class, 'index'])->name('dokumen.index');
+        Route::post('/', [DokumenController::class, 'store'])->name('dokumen.store');
+        Route::get('/{dokumen}', [DokumenController::class, 'show'])->name('api.dokumen.show');
+        Route::put('/{dokumen}', [DokumenController::class, 'update'])->name('dokumen.update');
+        Route::delete('/{dokumen}', [DokumenController::class, 'destroy'])->name('dokumen.destroy');
 
         // Document workflow actions
-        Route::post('/{dokumen}/submit', [\App\Http\Controllers\DokumenController::class, 'submit'])->name('dokumen.submit');
-        Route::post('/{dokumen}/cancel', [\App\Http\Controllers\DokumenController::class, 'cancel'])->name('dokumen.cancel');
-        Route::get('/{dokumen}/download/{version}', [\App\Http\Controllers\DokumenController::class, 'download'])->name('dokumen.download');
+        Route::post('/{dokumen}/submit', [DokumenController::class, 'submit'])->name('dokumen.submit');
+        Route::post('/{dokumen}/cancel', [DokumenController::class, 'cancel'])->name('dokumen.cancel');
+        Route::get('/{dokumen}/download/{version}', [DokumenController::class, 'download'])->name('dokumen.download');
 
         // Stream signed PDF (on-demand generation for preview)
-        Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
+        Route::get('/{dokumen}/signed-pdf/{version?}', [DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
 
         // Document revision history & comparison
-        Route::get('/{dokumen}/history', [\App\Http\Controllers\RevisionHistoryController::class, 'index'])->name('api.dokumen.history');
-        Route::get('/{dokumen}/compare', [\App\Http\Controllers\RevisionHistoryController::class, 'compare'])->name('api.dokumen.compare');
+        Route::get('/{dokumen}/history', [RevisionHistoryController::class, 'index'])->name('api.dokumen.history');
+        Route::get('/{dokumen}/compare', [RevisionHistoryController::class, 'compare'])->name('api.dokumen.compare');
     });
 
     // Masterflows API endpoint for document creation
-    Route::get('/api/masterflows', [\App\Http\Controllers\UserDashboardController::class, 'getMasterflowsApi'])->name('api.masterflows');
+    Route::get('/api/masterflows', [UserDashboardController::class, 'getMasterflowsApi'])->name('api.masterflows');
 
     // Document detail & edit pages
-    Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.show');
-    Route::get('/dokumen/{dokumen}/detail', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
-    Route::get('/dokumen/{dokumen}/edit', [\App\Http\Controllers\DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.edit');
-    Route::match(['post', 'put'], '/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->where('dokumen', '[0-9]+')->name('dokumen.web_update');
-    Route::delete('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'destroy'])->where('dokumen', '[0-9]+')->name('dokumen.web_destroy');
-    Route::post('/dokumen/{dokumen}/submit', [\App\Http\Controllers\DokumenController::class, 'submit'])->where('dokumen', '[0-9]+')->name('dokumen.web_submit');
+    Route::get('/dokumen/{dokumen}', [DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.show');
+    Route::get('/dokumen/{dokumen}/detail', [DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.detail');
+    Route::get('/dokumen/{dokumen}/edit', [DokumenController::class, 'show'])->where('dokumen', '[0-9]+')->name('dokumen.edit');
+    Route::match(['post', 'put'], '/dokumen/{dokumen}', [DokumenController::class, 'update'])->where('dokumen', '[0-9]+')->name('dokumen.web_update');
+    Route::delete('/dokumen/{dokumen}', [DokumenController::class, 'destroy'])->where('dokumen', '[0-9]+')->name('dokumen.web_destroy');
+    Route::post('/dokumen/{dokumen}/submit', [DokumenController::class, 'submit'])->where('dokumen', '[0-9]+')->name('dokumen.web_submit');
 });
 
 // Other Document Related Routes
 Route::middleware(['auth'])->group(function () {
     // Document versions
-    Route::resource('dokumen.versions', \App\Http\Controllers\DokumenVersionController::class)
+    Route::resource('dokumen.versions', DokumenVersionController::class)
         ->except(['index', 'show'])
         ->names([
             'create' => 'dokumen.versions.create',
@@ -228,34 +249,34 @@ Route::middleware(['auth'])->group(function () {
         ]);
 
     // Document approvals
-    Route::get('approvals', [\App\Http\Controllers\DokumenApprovalController::class, 'index'])->name('approvals.index');
-    Route::get('approvals/{approval}', [\App\Http\Controllers\DokumenApprovalController::class, 'show'])->name('approvals.show');
-    Route::post('approvals/{approval}/approve', [\App\Http\Controllers\DokumenApprovalController::class, 'approve'])->name('approvals.approve');
-    Route::post('approvals/{approval}/reject', [\App\Http\Controllers\DokumenApprovalController::class, 'reject'])->name('approvals.reject');
-    Route::post('approvals/{approval}/delegate', [\App\Http\Controllers\DokumenApprovalController::class, 'delegate'])->name('approvals.delegate');
-    Route::post('approvals/{approval}/request-revision', [\App\Http\Controllers\DokumenApprovalController::class, 'requestRevision'])->name('approvals.request-revision');
+    Route::get('approvals', [DokumenApprovalController::class, 'index'])->name('approvals.index');
+    Route::get('approvals/{approval}', [DokumenApprovalController::class, 'show'])->name('approvals.show');
+    Route::post('approvals/{approval}/approve', [DokumenApprovalController::class, 'approve'])->name('approvals.approve');
+    Route::post('approvals/{approval}/reject', [DokumenApprovalController::class, 'reject'])->name('approvals.reject');
+    Route::post('approvals/{approval}/delegate', [DokumenApprovalController::class, 'delegate'])->name('approvals.delegate');
+    Route::post('approvals/{approval}/request-revision', [DokumenApprovalController::class, 'requestRevision'])->name('approvals.request-revision');
 
     // Document revision history
-    Route::get('dokumen/{dokumen}/history', [\App\Http\Controllers\RevisionHistoryController::class, 'index'])->name('dokumen.history');
-    Route::get('dokumen/{dokumen}/compare', [\App\Http\Controllers\RevisionHistoryController::class, 'compare'])->name('dokumen.compare');
+    Route::get('dokumen/{dokumen}/history', [RevisionHistoryController::class, 'index'])->name('dokumen.history');
+    Route::get('dokumen/{dokumen}/compare', [RevisionHistoryController::class, 'compare'])->name('dokumen.compare');
 
     // Document revision upload
-    Route::post('dokumen/{dokumen}/upload-revision', [\App\Http\Controllers\DokumenController::class, 'uploadRevision'])->name('dokumen.upload-revision');
+    Route::post('dokumen/{dokumen}/upload-revision', [DokumenController::class, 'uploadRevision'])->name('dokumen.upload-revision');
 
     // Comments
-    Route::post('dokumen/{dokumen}/comments', [\App\Http\Controllers\CommentController::class, 'store'])->name('comments.store');
-    Route::put('comments/{comment}', [\App\Http\Controllers\CommentController::class, 'update'])->name('comments.update');
-    Route::delete('comments/{comment}', [\App\Http\Controllers\CommentController::class, 'destroy'])->name('comments.destroy');
+    Route::post('dokumen/{dokumen}/comments', [CommentController::class, 'store'])->name('comments.store');
+    Route::put('comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+    Route::delete('comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
 
     // Signatures
-    Route::get('signatures', [\App\Http\Controllers\SignatureController::class, 'index'])->name('signatures.index');
-    Route::post('signatures', [\App\Http\Controllers\SignatureController::class, 'store'])->name('signatures.store');
-    Route::post('signatures/upload', [\App\Http\Controllers\SignatureController::class, 'upload'])->name('signatures.upload');
-    Route::post('signatures/{signature}/set-default', [\App\Http\Controllers\SignatureController::class, 'setDefault'])->name('signatures.setDefault');
-    Route::delete('signatures/{signature}', [\App\Http\Controllers\SignatureController::class, 'destroy'])->name('signatures.destroy');
+    Route::get('signatures', [SignatureController::class, 'index'])->name('signatures.index');
+    Route::post('signatures', [SignatureController::class, 'store'])->name('signatures.store');
+    Route::post('signatures/upload', [SignatureController::class, 'upload'])->name('signatures.upload');
+    Route::post('signatures/{signature}/set-default', [SignatureController::class, 'setDefault'])->name('signatures.setDefault');
+    Route::delete('signatures/{signature}', [SignatureController::class, 'destroy'])->name('signatures.destroy');
 
     // Helper routes
-    Route::get('masterflows/{masterflow}/steps', function (\App\Models\Masterflow $masterflow) {
+    Route::get('masterflows/{masterflow}/steps', function (Masterflow $masterflow) {
         return response()->json([
             'steps' => $masterflow->steps()->with('jabatan')->orderBy('step_order')->get()->map(function ($detail) {
                 return [
@@ -269,7 +290,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('masterflows.steps');
 });
 
-// Legacy SPA Routes (redirect to appropriate role dashboards)
+// Legacy SPA Routes
 Route::get('/spa', function () {
     return redirect('/admin/dashboard');
 })->name('spa');
@@ -287,11 +308,9 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/debug.php';
 require __DIR__ . '/test-broadcast.php';
 
-use App\Services\StorageTokenService;
-
 // Storage fallback route for Windows / missing storage symlink with token security
-Route::get('/storage/{path}', function (\Illuminate\Http\Request $request, $path) {
-    $diskPath = \Illuminate\Support\Facades\Storage::disk('public')->path($path);
+Route::get('/storage/{path}', function (Request $request, $path) {
+    $diskPath = Storage::disk('public')->path($path);
     $filePath = file_exists($diskPath) ? $diskPath : storage_path('app/public/' . $path);
 
     if (!file_exists($filePath)) {

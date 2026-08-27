@@ -15,8 +15,23 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconEdit, IconFileText, IconPlus, IconRefresh, IconTrash, IconX } from '@tabler/icons-react';
-import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import {
+    Activity,
+    CalendarIcon,
+    CheckCircle2,
+    ClipboardList,
+    Eye,
+    FileCheck,
+    FileTextIcon,
+    Lightbulb,
+    Receipt,
+    SearchIcon,
+    ShoppingCart,
+    Store,
+    UserIcon,
+    Users,
+} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface User {
     id: number;
@@ -24,11 +39,23 @@ interface User {
     email: string;
 }
 
-interface Masterflow {
+interface PageProps {
+    auth: {
+        user: User | null;
+    };
+    [key: string]: unknown;
+}
+
+interface AplikasiManagement {
     id: number;
-    name: string;
-    description?: string;
-    steps?: MasterflowStep[];
+    nama_aplikasi?: string;
+    name?: string;
+    transaksi_management?: string;
+    perusahaan_id?: number;
+    perusahaan?: {
+        id: number;
+        nama_perusahaan: string;
+    };
 }
 
 interface MasterflowStep {
@@ -43,6 +70,13 @@ interface MasterflowStep {
     group_index?: string | null;
     jenis_group?: 'all_required' | 'any_one' | 'majority' | null;
     users_in_group?: number[] | null;
+}
+
+interface Masterflow {
+    id: number;
+    name: string;
+    description?: string;
+    steps?: MasterflowStep[];
 }
 
 interface UserOption {
@@ -97,11 +131,15 @@ interface Dokumen {
     nomor_dokumen: string;
     judul_dokumen: string;
     tipe_dokumen?: string;
+    jenis_pengajuan?: 'manual' | 'transaksi';
+    modul_transaksi?: 'hris' | 'pr' | 'po' | 'internal_memo' | 'proposal';
+    aplikasi_unit_id?: number | null;
+    aplikasi_management?: AplikasiManagement;
     nominal?: number | string;
     qr_code_path?: string;
     qr_code_hash?: string;
     user_id: number;
-    masterflow_id: number;
+    masterflow_id: number | null;
     status: string;
     tgl_pengajuan: string;
     deskripsi?: string;
@@ -125,26 +163,57 @@ interface StepApprovers {
     jenisGroup: 'all_required' | 'any_one' | 'majority' | null;
 }
 
+interface ItemTransaksi {
+    nama_item: string;
+    qty: number;
+    harga_satuan: number;
+    total: number;
+}
+
 interface FormData {
+    jenis_pengajuan: 'manual' | 'transaksi';
+    modul_transaksi: 'hris' | 'pr' | 'po' | 'internal_memo' | 'proposal';
+    aplikasi_unit_id: number | null;
     nomor_dokumen: string;
     judul_dokumen: string;
     tipe_dokumen: string;
+    kategori_hris: string;
+    nama_karyawan_nip: string;
+    vendor_name: string;
+    payment_terms: string;
+    urgensi_memo: string;
+    kategori_transaksi: string;
+    metode_pembayaran: string;
+    rekening_vendor: string;
     nominal: string;
-    masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
+    items_transaksi: ItemTransaksi[];
+    masterflow_id: number | '' | 'custom';
     tgl_pengajuan: string;
     tgl_deadline: string;
     deskripsi: string;
     file: File | null;
-    approvers: Record<number, number | ''>; // stepId -> userId (for single approver mode)
-    custom_approvers: CustomApprover[]; // for custom approvals
-    step_approvers: Record<number, StepApprovers>; // stepId -> { userIds, jenisGroup } (for group mode)
+    approvers: Record<number, number | ''>;
+    custom_approvers: CustomApprover[];
+    step_approvers: Record<number, StepApprovers>;
 }
 
 const initialFormData: FormData = {
+    jenis_pengajuan: 'manual',
+    modul_transaksi: 'po',
+    aplikasi_unit_id: null,
     nomor_dokumen: '',
     judul_dokumen: '',
     tipe_dokumen: 'proposal',
-    nominal: '',
+    kategori_hris: 'reimbursement',
+    nama_karyawan_nip: '',
+    vendor_name: '',
+    payment_terms: 'net_30',
+    urgensi_memo: 'biasa',
+    kategori_transaksi: 'operasional',
+    metode_pembayaran: 'transfer',
+    rekening_vendor: '',
+    nominal: '0',
+    items_transaksi: [{ nama_item: '', qty: 1, harga_satuan: 0, total: 0 }],
     masterflow_id: '',
     tgl_pengajuan: new Date().toISOString().split('T')[0],
     tgl_deadline: '',
@@ -156,16 +225,17 @@ const initialFormData: FormData = {
 };
 
 export default function UserDokumen() {
-    const { auth } = usePage().props as any;
+    const { auth } = usePage<PageProps>().props;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
+    const [aplikasiList, setAplikasiList] = useState<AplikasiManagement[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedDokumen, setSelectedDokumen] = useState<Dokumen | null>(null);
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft'); // Track button clicked
+    const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -173,15 +243,81 @@ export default function UserDokumen() {
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
-    const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
+    const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set());
     const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-    const [sigBoxPosition, setSigBoxPosition] = useState<{ x: number; y: number; page: string }>({
+    const [sigBoxPosition, setSigBoxPosition] = useState<{ x: number; y: number; page: 'last' | 'first' | 'all' }>({
         x: 70,
         y: 80,
         page: 'last',
     });
 
-    // Helper to check if text or any word starts with query
+    const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+    const isDraggingRef = useRef(false);
+
+    const isNeedsPayment = useMemo(() => {
+        if (formData.jenis_pengajuan === 'transaksi' && formData.modul_transaksi === 'hris') {
+            // HRIS: hanya kategori reimbursement & kasbon yang memerlukan nominal
+            return ['reimbursement', 'kasbon'].includes(formData.kategori_hris);
+        }
+        // Semua modul lain (PO, PR, Internal Memo, Proposal) = tampilkan nominal
+        return true;
+    }, [formData.jenis_pengajuan, formData.modul_transaksi, formData.kategori_hris]);
+
+    const clearPdfPreview = useCallback(() => {
+        setPdfPreviewUrl((prevUrl) => {
+            if (prevUrl) {
+                URL.revokeObjectURL(prevUrl);
+            }
+            return null;
+        });
+    }, []);
+
+    const generateDocumentNumber = useCallback(
+        (overrides?: Partial<FormData>) => {
+            const currentJenis = overrides?.jenis_pengajuan ?? formData.jenis_pengajuan;
+            const currentModul = overrides?.modul_transaksi ?? formData.modul_transaksi;
+            const currentAppId = overrides?.aplikasi_unit_id ?? formData.aplikasi_unit_id;
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const random = Math.floor(Math.random() * 10000)
+                .toString()
+                .padStart(4, '0');
+
+            if (currentJenis === 'transaksi') {
+                const selectedApp = aplikasiList.find((app) => app.id === currentAppId);
+                const appName = selectedApp ? (selectedApp.nama_aplikasi || selectedApp.name || '') : '';
+                const prefixUnit = appName
+                    ? appName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6)
+                    : 'HOLDING';
+
+                let prefixModul = 'TRX';
+                switch (currentModul) {
+                    case 'hris':
+                        prefixModul = 'HRIS';
+                        break;
+                    case 'pr':
+                        prefixModul = 'PR';
+                        break;
+                    case 'po':
+                        prefixModul = 'PO';
+                        break;
+                    case 'internal_memo':
+                        prefixModul = 'MEMO';
+                        break;
+                    case 'proposal':
+                        prefixModul = 'PROP';
+                        break;
+                }
+                return `${prefixUnit}/${prefixModul}/${year}${month}/${random}`;
+            }
+
+            return `DOC/${year}${month}/${random}`;
+        },
+        [formData.jenis_pengajuan, formData.modul_transaksi, formData.aplikasi_unit_id, aplikasiList]
+    );
+
     const startsWithWord = (text: string | null | undefined, query: string): boolean => {
         if (!text || !query) return false;
         const cleanText = text.trim().toLowerCase();
@@ -192,10 +328,9 @@ export default function UserDokumen() {
         return words.some((word) => word.startsWith(cleanQuery));
     };
 
-    // Compute live search recommendations for Dokumen Saya (max 5 items)
     const suggestions = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        if (!query || query.length < 1) return [];
+        if (!query) return [];
 
         return dokumen
             .filter((item) => {
@@ -209,348 +344,259 @@ export default function UserDokumen() {
             .slice(0, 5);
     }, [dokumen, searchQuery]);
 
-    // Fetch dokumen from backend
     const fetchDokumen = async () => {
         try {
-            console.log('Fetching dokumen...');
             setIsLoading(true);
-
-            // Fetch only current user's documents
-            const response = await api.get('/dokumen', {
-                params: {
-                    my_documents: true,
-                },
-            });
-
-            console.log('Dokumen fetched:', response.data);
+            const response = await api.get('/dokumen', { params: { my_documents: true } });
             const newDokumen = Array.isArray(response.data) ? response.data : response.data.data || [];
-            console.log('📊 Total dokumen received:', newDokumen.length);
-            console.log(
-                '📊 Dokumen list:',
-                newDokumen.map((d: Dokumen) => ({
-                    id: d.id,
-                    judul: d.judul_dokumen,
-                    status: d.status,
-                })),
-            );
             setDokumen(newDokumen);
-            console.log('✅ State updated with new dokumen data');
         } catch (error) {
             console.error('Error fetching dokumen:', error);
-            showToast.error('❌ Failed to load documents. Please try again.');
+            showToast.error('❌ Gagal memuat daftar dokumen. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Fetch masterflows for dropdown
     const fetchMasterflows = async () => {
         try {
-            console.log('Fetching masterflows...');
             const response = await api.get('/masterflows');
-            console.log('Masterflows fetched:', response.data);
-            // API returns { masterflows: [...] }, not direct array
             setMasterflows(response.data.masterflows || response.data || []);
         } catch (error) {
             console.error('Error fetching masterflows:', error);
-            showToast.error('❌ Failed to load masterflows.');
+            showToast.error('❌ Gagal memuat masterflow.');
+        }
+    };
+
+    const fetchAplikasiManagement = async () => {
+        try {
+            const response = await api.get('/aplikasis');
+            console.log('API /aplikasis response:', response.data);
+            let apps = [];
+            if (Array.isArray(response.data)) {
+                apps = response.data;
+            } else if (response.data.data) {
+                apps = response.data.data;
+            } else if (response.data.aplikasis) {
+                apps = response.data.aplikasis;
+            }
+            console.log('Parsed apps:', apps);
+            setAplikasiList(apps);
+            if (apps.length > 0 && !formData.aplikasi_unit_id) {
+                setFormData((prev) => ({ ...prev, aplikasi_unit_id: apps[0].id }));
+            }
+        } catch (error) {
+            console.error('Error fetching aplikasi management:', error);
         }
     };
 
     useEffect(() => {
-        if (!auth.user) {
-            console.log('No authenticated user found, redirecting to home');
-            showToast.error('❌ Please login first to access Documents.');
+        if (!auth?.user) {
+            showToast.error('❌ Silakan login terlebih dahulu untuk mengakses Dokumen.');
             window.location.href = '/';
             return;
         }
-        console.log('Authenticated user found, loading data');
+
         fetchDokumen();
         fetchMasterflows();
+        fetchAplikasiManagement();
 
-        // Real-time updates dengan Laravel Reverb untuk user-specific dokumen
-        if (typeof window !== 'undefined' && window.Echo && auth.user?.id) {
-            console.log('📡 Setting up real-time listener for user dokumen:', auth.user.id);
-
-            // Listen to user-specific channel untuk dokumen mereka
+        if (typeof window !== 'undefined' && (window as unknown as { Echo?: any }).Echo && auth.user?.id) {
+            const echo = (window as unknown as { Echo: any }).Echo;
             const userChannelName = `user.${auth.user.id}.dokumen`;
+            const channel = echo.channel(userChannelName);
 
-            console.log('🔧 Creating channel:', userChannelName);
-            const channel = window.Echo.channel(userChannelName);
-
-            console.log('🔧 Channel object:', channel);
-            console.log('🔧 Echo instance:', window.Echo);
-
-            // ALTERNATIVE: Listen directly on Pusher channel
-            if (window.Echo.connector?.pusher) {
-                const pusherChannel = window.Echo.connector.pusher.subscribe(userChannelName);
-
-                console.log('🔧 Pusher channel subscribed:', pusherChannel);
-
-                // Listen on Pusher channel directly
-                pusherChannel.bind('dokumen.updated', (event: any) => {
-                    console.log('🎉🎉🎉 PUSHER DIRECT LISTENER TRIGGERED! 🎉🎉🎉');
-                    console.log('📡 Real-time dokumen update received:', event);
-                    console.log('📡 Event data:', JSON.stringify(event, null, 2));
-
-                    // Update dokumen in state smoothly (no full refresh)
-                    if (event.dokumen?.id) {
-                        console.log('🔄 Updating dokumen state smoothly for ID:', event.dokumen.id);
-
-                        setDokumen((prevDokumen) => {
-                            const updatedDokumen = prevDokumen.map((doc) => {
-                                if (doc.id === event.dokumen.id) {
-                                    console.log('✨ Found matching dokumen, updating:', {
-                                        oldStatus: doc.status,
-                                        newStatus: event.dokumen.status,
-                                        oldCurrentStep: doc.detailed_status?.current_step_description,
-                                        newCurrentStep: event.dokumen.detailed_status?.current_step_description,
-                                    });
-
-                                    // Merge updated data with existing data
-                                    return {
-                                        ...doc,
-                                        ...event.dokumen,
-                                        // Preserve nested relations if not in event
-                                        user: event.dokumen.user || doc.user,
-                                        masterflow: event.dokumen.masterflow || doc.masterflow,
-                                        latest_version: event.dokumen.latest_version || doc.latest_version,
-                                        approvals: event.dokumen.approvals || doc.approvals,
-                                        detailed_status: event.dokumen.detailed_status || doc.detailed_status,
-                                    };
-                                }
-                                return doc;
-                            });
-
-                            console.log('✅ Dokumen state updated smoothly');
-                            return updatedDokumen;
-                        });
-
-                        // Mark document as recently updated for animation
-                        setUpdatedDokumenIds((prev) => new Set(prev).add(event.dokumen.id));
-
-                        // Remove highlight after animation
-                        setTimeout(() => {
-                            setUpdatedDokumenIds((prev) => {
-                                const newSet = new Set(prev);
-                                newSet.delete(event.dokumen.id);
-                                return newSet;
-                            });
-                        }, 2000); // Remove after 2 seconds
-                    }
-
-                    // Tampilkan notifikasi toast
-                    console.log('🔔 Showing toast notification...');
-                    if (event.dokumen?.judul_dokumen) {
-                        const statusText = event.dokumen.status === 'approved' ? 'disetujui' : 'diupdate';
-                        showToast.success(`📡 Dokumen "${event.dokumen.judul_dokumen}" telah ${statusText}!`);
-                    } else {
-                        showToast.success('📡 Daftar dokumen telah diupdate secara real-time!');
-                    }
-                    console.log('✅ Toast notification triggered');
-                });
-
-                pusherChannel.bind('pusher:subscription_succeeded', () => {
-                    console.log('✅ Pusher subscription succeeded for:', userChannelName);
-                });
-
-                pusherChannel.bind('pusher:subscription_error', (error: any) => {
-                    console.error('❌ Pusher subscription error:', error);
-                });
-            }
-
-            // Subscribe to channel events FIRST before monitoring
-            console.log('🎯 Attaching listener for event: dokumen.updated');
-            channel.listen('dokumen.updated', (event: any) => {
-                console.log('🎉🎉🎉 CHANNEL LISTENER TRIGGERED! 🎉🎉🎉');
-                console.log('📡 Real-time dokumen update received:', event);
-                console.log('📡 Event data:', JSON.stringify(event, null, 2));
-
-                // Update dokumen in state smoothly (no full refresh)
+            const handleDokumenUpdated = (event: any) => {
                 if (event.dokumen?.id) {
-                    console.log('🔄 Updating dokumen state smoothly for ID:', event.dokumen.id);
-
-                    setDokumen((prevDokumen) => {
-                        const updatedDokumen = prevDokumen.map((doc) => {
-                            if (doc.id === event.dokumen.id) {
-                                console.log('✨ Found matching dokumen, updating:', {
-                                    oldStatus: doc.status,
-                                    newStatus: event.dokumen.status,
-                                    oldCurrentStep: doc.detailed_status?.current_step_description,
-                                    newCurrentStep: event.dokumen.detailed_status?.current_step_description,
-                                });
-
-                                // Merge updated data with existing data
-                                return {
+                    setDokumen((prevDokumen) =>
+                        prevDokumen.map((doc) =>
+                            doc.id === event.dokumen.id
+                                ? {
                                     ...doc,
                                     ...event.dokumen,
-                                    // Preserve nested relations if not in event
                                     user: event.dokumen.user || doc.user,
                                     masterflow: event.dokumen.masterflow || doc.masterflow,
                                     latest_version: event.dokumen.latest_version || doc.latest_version,
                                     approvals: event.dokumen.approvals || doc.approvals,
                                     detailed_status: event.dokumen.detailed_status || doc.detailed_status,
-                                };
-                            }
-                            return doc;
-                        });
+                                }
+                                : doc
+                        )
+                    );
 
-                        console.log('✅ Dokumen state updated smoothly');
-                        return updatedDokumen;
-                    });
-
-                    // Mark document as recently updated for animation
                     setUpdatedDokumenIds((prev) => new Set(prev).add(event.dokumen.id));
-
-                    // Remove highlight after animation
                     setTimeout(() => {
                         setUpdatedDokumenIds((prev) => {
                             const newSet = new Set(prev);
                             newSet.delete(event.dokumen.id);
                             return newSet;
                         });
-                    }, 2000); // Remove after 2 seconds
+                    }, 2000);
                 }
 
-                // Tampilkan notifikasi toast
-                console.log('🔔 Showing toast notification...');
                 if (event.dokumen?.judul_dokumen) {
                     const statusText = event.dokumen.status === 'approved' ? 'disetujui' : 'diupdate';
                     showToast.success(`📡 Dokumen "${event.dokumen.judul_dokumen}" telah ${statusText}!`);
                 } else {
                     showToast.success('📡 Daftar dokumen telah diupdate secara real-time!');
                 }
-                console.log('✅ Toast notification triggered');
-            });
-
-            // Monitor subscription success/error
-            channel.subscribed(() => {
-                console.log('✅ Successfully subscribed to channel:', userChannelName);
-                console.log('✅ Ready to receive real-time updates for user:', auth.user.id);
-            });
-
-            channel.error((error: any) => {
-                console.error('❌ Channel subscription error:', error);
-            });
-
-            // Monitor connection state
-            if (window.Echo.connector?.pusher) {
-                window.Echo.connector.pusher.connection.bind('connected', () => {
-                    console.log('✅ WebSocket connected successfully');
-                });
-
-                window.Echo.connector.pusher.connection.bind('error', (err: any) => {
-                    console.error('❌ WebSocket connection error:', err);
-                });
-
-                window.Echo.connector.pusher.connection.bind('disconnected', () => {
-                    console.warn('⚠️ WebSocket disconnected');
-                });
-
-                // Monitor all events for debugging (filter out internal Pusher events)
-                window.Echo.connector.pusher.bind_global((eventName: string, data: any) => {
-                    // Ignore internal Pusher protocol events (heartbeat/keepalive)
-                    if (eventName.startsWith('pusher:')) {
-                        return;
-                    }
-                    console.log('🔔 Global event received:', eventName, data);
-                    console.log('🔔 Event received on channel:', data?.channel || 'unknown');
-                    console.log('🔔 Looking for listener on channel:', userChannelName);
-                    console.log('🔔 Event name received:', eventName);
-                    console.log('🔔 Expected event name: dokumen.updated');
-                });
-            }
-
-            // Log subscription
-            console.log('📻 Subscribed to channel:', userChannelName);
-
-            // Cleanup saat component unmount
-            return () => {
-                console.log('🔌 Leaving channel:', userChannelName);
-                if (window.Echo.connector?.pusher) {
-                    window.Echo.connector.pusher.unsubscribe(userChannelName);
-                }
-                window.Echo.leave(userChannelName);
             };
-        } else {
-            if (!window.Echo) {
-                console.error('❌ window.Echo not initialized! Check app.tsx');
-            }
-        }
-    }, [auth.user]);
 
-    // Handle form input changes
+            channel.listen('dokumen.updated', handleDokumenUpdated);
+
+            return () => {
+                echo.leave(userChannelName);
+            };
+        }
+    }, [auth]);
+
+    useEffect(() => {
+        return () => {
+            clearPdfPreview();
+        };
+    }, [clearPdfPreview]);
+
+    const handleDragMove = useCallback((clientX: number, clientY: number) => {
+        if (!isDraggingRef.current || !pdfContainerRef.current) return;
+        const rect = pdfContainerRef.current.getBoundingClientRect();
+
+        let posX = ((clientX - rect.left) / rect.width) * 100;
+        let posY = ((clientY - rect.top) / rect.height) * 100;
+
+        posX = Math.max(5, Math.min(95, posX));
+        posY = Math.max(5, Math.min(95, posY));
+
+        setSigBoxPosition((prev) => ({
+            ...prev,
+            x: Math.round(posX),
+            y: Math.round(posY),
+        }));
+    }, []);
+
+    const handleMouseDown = () => {
+        isDraggingRef.current = true;
+    };
+
+    const handleMouseUp = useCallback(() => {
+        isDraggingRef.current = false;
+    }, []);
+
+    useEffect(() => {
+        const onGlobalMouseMove = (e: MouseEvent) => {
+            if (isDraggingRef.current) handleDragMove(e.clientX, e.clientY);
+        };
+        const onGlobalTouchMove = (e: TouchEvent) => {
+            if (isDraggingRef.current && e.touches.length > 0) {
+                handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        };
+
+        window.addEventListener('mousemove', onGlobalMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('touchmove', onGlobalTouchMove);
+        window.addEventListener('touchend', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', onGlobalMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchmove', onGlobalTouchMove);
+            window.removeEventListener('touchend', handleMouseUp);
+        };
+    }, [handleDragMove, handleMouseUp]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
 
         if (errors[name]) {
-            setErrors((prev) => ({
-                ...prev,
-                [name]: [],
-            }));
+            setErrors((prev) => {
+                const newErrs = { ...prev };
+                delete newErrs[name];
+                return newErrs;
+            });
         }
     };
 
-    // Handle file input change
+    const handleItemChange = (index: number, field: keyof ItemTransaksi, value: string | number) => {
+        setFormData((prev) => {
+            const newItems = [...prev.items_transaksi];
+            const currentItem = { ...newItems[index], [field]: value };
+
+            if (field === 'qty' || field === 'harga_satuan') {
+                const qty = Number(currentItem.qty) || 0;
+                const harga = Number(currentItem.harga_satuan) || 0;
+                currentItem.total = qty * harga;
+            }
+
+            newItems[index] = currentItem;
+            const grandTotal = newItems.reduce((acc, item) => acc + (item.total || 0), 0);
+
+            return {
+                ...prev,
+                items_transaksi: newItems,
+                nominal: grandTotal.toString(),
+            };
+        });
+    };
+
+    const addItemTransaksi = () => {
+        setFormData((prev) => ({
+            ...prev,
+            items_transaksi: [...prev.items_transaksi, { nama_item: '', qty: 1, harga_satuan: 0, total: 0 }],
+        }));
+    };
+
+    const removeItemTransaksi = (index: number) => {
+        if (formData.items_transaksi.length <= 1) return;
+        setFormData((prev) => {
+            const newItems = prev.items_transaksi.filter((_, i) => i !== index);
+            const grandTotal = newItems.reduce((acc, item) => acc + (item.total || 0), 0);
+            return {
+                ...prev,
+                items_transaksi: newItems,
+                nominal: grandTotal.toString(),
+            };
+        });
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
-            // Validate file type - only PDF allowed
             if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
                 showToast.error('❌ Format file harus PDF! Silakan pilih file dengan format .pdf');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
                 return;
             }
 
-            // Validate file size - max 10MB
             const maxSize = 10 * 1024 * 1024;
             if (file.size > maxSize) {
                 showToast.error('❌ Ukuran file maksimal 10MB!');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
                 return;
             }
 
-            setFormData((prev) => ({
-                ...prev,
-                file: file,
-            }));
+            clearPdfPreview();
+            setFormData((prev) => ({ ...prev, file }));
 
-            // Create Object URL for PDF Preview & Interactive Signature Placement
             try {
                 const objectUrl = URL.createObjectURL(file);
                 setPdfPreviewUrl(objectUrl);
             } catch (err) {
-                console.warn('Failed to create PDF preview object URL:', err);
+                console.warn('Gagal membuat object URL untuk pratinjau PDF:', err);
             }
 
             if (errors.file) {
-                setErrors((prev) => ({
-                    ...prev,
-                    file: [],
-                }));
+                setErrors((prev) => {
+                    const newErrs = { ...prev };
+                    delete newErrs.file;
+                    return newErrs;
+                });
             }
         }
     };
 
-    // Generate document number
-    const generateDocumentNumber = () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const random = Math.floor(Math.random() * 10000)
-            .toString()
-            .padStart(4, '0');
-        return `${year}${month}${random}`;
-    };
-
-    // Handle masterflow select change (including 'custom' option)
     const handleMasterflowChange = async (value: string) => {
-        // Check if user selected 'custom'
         if (value === 'custom') {
             setFormData((prev) => ({
                 ...prev,
@@ -567,32 +613,28 @@ export default function UserDokumen() {
         setFormData((prev) => ({
             ...prev,
             masterflow_id: masterflowId,
-            approvers: {}, // Reset approvers
-            custom_approvers: [], // Clear custom approvers
+            approvers: {},
+            custom_approvers: [],
         }));
 
         if (errors.masterflow_id) {
-            setErrors((prev) => ({
-                ...prev,
-                masterflow_id: [],
-            }));
+            setErrors((prev) => {
+                const newErrs = { ...prev };
+                delete newErrs.masterflow_id;
+                return newErrs;
+            });
         }
 
-        // Find selected masterflow with steps
         const selected = masterflows.find((mf) => mf.id === masterflowId);
         if (selected) {
             try {
-                // Fetch masterflow details with steps
                 const response = await api.get(`/masterflows/${masterflowId}/steps`);
-                console.log('Masterflow steps:', response.data);
-
                 const masterflowWithSteps = {
                     ...selected,
                     steps: response.data.steps || [],
                 };
                 setSelectedMasterflow(masterflowWithSteps);
 
-                // Fetch available approvers for each step
                 const approversData: Record<number, UserOption[]> = {};
                 for (const step of masterflowWithSteps.steps || []) {
                     if (step.jabatan_id) {
@@ -616,7 +658,6 @@ export default function UserDokumen() {
         }
     };
 
-    // Handle custom approver change
     const handleCustomApproverChange = (index: number, field: 'email' | 'order', value: string | number) => {
         setFormData((prev) => {
             const newCustomApprovers = [...prev.custom_approvers];
@@ -624,14 +665,10 @@ export default function UserDokumen() {
                 ...newCustomApprovers[index],
                 [field]: value,
             };
-            return {
-                ...prev,
-                custom_approvers: newCustomApprovers,
-            };
+            return { ...prev, custom_approvers: newCustomApprovers };
         });
     };
 
-    // Add new custom approver
     const addCustomApprover = () => {
         setFormData((prev) => ({
             ...prev,
@@ -639,7 +676,6 @@ export default function UserDokumen() {
         }));
     };
 
-    // Remove custom approver
     const removeCustomApprover = (index: number) => {
         setFormData((prev) => ({
             ...prev,
@@ -647,7 +683,6 @@ export default function UserDokumen() {
         }));
     };
 
-    // Handle approver selection
     const handleApproverChange = (stepId: number, userId: string) => {
         setFormData((prev) => ({
             ...prev,
@@ -658,42 +693,28 @@ export default function UserDokumen() {
         }));
     };
 
-    // Toggle step mode between single and group
     const toggleStepMode = (stepId: number) => {
         setStepModes((prev) => {
             const currentMode = prev[stepId] || 'single';
             const newMode = currentMode === 'single' ? 'group' : 'single';
 
-            // Clear data for the previous mode
             if (newMode === 'single') {
-                // Switching to single mode - clear group data
                 setFormData((prevForm) => {
                     const newStepApprovers = { ...prevForm.step_approvers };
                     delete newStepApprovers[stepId];
-                    return {
-                        ...prevForm,
-                        step_approvers: newStepApprovers,
-                    };
+                    return { ...prevForm, step_approvers: newStepApprovers };
                 });
             } else {
-                // Switching to group mode - clear single approver
                 setFormData((prevForm) => ({
                     ...prevForm,
-                    approvers: {
-                        ...prevForm.approvers,
-                        [stepId]: '',
-                    },
+                    approvers: { ...prevForm.approvers, [stepId]: '' },
                 }));
             }
 
-            return {
-                ...prev,
-                [stepId]: newMode,
-            };
+            return { ...prev, [stepId]: newMode };
         });
     };
 
-    // Handle multiple approver selection for group mode
     const handleMultipleApproverChange = (stepId: number, userId: number, checked: boolean) => {
         setFormData((prev) => {
             const currentStepApprovers = prev.step_approvers[stepId] || { userIds: [], jenisGroup: null };
@@ -703,16 +724,12 @@ export default function UserDokumen() {
                 ...prev,
                 step_approvers: {
                     ...prev.step_approvers,
-                    [stepId]: {
-                        ...currentStepApprovers,
-                        userIds: newUserIds,
-                    },
+                    [stepId]: { ...currentStepApprovers, userIds: newUserIds },
                 },
             };
         });
     };
 
-    // Handle jenis group selection
     const handleJenisGroupChange = (stepId: number, jenisGroup: 'all_required' | 'any_one' | 'majority') => {
         setFormData((prev) => {
             const currentStepApprovers = prev.step_approvers[stepId] || { userIds: [], jenisGroup: null };
@@ -721,60 +738,52 @@ export default function UserDokumen() {
                 ...prev,
                 step_approvers: {
                     ...prev.step_approvers,
-                    [stepId]: {
-                        ...currentStepApprovers,
-                        jenisGroup,
-                    },
+                    [stepId]: { ...currentStepApprovers, jenisGroup },
                 },
             };
         });
     };
 
-    // Open create dialog
-    const handleCreate = async () => {
-        try {
-            await fetch('/sanctum/csrf-cookie', {
-                credentials: 'include',
-            });
-        } catch (error) {
-            console.warn('Failed to refresh CSRF token:', error);
-        }
-
-        // Generate new document number
-        const newFormData = {
+    const handleCreate = () => {
+        clearPdfPreview();
+        const defaultAppId = aplikasiList.length > 0 ? aplikasiList[0].id : null;
+        const initForm = {
             ...initialFormData,
-            nomor_dokumen: generateDocumentNumber(),
+            aplikasi_unit_id: defaultAppId,
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
         };
 
-        setFormData(newFormData);
+        setFormData({
+            ...initForm,
+            nomor_dokumen: generateDocumentNumber(initForm),
+        });
         setSelectedMasterflow(null);
         setAvailableApprovers({});
-        setStepModes({}); // Reset step modes
-        setPdfPreviewUrl(null);
+        setStepModes({});
+        setSigBoxPosition({ x: 70, y: 80, page: 'last' });
         setErrors({});
         setIsCreateDialogOpen(true);
     };
 
-    // Helper function to safely render validation error message
-    const renderError = (err: any) => {
+    const renderError = (err: unknown) => {
         if (!err) return null;
         if (Array.isArray(err)) return err[0];
         return String(err);
     };
 
-    // Submit form to create document
     const handleSubmit = async (e: React.FormEvent, type: 'draft' | 'submit') => {
         e.preventDefault();
 
-        // Perform client-side validation check
         const validationErrors: Record<string, string> = {};
         if (!formData.judul_dokumen.trim()) {
-            validationErrors.judul_dokumen = 'Judul dokumen wajib diisi.';
+            validationErrors.judul_dokumen = 'Judul pengajuan wajib diisi.';
         }
-        if (!formData.file) {
-            validationErrors.file = 'File dokumen (PDF) wajib diunggah.';
+        if (formData.jenis_pengajuan === 'manual' && !formData.file) {
+            validationErrors.file = 'File dokumen (PDF) wajib diunggah pada mode Manual.';
+        }
+        if (formData.jenis_pengajuan === 'transaksi' && !formData.aplikasi_unit_id) {
+            validationErrors.aplikasi_unit_id = 'Pilih Unit Aplikasi terlebih dahulu.';
         }
         if (!formData.tgl_deadline) {
             validationErrors.tgl_deadline = 'Tanggal deadline wajib diisi.';
@@ -784,9 +793,12 @@ export default function UserDokumen() {
         }
 
         if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors as any);
-            const firstMsg = Object.values(validationErrors)[0];
-            showToast.error(`❌ ${firstMsg}`);
+            const formattedErrs: Record<string, string[]> = {};
+            Object.entries(validationErrors).forEach(([key, val]) => {
+                formattedErrs[key] = [val];
+            });
+            setErrors(formattedErrs);
+            showToast.error(`❌ ${Object.values(validationErrors)[0]}`);
             return;
         }
 
@@ -795,33 +807,51 @@ export default function UserDokumen() {
         setErrors({});
 
         try {
-            // Force refresh CSRF token before submitting
-            console.log('Refreshing CSRF token before form submission...');
-            await fetch('/sanctum/csrf-cookie', {
-                credentials: 'include',
-            });
-
+            await api.get('/sanctum/csrf-cookie');
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            // Create FormData for file upload
             const submitData = new FormData();
+            submitData.append('jenis_pengajuan', formData.jenis_pengajuan);
             submitData.append('nomor_dokumen', formData.nomor_dokumen || generateDocumentNumber());
             submitData.append('judul_dokumen', formData.judul_dokumen);
             submitData.append('tipe_dokumen', formData.tipe_dokumen || 'proposal');
-            submitData.append('nominal', formData.nominal || '0');
+
+            if (formData.jenis_pengajuan === 'transaksi') {
+                submitData.append('modul_transaksi', formData.modul_transaksi);
+                if (formData.aplikasi_unit_id) {
+                    submitData.append('aplikasi_unit_id', formData.aplikasi_unit_id.toString());
+                }
+                submitData.append('kategori_hris', formData.kategori_hris);
+                submitData.append('nama_karyawan_nip', formData.nama_karyawan_nip);
+                submitData.append('vendor_name', formData.vendor_name);
+                submitData.append('payment_terms', formData.payment_terms);
+                submitData.append('urgensi_memo', formData.urgensi_memo);
+                submitData.append('kategori_transaksi', formData.kategori_transaksi);
+                submitData.append('metode_pembayaran', formData.metode_pembayaran);
+                submitData.append('rekening_vendor', formData.rekening_vendor);
+                submitData.append('nominal', formData.nominal || '0');
+
+                const filteredItems = formData.items_transaksi.filter((item) => item.nama_item.trim() !== '');
+                submitData.append('items_transaksi', JSON.stringify(filteredItems));
+            } else {
+                submitData.append('nominal', formData.nominal || '0');
+            }
+
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
             submitData.append('deskripsi', formData.deskripsi || '');
-            submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
+            submitData.append('submit_type', type);
+
+            submitData.append('sig_x', sigBoxPosition.x.toString());
+            submitData.append('sig_y', sigBoxPosition.y.toString());
+            submitData.append('sig_page', sigBoxPosition.page);
 
             if (formData.file) {
                 submitData.append('file', formData.file);
             }
 
-            // Add approvers based on masterflow type
             if (formData.masterflow_id === 'custom') {
                 submitData.append('masterflow_id', 'custom');
-                // Send custom approvers array
                 formData.custom_approvers.forEach((approver, index) => {
                     if (approver.email) {
                         submitData.append(`custom_approvers[${index}][email]`, approver.email);
@@ -831,10 +861,8 @@ export default function UserDokumen() {
             } else {
                 submitData.append('masterflow_id', formData.masterflow_id.toString());
 
-                // Send step_approvers for group mode steps
                 Object.entries(formData.step_approvers).forEach(([stepId, stepApprover]) => {
                     if (stepApprover.userIds && stepApprover.userIds.length > 0 && stepApprover.jenisGroup) {
-                        console.log(`Adding group approvers for step ${stepId}:`, stepApprover);
                         submitData.append(`step_approvers[${stepId}][jenis_group]`, stepApprover.jenisGroup);
                         stepApprover.userIds.forEach((userId, index) => {
                             submitData.append(`step_approvers[${stepId}][user_ids][${index}]`, userId.toString());
@@ -842,46 +870,46 @@ export default function UserDokumen() {
                     }
                 });
 
-                // Send single approvers for single mode steps
                 Object.entries(formData.approvers).forEach(([stepId, userId]) => {
                     if (userId !== '' && !formData.step_approvers[Number(stepId)]) {
-                        console.log(`Adding single approver for step ${stepId}:`, userId);
                         submitData.append(`approvers[${stepId}]`, userId.toString());
                     }
                 });
             }
 
-            console.log('Submitting document with type:', type);
-            console.log('Form data summary:', {
-                masterflow_id: formData.masterflow_id,
-                step_approvers: formData.step_approvers,
-                approvers: formData.approvers,
-                stepModes: stepModes,
-            });
-
-            // Use Inertia router for form submission with file
             router.post('/api/dokumen', submitData, {
                 forceFormData: true,
                 preserveState: false,
                 preserveScroll: false,
-                onSuccess: (page) => {
+                onSuccess: () => {
                     const message =
                         type === 'draft'
-                            ? `📝 Dokumen "${formData.judul_dokumen}" berhasil disimpan sebagai draft!`
-                            : `🎉 Dokumen "${formData.judul_dokumen}" berhasil disubmit untuk approval!`;
+                            ? `📝 Pengajuan "${formData.judul_dokumen}" berhasil disimpan sebagai draft!`
+                            : `🎉 Pengajuan "${formData.judul_dokumen}" berhasil disubmit untuk approval!`;
                     showToast.success(message);
                     setIsCreateDialogOpen(false);
+
+                    clearPdfPreview();
                     setFormData(initialFormData);
                     setStepModes({});
                     fetchDokumen();
                 },
-                onError: (errors) => {
-                    console.error('Form submission errors:', errors);
-                    setErrors(errors as unknown as Record<string, string[]>);
+                onError: (errs) => {
+                    console.error('Form submission errors:', errs);
 
-                    // Show specific error message if available
-                    const firstVal = Object.values(errors)[0];
-                    const errorMessage = Array.isArray(firstVal) ? firstVal[0] : (typeof firstVal === 'string' ? firstVal : 'Failed to create document. Please check the form.');
+                    // Format ulang error dari Record<string, string> ke Record<string, string[]>
+                    const formattedErrors: Record<string, string[]> = {};
+                    Object.entries(errs).forEach(([key, val]) => {
+                        formattedErrors[key] = Array.isArray(val) ? val : [val as string];
+                    });
+
+                    setErrors(formattedErrors);
+
+                    const firstVal = Object.values(errs)[0];
+                    const errorMessage = typeof firstVal === 'string'
+                        ? firstVal
+                        : 'Gagal membuat dokumen. Silakan periksa formulir.';
+
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -893,20 +921,18 @@ export default function UserDokumen() {
             setIsSubmitting(false);
 
             if (error.response?.status === 419) {
-                showToast.error('❌ Session expired. Please refresh the page and try again.');
+                showToast.error('❌ Sesi telah berakhir. Silakan muat ulang halaman dan coba lagi.');
             } else {
-                showToast.error(`❌ Failed to save document. ${error.response?.data?.message || error.message}`);
+                showToast.error(`❌ Gagal menyimpan dokumen. ${error.response?.data?.message || error.message}`);
             }
         }
     };
 
-    // Handle delete
     const handleDelete = (doc: Dokumen) => {
         setSelectedDokumen(doc);
         setIsDeleteDialogOpen(true);
     };
 
-    // Confirm delete
     const confirmDelete = async () => {
         if (!selectedDokumen) return;
 
@@ -917,11 +943,10 @@ export default function UserDokumen() {
             setSelectedDokumen(null);
             fetchDokumen();
         } catch (error: any) {
-            showToast.error(`❌ Failed to delete document. ${error.response?.data?.message || error.message}`);
+            showToast.error(`❌ Gagal menghapus dokumen. ${error.response?.data?.message || error.message}`);
         }
     };
 
-    // Get status badge
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; className: string }> = {
             draft: { label: 'Draft', className: 'bg-gray-100 text-gray-800 border-gray-300' },
@@ -941,7 +966,6 @@ export default function UserDokumen() {
         );
     };
 
-    // Filter documents
     const filteredDokumen = dokumen.filter((doc) => {
         const query = searchQuery.trim().toLowerCase();
         const matchesSearch =
@@ -957,19 +981,20 @@ export default function UserDokumen() {
         return matchesSearch && matchesStatus;
     });
 
-    // Calculate stats
-    const stats = {
-        total: dokumen.length,
-        draft: dokumen.filter((d) => d.status === 'draft').length,
-        submitted: dokumen.filter((d) => d.status === 'submitted' || d.status === 'under_review').length,
-        approved: dokumen.filter((d) => d.status === 'approved').length,
-    };
+    const stats = useMemo(() => {
+        return {
+            total: dokumen.length,
+            draft: dokumen.filter((d) => d.status === 'draft').length,
+            submitted: dokumen.filter((d) => d.status === 'submitted' || d.status === 'under_review').length,
+            approved: dokumen.filter((d) => d.status === 'approved').length,
+        };
+    }, [dokumen]);
 
     return (
         <>
             <Head title="My Documents" />
             <SidebarProvider>
-                <NotificationListener userId={auth.user?.id} />
+                <NotificationListener userId={auth?.user?.id} />
                 <AppSidebar variant="inset" />
                 <SidebarInset>
                     <SiteHeader />
@@ -981,13 +1006,15 @@ export default function UserDokumen() {
                                     <div className="space-y-1">
                                         <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-foreground">
                                             <IconFileText className="h-6 w-6 text-primary" />
-                                            Dokumen Saya
+                                            Transaction Management & Dokumen Saya
                                         </h1>
-                                        <p className="font-sans text-sm text-muted-foreground">Kelola dan ajukan dokumen untuk persetujuan</p>
+                                        <p className="font-sans text-sm text-muted-foreground">
+                                            Kelola pengajuan HRIS, PO, PR, Memo & Proposal berbasis Unit Aplikasi Management
+                                        </p>
                                     </div>
                                     <Button onClick={handleCreate} className="font-sans">
                                         <IconPlus className="mr-2 h-4 w-4" />
-                                        Buat Dokumen
+                                        Buat Pengajuan Baru
                                     </Button>
                                 </div>
 
@@ -995,7 +1022,7 @@ export default function UserDokumen() {
                                 <div className="grid gap-4 md:grid-cols-4">
                                     <Card className="border-border bg-card">
                                         <div className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</h3>
+                                            <h3 className="font-sans text-sm font-medium text-muted-foreground">Total Pengajuan</h3>
                                             <FileTextIcon className="h-4 w-4 text-muted-foreground" />
                                         </div>
                                         <CardContent>
@@ -1034,9 +1061,9 @@ export default function UserDokumen() {
                                 {/* Search and Filter */}
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="relative flex-1">
-                                        <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
-                                            placeholder="Cari berdasarkan judul, nomor, atau nama berkas..."
+                                            placeholder="Cari berdasarkan judul, nomor, atau modul/aplikasi..."
                                             value={searchQuery}
                                             onChange={(e) => {
                                                 setSearchQuery(e.target.value);
@@ -1050,7 +1077,7 @@ export default function UserDokumen() {
                                             <button
                                                 type="button"
                                                 onClick={() => setSearchQuery('')}
-                                                className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                                 title="Hapus pencarian"
                                             >
                                                 <IconX className="h-4 w-4" />
@@ -1060,7 +1087,7 @@ export default function UserDokumen() {
                                         {/* Live Recommendation Dropdown */}
                                         {isDropdownOpen && suggestions.length > 0 && (
                                             <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-blue-300 bg-[#f4f8fb] p-2.5 shadow-2xl backdrop-blur-md">
-                                                <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold tracking-wider text-blue-900 uppercase bg-blue-100/90 rounded-xl mb-1.5">
+                                                <div className="mb-1.5 flex items-center justify-between rounded-xl bg-blue-100/90 px-3 py-1.5 text-[11px] font-bold tracking-wider text-blue-900 uppercase">
                                                     <span>💡 REKOMENDASI BERKAS DOKUMEN SAYA ({suggestions.length})</span>
                                                     <span className="text-[10px] font-medium text-blue-700">Awalan kata: "{searchQuery}"</span>
                                                 </div>
@@ -1073,11 +1100,11 @@ export default function UserDokumen() {
                                                                 onMouseDown={() => {
                                                                     setSearchQuery(item.judul_dokumen || '');
                                                                     setIsDropdownOpen(false);
-                                                                    router.visit(route('dokumen.show', item.id));
+                                                                    router.visit(`/dokumen/${item.id}`);
                                                                 }}
-                                                                className="group flex cursor-pointer items-center justify-between rounded-xl p-2.5 hover:bg-blue-100/80 transition-all"
+                                                                className="group flex cursor-pointer items-center justify-between rounded-xl p-2.5 transition-all hover:bg-blue-100/80"
                                                             >
-                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                <div className="flex min-w-0 items-center gap-3">
                                                                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
                                                                         <IconFileText className="h-5 w-5" />
                                                                     </div>
@@ -1087,11 +1114,11 @@ export default function UserDokumen() {
                                                                         </div>
                                                                         <div className="flex items-center gap-2 text-[11px] font-medium text-blue-800/80">
                                                                             {item.nomor_dokumen && <span>{item.nomor_dokumen}</span>}
-                                                                            {fileName && <span className="truncate max-w-[220px]">📁 {fileName}</span>}
+                                                                            {fileName && <span className="max-w-[220px] truncate">📁 {fileName}</span>}
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="text-xs font-bold text-blue-700 group-hover:translate-x-1 transition-transform shrink-0 pl-2">
+                                                                <div className="shrink-0 pl-2 text-xs font-bold text-blue-700 transition-transform group-hover:translate-x-1">
                                                                     Lihat →
                                                                 </div>
                                                             </div>
@@ -1131,7 +1158,7 @@ export default function UserDokumen() {
                                         <div className="flex items-center justify-center py-12">
                                             <div className="text-center">
                                                 <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
-                                                <p className="mt-2 text-sm text-gray-600">Loading dokumen...</p>
+                                                <p className="mt-2 text-sm text-gray-600">Loading pengajuan...</p>
                                             </div>
                                         </div>
                                     ) : (
@@ -1141,12 +1168,12 @@ export default function UserDokumen() {
                                                     <TableHeader>
                                                         <TableRow className="bg-muted/40 text-sm font-semibold">
                                                             <TableHead className="w-12 text-center font-sans">No</TableHead>
-                                                            <TableHead className="w-56 font-sans">Judul Dokumen</TableHead>
+                                                            <TableHead className="w-56 font-sans">Judul, Unit & Modul</TableHead>
                                                             <TableHead className="w-40 font-sans">Masterflow</TableHead>
                                                             <TableHead className="w-32 font-sans">Status</TableHead>
                                                             <TableHead className="w-52 font-sans">Current Step</TableHead>
                                                             <TableHead className="w-32 font-sans">Tanggal</TableHead>
-                                                            <TableHead className="w-24 text-right font-sans pr-4">Aksi</TableHead>
+                                                            <TableHead className="w-24 pr-4 text-right font-sans">Aksi</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
@@ -1159,26 +1186,45 @@ export default function UserDokumen() {
                                                                 >
                                                                     <TableCell className="text-center font-mono text-sm font-medium">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
-                                                                        <div className="flex flex-col gap-0.5 max-w-[220px]">
-                                                                            <span className="font-semibold text-sm text-foreground truncate" title={doc.judul_dokumen}>
+                                                                        <div className="flex max-w-[220px] flex-col gap-1">
+                                                                            <span className="truncate text-sm font-semibold text-foreground" title={doc.judul_dokumen}>
                                                                                 {doc.judul_dokumen}
                                                                             </span>
-                                                                            {doc.deskripsi && (
-                                                                                <span className="text-xs text-muted-foreground truncate" title={doc.deskripsi}>
-                                                                                    {doc.deskripsi}
-                                                                                </span>
-                                                                            )}
+                                                                            <div className="flex flex-wrap items-center gap-1">
+                                                                                {doc.jenis_pengajuan === 'transaksi' ? (
+                                                                                    <>
+                                                                                        {doc.aplikasi_management && (
+                                                                                            <Badge className="bg-purple-100 text-[9px] uppercase text-purple-800 hover:bg-purple-100">
+                                                                                                🏢 {doc.aplikasi_management.nama_aplikasi}
+                                                                                            </Badge>
+                                                                                        )}
+                                                                                        <Badge className="bg-emerald-100 text-[9px] uppercase text-emerald-800 hover:bg-emerald-100">
+                                                                                            <Receipt className="mr-1 h-2.5 w-2.5" /> {doc.modul_transaksi || 'TRX'}
+                                                                                        </Badge>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <Badge className="bg-blue-100 text-[9px] text-blue-800 hover:bg-blue-100">
+                                                                                        <IconFileText className="mr-1 h-2.5 w-2.5" /> Manual PDF
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell className="font-sans text-sm">
-                                                                        <div className="max-w-[150px] truncate font-medium text-foreground/90" title={doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}>
+                                                                        <div
+                                                                            className="max-w-[150px] truncate font-medium text-foreground/90"
+                                                                            title={doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}
+                                                                        >
                                                                             {doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell className="font-sans text-sm">{getStatusBadge(doc.status)}</TableCell>
                                                                     <TableCell className="font-sans text-sm">
                                                                         {doc.detailed_status?.current_step_description ? (
-                                                                            <div className="max-w-[200px] text-xs font-medium text-foreground/80 line-clamp-2 leading-snug" title={doc.detailed_status.current_step_description}>
+                                                                            <div
+                                                                                className="line-clamp-2 max-w-[200px] text-xs font-medium leading-snug text-foreground/80"
+                                                                                title={doc.detailed_status.current_step_description}
+                                                                            >
                                                                                 {doc.detailed_status.current_step_description}
                                                                             </div>
                                                                         ) : doc.detailed_status?.is_fully_approved ? (
@@ -1191,10 +1237,10 @@ export default function UserDokumen() {
                                                                             <span className="text-xs text-gray-400">-</span>
                                                                         )}
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans text-sm font-medium whitespace-nowrap">
+                                                                    <TableCell className="whitespace-nowrap font-sans text-sm font-medium">
                                                                         {new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}
                                                                     </TableCell>
-                                                                    <TableCell className="text-right pr-4">
+                                                                    <TableCell className="pr-4 text-right">
                                                                         <div className="flex justify-end gap-1.5">
                                                                             <Link href={`/dokumen/${doc.id}`}>
                                                                                 <Button
@@ -1250,8 +1296,8 @@ export default function UserDokumen() {
                                                             <TableRow>
                                                                 <TableCell colSpan={7} className="py-8 text-center font-sans text-gray-500">
                                                                     {searchQuery || statusFilter !== 'all'
-                                                                        ? 'Tidak ada dokumen yang sesuai dengan filter'
-                                                                        : 'Belum ada dokumen. Klik "Buat Dokumen" untuk memulai.'}
+                                                                        ? 'Tidak ada pengajuan yang sesuai dengan filter'
+                                                                        : 'Belum ada pengajuan. Klik "Buat Pengajuan Baru" untuk memulai.'}
                                                                 </TableCell>
                                                             </TableRow>
                                                         )}
@@ -1265,87 +1311,437 @@ export default function UserDokumen() {
                         </div>
                     </div>
 
-                    {/* Create Document Dialog */}
+                    {/* Create Document / Transaction Dialog */}
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
-                            <form onSubmit={(e) => e.preventDefault()}>
-                                <DialogHeader>
-                                    <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
-                                    <DialogDescription className="font-sans">
-                                        Isi form di bawah untuk membuat dokumen baru. Klik simpan setelah selesai.
-                                    </DialogDescription>
-                                </DialogHeader>
+                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[850px]">
+                            <DialogHeader>
+                                <DialogTitle className="font-serif text-xl">Buat Pengajuan Baru</DialogTitle>
+                                <DialogDescription className="font-sans">
+                                    Pilih jenis pengajuan terlebih dahulu, lalu lengkapi rincian formulir di bawah ini.
+                                </DialogDescription>
+                            </DialogHeader>
 
-                                <div className="grid gap-4 py-4">
-                                    {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="nomor_dokumen" className="font-sans font-medium">
-                                                Nomor Dokumen
-                                            </Label>
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    id="nomor_dokumen"
-                                                    name="nomor_dokumen"
-                                                    value={formData.nomor_dokumen}
-                                                    onChange={handleInputChange}
-                                                    className="font-mono"
-                                                    placeholder="001/FIN/2026 atau Auto"
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() => {
-                                                        const autoNum = generateDocumentNumber();
-                                                        setFormData((prev) => ({ ...prev, nomor_dokumen: autoNum }));
-                                                        showToast.success('⚡ Nomor dokumen otomatis dibuat');
+                            {/* Mode Pengajuan */}
+                            <div className="grid grid-cols-2 gap-3 rounded-xl bg-muted p-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newForm = { ...formData, jenis_pengajuan: 'manual' as const };
+                                        setFormData({
+                                            ...newForm,
+                                            nomor_dokumen: generateDocumentNumber(newForm),
+                                        });
+                                    }}
+                                    className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${formData.jenis_pengajuan === 'manual'
+                                            ? 'bg-background text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    <IconFileText className="h-4 w-4 text-blue-600" />
+                                    📄 Dokumen Manual (Upload PDF)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newForm = { ...formData, jenis_pengajuan: 'transaksi' as const };
+                                        setFormData({
+                                            ...newForm,
+                                            nomor_dokumen: generateDocumentNumber(newForm),
+                                        });
+                                    }}
+                                    className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${formData.jenis_pengajuan === 'transaksi'
+                                            ? 'bg-background text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    <Receipt className="h-4 w-4 text-emerald-600" />
+                                    💳 Form Transaksi Direct
+                                </button>
+                            </div>
+
+                            {/* PILIHAN UNIT APLIKASI */}
+                            {formData.jenis_pengajuan === 'transaksi' && (
+                                <>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        {/* PILIHAN UNIT APLIKASI */}
+                                        <div className="space-y-2 rounded-xl border border-purple-200 bg-purple-50/50 p-3">
+                                            <Label className="text-xs font-bold text-purple-950">PILIH UNIT APLIKASI / UNIT BISNIS:</Label>
+                                            {aplikasiList.length > 0 ? (
+                                                <Select
+                                                    value={formData.aplikasi_unit_id?.toString() || ''}
+                                                    onValueChange={(val) => {
+                                                        const appId = Number(val);
+                                                        const app = aplikasiList.find((a) => a.id === appId);
+                                                        let newModul = formData.modul_transaksi;
+                                                        
+                                                        if (app?.transaksi_management) {
+                                                            const tr = app.transaksi_management.toLowerCase();
+                                                            if (tr.includes('hris')) newModul = 'hris';
+                                                            else if (tr.includes('po ') || tr === 'po') newModul = 'po';
+                                                            else if (tr.includes('pr ') || tr === 'pr') newModul = 'pr';
+                                                            else if (tr.includes('internal memo')) newModul = 'internal_memo';
+                                                            else if (tr.includes('proposal')) newModul = 'proposal';
+                                                        }
+
+                                                        const newForm = { 
+                                                            ...formData, 
+                                                            aplikasi_unit_id: appId,
+                                                            modul_transaksi: newModul 
+                                                        };
+                                                        setFormData({
+                                                            ...newForm,
+                                                            nomor_dokumen: generateDocumentNumber(newForm),
+                                                        });
                                                     }}
-                                                    className="shrink-0 text-xs font-semibold text-blue-600 border-blue-200 hover:bg-blue-50 font-sans"
                                                 >
-                                                    ⚡ Auto Generate
-                                                </Button>
-                                            </div>
-                                            <p className="text-[11px] text-muted-foreground">
-                                                Bebas diketik nomor manual atau tekan Auto Generate.
-                                            </p>
+                                                    <SelectTrigger className="bg-white font-sans text-xs">
+                                                        <SelectValue placeholder="Pilih Unit Aplikasi / Bisnis" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {aplikasiList.map((app) => (
+                                                            <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Store className="h-4 w-4" />
+                                                                    <span>{app.nama_aplikasi || app.name || '-'}</span>
+                                                                    {app.transaksi_management && (
+                                                                        <span className="ml-2 inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-800">
+                                                                            {app.transaksi_management}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <div className="rounded-lg border border-dashed border-purple-300 p-2 text-center text-xs text-purple-700">
+                                                    Belum ada master aplikasi management. Silakan tambahkan melalui menu Master Aplikasi Management.
+                                                </div>
+                                            )}
+                                            {errors.aplikasi_unit_id && <p className="text-sm text-red-500">{renderError(errors.aplikasi_unit_id)}</p>}
                                         </div>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="tgl_pengajuan" className="font-sans font-medium">
-                                                Tanggal Pengajuan
-                                            </Label>
+                                        {/* Pilihan Modul Transaksi */}
+                                        <div className="space-y-2 rounded-xl border border-emerald-300 bg-emerald-50/60 p-3">
+                                            <Label className="text-xs font-bold text-emerald-950">PILIH MODUL TRANSAKSI MANAGEMENT:</Label>
+                                            <Select
+                                                value={formData.modul_transaksi}
+                                                onValueChange={(val: any) => {
+                                                    const newForm = { ...formData, modul_transaksi: val };
+                                                    setFormData({
+                                                        ...newForm,
+                                                        nomor_dokumen: generateDocumentNumber(newForm),
+                                                    });
+                                                }}
+                                            >
+                                                <SelectTrigger className="bg-white font-sans text-xs">
+                                                    <SelectValue placeholder="Pilih Modul Transaksi" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {[
+                                                        { id: 'hris', label: 'HRIS', icon: Users },
+                                                        { id: 'pr', label: 'PR (Requisition)', icon: ClipboardList },
+                                                        { id: 'po', label: 'PO (Purchase Order)', icon: ShoppingCart },
+                                                        { id: 'internal_memo', label: 'Internal Memo', icon: FileCheck },
+                                                        { id: 'proposal', label: 'Proposal', icon: Lightbulb },
+                                                    ].filter((item) => {
+                                                        const selectedApp = aplikasiList.find(a => a.id === formData.aplikasi_unit_id);
+                                                        const allowedModulStr = selectedApp?.transaksi_management?.toLowerCase() || '';
+                                                        if (!allowedModulStr) return true; // Show all if no strict mapping
+                                                        
+                                                        if (item.id === 'hris' && allowedModulStr.includes('hris')) return true;
+                                                        if (item.id === 'po' && (allowedModulStr.includes('po ') || allowedModulStr === 'po')) return true;
+                                                        if (item.id === 'pr' && (allowedModulStr.includes('pr ') || allowedModulStr === 'pr')) return true;
+                                                        if (item.id === 'internal_memo' && allowedModulStr.includes('internal memo')) return true;
+                                                        if (item.id === 'proposal' && allowedModulStr.includes('proposal')) return true;
+                                                        
+                                                        return false;
+                                                    }).map((item) => {
+                                                        const IconComp = item.icon;
+                                                        return (
+                                                            <SelectItem key={item.id} value={item.id} className="font-sans">
+                                                                <div className="flex items-center gap-2">
+                                                                    <IconComp className="h-4 w-4" />
+                                                                    <span>{item.label}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="grid gap-4 py-2">
+                                {/* Nomor & Tanggal Pengajuan */}
+                                <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="nomor_dokumen" className="font-sans font-medium">
+                                            Nomor Pengajuan
+                                        </Label>
+                                        <div className="flex gap-2">
                                             <Input
-                                                id="tgl_pengajuan"
-                                                name="tgl_pengajuan"
-                                                type="date"
-                                                value={formData.tgl_pengajuan}
+                                                id="nomor_dokumen"
+                                                name="nomor_dokumen"
+                                                value={formData.nomor_dokumen}
                                                 onChange={handleInputChange}
-                                                className="font-sans"
+                                                className="font-mono"
                                             />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const autoNum = generateDocumentNumber();
+                                                    setFormData((prev) => ({ ...prev, nomor_dokumen: autoNum }));
+                                                    showToast.success('⚡ Nomor otomatis diperbarui');
+                                                }}
+                                                className="shrink-0 border-blue-200 font-sans text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                                            >
+                                                ⚡ Auto
+                                            </Button>
                                         </div>
                                     </div>
 
-                                    {/* Judul Dokumen */}
                                     <div className="grid gap-2">
-                                        <Label htmlFor="judul_dokumen" className="font-sans">
-                                            Judul Dokumen <span className="text-red-500">*</span>
+                                        <Label htmlFor="tgl_pengajuan" className="font-sans font-medium">
+                                            Tanggal Pengajuan
                                         </Label>
                                         <Input
-                                            id="judul_dokumen"
-                                            name="judul_dokumen"
-                                            value={formData.judul_dokumen}
+                                            id="tgl_pengajuan"
+                                            name="tgl_pengajuan"
+                                            type="date"
+                                            value={formData.tgl_pengajuan}
                                             onChange={handleInputChange}
-                                            className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-                                            placeholder="Proposal Pengadaan / Transaksi Operational"
+                                            className="font-sans"
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
                                     </div>
+                                </div>
 
-                                    {/* Tipe Dokumen & Nominal */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Judul Pengajuan */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="judul_dokumen" className="font-sans">
+                                        {formData.jenis_pengajuan === 'transaksi' ? 'Nama Transaksi / Perihal Pengajuan' : 'Judul Dokumen'}{' '}
+                                        <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="judul_dokumen"
+                                        name="judul_dokumen"
+                                        value={formData.judul_dokumen}
+                                        onChange={handleInputChange}
+                                        className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
+                                        placeholder="Perihal / Judul Pengajuan Transaksi..."
+                                    />
+                                    {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
+                                </div>
+
+                                {/* FORM INPUT DINAMIS TRANSAKSI */}
+                                {formData.jenis_pengajuan === 'transaksi' && (
+                                    <div className="space-y-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                                        {formData.modul_transaksi === 'hris' && (
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <div className="grid gap-2">
+                                                    <Label className="font-sans text-xs">Kategori Pengajuan HRIS</Label>
+                                                    <Select
+                                                        value={formData.kategori_hris}
+                                                        onValueChange={(val) => setFormData((prev) => ({ ...prev, kategori_hris: val }))}
+                                                    >
+                                                        <SelectTrigger className="bg-white font-sans text-xs">
+                                                            <SelectValue placeholder="Pilih Kategori HRIS" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="reimbursement" className="font-sans">🩺 Medical / Travel Reimbursement</SelectItem>
+                                                            <SelectItem value="cuti_paid" className="font-sans">🌴 Cuti / Izin Paid</SelectItem>
+                                                            <SelectItem value="overtime" className="font-sans">⏰ Klaim Lembur (Overtime)</SelectItem>
+                                                            <SelectItem value="kasbon" className="font-sans">💵 Pinjaman / Kasbon Karyawan</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label className="font-sans text-xs">Nama Karyawan / NIP</Label>
+                                                    <Input
+                                                        name="nama_karyawan_nip"
+                                                        value={formData.nama_karyawan_nip}
+                                                        onChange={handleInputChange}
+                                                        placeholder="Nama Karyawan / NIP"
+                                                        className="bg-white font-sans text-xs"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(formData.modul_transaksi === 'po' || formData.modul_transaksi === 'pr') && (
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <div className="grid gap-2">
+                                                    <Label className="font-sans text-xs">Nama Vendor / Supplier Target</Label>
+                                                    <Input
+                                                        name="vendor_name"
+                                                        value={formData.vendor_name}
+                                                        onChange={handleInputChange}
+                                                        placeholder="Nama Vendor / Supplier Target"
+                                                        className="bg-white font-sans text-xs"
+                                                    />
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label className="font-sans text-xs">Syarat Pembayaran (Payment Terms)</Label>
+                                                    <Select
+                                                        value={formData.payment_terms}
+                                                        onValueChange={(val) => setFormData((prev) => ({ ...prev, payment_terms: val }))}
+                                                    >
+                                                        <SelectTrigger className="bg-white font-sans text-xs">
+                                                            <SelectValue placeholder="Pilih Terms" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="net_30" className="font-sans">📅 Net 30 Hari</SelectItem>
+                                                            <SelectItem value="cod" className="font-sans">💵 COD / Tunai</SelectItem>
+                                                            <SelectItem value="dp_50" className="font-sans">💳 DP 50% & Pelunasan</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(formData.modul_transaksi === 'internal_memo' || formData.modul_transaksi === 'proposal') && (
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <div className="grid gap-2">
+                                                    <Label className="font-sans text-xs">Tingkat Urgensi</Label>
+                                                    <Select
+                                                        value={formData.urgensi_memo}
+                                                        onValueChange={(val) => setFormData((prev) => ({ ...prev, urgensi_memo: val }))}
+                                                    >
+                                                        <SelectTrigger className="bg-white font-sans text-xs">
+                                                            <SelectValue placeholder="Pilih Urgensi" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="biasa" className="font-sans">🟢 Biasa / Normal</SelectItem>
+                                                            <SelectItem value="penting" className="font-sans">🟡 Penting</SelectItem>
+                                                            <SelectItem value="sangat_penting" className="font-sans">🔴 Sangat Urgent / Prioritas Utama</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="grid gap-2">
+                                                    <Label className="font-sans text-xs">Estimasi Nominal Anggaran (Rp)</Label>
+                                                    <Input
+                                                        name="nominal"
+                                                        type="number"
+                                                        value={formData.nominal}
+                                                        onChange={handleInputChange}
+                                                        className="bg-white font-sans text-xs"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {isNeedsPayment && (
+                                            <>
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                    <div className="grid gap-2">
+                                                        <Label className="font-sans text-xs">Metode Pembayaran</Label>
+                                                        <Select
+                                                            value={formData.metode_pembayaran}
+                                                            onValueChange={(val) => setFormData((prev) => ({ ...prev, metode_pembayaran: val }))}
+                                                        >
+                                                            <SelectTrigger className="bg-white font-sans text-xs">
+                                                                <SelectValue placeholder="Pilih Metode" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="transfer" className="font-sans">🏦 Transfer Bank</SelectItem>
+                                                                <SelectItem value="cash" className="font-sans">💵 Cash / Tunai</SelectItem>
+                                                                <SelectItem value="ewallet" className="font-sans">📱 E-Wallet</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="grid gap-2">
+                                                        <Label className="font-sans text-xs">
+                                                            {formData.modul_transaksi === 'hris' ? 'Rekening Penerima / Karyawan' : 'Rekening Vendor / Penerima Transfer'}
+                                                        </Label>
+                                                        <Input
+                                                            name="rekening_vendor"
+                                                            value={formData.rekening_vendor}
+                                                            onChange={handleInputChange}
+                                                            placeholder={formData.modul_transaksi === 'hris' ? 'BCA 123456789 a/n Nama Karyawan' : 'BCA 123456789 a/n Vendor'}
+                                                            className="bg-white font-sans text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="font-sans text-xs font-semibold">Rincian Barang / Jasa / Item Anggaran</Label>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={addItemTransaksi}
+                                                            className="h-7 bg-white text-xs font-semibold"
+                                                        >
+                                                            <IconPlus className="mr-1 h-3 w-3" /> Tambah Item
+                                                        </Button>
+                                                    </div>
+
+                                                    <div className="rounded-lg border bg-white p-2">
+                                                        {formData.items_transaksi.map((item, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                className="mb-2 grid grid-cols-[1fr_80px_120px_120px_32px] items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0"
+                                                            >
+                                                                <Input
+                                                                    placeholder="Nama Item / Deskripsi"
+                                                                    value={item.nama_item}
+                                                                    onChange={(e) => handleItemChange(idx, 'nama_item', e.target.value)}
+                                                                    className="h-8 text-xs"
+                                                                />
+                                                                <Input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    placeholder="Qty"
+                                                                    value={item.qty}
+                                                                    onChange={(e) => handleItemChange(idx, 'qty', Number(e.target.value))}
+                                                                    className="h-8 text-xs"
+                                                                />
+                                                                <Input
+                                                                    type="number"
+                                                                    placeholder="Harga Satuan"
+                                                                    value={item.harga_satuan}
+                                                                    onChange={(e) => handleItemChange(idx, 'harga_satuan', Number(e.target.value))}
+                                                                    className="h-8 text-xs"
+                                                                />
+                                                                <div className="pr-1 text-right font-mono text-xs font-bold text-emerald-800">
+                                                                    Rp {item.total ? item.total.toLocaleString('id-ID') : 0}
+                                                                </div>
+                                                                {formData.items_transaksi.length > 1 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeItemTransaksi(idx)}
+                                                                        className="text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        <IconTrash className="h-4 w-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        <div className="flex items-center justify-between rounded-b-md border-t bg-emerald-50/80 p-2">
+                                                            <span className="text-xs font-bold text-emerald-950">TOTAL NOMINAL TRANSAKSI:</span>
+                                                            <span className="font-mono text-sm font-black text-emerald-800">
+                                                                Rp {Number(formData.nominal || 0).toLocaleString('id-ID')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* FORM MANUAL */}
+                                {formData.jenis_pengajuan === 'manual' && (
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="grid gap-2">
                                             <Label htmlFor="tipe_dokumen" className="font-sans">
-                                                Tipe Dokumen / Transaksi <span className="text-red-500">*</span>
+                                                Tipe Dokumen <span className="text-red-500">*</span>
                                             </Label>
                                             <Select
                                                 value={formData.tipe_dokumen}
@@ -1359,492 +1755,465 @@ export default function UserDokumen() {
                                                     <SelectItem value="pengadaan" className="font-sans">📦 Pengadaan</SelectItem>
                                                     <SelectItem value="po" className="font-sans">🛒 PO (Purchase Order)</SelectItem>
                                                     <SelectItem value="pr" className="font-sans">📋 PR (Purchase Requisition)</SelectItem>
-                                                    <SelectItem value="memo_internal" className="font-sans">📝 Memo Internal</SelectItem>
+                                                    <SelectItem value="memo_internal" className="font-sans font-medium">📝 Memo Internal</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
-                                        {['proposal', 'po', 'pr'].includes(formData.tipe_dokumen) && (
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="nominal" className="font-sans">
-                                                    Nominal Transaksi (Rp)
-                                                </Label>
-                                                <Input
-                                                    id="nominal"
-                                                    name="nominal"
-                                                    type="number"
-                                                    placeholder="Contoh: 4500000"
-                                                    value={formData.nominal}
-                                                    onChange={handleInputChange}
-                                                    className="font-sans"
-                                                />
-                                                <span className="text-[11px] text-emerald-700 font-medium">
-                                                    💡 Nominal &lt; 5 Juta otomatis rute Manager level
-                                                </span>
-                                            </div>
-                                        )}
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="nominal" className="font-sans">
+                                                Nominal Transaksi (Rp)
+                                            </Label>
+                                            <Input
+                                                id="nominal"
+                                                name="nominal"
+                                                type="number"
+                                                placeholder="Contoh: 4500000"
+                                                value={formData.nominal}
+                                                onChange={handleInputChange}
+                                                className="font-sans"
+                                            />
+                                        </div>
                                     </div>
+                                )}
 
-                                    {/* Deadline */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="tgl_deadline" className="font-sans">
-                                            Deadline <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="tgl_deadline"
-                                            name="tgl_deadline"
-                                            type="date"
-                                            value={formData.tgl_deadline}
-                                            onChange={handleInputChange}
-                                            className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
-                                        />
-                                        {errors.tgl_deadline && <p className="text-sm text-red-500">{renderError(errors.tgl_deadline)}</p>}
-                                    </div>
+                                {/* Deadline */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="tgl_deadline" className="font-sans">
+                                        Deadline Persetujuan <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="tgl_deadline"
+                                        name="tgl_deadline"
+                                        type="date"
+                                        value={formData.tgl_deadline}
+                                        onChange={handleInputChange}
+                                        className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
+                                    />
+                                    {errors.tgl_deadline && <p className="text-sm text-red-500">{renderError(errors.tgl_deadline)}</p>}
+                                </div>
 
-                                    {/* Masterflow Selection (includes Custom option) */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="masterflow_id" className="font-sans">
-                                            Masterflow <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Select
-                                            value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
-                                            onValueChange={handleMasterflowChange}
-                                        >
-                                            <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
-                                                <SelectValue placeholder="Pilih masterflow" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {masterflows.map((mf) => (
-                                                    <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
-                                                        {mf.name}
-                                                    </SelectItem>
-                                                ))}
-                                                <SelectItem value="custom" className="font-sans font-medium text-primary">
-                                                    ✨ Custom Approval
+                                {/* Masterflow Selection */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="masterflow_id" className="font-sans">
+                                        Masterflow Approval <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Select
+                                        value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
+                                        onValueChange={handleMasterflowChange}
+                                    >
+                                        <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
+                                            <SelectValue placeholder="Pilih masterflow" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {masterflows.map((mf) => (
+                                                <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
+                                                    {mf.name}
                                                 </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {errors.masterflow_id && <p className="text-sm text-red-500">{renderError(errors.masterflow_id)}</p>}
-                                    </div>
+                                            ))}
+                                            <SelectItem value="custom" className="font-sans font-medium text-primary">
+                                                ✨ Custom Approval
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.masterflow_id && <p className="text-sm text-red-500">{renderError(errors.masterflow_id)}</p>}
+                                </div>
 
-                                    {/* Approval Flow - Dynamic based on masterflow selection */}
-                                    {formData.masterflow_id !== '' &&
-                                        formData.masterflow_id !== 'custom' &&
-                                        selectedMasterflow &&
-                                        selectedMasterflow.steps &&
-                                        selectedMasterflow.steps.length > 0 && (
-                                            <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="font-sans font-semibold">Alur Persetujuan</Label>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {selectedMasterflow.steps.length} tahap persetujuan
-                                                    </span>
-                                                </div>
-
-                                                {selectedMasterflow.steps
-                                                    .sort((a, b) => a.step_order - b.step_order)
-                                                    .map((step, index) => (
-                                                        <div key={step.id} className="space-y-3">
-                                                            <div className="grid grid-cols-[80px_1fr_1fr_40px] items-center gap-3">
-                                                                {/* Step Order */}
-                                                                <div className="flex items-center justify-center">
-                                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
-                                                                        {index + 1}
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Jabatan */}
-                                                                <div className="flex flex-col gap-1">
-                                                                    <span className="text-xs text-muted-foreground">Jabatan</span>
-                                                                    <div className="rounded-md border border-border bg-background px-3 py-2 font-sans text-sm">
-                                                                        {step.jabatan?.name || 'Sekertaris'}
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Nama Approval - Toggle between Single/Group Mode */}
-                                                                <div className="flex flex-col gap-1">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            {stepModes[step.id] === 'group' ? 'Group Approval' : 'Nama Approval'}
-                                                                        </span>
-                                                                        <Button
-                                                                            type="button"
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            onClick={() => toggleStepMode(step.id)}
-                                                                            className="h-6 px-2 text-xs"
-                                                                        >
-                                                                            {stepModes[step.id] === 'group' ? '👤 Single' : '👥 Group'}
-                                                                        </Button>
-                                                                    </div>
-
-                                                                    {stepModes[step.id] === 'group' ? (
-                                                                        <div className="space-y-2">
-                                                                            {/* Group Type Selection */}
-                                                                            <Select
-                                                                                value={formData.step_approvers[step.id]?.jenisGroup || ''}
-                                                                                onValueChange={(value) =>
-                                                                                    handleJenisGroupChange(
-                                                                                        step.id,
-                                                                                        value as 'all_required' | 'any_one' | 'majority',
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="font-sans">
-                                                                                    <SelectValue placeholder="Pilih jenis group" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="all_required" className="font-sans">
-                                                                                        ✓ Semua Harus Approve
-                                                                                    </SelectItem>
-                                                                                    <SelectItem value="any_one" className="font-sans">
-                                                                                        1️⃣ Salah Satu Saja
-                                                                                    </SelectItem>
-                                                                                    <SelectItem value="majority" className="font-sans">
-                                                                                        📊 Mayoritas ({'>'} 50%)
-                                                                                    </SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-
-                                                                            {/* Multiple Approvers Selection */}
-                                                                            <div className="rounded-md border border-border bg-background">
-                                                                                <div className="max-h-40 space-y-1 overflow-y-auto p-2">
-                                                                                    {(availableApprovers[step.id] || []).map((user) => (
-                                                                                        <label
-                                                                                            key={user.id}
-                                                                                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-                                                                                        >
-                                                                                            <input
-                                                                                                type="checkbox"
-                                                                                                checked={
-                                                                                                    formData.step_approvers[
-                                                                                                        step.id
-                                                                                                    ]?.userIds.includes(user.id) || false
-                                                                                                }
-                                                                                                onChange={(e) =>
-                                                                                                    handleMultipleApproverChange(
-                                                                                                        step.id,
-                                                                                                        user.id,
-                                                                                                        e.target.checked,
-                                                                                                    )
-                                                                                                }
-                                                                                                className="h-4 w-4 rounded border-gray-300"
-                                                                                            />
-                                                                                            <span className="text-sm">{user.name}</span>
-                                                                                        </label>
-                                                                                    ))}
-                                                                                    {(availableApprovers[step.id] || []).length === 0 && (
-                                                                                        <div className="px-2 py-3 text-center text-sm text-muted-foreground">
-                                                                                            Tidak ada approver tersedia
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {/* Selected Count Badge */}
-                                                                            {formData.step_approvers[step.id]?.userIds.length > 0 && (
-                                                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                                    <Badge variant="secondary">
-                                                                                        {formData.step_approvers[step.id].userIds.length} approver
-                                                                                        dipilih
-                                                                                    </Badge>
-                                                                                    {formData.step_approvers[step.id]?.jenisGroup && (
-                                                                                        <Badge variant="outline" className="border-blue-400">
-                                                                                            {formData.step_approvers[step.id].jenisGroup ===
-                                                                                                'all_required' && 'Semua'}
-                                                                                            {formData.step_approvers[step.id].jenisGroup ===
-                                                                                                'any_one' && 'Salah Satu'}
-                                                                                            {formData.step_approvers[step.id].jenisGroup ===
-                                                                                                'majority' && 'Mayoritas'}
-                                                                                        </Badge>
-                                                                                    )}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <Select
-                                                                            value={
-                                                                                formData.approvers[step.id] === ''
-                                                                                    ? ''
-                                                                                    : formData.approvers[step.id]?.toString() || ''
-                                                                            }
-                                                                            onValueChange={(value) => handleApproverChange(step.id, value)}
-                                                                        >
-                                                                            <SelectTrigger className="font-sans">
-                                                                                <SelectValue placeholder="Pilih approver" />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {(availableApprovers[step.id] || []).map((user) => (
-                                                                                    <SelectItem
-                                                                                        key={user.id}
-                                                                                        value={user.id.toString()}
-                                                                                        className="font-sans"
-                                                                                    >
-                                                                                        {user.name}
-                                                                                    </SelectItem>
-                                                                                ))}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Urutan Badge */}
-                                                                <div className="flex items-center justify-center">
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="h-8 w-8 justify-center border-primary/30 font-mono text-xs"
-                                                                    >
-                                                                        {index + 1}
-                                                                    </Badge>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                            </div>
-                                        )}
-
-                                    {/* Custom Approvers - Show when masterflow_id is 'custom' */}
-                                    {formData.masterflow_id === 'custom' && (
+                                {/* Dynamic Approval Flow Render */}
+                                {formData.masterflow_id !== '' &&
+                                    formData.masterflow_id !== 'custom' &&
+                                    selectedMasterflow &&
+                                    selectedMasterflow.steps &&
+                                    selectedMasterflow.steps.length > 0 && (
                                         <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
                                             <div className="flex items-center justify-between">
-                                                <Label className="font-sans font-semibold">Custom Approval Flow</Label>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={addCustomApprover}
-                                                    className="h-8 font-sans"
-                                                >
-                                                    <IconPlus className="mr-1 h-3 w-3" />
-                                                    Tambah Approver
-                                                </Button>
+                                                <Label className="font-sans font-semibold">Alur Persetujuan</Label>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {selectedMasterflow.steps.length} tahap persetujuan
+                                                </span>
                                             </div>
 
-                                            <div className="space-y-3">
-                                                {formData.custom_approvers.map((approver, index) => (
-                                                    <div key={index} className="grid grid-cols-[80px_1fr_100px_40px] items-start gap-3">
-                                                        {/* Step Order */}
-                                                        <div className="flex items-center justify-center pt-2">
-                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
-                                                                {index + 1}
+                                            {selectedMasterflow.steps
+                                                .slice()
+                                                .sort((a, b) => a.step_order - b.step_order)
+                                                .map((step, index) => (
+                                                    <div key={step.id} className="space-y-3">
+                                                        <div className="grid grid-cols-[80px_1fr_1fr_40px] items-center gap-3">
+                                                            <div className="flex items-center justify-center">
+                                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
+                                                                    {index + 1}
+                                                                </div>
                                                             </div>
-                                                        </div>
 
-                                                        {/* Email Input */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-xs text-muted-foreground">Email Approver</span>
-                                                            <Input
-                                                                type="email"
-                                                                value={approver.email}
-                                                                onChange={(e) => handleCustomApproverChange(index, 'email', e.target.value)}
-                                                                placeholder="approver@example.com"
-                                                                className="font-sans"
-                                                            />
-                                                        </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-xs text-muted-foreground">Jabatan</span>
+                                                                <div className="rounded-md border border-border bg-background px-3 py-2 font-sans text-sm">
+                                                                    {step.jabatan?.name || 'Sekretaris'}
+                                                                </div>
+                                                            </div>
 
-                                                        {/* Order Input */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-xs text-muted-foreground">Tingkat</span>
-                                                            <Input
-                                                                type="number"
-                                                                min="1"
-                                                                value={approver.order}
-                                                                onChange={(e) => handleCustomApproverChange(index, 'order', Number(e.target.value))}
-                                                                className="font-sans"
-                                                            />
-                                                        </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-xs text-muted-foreground">
+                                                                        {stepModes[step.id] === 'group' ? 'Group Approval' : 'Nama Approval'}
+                                                                    </span>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => toggleStepMode(step.id)}
+                                                                        className="h-6 px-2 text-xs"
+                                                                    >
+                                                                        {stepModes[step.id] === 'group' ? '👤 Single' : '👥 Group'}
+                                                                    </Button>
+                                                                </div>
 
-                                                        {/* Remove Button */}
-                                                        <div className="flex items-center justify-center pt-6">
-                                                            {formData.custom_approvers.length > 1 && (
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    onClick={() => removeCustomApprover(index)}
-                                                                    className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                {stepModes[step.id] === 'group' ? (
+                                                                    <div className="space-y-2">
+                                                                        <Select
+                                                                            value={formData.step_approvers[step.id]?.jenisGroup || ''}
+                                                                            onValueChange={(value) =>
+                                                                                handleJenisGroupChange(
+                                                                                    step.id,
+                                                                                    value as 'all_required' | 'any_one' | 'majority'
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <SelectTrigger className="font-sans">
+                                                                                <SelectValue placeholder="Pilih jenis group" />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="all_required" className="font-sans">
+                                                                                    ✓ Semua Harus Approve
+                                                                                </SelectItem>
+                                                                                <SelectItem value="any_one" className="font-sans">
+                                                                                    1️⃣ Salah Satu Saja
+                                                                                </SelectItem>
+                                                                                <SelectItem value="majority" className="font-sans">
+                                                                                    📊 Mayoritas ({'>'} 50%)
+                                                                                </SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+
+                                                                        <div className="rounded-md border border-border bg-background">
+                                                                            <div className="max-h-40 space-y-1 overflow-y-auto p-2">
+                                                                                {(availableApprovers[step.id] || []).map((user) => (
+                                                                                    <label
+                                                                                        key={user.id}
+                                                                                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
+                                                                                    >
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={
+                                                                                                formData.step_approvers[
+                                                                                                    step.id
+                                                                                                ]?.userIds.includes(user.id) || false
+                                                                                            }
+                                                                                            onChange={(e) =>
+                                                                                                handleMultipleApproverChange(
+                                                                                                    step.id,
+                                                                                                    user.id,
+                                                                                                    e.target.checked
+                                                                                                )
+                                                                                            }
+                                                                                            className="h-4 w-4 rounded border-gray-300"
+                                                                                        />
+                                                                                        <span className="text-sm">{user.name}</span>
+                                                                                    </label>
+                                                                                ))}
+                                                                                {(availableApprovers[step.id] || []).length === 0 && (
+                                                                                    <div className="px-2 py-3 text-center text-sm text-muted-foreground">
+                                                                                        Tidak ada approver tersedia
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <Select
+                                                                        value={
+                                                                            formData.approvers[step.id] === ''
+                                                                                ? ''
+                                                                                : formData.approvers[step.id]?.toString() || ''
+                                                                        }
+                                                                        onValueChange={(value) => handleApproverChange(step.id, value)}
+                                                                    >
+                                                                        <SelectTrigger className="font-sans">
+                                                                            <SelectValue placeholder="Pilih approver" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {(availableApprovers[step.id] || []).map((user) => (
+                                                                                <SelectItem
+                                                                                    key={user.id}
+                                                                                    value={user.id.toString()}
+                                                                                    className="font-sans"
+                                                                                >
+                                                                                    {user.name}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex items-center justify-center">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="h-8 w-8 justify-center border-primary/30 font-mono text-xs"
                                                                 >
-                                                                    <IconTrash className="h-4 w-4" />
-                                                                </Button>
-                                                            )}
+                                                                    {index + 1}
+                                                                </Badge>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
-                                            </div>
-
-                                            <p className="text-xs text-muted-foreground">
-                                                * Masukkan email approver dan atur tingkat persetujuan (1 = tingkat pertama, 2 = tingkat kedua, dst.)
-                                            </p>
                                         </div>
                                     )}
 
-                                    {/* Deskripsi / Tambahkan Komentar */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="deskripsi" className="font-sans">
-                                            Tambahkan Komentar
-                                        </Label>
-                                        <Textarea
-                                            id="deskripsi"
-                                            name="deskripsi"
-                                            value={formData.deskripsi}
-                                            onChange={handleInputChange}
-                                            className={errors.deskripsi ? 'border-red-500 font-sans' : 'font-sans'}
-                                            placeholder="Lapor bapak,,"
-                                            rows={4}
-                                        />
-                                        {errors.deskripsi && <p className="text-sm text-red-500">{renderError(errors.deskripsi)}</p>}
-                                    </div>
+                                {/* Custom Approvers */}
+                                {formData.masterflow_id === 'custom' && (
+                                    <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="font-sans font-semibold">Custom Approval Flow</Label>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={addCustomApprover}
+                                                className="h-8 font-sans"
+                                            >
+                                                <IconPlus className="mr-1 h-3 w-3" />
+                                                Tambah Approver
+                                            </Button>
+                                        </div>
 
-                                    {/* Upload File */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="file" className="font-sans">
-                                            Upload File <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="file"
-                                            name="file"
-                                            type="file"
-                                            onChange={handleFileChange}
-                                            className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
-                                        />
+                                        <div className="space-y-3">
+                                            {formData.custom_approvers.map((approver, index) => (
+                                                <div key={index} className="grid grid-cols-[80px_1fr_100px_40px] items-start gap-3">
+                                                    <div className="flex items-center justify-center pt-2">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
+                                                            {index + 1}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-xs text-muted-foreground">Email Approver</span>
+                                                        <Input
+                                                            type="email"
+                                                            value={approver.email}
+                                                            onChange={(e) => handleCustomApproverChange(index, 'email', e.target.value)}
+                                                            placeholder="approver@example.com"
+                                                            className="font-sans"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-xs text-muted-foreground">Tingkat</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="1"
+                                                            value={approver.order}
+                                                            onChange={(e) => handleCustomApproverChange(index, 'order', Number(e.target.value))}
+                                                            className="font-sans"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex items-center justify-center pt-6">
+                                                        {formData.custom_approvers.length > 1 && (
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => removeCustomApprover(index)}
+                                                                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                            >
+                                                                <IconTrash className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
                                         <p className="text-xs text-muted-foreground">
-                                            📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF. (Max 10MB)
+                                            * Masukkan email approver dan atur tingkat persetujuan (1 = tingkat pertama, 2 = tingkat kedua, dst.)
                                         </p>
+                                    </div>
+                                )}
 
-                                        {/* Live PDF File Preview & Interactive Signature Placement Box */}
-                                        {pdfPreviewUrl && (
-                                            <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 font-bold text-sm text-blue-950">
-                                                        <FileTextIcon className="h-4 w-4 text-blue-600" />
-                                                        <span>Preview File & Kotak Tanda Tangan Approved</span>
-                                                    </div>
-                                                    <Badge className="bg-blue-600 text-white text-[10px]">Pratinjau Interaktif</Badge>
+                                {/* Deskripsi / Catatan */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="deskripsi" className="font-sans">
+                                        Catatan / Komentar Tambahan
+                                    </Label>
+                                    <Textarea
+                                        id="deskripsi"
+                                        name="deskripsi"
+                                        value={formData.deskripsi}
+                                        onChange={handleInputChange}
+                                        className={errors.deskripsi ? 'border-red-500 font-sans' : 'font-sans'}
+                                        placeholder="Tambahkan penjelasan rinci mengenai pengajuan ini..."
+                                        rows={3}
+                                    />
+                                    {errors.deskripsi && <p className="text-sm text-red-500">{renderError(errors.deskripsi)}</p>}
+                                </div>
+
+                                {/* Upload File PDF */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="file" className="font-sans">
+                                        Upload File PDF {formData.jenis_pengajuan === 'manual' ? <span className="text-red-500">*</span> : '(Opsional)'}
+                                    </Label>
+                                    <Input
+                                        id="file"
+                                        name="file"
+                                        type="file"
+                                        onChange={handleFileChange}
+                                        className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        📄 <strong>File PDF (Maksimal 10MB).</strong> Tanda tangan digital akan ditempatkan pada halaman PDF ini.
+                                    </p>
+
+                                    {/* Preview File PDF Interaktif */}
+                                    {pdfPreviewUrl && (
+                                        <div className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-sm font-bold text-blue-950">
+                                                    <FileTextIcon className="h-4 w-4 text-blue-600" />
+                                                    <span>Preview File & Kotak Tanda Tangan Approved</span>
                                                 </div>
+                                                <Badge className="bg-blue-600 text-[10px] text-white">Pratinjau Interaktif</Badge>
+                                            </div>
 
-                                                {/* Signature Box Placement Controls & Presets */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                                    <div>
-                                                        <Label className="text-xs text-blue-900 font-medium">Posisi Stempel Tanda Tangan</Label>
-                                                        <Select
-                                                            value={`${sigBoxPosition.x}-${sigBoxPosition.y}`}
-                                                            onValueChange={(val) => {
-                                                                const [x, y] = val.split('-').map(Number);
-                                                                setSigBoxPosition((prev) => ({ ...prev, x, y }));
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="mt-1 h-8 bg-white text-xs font-sans">
-                                                                <SelectValue placeholder="Pilih Posisi Preset" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="72-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
-                                                                <SelectItem value="22-80" className="font-sans">↙️ Bawah Kiri (Sejajar Teks)</SelectItem>
-                                                                <SelectItem value="72-18" className="font-sans">↗️ Atas Kanan</SelectItem>
-                                                                <SelectItem value="22-18" className="font-sans">↖️ Atas Kiri</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <Label className="text-xs text-blue-900 font-medium">Halaman Penempatan</Label>
-                                                        <Select
-                                                            value={sigBoxPosition.page}
-                                                            onValueChange={(val) => setSigBoxPosition((prev) => ({ ...prev, page: val }))}
-                                                        >
-                                                            <SelectTrigger className="mt-1 h-8 bg-white text-xs font-sans">
-                                                                <SelectValue placeholder="Pilih Halaman" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="last" className="font-sans">📄 Halaman Terakhir (Last Page)</SelectItem>
-                                                                <SelectItem value="first" className="font-sans">📄 Halaman Pertama (First Page)</SelectItem>
-                                                                <SelectItem value="all" className="font-sans">📑 Semua Halaman (All Pages)</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-
-                                                {/* Visual PDF Preview Canvas Container with Positioned Stamp Box */}
-                                                <div className="relative overflow-hidden rounded-lg border border-blue-300 bg-slate-100 shadow-inner min-h-[300px] h-[350px]">
-                                                    <iframe
-                                                        src={`${pdfPreviewUrl}#toolbar=0`}
-                                                        className="w-full h-full border-0"
-                                                        title="Preview PDF"
-                                                    />
-                                                    {/* Interactive Approval Signature Box Overlay */}
-                                                    <div
-                                                        className="absolute border-2 border-dashed border-emerald-600 bg-emerald-100/90 rounded-md p-2 shadow-lg cursor-move transition-all"
-                                                        style={{
-                                                            left: `${sigBoxPosition.x}%`,
-                                                            top: `${sigBoxPosition.y}%`,
-                                                            transform: 'translate(-50%, -50%)',
-                                                            zIndex: 10,
+                                            <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                                                <div>
+                                                    <Label className="text-xs font-medium text-blue-900">Posisi Stempel Tanda Tangan</Label>
+                                                    <Select
+                                                        value={`${sigBoxPosition.x}-${sigBoxPosition.y}`}
+                                                        onValueChange={(val) => {
+                                                            const [x, y] = val.split('-').map(Number);
+                                                            setSigBoxPosition((prev) => ({ ...prev, x, y }));
                                                         }}
                                                     >
-                                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950">
-                                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                                            <span>[ KOTAK APPROVED TTD ]</span>
-                                                        </div>
-                                                        <div className="text-[9px] text-emerald-800 font-medium mt-0.5">
-                                                            Tanda tangan akan distempel di sini
-                                                        </div>
+                                                        <SelectTrigger className="mt-1 h-8 bg-white font-sans text-xs">
+                                                            <SelectValue placeholder="Pilih Posisi Preset" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="70-80" className="font-sans">↘️ Bawah Kanan (Rekomendasi)</SelectItem>
+                                                            <SelectItem value="22-80" className="font-sans">↙️ Bawah Kiri (Sejajar Teks)</SelectItem>
+                                                            <SelectItem value="70-18" className="font-sans">↗️ Atas Kanan</SelectItem>
+                                                            <SelectItem value="22-18" className="font-sans">↖️ Atas Kiri</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs font-medium text-blue-900">Halaman Penempatan</Label>
+                                                    <Select
+                                                        value={sigBoxPosition.page}
+                                                        onValueChange={(val: 'last' | 'first' | 'all') =>
+                                                            setSigBoxPosition((prev) => ({ ...prev, page: val }))
+                                                        }
+                                                    >
+                                                        <SelectTrigger className="mt-1 h-8 bg-white font-sans text-xs">
+                                                            <SelectValue placeholder="Pilih Halaman" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="last" className="font-sans">📄 Halaman Terakhir (Last Page)</SelectItem>
+                                                            <SelectItem value="first" className="font-sans">📄 Halaman Pertama (First Page)</SelectItem>
+                                                            <SelectItem value="all" className="font-sans">📑 Semua Halaman (All Pages)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                ref={pdfContainerRef}
+                                                className="relative h-[350px] min-h-[300px] select-none overflow-hidden rounded-lg border border-blue-300 bg-slate-100 shadow-inner"
+                                            >
+                                                <iframe
+                                                    src={`${pdfPreviewUrl}#toolbar=0`}
+                                                    className="pointer-events-none h-full w-full border-0"
+                                                    title="Preview PDF"
+                                                />
+                                                <div
+                                                    onMouseDown={handleMouseDown}
+                                                    onTouchStart={handleMouseDown}
+                                                    className="absolute cursor-move rounded-md border-2 border-dashed border-emerald-600 bg-emerald-100/90 p-2 shadow-lg transition-all active:scale-95"
+                                                    style={{
+                                                        left: `${sigBoxPosition.x}%`,
+                                                        top: `${sigBoxPosition.y}%`,
+                                                        transform: 'translate(-50%, -50%)',
+                                                        zIndex: 10,
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950">
+                                                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                                        <span>[ KOTAK APPROVED TTD ]</span>
+                                                    </div>
+                                                    <div className="mt-0.5 text-[9px] font-medium text-emerald-800">
+                                                        Geser kotak ini untuk mengatur lokasi ({sigBoxPosition.x}%, {sigBoxPosition.y}%)
                                                     </div>
                                                 </div>
                                             </div>
-                                        )}
-                                        {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
-                                    </div>
+                                        </div>
+                                    )}
+                                    {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
                                 </div>
-                                    
-                                <DialogFooter className="sm:justify-between">
+                            </div>
+
+                            <DialogFooter className="sm:justify-between">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        clearPdfPreview();
+                                        setIsCreateDialogOpen(false);
+                                    }}
+                                    disabled={isSubmitting}
+                                    className="font-sans"
+                                >
+                                    Batal
+                                </Button>
+                                <div className="flex gap-2">
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() => setIsCreateDialogOpen(false)}
+                                        onClick={(e) => handleSubmit(e, 'draft')}
                                         disabled={isSubmitting}
-                                        className="font-sans"
+                                        className="border-gray-300 font-sans hover:bg-gray-50"
                                     >
-                                        Batal
+                                        {isSubmitting && submitType === 'draft' ? (
+                                            <>
+                                                <IconFileText className="mr-2 h-4 w-4 animate-spin" />
+                                                Menimpan Draft...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <IconFileText className="mr-2 h-4 w-4" />
+                                                Simpan sebagai Draft
+                                            </>
+                                        )}
                                     </Button>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={(e) => handleSubmit(e, 'draft')}
-                                            disabled={isSubmitting}
-                                            className="border-gray-300 font-sans hover:bg-gray-50"
-                                        >
-                                            {isSubmitting && submitType === 'draft' ? (
-                                                <>
-                                                    <IconFileText className="mr-2 h-4 w-4 animate-spin" />
-                                                    Menyimpan Draft...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <IconFileText className="mr-2 h-4 w-4" />
-                                                    Simpan sebagai Draft
-                                                </>
-                                            )}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            onClick={(e) => handleSubmit(e, 'submit')}
-                                            disabled={isSubmitting}
-                                            className="bg-green-600 font-sans hover:bg-green-700"
-                                        >
-                                            {isSubmitting && submitType === 'submit' ? (
-                                                <>
-                                                    <CheckCircle2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Mengirim...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                    Submit untuk Approval
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                </DialogFooter>
-                            </form>
+                                    <Button
+                                        type="button"
+                                        onClick={(e) => handleSubmit(e, 'submit')}
+                                        disabled={isSubmitting}
+                                        className="bg-green-600 font-sans hover:bg-green-700"
+                                    >
+                                        {isSubmitting && submitType === 'submit' ? (
+                                            <>
+                                                <CheckCircle2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Mengirim...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                Submit Pengajuan
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
 
@@ -1854,8 +2223,7 @@ export default function UserDokumen() {
                             <DialogHeader>
                                 <DialogTitle className="font-serif">Hapus Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak
-                                    dapat dibatalkan.
+                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak dapat dibatalkan.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>

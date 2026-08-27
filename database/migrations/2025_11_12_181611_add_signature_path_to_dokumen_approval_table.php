@@ -12,7 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('dokumen_approval', function (Blueprint $table) {
-            $table->string('signature_path')->nullable()->after('comment');
+            // Cek terlebih dahulu agar tidak memicu error duplicate column
+            if (!Schema::hasColumn('dokumen_approval', 'signature_path')) {
+                $table->string('signature_path')->nullable()->after('comment');
+            }
         });
     }
 
@@ -22,7 +25,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('dokumen_approval', function (Blueprint $table) {
-            $table->dropColumn('signature_path');
+            if (Schema::hasColumn('dokumen_approval', 'signature_path')) {
+                $table->dropColumn('signature_path');
+            }
         });
     }
 };

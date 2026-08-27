@@ -36,7 +36,7 @@
         </p>
 
         <p style="font-size: 15px; line-height: 1.6; color: #334155;">
-            Menginformasikan bahwa pengajuan dokumen Anda <strong style="color: #dc2626;">tidak disetujui / ditolak</strong> oleh <strong style="color: #0f172a;">{{ ucwords($rejectedBy?->name ?? 'Penyetuju Dokumen') }}</strong>.
+            Menginformasikan bahwa pengajuan dokumen Anda <strong style="color: #dc2626;">tidak disetujui / ditolak</strong> oleh <strong style="color: #0f172a;">{{ ucwords($rejectorName ?? 'Penyetuju Dokumen') }}</strong>.
         </p>
 
         <!-- Rejection Reason Card -->
