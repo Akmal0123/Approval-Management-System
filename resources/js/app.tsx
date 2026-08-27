@@ -166,3 +166,15 @@ createInertiaApp({
 
 // This will set light / dark mode on load...
 initializeTheme();
+
+// Global Error Handler for Debugging (Temporary)
+if (typeof window !== 'undefined') {
+    window.addEventListener('error', (event) => {
+        const errorMsg = event.error?.stack || event.message || String(event.error) || 'Unknown Error';
+        document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace; background: white; z-index: 9999; position: relative; height: 100vh; overflow: auto;"><h1>Global Error:</h1><pre style="white-space: pre-wrap;">${errorMsg}</pre></div>`;
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        const errorMsg = event.reason?.stack || event.reason?.message || String(event.reason) || 'Unknown Promise Rejection';
+        document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace; background: white; z-index: 9999; position: relative; height: 100vh; overflow: auto;"><h1>Unhandled Promise Rejection:</h1><pre style="white-space: pre-wrap;">${errorMsg}</pre></div>`;
+    });
+}

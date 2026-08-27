@@ -271,6 +271,10 @@ class PdfSignatureService
                     }
 
                     $pos = $approval->signaturePosition;
+                    $jabatan = $approval->approver_jabatan ?? $approval->masterflowStep?->jabatan?->name ?? 'Approver';
+                    $showSignature = $approval->show_signature ?? true;
+                    $showDate = $approval->show_date ?? true;
+                    $showJabatan = $approval->show_jabatan ?? true;
                     
                     if ($pos) {
                         $signaturesData[] = [
@@ -281,9 +285,14 @@ class PdfSignatureService
                             'width' => $pos->width,
                             'height' => $pos->height,
                             'add_text' => true,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Approved',
+                            'show_signature' => $showSignature,
+                            'show_date' => $showDate,
+                            'show_jabatan' => $showJabatan,
+                            'text' => $approval->masterflowStep?->step_name ?? 'Disetujui',
+                            'jabatan' => $jabatan,
                             'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
                             'name' => $approval->user?->name ?? null,
+                            'signature_type' => $approval->signature_type ?? 'signature',
                         ];
                     } else {
                         // Fallback positioning
@@ -291,7 +300,7 @@ class PdfSignatureService
                         $col = $unpositionedIndex % $signaturesPerRow;
 
                         $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
+                        $y = $yPosition + ($row * 35); // 35mm vertical spacing
                         
                         $signaturesData[] = [
                             'imagePath' => $fullSignaturePath,
@@ -299,11 +308,16 @@ class PdfSignatureService
                             'x' => $x,
                             'y' => $y,
                             'width' => 35,
-                            'height' => 13,
+                            'height' => 15,
                             'add_text' => true,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Approved',
+                            'show_signature' => $showSignature,
+                            'show_date' => $showDate,
+                            'show_jabatan' => $showJabatan,
+                            'text' => $approval->masterflowStep?->step_name ?? 'Disetujui',
+                            'jabatan' => $jabatan,
                             'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
                             'name' => $approval->user?->name ?? null,
+                            'signature_type' => $approval->signature_type ?? 'signature',
                         ];
                         $unpositionedIndex++;
                     }
@@ -325,7 +339,7 @@ class PdfSignatureService
                 
                 if ($qrPosition) {
                     $qrCodeData = [
-                        'text' => url('/api/dokumen/' . $dokumen->id),
+                        'text' => $dokumen->getVerificationUrl(),
                         'page' => $qrPosition->page,
                         'x' => $qrPosition->x,
                         'y' => $qrPosition->y,
@@ -334,6 +348,7 @@ class PdfSignatureService
                     ];
                 }
             }
+
 
             // Write config to temp file
             $config = [

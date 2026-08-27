@@ -37,4 +37,21 @@ class Aplikasi extends Model
     {
         return $this->belongsTo(Company::class);
     }
+
+    /**
+     * Get the transaksis for this aplikasi.
+     */
+    public function transaksis(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Transaksi::class);
+    }
+
+    /**
+     * Get the masterflows for this aplikasi.
+     */
+    public function masterflows(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Masterflow::class);
+    }
 }
+

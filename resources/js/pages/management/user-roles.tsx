@@ -24,12 +24,6 @@ import { IconEdit, IconPlus, IconShield, IconTrash, IconUsers } from '@tabler/ic
 import { Activity, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-// Extend window type for Echo
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
 
 interface UserRole {
     id: number;

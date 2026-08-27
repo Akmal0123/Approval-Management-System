@@ -15,11 +15,6 @@ import { IconEdit, IconPlus, IconTrash, IconUserCheck } from '@tabler/icons-reac
 import { Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
 
 interface Jabatan {
     id: number;

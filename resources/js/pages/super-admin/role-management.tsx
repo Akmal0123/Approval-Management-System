@@ -15,11 +15,8 @@ import { IconEdit, IconPlus, IconShield, IconTrash } from '@tabler/icons-react';
 import { Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
+
+
 
 interface Role {
     id: number;

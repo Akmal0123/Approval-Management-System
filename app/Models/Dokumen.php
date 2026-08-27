@@ -36,11 +36,14 @@ class Dokumen extends Model
         'user_id',
         'company_id',
         'aplikasi_id',
+        'transaksi_id',
+        'departemen',
         'masterflow_id',
         'comment_id',
         'status',
         'qr_code_path',
         'qr_code_hash',
+        'verification_hash',
         'tgl_pengajuan',
         'tgl_deadline',
         'deskripsi',
@@ -53,6 +56,7 @@ class Dokumen extends Model
     protected $casts = [
         'tgl_pengajuan' => 'date',
         'tgl_deadline' => 'date',
+        'nominal' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -88,6 +92,28 @@ class Dokumen extends Model
     {
         return $this->belongsTo(Aplikasi::class);
     }
+
+    /**
+     * Get the transaksi for this document.
+     */
+    public function transaksi(): BelongsTo
+    {
+        return $this->belongsTo(Transaksi::class);
+    }
+
+    /**
+     * Get verification URL for this document.
+     */
+    public function getVerificationUrl(): string
+    {
+        if (empty($this->verification_hash)) {
+            $this->verification_hash = hash('sha256', $this->nomor_dokumen . '_' . $this->id . '_' . time());
+            $this->saveQuietly();
+        }
+
+        return url('/verify/' . $this->verification_hash);
+    }
+
 
     /**
      * Get the main comment for this document.

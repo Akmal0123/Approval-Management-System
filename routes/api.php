@@ -46,8 +46,13 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // Aplikasi Management
     Route::apiResource('aplikasis', AplikasiController::class);
 
+    // Transaksi Management
+    Route::apiResource('transaksis', \App\Http\Controllers\API\TransaksiController::class);
+    Route::patch('transaksis/{transaksi}/toggle-status', [\App\Http\Controllers\API\TransaksiController::class, 'toggleStatus']);
+
     // User Management
     Route::apiResource('users', UserController::class);
+
 
     // Dashboard Statistics
     Route::get('/dashboard/super-admin/stats', [DashboardController::class, 'superAdminStats']);

@@ -18,9 +18,12 @@ class Masterflow extends Model
      */
     protected $fillable = [
         'company_id',
+        'aplikasi_id',
+        'transaksi_id',
         'name',
         'description',
         'tipe_dokumen',
+        'departemen',
         'min_nominal',
         'max_nominal',
         'is_active',
@@ -35,6 +38,8 @@ class Masterflow extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'total_steps' => 'integer',
+        'min_nominal' => 'decimal:2',
+        'max_nominal' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -45,6 +50,22 @@ class Masterflow extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Get the aplikasi for this masterflow.
+     */
+    public function aplikasi(): BelongsTo
+    {
+        return $this->belongsTo(Aplikasi::class);
+    }
+
+    /**
+     * Get the transaksi for this masterflow.
+     */
+    public function transaksi(): BelongsTo
+    {
+        return $this->belongsTo(Transaksi::class);
     }
 
     /**

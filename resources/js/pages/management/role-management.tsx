@@ -11,12 +11,6 @@ import { IconEdit, IconPlus, IconShield, IconTrash } from '@tabler/icons-react';
 import { Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-// Extend window type for Echo
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {

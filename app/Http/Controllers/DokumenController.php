@@ -150,21 +150,7 @@ class DokumenController extends Controller
      */
     public function create()
     {
-        // Filter masterflows by current company context
-        $query = Masterflow::where('is_active', true);
-
-        if (!$this->contextService->isSuperAdmin()) {
-            $companyId = $this->contextService->getCurrentCompanyId();
-            if ($companyId) {
-                $query->where('company_id', $companyId);
-            }
-        }
-
-        $masterflows = $query->get();
-
-        return Inertia::render('Dokumen/Create', [
-            'masterflows' => $masterflows,
-        ]);
+        return redirect()->route('dokumen.page', ['create' => 'true']);
     }
 
     /**
@@ -187,6 +173,11 @@ class DokumenController extends Controller
             'deskripsi' => 'nullable|string',
             'file' => 'required|file|mimes:pdf|max:10240', // 10MB - Only PDF for digital signature support
             'submit_type' => 'required|in:draft,submit', // Validate submit type
+            'aplikasi_id' => 'nullable|exists:aplikasis,id',
+            'transaksi_id' => 'nullable|exists:transaksis,id',
+            'departemen' => 'nullable|string|max:255',
+            'nominal' => 'nullable|numeric',
+            'tipe_dokumen' => 'nullable|string|max:255',
         ];
 
         // Check if custom approval or existing masterflow
@@ -216,13 +207,20 @@ class DokumenController extends Controller
 
             $frontendIdToApprovalId = [];
 
+            $companyId = $context->company_id;
+            $aplikasiId = $validated['aplikasi_id'] ?? $context->aplikasi_id;
+
             // Create document
             $dokumen = Dokumen::create([
                 'nomor_dokumen' => $validated['nomor_dokumen'],
                 'judul_dokumen' => $validated['judul_dokumen'],
                 'user_id' => Auth::id(),
-                'company_id' => $context->company_id,
-                'aplikasi_id' => $context->aplikasi_id,
+                'company_id' => $companyId,
+                'aplikasi_id' => $aplikasiId,
+                'transaksi_id' => $validated['transaksi_id'] ?? null,
+                'departemen' => $validated['departemen'] ?? null,
+                'nominal' => $validated['nominal'] ?? null,
+                'tipe_dokumen' => $validated['tipe_dokumen'] ?? null,
                 'masterflow_id' => $request->masterflow_id === 'custom' ? null : $validated['masterflow_id'],
                 'status' => $status,
                 'tgl_pengajuan' => $validated['tgl_pengajuan'],
@@ -353,46 +351,66 @@ class DokumenController extends Controller
                                 }
                             }
                         } else {
-                            // Single approver selected by user
-                            if (isset($validated['approvers'][$step->id])) {
-                                Log::info('Creating single approval', [
-                                    'step_id' => $step->id,
-                                    'user_id' => $validated['approvers'][$step->id],
-                                ]);
+                            // Single approver selected by user or auto-resolved by Jabatan
+                            $targetUserId = $validated['approvers'][$step->id] ?? null;
 
-                                $approval = DokumenApproval::create([
-                                    'dokumen_id' => $dokumen->id,
-                                    'user_id' => $validated['approvers'][$step->id],
-                                    'masterflow_step_id' => $step->id,
-                                    'dokumen_version_id' => $version->id,
-                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
-                                    'tgl_deadline' => $validated['tgl_deadline'],
-                                ]);
+                            // If not explicitly chosen, find user who holds this step's Jabatan in the company/aplikasi
+                            if (!$targetUserId && $step->jabatan_id) {
+                                $userAuth = \App\Models\UsersAuth::where('jabatan_id', $step->jabatan_id)
+                                    ->where(function ($q) use ($companyId, $aplikasiId) {
+                                        if ($companyId) $q->where('company_id', $companyId);
+                                        if ($aplikasiId) $q->where('aplikasi_id', $aplikasiId);
+                                    })
+                                    ->first();
 
-                                $userId = $validated['approvers'][$step->id];
-                                $frontendIdToApprovalId["step_{$step->id}_user_{$userId}"] = $approval->id;
-
-                                if ($isFirstLevel && $submitType !== 'draft') {
-                                    // Broadcast new approval event
-                                    Log::info('Broadcasting ApprovalCreated event', [
-                                        'approval_id' => $approval->id,
-                                        'user_id' => $validated['approvers'][$step->id],
-                                        'dokumen_id' => $dokumen->id,
-                                    ]);
-                                    broadcast(new ApprovalCreated($approval))->toOthers();
-
-                                    // Dispatch email notification job
-                                    SendApprovalNotification::dispatch($approval);
-
-                                    // Broadcast browser notification to approver
-                                    broadcast(new BrowserNotificationEvent(
-                                        userId: $validated['approvers'][$step->id],
-                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
-                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
-                                        url: route('approvals.show', $approval->id),
-                                        type: 'info'
-                                    ));
+                                if (!$userAuth) {
+                                    // Fallback to any user with this jabatan
+                                    $userAuth = \App\Models\UsersAuth::where('jabatan_id', $step->jabatan_id)->first();
                                 }
+
+                                $targetUserId = $userAuth?->user_id;
+                            }
+
+                            Log::info('Creating single/jabatan approval', [
+                                'step_id' => $step->id,
+                                'user_id' => $targetUserId,
+                                'jabatan_id' => $step->jabatan_id,
+                            ]);
+
+                            $approval = DokumenApproval::create([
+                                'dokumen_id' => $dokumen->id,
+                                'user_id' => $targetUserId,
+                                'masterflow_step_id' => $step->id,
+                                'dokumen_version_id' => $version->id,
+                                'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
+                                'tgl_deadline' => $validated['tgl_deadline'],
+                                'approver_jabatan' => $step->jabatan?->name,
+                            ]);
+
+                            if ($targetUserId) {
+                                $frontendIdToApprovalId["step_{$step->id}_user_{$targetUserId}"] = $approval->id;
+                            }
+
+                            if ($targetUserId && $isFirstLevel && $submitType !== 'draft') {
+                                // Broadcast new approval event
+                                Log::info('Broadcasting ApprovalCreated event', [
+                                    'approval_id' => $approval->id,
+                                    'user_id' => $targetUserId,
+                                    'dokumen_id' => $dokumen->id,
+                                ]);
+                                broadcast(new ApprovalCreated($approval))->toOthers();
+
+                                // Dispatch email notification job
+                                SendApprovalNotification::dispatch($approval);
+
+                                // Broadcast browser notification to approver
+                                broadcast(new BrowserNotificationEvent(
+                                    userId: $targetUserId,
+                                    title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                    body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                    url: route('approvals.show', $approval->id),
+                                    type: 'info'
+                                ));
                             }
                         }
                     }
@@ -521,12 +539,7 @@ class DokumenController extends Controller
                 ->withErrors(['error' => 'Dokumen tidak dapat diedit dalam status ini.']);
         }
 
-        $masterflows = Masterflow::where('is_active', true)->get();
-
-        return Inertia::render('Dokumen/Edit', [
-            'dokumen' => $dokumen,
-            'masterflows' => $masterflows,
-        ]);
+        return redirect()->route('dokumen.show', $dokumen->id);
     }
 
     /**

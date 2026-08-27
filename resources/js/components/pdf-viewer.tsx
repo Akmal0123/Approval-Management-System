@@ -65,7 +65,7 @@ export default function PDFViewer({
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 flex flex-col h-full">
             {/* Controls */}
             {showControls && (
                 <Card className="p-4">
@@ -117,7 +117,7 @@ export default function PDFViewer({
             )}
 
             {/* PDF Viewer */}
-            <div className="overflow-auto rounded-lg border border-border bg-muted/30" style={{ height }}>
+            <div className="overflow-auto flex-1 min-h-0 rounded-lg border border-border bg-muted/30" style={{ height: height === '100%' ? undefined : height }}>
                 {loading && (
                     <div className="flex h-full items-center justify-center">
                         <div className="text-center">

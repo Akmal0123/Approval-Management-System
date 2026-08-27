@@ -19,12 +19,25 @@ async function run() {
         const pages = pdfDoc.getPages();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
         for (const sig of inputData.signatures) {
             const pageIndex = Math.min(Math.max(sig.page - 1, 0), pages.length - 1);
             const page = pages[pageIndex];
 
+            // Convert mm to PDF points (1 mm = 2.83465 points)
+            const mmToPt = 2.83465;
+            const width = sig.width * mmToPt;
+            const height = sig.height * mmToPt;
+            const x = sig.x * mmToPt;
+            
+            const pageHeight = page.getHeight();
+            const yFromBottom = pageHeight - (sig.y * mmToPt) - height;
+
+            const shouldDrawImage = sig.show_signature !== false;
+
             // Load signature image
-            if (fs.existsSync(sig.imagePath)) {
+            if (shouldDrawImage && sig.imagePath && fs.existsSync(sig.imagePath)) {
                 const imgBytes = fs.readFileSync(sig.imagePath);
                 
                 let img;
@@ -32,40 +45,41 @@ async function run() {
                     img = await pdfDoc.embedPng(imgBytes);
                 } else if (sig.imagePath.toLowerCase().endsWith('.jpg') || sig.imagePath.toLowerCase().endsWith('.jpeg')) {
                     img = await pdfDoc.embedJpg(imgBytes);
-                } else {
-                    continue; // Unsupported image
                 }
 
-                // Convert mm to PDF points (1 mm = 2.83465 points)
-                const mmToPt = 2.83465;
-                const width = sig.width * mmToPt;
-                const height = sig.height * mmToPt;
-                const x = sig.x * mmToPt;
-                
-                // In PDF-lib, Y is from bottom to top. 
-                // So Y from top (in mm) needs to be inverted.
-                const pageHeight = page.getHeight();
-                const yFromBottom = pageHeight - (sig.y * mmToPt) - height;
+                if (img) {
+                    page.drawImage(img, {
+                        x: x,
+                        y: yFromBottom,
+                        width: width,
+                        height: height,
+                    });
+                }
+            }
 
-                page.drawImage(img, {
-                    x: x,
-                    y: yFromBottom,
-                    width: width,
-                    height: height,
-                });
+            if (sig.add_text) {
+                const fontSize = 7;
+                let currentY = shouldDrawImage ? (yFromBottom - 8) : (yFromBottom + height - 8);
 
-                if (sig.add_text) {
-                    const fontSize = 8;
-                    const textY = yFromBottom - 10;
-                    if (sig.text) {
-                        page.drawText(sig.text, { x: x, y: textY, size: fontSize, font: font });
-                    }
-                    if (sig.date) {
-                        page.drawText(sig.date, { x: x, y: textY - 10, size: fontSize, font: font });
-                    }
+                // Draw Approver Name
+                if (sig.name) {
+                    page.drawText(sig.name, { x: x, y: currentY, size: fontSize, font: fontBold });
+                    currentY -= 9;
+                }
+
+                // Draw Approver Jabatan
+                if (sig.show_jabatan !== false && sig.jabatan) {
+                    page.drawText(sig.jabatan, { x: x, y: currentY, size: fontSize, font: font });
+                    currentY -= 9;
+                }
+
+                // Draw Date
+                if (sig.show_date !== false && sig.date) {
+                    page.drawText(sig.date, { x: x, y: currentY, size: fontSize - 1, font: font });
                 }
             }
         }
+
 
         // Draw QR Code if provided in configuration
         if (inputData.qrCode) {

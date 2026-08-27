@@ -120,12 +120,21 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
+    const [signatureType, setSignatureType] = useState<'signature' | 'qr_code'>('signature');
     const [signatureData, setSignatureData] = useState<string | null>(null);
+    const [showSignature, setShowSignature] = useState(true);
+    const [showDate, setShowDate] = useState(true);
+    const [showJabatan, setShowJabatan] = useState(true);
 
     const approveForm = useForm({
         comment: '',
         signature: '',
+        signature_type: 'signature',
+        show_signature: true,
+        show_date: true,
+        show_jabatan: true,
     });
+
 
     const rejectForm = useForm({
         alasan_reject: '',
@@ -195,19 +204,28 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
     // Handle approve
     const handleApprove = () => {
-        if (!signatureData) {
+        if (signatureType === 'signature' && !signatureData) {
             showToast.error('❌ Silakan tanda tangani dokumen terlebih dahulu');
             return;
         }
 
-        console.log('Submitting approval with signature:', {
-            signatureLength: signatureData.length,
-            signaturePreview: signatureData.substring(0, 50) + '...',
-            hasComment: !!approveForm.data.comment,
+        console.log('Submitting approval with options:', {
+            signatureType,
+            hasSignatureData: !!signatureData,
+            showSignature,
+            showDate,
+            showJabatan,
         });
 
-        // Set signature to form data
-        approveForm.data.signature = signatureData;
+        // Set signature & options to form data
+        approveForm.setData({
+            ...approveForm.data,
+            signature: signatureData || '',
+            signature_type: signatureType,
+            show_signature: showSignature,
+            show_date: showDate,
+            show_jabatan: showJabatan,
+        });
 
         approveForm.post(route('approvals.approve', approval.id), {
             preserveScroll: true,
@@ -224,6 +242,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             },
         });
     };
+
 
     // Handle reject
     const handleReject = () => {
@@ -1196,122 +1215,205 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                 {canApprove &&
                                     approval.approval_status === 'pending' &&
                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId) && (
-                                        <div className="w-full shrink-0 space-y-4 overflow-auto rounded-lg border bg-muted/20 p-4 lg:w-[400px]">
+                                        <div className="w-full shrink-0 space-y-4 overflow-auto rounded-lg border bg-muted/20 p-4 lg:w-[420px]">
                                             <div>
                                                 <h3 className="font-serif text-lg font-semibold">Tanda Tangan Persetujuan</h3>
-                                                <p className="font-sans text-sm text-muted-foreground">Tanda tangani dokumen untuk menyetujuinya</p>
+                                                <p className="font-sans text-xs text-muted-foreground">Tentukan format tanda tangan & opsi tampilan dokumen</p>
                                             </div>
 
-                                            <Separator />
+                                            {/* Auto-detected Approver Jabatan */}
+                                            <div className="rounded-lg bg-blue-50/70 border border-blue-200/80 p-2.5 text-xs text-blue-900">
+                                                <span className="font-semibold text-blue-950">Jabatan Penyetuju: </span>
+                                                {approval.masterflow_step?.jabatan?.name || 'Pejabat Berwenang'}
+                                            </div>
 
-                                            {!showSignaturePad && !signatureData ? (
-                                                <div className="space-y-3">
-                                                    <Card className="border-dashed">
-                                                        <CardContent className="flex flex-col items-center justify-center py-8">
-                                                            <IconPencil className="h-12 w-12 text-muted-foreground" />
-                                                            <p className="mt-2 text-center font-sans text-sm text-muted-foreground">
-                                                                Belum ada tanda tangan
-                                                            </p>
-                                                        </CardContent>
-                                                    </Card>
-                                                    <Button
+                                            {/* Format Selector: Signature vs QR Code */}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                                    Pilihan Format
+                                                </Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
                                                         type="button"
-                                                        onClick={() => setShowSignaturePad(true)}
-                                                        className="w-full font-sans"
-                                                        variant="outline"
+                                                        onClick={() => setSignatureType('signature')}
+                                                        className={`p-2.5 rounded-lg border text-left transition text-xs flex items-center gap-2 cursor-pointer ${
+                                                            signatureType === 'signature'
+                                                                ? 'border-primary bg-primary/10 text-primary font-bold'
+                                                                : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                                                        }`}
                                                     >
-                                                        <IconPencil className="mr-2 h-4 w-4" />
-                                                        Tambah Tanda Tangan
-                                                    </Button>
+                                                        <IconPencil className="h-4 w-4 shrink-0" />
+                                                        <span>Tanda Tangan</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSignatureType('qr_code')}
+                                                        className={`p-2.5 rounded-lg border text-left transition text-xs flex items-center gap-2 cursor-pointer ${
+                                                            signatureType === 'qr_code'
+                                                                ? 'border-primary bg-primary/10 text-primary font-bold'
+                                                                : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                                                        }`}
+                                                    >
+                                                        <span className="font-mono text-xs">QR</span>
+                                                        <span>QR Code Digital</span>
+                                                    </button>
                                                 </div>
-                                            ) : signatureData ? (
-                                                <div className="space-y-3">
-                                                    <Card>
-                                                        <CardContent className="p-4">
-                                                            <div className="flex items-center justify-center rounded border bg-white p-4">
-                                                                <img
-                                                                    src={signatureData}
-                                                                    alt="Signature"
-                                                                    className="max-h-24 max-w-full object-contain"
-                                                                />
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                    <div className="flex gap-2">
+                                            </div>
+
+                                            {signatureType === 'signature' ? (
+                                                !showSignaturePad && !signatureData ? (
+                                                    <div className="space-y-3">
+                                                        <Card className="border-dashed">
+                                                            <CardContent className="flex flex-col items-center justify-center py-6">
+                                                                <IconPencil className="h-10 w-10 text-muted-foreground" />
+                                                                <p className="mt-1 text-center font-sans text-xs text-muted-foreground">
+                                                                    Belum ada tanda tangan
+                                                                </p>
+                                                            </CardContent>
+                                                        </Card>
                                                         <Button
                                                             type="button"
+                                                            onClick={() => setShowSignaturePad(true)}
+                                                            className="w-full font-sans text-xs"
                                                             variant="outline"
-                                                            onClick={() => {
-                                                                setSignatureData(null);
-                                                                setShowSignaturePad(true);
-                                                            }}
-                                                            className="flex-1 font-sans"
                                                         >
-                                                            Ganti
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                setSignatureData(null);
-                                                                approveForm.setData('signature', '');
-                                                            }}
-                                                            className="font-sans text-red-600 hover:bg-red-50"
-                                                        >
-                                                            <IconX className="h-4 w-4" />
+                                                            <IconPencil className="mr-2 h-4 w-4" />
+                                                            Buat Tanda Tangan
                                                         </Button>
                                                     </div>
-                                                </div>
-                                            ) : (
-                                                <SignaturePad
-                                                    onSignatureComplete={handleSignatureComplete}
-                                                    onCancel={() => setShowSignaturePad(false)}
-                                                />
-                                            )}
-
-                                            {signatureData && (
-                                                <>
-                                                    <Separator />
-
-                                                    <div className="space-y-3">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor="preview-comment" className="font-sans">
-                                                                Komentar (Opsional)
-                                                            </Label>
-                                                            <Textarea
-                                                                id="preview-comment"
-                                                                placeholder="Tambahkan komentar jika diperlukan..."
-                                                                value={approveForm.data.comment}
-                                                                onChange={(e) => approveForm.setData('comment', e.target.value)}
-                                                                className="font-sans"
-                                                                rows={3}
-                                                            />
-                                                        </div>
-
-                                                        <div className="space-y-2">
+                                                ) : signatureData ? (
+                                                    <div className="space-y-2">
+                                                        <Card>
+                                                            <CardContent className="p-3">
+                                                                <div className="flex items-center justify-center rounded border bg-white p-2">
+                                                                    <img
+                                                                        src={signatureData}
+                                                                        alt="Signature"
+                                                                        className="max-h-20 max-w-full object-contain"
+                                                                    />
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                        <div className="flex gap-2">
                                                             <Button
                                                                 type="button"
-                                                                onClick={handleApprove}
-                                                                disabled={approveForm.processing}
-                                                                className="w-full font-sans"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setSignatureData(null);
+                                                                    setShowSignaturePad(true);
+                                                                }}
+                                                                className="flex-1 font-sans text-xs"
                                                             >
-                                                                <IconCheck className="mr-2 h-4 w-4" />
-                                                                {approveForm.processing ? 'Memproses...' : 'Setujui Dokumen'}
+                                                                Ganti
                                                             </Button>
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
-                                                                onClick={() => setIsPreviewDialogOpen(false)}
-                                                                className="w-full font-sans"
-                                                                disabled={approveForm.processing}
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setSignatureData(null);
+                                                                    approveForm.setData('signature', '');
+                                                                }}
+                                                                className="font-sans text-red-600 hover:bg-red-50"
                                                             >
-                                                                Batal
+                                                                <IconX className="h-4 w-4" />
                                                             </Button>
                                                         </div>
+                                                    </div>
+                                                ) : (
+                                                    <SignaturePad
+                                                        onSignatureComplete={handleSignatureComplete}
+                                                        onCancel={() => setShowSignaturePad(false)}
+                                                    />
+                                                )
+                                            ) : (
+                                                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs space-y-1 text-emerald-900">
+                                                    <div className="font-semibold flex items-center gap-1.5">
+                                                        <span>✓ QR Code Digital Otomatis</span>
+                                                    </div>
+                                                    <p className="text-emerald-700 text-[11px] leading-relaxed">
+                                                        Stempel QR Code verifikasi portal publik akan otomatis digenerate dan dibubuhkan pada dokumen.
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Display Options Toggles */}
+                                            <div className="space-y-2 rounded-lg border bg-white p-3 text-xs">
+                                                <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                                    Opsi Tampilan Stempel
+                                                </Label>
+                                                <div className="space-y-1.5 pt-1">
+                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={showSignature}
+                                                            onChange={(e) => setShowSignature(e.target.checked)}
+                                                            className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5"
+                                                        />
+                                                        <span>Tampilkan Tanda Tangan / QR Code</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={showJabatan}
+                                                            onChange={(e) => setShowJabatan(e.target.checked)}
+                                                            className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5"
+                                                        />
+                                                        <span>Tampilkan Nama & Jabatan Approver</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={showDate}
+                                                            onChange={(e) => setShowDate(e.target.checked)}
+                                                            className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5"
+                                                        />
+                                                        <span>Tampilkan Tanggal & Waktu Approval</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {(signatureData || signatureType === 'qr_code') && (
+                                                <>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="preview-comment" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                                            Komentar (Opsional)
+                                                        </Label>
+                                                        <Textarea
+                                                            id="preview-comment"
+                                                            placeholder="Tambahkan catatan persetujuan..."
+                                                            value={approveForm.data.comment}
+                                                            onChange={(e) => approveForm.setData('comment', e.target.value)}
+                                                            className="font-sans text-xs"
+                                                            rows={2}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2 pt-2">
+                                                        <Button
+                                                            type="button"
+                                                            onClick={handleApprove}
+                                                            disabled={approveForm.processing}
+                                                            className="w-full font-sans bg-primary hover:bg-primary/90 text-white"
+                                                        >
+                                                            <IconCheck className="mr-2 h-4 w-4" />
+                                                            {approveForm.processing ? 'Memproses...' : 'Setujui Dokumen'}
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => setIsPreviewDialogOpen(false)}
+                                                            className="w-full font-sans text-xs"
+                                                            disabled={approveForm.processing}
+                                                        >
+                                                            Batal
+                                                        </Button>
                                                     </div>
                                                 </>
                                             )}
                                         </div>
+
                                     )}
                             </div>
                         </DialogContent>

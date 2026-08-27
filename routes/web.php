@@ -123,6 +123,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Role-based Routes (No middleware - handle auth via Sanctum in frontend)
 
+// Public Document Verification Portal Route (Scanned QR Code)
+Route::get('/verify/{hash}', [\App\Http\Controllers\VerificationPortalController::class, 'verify'])->name('document.verify');
+
 // Super Admin Routes
 Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
     Route::get('/super-admin/dashboard', function () {
@@ -145,6 +148,9 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
         return Inertia::render('super-admin/aplikasi-management');
     })->name('super-admin.aplikasi-management');
 
+    Route::get('/super-admin/transaksi-management', [\App\Http\Controllers\API\TransaksiController::class, 'index'])
+        ->name('super-admin.transaksi-management');
+
     Route::get('/super-admin/user-management', function () {
         return Inertia::render('super-admin/user-management');
     })->name('super-admin.user-management');
@@ -158,6 +164,9 @@ Route::middleware(['auth', 'check.role:Admin'])->group(function () {
         return Inertia::render('admin/dokumen');
     })->name('admin.dokumen');
 
+    Route::get('/admin/transaksi-management', [\App\Http\Controllers\API\TransaksiController::class, 'index'])
+        ->name('admin.transaksi-management');
+
     // Masterflow Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('masterflows', \App\Http\Controllers\Admin\MasterflowController::class);
@@ -165,6 +174,7 @@ Route::middleware(['auth', 'check.role:Admin'])->group(function () {
             ->name('masterflows.toggle-status');
     });
 });
+
 
 // User Routes
 Route::middleware(['auth', 'check.role:User'])->group(function () {
@@ -180,6 +190,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dokumen', function () {
         return Inertia::render('dokumen/index');
     })->name('dokumen.page');
+
+    Route::get('/dokumen/create', function () {
+        return redirect('/dokumen?create=true');
+    })->name('dokumen.create');
 
     // Document API endpoints with /api prefix to avoid conflicts with page routes
     Route::prefix('api/dokumen')->group(function () {
@@ -229,11 +243,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Document approvals
     Route::get('approvals', [\App\Http\Controllers\DokumenApprovalController::class, 'index'])->name('approvals.index');
+    Route::post('approvals/bulk-approve', [\App\Http\Controllers\DokumenApprovalController::class, 'bulkApprove'])->name('approvals.bulk-approve');
     Route::get('approvals/{approval}', [\App\Http\Controllers\DokumenApprovalController::class, 'show'])->name('approvals.show');
     Route::post('approvals/{approval}/approve', [\App\Http\Controllers\DokumenApprovalController::class, 'approve'])->name('approvals.approve');
     Route::post('approvals/{approval}/reject', [\App\Http\Controllers\DokumenApprovalController::class, 'reject'])->name('approvals.reject');
     Route::post('approvals/{approval}/delegate', [\App\Http\Controllers\DokumenApprovalController::class, 'delegate'])->name('approvals.delegate');
     Route::post('approvals/{approval}/request-revision', [\App\Http\Controllers\DokumenApprovalController::class, 'requestRevision'])->name('approvals.request-revision');
+
 
     // Document revision history
     Route::get('dokumen/{dokumen}/history', [\App\Http\Controllers\RevisionHistoryController::class, 'index'])->name('dokumen.history');

@@ -167,23 +167,41 @@ class UserDashboardController extends Controller
      */
     private function getMasterflowsForContext($companyId): array
     {
-        if (!$companyId) {
-            return [];
+        $query = Masterflow::where('is_active', true)
+            ->with(['steps.jabatan', 'company', 'aplikasi', 'transaksi']);
+
+        if (!$this->contextService->isSuperAdmin() && $companyId) {
+            $query->where('company_id', $companyId);
         }
 
-        return Masterflow::where('company_id', $companyId)
-            ->where('is_active', true)
-            ->with(['steps.jabatan', 'company'])
-            ->orderBy('name')
-            ->take(5)
+        return $query->orderBy('name')
             ->get()
             ->map(function ($masterflow) {
                 return [
                     'id' => $masterflow->id,
                     'name' => $masterflow->name,
                     'description' => $masterflow->description,
+                    'aplikasi_id' => $masterflow->aplikasi_id,
+                    'transaksi_id' => $masterflow->transaksi_id,
+                    'departemen' => $masterflow->departemen,
+                    'tipe_dokumen' => $masterflow->tipe_dokumen,
                     'steps_count' => $masterflow->steps ? $masterflow->steps->count() : 0,
-                    'company' => $masterflow->company ? $masterflow->company->name : null
+                    'company' => $masterflow->company ? $masterflow->company->name : null,
+                    'steps' => $masterflow->steps ? $masterflow->steps->sortBy('step_order')->values()->map(function ($step) {
+                        return [
+                            'id' => $step->id,
+                            'step_order' => $step->step_order,
+                            'step_name' => $step->step_name,
+                            'jabatan_id' => $step->jabatan_id,
+                            'jabatan' => $step->jabatan ? [
+                                'id' => $step->jabatan->id,
+                                'name' => $step->jabatan->name,
+                            ] : null,
+                            'group_index' => $step->group_index,
+                            'jenis_group' => $step->jenis_group,
+                            'users_in_group' => $step->users_in_group,
+                        ];
+                    })->toArray() : [],
                 ];
             })->toArray();
     }

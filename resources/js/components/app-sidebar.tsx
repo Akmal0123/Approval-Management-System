@@ -5,6 +5,7 @@ import {
     FileTextIcon,
     FolderKanbanIcon,
     GlobeIcon,
+    LayersIcon,
     LayoutDashboardIcon,
     ShieldIcon,
     UserIcon,
@@ -61,6 +62,11 @@ const superAdminNavMain = [
         icon: GlobeIcon,
     },
     {
+        title: 'Transaksi Management',
+        url: '/super-admin/transaksi-management',
+        icon: LayersIcon,
+    },
+    {
         title: 'User Management',
         url: '/super-admin/user-management',
         icon: UsersIcon,
@@ -90,11 +96,17 @@ const adminNavMain = [
         icon: CheckSquareIcon,
     },
     {
+        title: 'Transaksi Management',
+        url: '/admin/transaksi-management',
+        icon: LayersIcon,
+    },
+    {
         title: 'Masterflow Management',
         url: '/admin/masterflows',
         icon: FolderKanbanIcon,
     },
 ];
+
 
 // User Menu Items
 const userNavMain = [

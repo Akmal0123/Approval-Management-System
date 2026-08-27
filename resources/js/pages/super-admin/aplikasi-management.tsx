@@ -16,11 +16,6 @@ import { IconEdit, IconPlus, IconTrash, IconUsers } from '@tabler/icons-react';
 import { Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
 
 interface Company {
     id: number;

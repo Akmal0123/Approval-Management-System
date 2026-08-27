@@ -34,6 +34,11 @@ class DokumenApproval extends Model
         'alasan_reject',
         'comment',
         'signature_path',
+        'signature_type',
+        'show_signature',
+        'show_date',
+        'show_jabatan',
+        'approver_jabatan',
         'revision_notes',
         'revision_requested_by',
         'revision_requested_at',
@@ -43,12 +48,16 @@ class DokumenApproval extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
+        'show_signature' => 'boolean',
+        'show_date' => 'boolean',
+        'show_jabatan' => 'boolean',
         'tgl_approve' => 'datetime',
         'tgl_deadline' => 'datetime',
         'revision_requested_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
 
     /**
      * The accessors to append to the model's array form.
