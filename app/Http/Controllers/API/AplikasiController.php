@@ -14,17 +14,31 @@ class AplikasiController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
-    {
-        $aplikasis = Aplikasi::with('company')->orderBy('created_at', 'asc')->get();
-        $companies = Company::orderBy('name', 'asc')->get();
+   public function index()
+{
+    $user = \Illuminate\Support\Facades\Auth::user();
 
-        return response()->json([
-            'aplikasis' => $aplikasis,
-            'companies' => $companies,
-            'message' => 'Aplikasis retrieved successfully'
-        ]);
+    // Trik Cerdas: Deteksi apakah API ini dipanggil dari URL halaman Super Admin
+    $isSuperAdminPanel = str_contains(request()->headers->get('referer'), '/super-admin');
+
+    // Jika dipanggil dari panel Super Admin, ATAU rolenya memang cocok, tampilkan SEMUA
+    if ($isSuperAdminPanel || $user->role === 'super-admin' || $user->role === 'Super Administrator') {
+        $aplikasi = \App\Models\Aplikasi::with('company')->get();
+    } else {
+        // Jika dipanggil oleh user biasa (misal di form Buat Dokumen), aktifkan filter
+        $allowedAplikasiIds = \App\Models\UsersAuth::where('user_id', $user->id)
+            ->pluck('aplikasi_id');
+
+        $aplikasi = \App\Models\Aplikasi::with('company')
+            ->whereIn('id', $allowedAplikasiIds)
+            ->get();
     }
+
+    return response()->json([
+        'status' => 'success',
+        'aplikasis' => $aplikasi
+    ]);
+}
 
     /**
      * Store a newly created resource in storage.

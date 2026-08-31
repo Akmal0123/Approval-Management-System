@@ -207,4 +207,18 @@ class TransaksiController extends Controller
 
         return redirect()->back()->with('success', "Transaksi berhasil {$status}.");
     }
+
+    /**
+     * Mengambil daftar transaksi berdasarkan ID Aplikasi untuk Dropdown Dinamis
+     */
+   public function getByAplikasi($aplikasi_id)
+    {
+        $transaksi = \App\Models\Transaksi::where('aplikasi_id', $aplikasi_id)
+            // Pastikan pakai nama kolom yang benar: 'kode_transaksi'
+            ->select('id', 'kode_transaksi', 'nama_transaksi') 
+            ->orderBy('nama_transaksi', 'asc')
+            ->get();
+
+        return response()->json($transaksi);
+    }
 }

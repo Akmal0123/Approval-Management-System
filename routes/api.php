@@ -49,6 +49,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // Transaksi Management
     Route::apiResource('transaksis', \App\Http\Controllers\API\TransaksiController::class);
     Route::patch('transaksis/{transaksi}/toggle-status', [\App\Http\Controllers\API\TransaksiController::class, 'toggleStatus']);
+    Route::get('/transaksi-by-aplikasi/{aplikasi_id}', [\App\Http\Controllers\API\TransaksiController::class, 'getByAplikasi']);
 
     // User Management
     Route::apiResource('users', UserController::class);

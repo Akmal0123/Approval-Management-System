@@ -323,15 +323,37 @@ class UserController extends Controller
     /**
      * Get users by jabatan for approval flow
      */
-    public function getByJabatan($jabatan_id)
-    {
-        $users = User::whereHas('userAuths', function ($query) use ($jabatan_id) {
-            $query->where('jabatan_id', $jabatan_id);
-        })
-            ->select('id', 'name', 'email')
-            ->orderBy('name')
-            ->get();
+    public function getByJabatan(\Illuminate\Http\Request $request, $jabatan_id)
+{
+    $currentUser = \Illuminate\Support\Facades\Auth::user();
+    
+    // Ambil company_id milik user yang sedang login saat ini sebagai patokan utama
+    $currentCompanyId = \App\Models\UsersAuth::where('user_id', $currentUser->id)->value('company_id');
 
-        return response()->json($users);
-    }
+    $users = User::whereHas('userAuths', function ($query) use ($jabatan_id, $request, $currentCompanyId) {
+        // 1. Syarat utama: jabatan harus sesuai
+        $query->where('jabatan_id', $jabatan_id);
+
+        // 2. Jika ada aplikasi_id yang dikirim (Mode Dokumen Transaksi)
+        if ($request->has('aplikasi_id') && $request->aplikasi_id != '') {
+            $query->where('aplikasi_id', $request->aplikasi_id);
+            
+            // KUNCI UTAMA: Batasi juga berdasarkan company_id milik user yang login 
+            // agar aplikasi bernama 'Tisera' di company lain tidak ikut terpanggil
+            if ($currentCompanyId) {
+                $query->where('company_id', $currentCompanyId);
+            }
+        } else {
+            // 3. Jika Mode Dokumen Manual (Tanpa aplikasi_id)
+            if ($currentCompanyId) {
+                $query->where('company_id', $currentCompanyId);
+            }
+        }
+    })
+        ->select('id', 'name', 'email')
+        ->orderBy('name')
+        ->get();
+
+    return response()->json($users);
+}
 }

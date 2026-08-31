@@ -184,9 +184,9 @@ class DokumenController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+   public function create()
     {
-        // Filter masterflows by current company context
+        // 1. Filter masterflows by current company context
         $query = Masterflow::where('is_active', true);
 
         if (!$this->contextService->isSuperAdmin()) {
@@ -198,11 +198,24 @@ class DokumenController extends Controller
 
         $masterflows = $query->get();
 
+        // 2. TAHAP 1: Filter Aplikasi berdasarkan otorisasi (User Management)
+       $userId = \Illuminate\Support\Facades\Auth::id();
+
+        if ($this->contextService->isSuperAdmin()) {
+            // Jika Super Admin, tampilkan semua aplikasi
+            $aplikasiList = \App\Models\Aplikasi::all(); 
+        } else {
+            // Jika user biasa, hanya tampilkan aplikasi yang ada di userAuths miliknya
+            $aplikasiList = \App\Models\Aplikasi::whereHas('userAuths', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })->get();
+        }
+
         return Inertia::render('Dokumen/Create', [
             'masterflows' => $masterflows,
+            'aplikasiList' => $aplikasiList, // Kirim data aplikasi ke frontend (React)
         ]);
     }
-
     /**
      * Store a newly created resource in storage.
      */
