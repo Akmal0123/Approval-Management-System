@@ -1,5 +1,6 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
+import PDFViewer from '@/components/pdf-viewer';
 import SignaturePad from '@/components/signature-pad';
 import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
@@ -188,6 +189,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
 
+    // State for PDFViewer standalone preview
+    const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false);
+    const [pdfViewerFileUrl, setPdfViewerFileUrl] = useState<string | null>(null);
+    const [pdfViewerFileName, setPdfViewerFileName] = useState<string>('');
+
     // Handle signature complete
     const handleSignatureComplete = (signature: string) => {
         setSignatureData(signature);
@@ -260,6 +266,22 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const handleDownload = () => {
         if (approval.dokumen_version) {
             window.location.href = `/api/dokumen/${approval.dokumen.id}/download/${approval.dokumen_version.id}`;
+        }
+    };
+
+    // Handle standalone PDFViewer preview for eye icon buttons
+    const handlePDFViewerPreview = (version?: DokumenVersion) => {
+        const targetVersion = version || approval.dokumen_version;
+        if (!targetVersion) return;
+
+        const fileType = targetVersion.tipe_file.toLowerCase();
+        if (fileType === 'pdf' || fileType === 'application/pdf') {
+            const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
+            setPdfViewerFileUrl(url);
+            setPdfViewerFileName(targetVersion.nama_file);
+            setIsPDFViewerOpen(true);
+        } else {
+            showToast.error('❌ Preview hanya tersedia untuk file PDF.');
         }
     };
 
@@ -604,7 +626,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            onClick={() => handlePreview(approval.dokumen_version)}
+                                                            onClick={() => handlePDFViewerPreview(approval.dokumen_version)}
                                                             title="Preview"
                                                         >
                                                             <IconEye className="h-5 w-5" />
@@ -688,7 +710,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
-                                                                                onClick={() => handlePreview(version)}
+                                                                                onClick={() => handlePDFViewerPreview(version)}
+                                                                                title="Lihat"
                                                                             >
                                                                                 <IconEye className="h-4 w-4" />
                                                                             </Button>
@@ -1396,6 +1419,21 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             )}
                                         </div>
                                     )}
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Standalone PDF Viewer Preview Dialog */}
+                    <Dialog open={isPDFViewerOpen} onOpenChange={setIsPDFViewerOpen}>
+                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
+                            <DialogHeader className="shrink-0 border-b p-4">
+                                <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                <DialogDescription className="font-sans">{pdfViewerFileName}</DialogDescription>
+                            </DialogHeader>
+                            <div className="flex-1 overflow-auto p-4">
+                                {pdfViewerFileUrl && (
+                                    <PDFViewer fileUrl={pdfViewerFileUrl} fileName={pdfViewerFileName} showControls={true} height="100%" />
+                                )}
                             </div>
                         </DialogContent>
                     </Dialog>
