@@ -18,6 +18,8 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconEdit, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
 import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
 
 interface User {
     id: number;
@@ -124,10 +126,10 @@ interface StepApprovers {
 interface FormData {
     nomor_dokumen: string;
     judul_dokumen: string;
-    aplikasi_id?: string | number;
+    aplikasi_id?: string | number;   
     transaksi_id?: string | number;
-    tipe_dokumen?: string;
-    nominal_transaksi?: string;
+    tipe_dokumen: string;
+    nominal_transaksi: string;
     masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
     tgl_pengajuan: string;
     tgl_deadline: string;
@@ -137,6 +139,7 @@ interface FormData {
     custom_approvers: CustomApprover[]; // for custom approvals
     step_approvers: Record<number, StepApprovers>; // stepId -> { userIds, jenisGroup } (for group mode)
     signature_positions: any[] | null;
+    
 }
 
 const initialFormData: FormData = {
@@ -158,11 +161,12 @@ const initialFormData: FormData = {
 };
 
 export default function UserDokumen() {
-    const { auth } = usePage().props as any;
-    const [dokumen, setDokumen] = useState<Dokumen[]>([]);
     const [aplikasiList, setAplikasiList] = useState<any[]>([]);
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
     const [transaksiTersedia, setTransaksiTersedia] = useState<string>('');
+    const { auth } = usePage().props as any;
+    const [dokumen, setDokumen] = useState<Dokumen[]>([]);
+    const [aplikasis, setAplikasis] = useState<any[]>([]);
     const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -222,22 +226,30 @@ export default function UserDokumen() {
     const fetchAplikasi = async () => {
         try {
             console.log('Fetching aplikasi...');
-            const response = await api.get('/aplikasis');
-            setAplikasiList(response.data.aplikasis || response.data.data || []);
+            
+            // UBAH BARIS INI: Hapus '/api' di depannya menjadi '/aplikasis' saja
+            const response = await api.get('/aplikasis'); 
+            
+            setAplikasiList(response.data.aplikasis || response.data.data || []); 
         } catch (error) {
-            console.error('Error fetching aplikasi:', error);
+            console.error("Error fetching aplikasi:", error);
         }
     };
 
     // Handle saat dropdown Aplikasi dipilih
     const handleAplikasiChange = (value: string) => {
         setSelectedAplikasiId(value);
-
+        
         // Cari aplikasi berdasarkan ID
-        const aplikasi = aplikasiList.find((app) => app.id.toString() === value);
-
+        const aplikasi = aplikasiList.find(app => app.id.toString() === value);
+        
         if (aplikasi) {
-            setTransaksiTersedia(aplikasi.tipe_transaksi || aplikasi.name || '');
+            setTransaksiTersedia(aplikasi.tipe_transaksi);
+            
+            // --- JIKA KAMU MENGGUNAKAN useForm INERTIA / STATE FORM LAIN ---
+            // Kamu harus mengupdate state form kamu di sini juga, misalnya:
+            // updateFormData('aplikasi_id', value);
+            // updateFormData('tipe_transaksi', aplikasi.tipe_transaksi);
         } else {
             setTransaksiTersedia('');
         }
@@ -268,6 +280,8 @@ export default function UserDokumen() {
         fetchDokumen();
         fetchMasterflows();
         fetchAplikasi();
+
+        
 
         // Real-time updates dengan Laravel Reverb untuk user-specific dokumen
         if (typeof window !== 'undefined' && window.Echo && auth.user?.id) {
@@ -740,9 +754,9 @@ export default function UserDokumen() {
         }
 
         // Generate new document number
-        const newFormData: FormData = {
+        const newFormData = {
             ...initialFormData,
-            nomor_dokumen: generateDocumentNumber(),
+            nomor_dokumen: '',
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
         };
@@ -751,9 +765,6 @@ export default function UserDokumen() {
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         setStepModes({}); // Reset step modes
-        setSelectedAplikasiId('');
-        setTransaksiTersedia('');
-        setDocTypeMode('manual');
         setErrors({});
         setIsCreateDialogOpen(true);
     };
@@ -833,14 +844,11 @@ export default function UserDokumen() {
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
             submitData.append('deskripsi', formData.deskripsi);
+            submitData.append('tipe_dokumen', formData.tipe_dokumen);
+            submitData.append('nominal_transaksi', formData.nominal_transaksi);
             submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
 
-            if (docTypeMode === 'transaksi') {
-                if (formData.aplikasi_id) submitData.append('aplikasi_id', formData.aplikasi_id.toString());
-                if (formData.transaksi_id) submitData.append('transaksi_id', formData.transaksi_id.toString());
-            }
-
-            if (formData.file && docTypeMode === 'manual') {
+            if (formData.file) {
                 submitData.append('file', formData.file);
             }
 
@@ -981,11 +989,14 @@ export default function UserDokumen() {
 
     // Calculate stats
     const stats = {
-        total: dokumen.length,
-        draft: dokumen.filter((d) => d.status === 'draft').length,
-        submitted: dokumen.filter((d) => d.status === 'submitted' || d.status === 'under_review').length,
-        approved: dokumen.filter((d) => d.status === 'approved').length,
-    };
+    total: dokumen.length,
+    draft: dokumen.filter((d) => d.status === 'draft').length,
+    submitted: dokumen.filter(
+        (d) => d.status === 'submitted' || d.status === 'under_review'
+    ).length,
+    approved: dokumen.filter((d) => d.status === 'approved').length,
+    rejected: dokumen.filter((d) => d.status === 'rejected').length,
+};
 
     return (
         <>
@@ -1173,27 +1184,30 @@ export default function UserDokumen() {
                                                                                     <Eye className="h-4 w-4" />
                                                                                 </Button>
                                                                             </Link>
-                                                                            {doc.status === 'draft' && (
-                                                                                <>
-                                                                                    <Link href={`/dokumen/${doc.id}/edit`}>
-                                                                                        <Button
-                                                                                            variant="outline"
-                                                                                            size="sm"
-                                                                                            className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50"
-                                                                                        >
-                                                                                            <IconEdit className="h-4 w-4" />
-                                                                                        </Button>
-                                                                                    </Link>
-                                                                                    <Button
-                                                                                        variant="outline"
-                                                                                        size="sm"
-                                                                                        onClick={() => handleDelete(doc)}
-                                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
-                                                                                    >
-                                                                                        <IconTrash className="h-4 w-4" />
-                                                                                    </Button>
-                                                                                </>
-                                                                            )}
+                                                                           {doc.status === 'draft' && (
+    <>
+        <Link href={`/dokumen/${doc.id}`}>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50"
+            >
+                <IconEdit className="h-4 w-4" />
+            </Button>
+        </Link>
+
+        <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleDelete(doc)}
+            className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+        >
+            <IconTrash className="h-4 w-4" />
+        </Button>
+    </>
+)}
                                                                         </div>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -1218,165 +1232,240 @@ export default function UserDokumen() {
                     </div>
 
                     {/* Create Document Dialog */}
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
-                            <form onSubmit={(e) => e.preventDefault()}>
-                                <DialogHeader>
-                                    <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
-                                    <DialogDescription className="font-sans">
-                                        Isi form di bawah untuk membuat dokumen baru. Klik simpan setelah selesai.
-                                    </DialogDescription>
-                                </DialogHeader>
+<Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
+        <form onSubmit={(e) => e.preventDefault()}>
+            <DialogHeader>
+                <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
+                <DialogDescription className="font-sans">
+                    Isi form di bawah untuk membuat dokumen baru. Klik simpan setelah selesai.
+                </DialogDescription>
+            </DialogHeader>
 
-                                {/* ===== SWITCHER TAB ===== */}
-                                <div className="flex bg-slate-100 dark:bg-muted/50 p-1 rounded-lg border my-3">
-                                    <button
-                                        type="button"
-                                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                                            docTypeMode === 'manual'
-                                                ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
-                                                : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
-                                        }`}
-                                        onClick={() => {
-                                            setDocTypeMode('manual');
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                aplikasi_id: '',
-                                                transaksi_id: '',
-                                            }));
-                                        }}
-                                    >
-                                        Dokumen Manual
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                                            docTypeMode === 'transaksi'
-                                                ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
-                                                : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
-                                        }`}
-                                        onClick={() => setDocTypeMode('transaksi')}
-                                    >
-                                        Dokumen Transaksi
-                                    </button>
-                                </div>
+            {/* ===== SWITCHER TAB ===== */}
+            <div className="flex bg-slate-100 p-1 rounded-lg border my-3">
+                <button
+                    type="button"
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                        docTypeMode === 'manual'
+                            ? 'bg-white text-emerald-700 shadow-sm font-semibold'
+                            : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    onClick={() => {
+                        setDocTypeMode('manual');
+                        setFormData((prev) => ({
+                            ...prev,
+                            aplikasi_id: '',
+                            transaksi_id: '',
+                        }));
+                    }}
+                >
+                    Dokumen Manual
+                </button>
+                <button
+                    type="button"
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                        docTypeMode === 'transaksi'
+                            ? 'bg-white text-emerald-700 shadow-sm font-semibold'
+                            : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    onClick={() => setDocTypeMode('transaksi')}
+                >
+                    Dokumen Transaksi
+                </button>
+            </div>
 
-                                <div className="grid gap-4 py-2">
-                                    {/* ===== FORM KHUSUS DOKUMEN TRANSAKSI ===== */}
-                                    {docTypeMode === 'transaksi' && (
-                                        <div className="grid grid-cols-2 gap-4 p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="aplikasi_id" className="font-sans text-slate-700 dark:text-slate-300">
-                                                    Pilih Aplikasi <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                    onValueChange={(value) => {
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            aplikasi_id: value,
-                                                        }));
-                                                        handleAplikasiChange(value);
-                                                    }}
-                                                >
-                                                    <SelectTrigger id="aplikasi_id" className="font-sans bg-white dark:bg-background border-emerald-300 dark:border-emerald-700">
-                                                        <SelectValue placeholder="-- Pilih Aplikasi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {aplikasiList && aplikasiList.length > 0 ? (
-                                                            aplikasiList.map((app) => (
-                                                                <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
-                                                                    {app.name} {app.company ? `(${app.company.name})` : ''}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : (
-                                                            <SelectItem value="empty" disabled className="font-sans">
-                                                                Memuat data aplikasi...
-                                                            </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+            <div className="grid gap-4 py-2">
+                {/* ===== FORM KHUSUS DOKUMEN TRANSAKSI ===== */}
+{docTypeMode === 'transaksi' && (
+    <div className="grid grid-cols-2 gap-4 p-3 bg-emerald-50/60 border border-emerald-200 rounded-lg">
+        <div className="grid gap-2">
+            <Label htmlFor="aplikasi_id" className="font-sans text-slate-700">
+                Pilih Aplikasi <span className="text-red-500">*</span>
+            </Label>
+            <Select
+                // Menggunakan ID dari aplikasi yang dipilih
+                value={String(formData.aplikasi_id || selectedAplikasiId || '')}
+                onValueChange={(value) => {
+                    // Update formData (penting untuk submit ke database)
+                    setFormData((prev) => ({
+                        ...prev,
+                        aplikasi_id: value,
+                    }));
+                    // Panggil fungsi handle untuk mengisi dropdown Transaksi otomatis
+                    handleAplikasiChange(value);
+                }}
+            >
+                <SelectTrigger id="aplikasi_id" className="font-sans bg-white border-emerald-300">
+                    <SelectValue placeholder="-- Pilih Aplikasi --" />
+                </SelectTrigger>
+                <SelectContent>
+                    {/* Looping data aplikasi dari backend */}
+                    {aplikasiList && aplikasiList.length > 0 ? (
+                        aplikasiList.map((app) => (
+                            <SelectItem key={app.id} value={app.id.toString()}>
+                                {app.name} {app.company ? `(${app.company.name})` : ''}
+                            </SelectItem>
+                        ))
+                    ) : (
+                        <SelectItem value="empty" disabled>
+                            Memuat data aplikasi...
+                        </SelectItem>
+                    )}
+                </SelectContent>
+            </Select>
+        </div>
 
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="transaksi_id" className="font-sans text-slate-700 dark:text-slate-300">
-                                                    Pilih Transaksi Manajemen <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={transaksiTersedia || String(formData.transaksi_id || '')}
-                                                    onValueChange={(value) =>
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            transaksi_id: value,
-                                                        }))
-                                                    }
-                                                >
-                                                    <SelectTrigger id="transaksi_id" className="font-sans bg-white dark:bg-background border-emerald-300 dark:border-emerald-700">
-                                                        <SelectValue placeholder="-- Pilih Transaksi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {transaksiTersedia ? (
-                                                            <SelectItem value={transaksiTersedia} className="font-sans">
-                                                                {transaksiTersedia}
-                                                            </SelectItem>
-                                                        ) : (
-                                                            <SelectItem value="null" disabled className="font-sans">
-                                                                Pilih aplikasi terlebih dahulu
-                                                            </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-                                    )}
+        <div className="grid gap-2">
+            <Label htmlFor="transaksi_id" className="font-sans text-slate-700">
+                Pilih Transaksi Manajemen <span className="text-red-500">*</span>
+            </Label>
+            <Select
+                // Nilainya selalu mengikuti state transaksiTersedia
+                value={transaksiTersedia || String(formData.transaksi_id || '')}
+                onValueChange={(value) =>
+                    setFormData((prev) => ({
+                        ...prev,
+                        transaksi_id: value,
+                    }))
+                }
+            >
+                <SelectTrigger id="transaksi_id" className="font-sans bg-white border-emerald-300">
+                    <SelectValue placeholder="-- Pilih Transaksi --" />
+                </SelectTrigger>
+                <SelectContent>
+                    {/* Menampilkan transaksi sesuai aplikasi yang dipilih */}
+                    {transaksiTersedia ? (
+                        <SelectItem value={transaksiTersedia}>
+                            {transaksiTersedia}
+                        </SelectItem>
+                    ) : (
+                        <SelectItem value="null" disabled>
+                            Pilih aplikasi terlebih dahulu
+                        </SelectItem>
+                    )}
+                </SelectContent>
+            </Select>
+        </div>
+    </div>
+)}
 
-                                    {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="nomor_dokumen" className="font-sans">
-                                                Nomor Dokumen
-                                            </Label>
-                                            <Input
-                                                id="nomor_dokumen"
-                                                name="nomor_dokumen"
-                                                value={formData.nomor_dokumen}
-                                                onChange={handleInputChange}
-                                                className="font-mono"
-                                                placeholder="Auto-generated"
-                                                readOnly
-                                            />
-                                        </div>
+                {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="nomor_dokumen" className="font-sans">
+                            Nomor Dokumen
+                        </Label>
+                        <Input
+                            id="nomor_dokumen"
+                            name="nomor_dokumen"
+                            value={formData.nomor_dokumen}
+                            onChange={handleInputChange}
+                            className="font-mono"
+                            placeholder="Masukkan Nomor Dokumen"
+                        />
+                    </div>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="tgl_pengajuan" className="font-sans">
-                                                Tanggal Pengajuan
-                                            </Label>
-                                            <Input
-                                                id="tgl_pengajuan"
-                                                name="tgl_pengajuan"
-                                                type="date"
-                                                value={formData.tgl_pengajuan}
-                                                onChange={handleInputChange}
-                                                className="font-sans"
-                                            />
-                                        </div>
-                                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="tgl_pengajuan" className="font-sans">
+                            Tanggal Pengajuan
+                        </Label>
+                        <Input
+                            id="tgl_pengajuan"
+                            name="tgl_pengajuan"
+                            type="date"
+                            value={formData.tgl_pengajuan}
+                            onChange={handleInputChange}
+                            className="font-sans"
+                        />
+                    </div>
+                </div>
 
-                                    {/* Judul Dokumen */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="judul_dokumen" className="font-sans">
-                                            Judul Dokumen <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="judul_dokumen"
-                                            name="judul_dokumen"
-                                            value={formData.judul_dokumen}
-                                            onChange={handleInputChange}
-                                            className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-                                            placeholder="Jurnal Besar Keuangan"
-                                        />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
-                                    </div>
+                {/* Judul Dokumen */}
+                <div className="grid gap-2">
+                    <Label htmlFor="judul_dokumen" className="font-sans">
+                        Judul Dokumen <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                        id="judul_dokumen"
+                        name="judul_dokumen"
+                        value={formData.judul_dokumen}
+                        onChange={handleInputChange}
+                        className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
+                        placeholder="Jurnal Besar Keuangan"
+                    />
+                    {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
+                </div>
+
+                {/* Tipe Dokumen / Transaksi & Nominal HANYA UNTUK DOKUMEN MANUAL */}
+                {docTypeMode === 'manual' && (
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Tipe Dokumen */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="tipe_dokumen" className="font-sans">
+                                Tipe Dokumen / Transaksi <span className="text-red-500">*</span>
+                            </Label>
+
+                            <Select
+                                value={formData.tipe_dokumen || ''}
+                                onValueChange={(value) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        tipe_dokumen: value,
+                                        ...(value === 'memo_internal' ? { nominal_transaksi: '' } : {}),
+                                    }))
+                                }
+                            >
+                                <SelectTrigger className="font-sans">
+                                    <SelectValue placeholder="Pilih tipe dokumen" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    <SelectItem value="proposal_business">📊 Proposal Business</SelectItem>
+                                    <SelectItem value="pengadaan">📦 Pengadaan</SelectItem>
+                                    <SelectItem value="transaksi_operasional">💼 Transaksi Operasional</SelectItem>
+                                    <SelectItem value="memo_internal">📝 Memo Internal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Nominal */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="nominal_transaksi" className="font-sans">
+                                Nominal Transaksi (Rp)
+                            </Label>
+
+                            <Input
+                                id="nominal_transaksi"
+                                name="nominal_transaksi"
+                                type="number"
+                                min="0"
+                                value={formData.nominal_transaksi || ''}
+                                onChange={handleInputChange}
+                                placeholder={
+                                    formData.tipe_dokumen === 'memo_internal'
+                                        ? 'Tidak memerlukan nominal'
+                                        : 'Contoh: 4500000'
+                                }
+                                disabled={formData.tipe_dokumen === 'memo_internal'}
+                                className={`font-sans ${
+                                    formData.tipe_dokumen === 'memo_internal'
+                                        ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                                        : ''
+                                }`}
+                            />
+
+                            {/* Tampilkan info rute < 5 Juta hanya jika BUKAN Memo Internal */}
+                            {formData.tipe_dokumen !== 'memo_internal' &&
+                                Number(formData.nominal_transaksi || 0) > 0 &&
+                                Number(formData.nominal_transaksi) < 5000000 && (
+                                    <p className="text-xs text-amber-600">
+                                        💡 Nominal &lt; 5 Juta otomatis rute Manager level
+                                    </p>
+                                )}
+                        </div>
+                    </div>
+                )}
 
                                     {/* Deadline */}
                                     <div className="grid gap-2">
@@ -1688,27 +1777,25 @@ export default function UserDokumen() {
                                         {errors.deskripsi && <p className="text-sm text-red-500">{errors.deskripsi}</p>}
                                     </div>
 
-                                    {/* Upload File - HANYA UNTUK DOKUMEN MANUAL */}
-                                    {docTypeMode === 'manual' && (
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="file" className="font-sans">
-                                                Upload File <span className="text-red-500">*</span>
-                                            </Label>
-                                            <Input
-                                                id="file"
-                                                name="file"
-                                                type="file"
-                                                onChange={handleFileChange}
-                                                className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
-                                            />
-                                            {errors.file && <p className="text-sm text-red-500">{errors.file}</p>}
-                                            <p className="text-xs text-muted-foreground">
-                                                📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
-                                                (Max 10MB)
-                                            </p>
-                                            {errors.file && <p className="text-sm text-red-500">{errors.file[0]}</p>}
-                                        </div>
-                                    )}
+                                    {/* Upload File */}
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="file" className="font-sans">
+                                            Upload File <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="file"
+                                            name="file"
+                                            type="file"
+                                            onChange={handleFileChange}
+                                            className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
+                                        />
+                                        {errors.file && <p className="text-sm text-red-500">{errors.file}</p>}
+                                        <p className="text-xs text-muted-foreground">
+                                            📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
+                                            (Max 10MB)
+                                        </p>
+                                        {errors.file && <p className="text-sm text-red-500">{errors.file[0]}</p>}
+                                    </div>
                                 </div>
 
                                 <DialogFooter className="sm:justify-between">
@@ -1722,18 +1809,16 @@ export default function UserDokumen() {
                                         >
                                             Batal
                                         </Button>
-                                        {docTypeMode === 'manual' && (
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                onClick={openSignatureDialog}
-                                                disabled={isSubmitting || !formData.file}
-                                                className="font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
-                                            >
-                                                <IconEdit className="mr-2 h-4 w-4" />
-                                                Atur Posisi Tanda Tangan
-                                            </Button>
-                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={openSignatureDialog}
+                                            disabled={isSubmitting || !formData.file}
+                                            className="font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                        >
+                                            <IconEdit className="mr-2 h-4 w-4" />
+                                            Atur Posisi Tanda Tangan
+                                        </Button>
                                     </div>
                                     <div className="flex gap-2">
                                         <Button

@@ -5,6 +5,7 @@ import {
     FileTextIcon,
     FolderKanbanIcon,
     GlobeIcon,
+    LayersIcon,
     LayoutDashboardIcon,
     ShieldIcon,
     UserIcon,
@@ -59,6 +60,11 @@ const superAdminNavMain = [
         title: 'Aplikasi Management',
         url: '/super-admin/aplikasi-management',
         icon: GlobeIcon,
+    },
+    {
+        title: 'Transaksi Management',
+        url: '/super-admin/transaksi-management',
+        icon: LayersIcon,
     },
     {
         title: 'User Management',
