@@ -79,9 +79,9 @@ export default function VerifyShow({ isValid, approval }: Props) {
 
                     {/* Verification Status Banner */}
                     {isValid && approval ? (
-                        <Card className="border-emerald-600 bg-emerald-600 text-white">
+                        <Card className="border-primary bg-primary text-primary-foreground">
                             <CardContent className="flex items-start gap-4 p-5">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-primary">
                                     <IconCheck className="h-6 w-6" />
                                 </div>
 
