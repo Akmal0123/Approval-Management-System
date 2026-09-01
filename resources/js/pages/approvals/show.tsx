@@ -403,6 +403,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             user: a.user ? { name: a.user.name } : undefined,
             approver_email: a.user?.email || '',
             approval_status: a.approval_status,
+            signature_method: a.id === approval.id ? approveForm.data.signature_method : a.signature_method,
         }));
 
     // Group approvals logic - handles non-consecutive group members
@@ -623,15 +624,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <div className="flex shrink-0 justify-end gap-2">
                                                     {(approval.dokumen_version.tipe_file.toLowerCase() === 'pdf' ||
                                                         approval.dokumen_version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handlePDFViewerPreview(approval.dokumen_version)}
-                                                            title="Preview"
-                                                        >
-                                                            <IconEye className="h-5 w-5" />
-                                                        </Button>
-                                                    )}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handlePDFViewerPreview(approval.dokumen_version)}
+                                                                title="Preview"
+                                                            >
+                                                                <IconEye className="h-5 w-5" />
+                                                            </Button>
+                                                        )}
                                                     <Button variant="ghost" size="icon" onClick={handleDownload} title="Download">
                                                         <IconDownload className="h-5 w-5" />
                                                     </Button>
@@ -665,13 +666,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-4">
                                                                         <div
-                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
-                                                                                isLatest
+                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
                                                                                     ? 'border-blue-200 bg-blue-100 text-blue-700'
                                                                                     : rejectionLog
-                                                                                      ? 'border-red-200 bg-red-100 text-red-700'
-                                                                                      : 'bg-background text-muted-foreground'
-                                                                            }`}
+                                                                                        ? 'border-red-200 bg-red-100 text-red-700'
+                                                                                        : 'bg-background text-muted-foreground'
+                                                                                }`}
                                                                         >
                                                                             <IconFileText className="h-5 w-5" />
                                                                         </div>
@@ -707,15 +707,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     <div className="flex gap-2">
                                                                         {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                             version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePDFViewerPreview(version)}
-                                                                                title="Lihat"
-                                                                            >
-                                                                                <IconEye className="h-4 w-4" />
-                                                                            </Button>
-                                                                        )}
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePDFViewerPreview(version)}
+                                                                                    title="Lihat"
+                                                                                >
+                                                                                    <IconEye className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
@@ -770,15 +770,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                             )}
 
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
-                                                                    isCompleted
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
                                                                         ? 'border-green-600 text-green-600'
                                                                         : isRejected
-                                                                          ? 'border-red-600 text-red-600'
-                                                                          : isPending
-                                                                            ? 'border-yellow-500 text-yellow-500'
-                                                                            : 'border-muted text-muted-foreground'
-                                                                }`}
+                                                                            ? 'border-red-600 text-red-600'
+                                                                            : isPending
+                                                                                ? 'border-yellow-500 text-yellow-500'
+                                                                                : 'border-muted text-muted-foreground'
+                                                                    }`}
                                                             >
                                                                 {isCompleted ? (
                                                                     <CheckCircle2Icon className="h-4 w-4" />
@@ -858,8 +857,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
                                                         : anyRejected
-                                                          ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500';
+                                                            ? 'border-red-600 text-red-600'
+                                                            : 'border-yellow-500 text-yellow-500';
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
@@ -990,35 +989,33 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     </Card>
                                 ) : (
                                     <Card
-                                        className={`border shadow-sm ${
-                                            approval.approval_status === 'approved'
+                                        className={`border shadow-sm ${approval.approval_status === 'approved'
                                                 ? 'border-green-200 bg-green-50/50'
                                                 : approval.approval_status === 'rejected'
-                                                  ? 'border-red-200 bg-red-50/50'
-                                                  : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
-                                                    ? 'border-yellow-200 bg-yellow-50/50'
-                                                    : 'border-dashed bg-muted/30'
-                                        }`}
+                                                    ? 'border-red-200 bg-red-50/50'
+                                                    : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
+                                                        ? 'border-yellow-200 bg-yellow-50/50'
+                                                        : 'border-dashed bg-muted/30'
+                                            }`}
                                     >
                                         <CardHeader className="pb-3">
                                             <CardTitle
-                                                className={`flex items-center gap-2 text-base font-bold ${
-                                                    approval.approval_status === 'approved'
+                                                className={`flex items-center gap-2 text-base font-bold ${approval.approval_status === 'approved'
                                                         ? 'text-green-700'
                                                         : approval.approval_status === 'rejected'
-                                                          ? 'text-red-700'
-                                                          : approval.approval_status === 'waiting' ||
-                                                              (approval.approval_status === 'pending' && !canApprove)
-                                                            ? 'text-yellow-700'
-                                                            : 'text-muted-foreground'
-                                                }`}
+                                                            ? 'text-red-700'
+                                                            : approval.approval_status === 'waiting' ||
+                                                                (approval.approval_status === 'pending' && !canApprove)
+                                                                ? 'text-yellow-700'
+                                                                : 'text-muted-foreground'
+                                                    }`}
                                             >
                                                 {approval.approval_status === 'approved' ? (
                                                     <IconCheck className="h-5 w-5" />
                                                 ) : approval.approval_status === 'rejected' ? (
                                                     <IconX className="h-5 w-5" />
                                                 ) : approval.approval_status === 'waiting' ||
-                                                  (approval.approval_status === 'pending' && !canApprove) ? (
+                                                    (approval.approval_status === 'pending' && !canApprove) ? (
                                                     <IconClock className="h-5 w-5" />
                                                 ) : (
                                                     <IconAlertCircle className="h-5 w-5" />
@@ -1046,13 +1043,13 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 )}
                                                 {(approval.approval_status === 'waiting' ||
                                                     (approval.approval_status === 'pending' && !canApprove)) && (
-                                                    <>
-                                                        <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
-                                                        <p className="text-sm text-yellow-700">
-                                                            Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
-                                                        </p>
-                                                    </>
-                                                )}
+                                                        <>
+                                                            <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
+                                                            <p className="text-sm text-yellow-700">
+                                                                Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
+                                                            </p>
+                                                        </>
+                                                    )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1225,6 +1222,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         dokumenId={approval.dokumen.id}
                                         fileUrl={previewFileUrl}
                                         approvals={mappedApprovalsForPlacement}
+                                        defaultActiveApprovalId={approval.id}
                                         isEmbedded={true}
                                         readOnly={
                                             !(

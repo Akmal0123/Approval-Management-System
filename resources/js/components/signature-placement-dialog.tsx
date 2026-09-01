@@ -15,6 +15,7 @@ interface Approval {
     user?: { name: string };
     approver_email?: string;
     approval_status?: string;
+    signature_method?: string;
 }
 
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
     onSaved?: (positions: SignaturePosition[]) => void;
     isEmbedded?: boolean;
     readOnly?: boolean;
+    defaultActiveApprovalId?: number | string;
 }
 
 export interface SignaturePosition {
@@ -48,6 +50,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     onSaved,
     isEmbedded = false,
     readOnly = false,
+    defaultActiveApprovalId,
 }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -78,24 +81,68 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             } else {
                 initializePositions(initialPositions || []);
             }
-            if (approvals.length > 0 && !activeApprovalId) {
+            if (defaultActiveApprovalId) {
+                setActiveApprovalId(defaultActiveApprovalId);
+            } else if (approvals.length > 0 && !activeApprovalId) {
                 setActiveApprovalId(approvals[0].id);
             }
         }
     }, [open, isEmbedded, dokumenId]);
+
+    // Synchronize positions if approval signature_method changes dynamically
+    useEffect(() => {
+        setPositions((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            approvals.forEach((app) => {
+                if (next[app.id]) {
+                    const currentPos = next[app.id];
+                    const isQr = app.signature_method === 'qr';
+                    if (isQr && currentPos.width !== currentPos.height) {
+                        const qrSize = 25;
+                        next[app.id] = {
+                            ...currentPos,
+                            width: qrSize,
+                            height: qrSize,
+                        };
+                        changed = true;
+                    } else if (!isQr && currentPos.width === currentPos.height && currentPos.width === 25) {
+                        next[app.id] = {
+                            ...currentPos,
+                            width: 35,
+                            height: 13,
+                        };
+                        changed = true;
+                    }
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [approvals]);
 
     const initializePositions = (existingPositions: SignaturePosition[]) => {
         if (existingPositions && existingPositions.length > 0) {
             const newPositions: Record<string | number, SignaturePosition> = {};
             existingPositions.forEach((pos: any) => {
                 const key = pos.dokumen_approval_id || 'qr_code';
+                const matchedApp = approvals.find((a) => a.id === key);
+                const isQr = key === 'qr_code' || matchedApp?.signature_method === 'qr';
+
+                let width = pos.width;
+                let height = pos.height;
+                if (isQr && width !== height) {
+                    const qrSize = 25;
+                    width = qrSize;
+                    height = qrSize;
+                }
+
                 newPositions[key] = {
                     dokumen_approval_id: key,
                     page: pos.page,
                     x: pos.x,
                     y: pos.y,
-                    width: pos.width,
-                    height: pos.height,
+                    width: width,
+                    height: height,
                 };
             });
             setPositions(newPositions);
@@ -103,13 +150,14 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             // Initialize defaults
             const newPositions: Record<string | number, SignaturePosition> = {};
             approvals.forEach((app, idx) => {
+                const isQr = app.signature_method === 'qr';
                 newPositions[app.id] = {
                     dokumen_approval_id: app.id,
                     page: 1,
                     x: 20 + idx * 40, // Default mm
                     y: 220, // Default mm
-                    width: 35, // Default mm
-                    height: 13, // Default mm
+                    width: isQr ? 25 : 35, // Default mm
+                    height: isQr ? 25 : 13, // Default mm
                 };
             });
             setPositions(newPositions);
@@ -249,8 +297,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             let newWidth = initialSize.width + dx;
             let newHeight = initialSize.height + dy;
 
-            if (activeApprovalId === 'qr_code') {
-                const minQrSize = Math.max(25 * scale, 25);
+            const activeApp = approvals.find((a) => a.id === activeApprovalId);
+            const isQrActive = activeApprovalId === 'qr_code' || activeApp?.signature_method === 'qr';
+
+            if (isQrActive) {
+                const minQrSize = Math.max(20 * scale, 20);
                 const qrSize = Math.max(minQrSize, newWidth);
                 newWidth = qrSize;
                 newHeight = qrSize;
@@ -298,6 +349,73 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 const isActive = activeApprovalId === approval.id;
                 const isApproved = approval.approval_status === 'approved';
                 const isEditable = !readOnly && !isApproved;
+                const isQr = approval.signature_method === 'qr';
+
+                if (isQr) {
+                    let qrBoxClass = 'border-amber-500 bg-amber-100/50 z-0';
+                    if (isActive) {
+                        qrBoxClass = 'border-amber-600 bg-amber-500/20 z-10';
+                    } else if (isApproved) {
+                        qrBoxClass = 'border-green-500 bg-green-500/10 z-0';
+                    }
+
+                    return (
+                        <div
+                            key={approval.id}
+                            className={`absolute flex flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${qrBoxClass}`}
+                            style={{
+                                left: `${mmToPx(pos.x)}px`,
+                                top: `${mmToPx(pos.y)}px`,
+                                width: `${mmToPx(pos.width)}px`,
+                                height: `${mmToPx(pos.height)}px`,
+                                cursor: isEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                            }}
+                            onMouseDown={isEditable ? (e) => handleMouseDown(e, approval.id) : undefined}
+                        >
+                            <div className="pointer-events-none flex flex-col items-center justify-center gap-1 p-1 text-center text-amber-700">
+                                <div className="flex max-w-[90%] items-center gap-1 overflow-hidden rounded bg-white/90 px-1 py-0.5 text-[9px] font-semibold whitespace-nowrap shadow-xs sm:text-[10px]">
+                                    {isEditable && <GripHorizontal className="h-3 w-3 flex-shrink-0" />}
+                                    <span className="truncate">{approval.step_name || approval.user?.name || approval.approver_email}</span>
+                                </div>
+                                <div className="flex items-center justify-center rounded border border-amber-300 bg-white p-1 shadow-xs">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-4 w-4 text-amber-600"
+                                    >
+                                        <rect width="5" height="5" x="3" y="3" rx="1" />
+                                        <rect width="5" height="5" x="16" y="3" rx="1" />
+                                        <rect width="5" height="5" x="3" y="16" rx="1" />
+                                        <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+                                        <path d="M21 21v.01" />
+                                        <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+                                        <path d="M12 12v.01" />
+                                        <path d="M12 17v.01" />
+                                        <path d="M17 12v.01" />
+                                    </svg>
+                                </div>
+                                <span className="text-[8px] font-bold tracking-wider text-amber-800 uppercase sm:text-[9px]">
+                                    {isApproved ? 'QR Stamped' : 'QR Signature'}
+                                </span>
+                            </div>
+
+                            {/* Resize Handle */}
+                            {isActive && isEditable && (
+                                <div
+                                    className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize rounded-tl-sm rounded-br-sm bg-amber-600"
+                                    onMouseDown={(e) => handleResizeMouseDown(e, approval.id)}
+                                />
+                            )}
+                        </div>
+                    );
+                }
 
                 let boxClass = 'border-blue-400 bg-blue-100/50 z-0';
                 if (isActive) {
@@ -412,6 +530,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             const isActive = activeApprovalId === approval.id;
                             const isCurrentPage = pos?.page === currentPage;
                             const isApproved = approval.approval_status === 'approved';
+                            const isQr = approval.signature_method === 'qr';
 
                             return (
                                 <div
@@ -425,10 +544,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                     }}
                                 >
                                     <div className="flex items-center justify-between gap-2 font-medium">
-                                        <span className="truncate">{approval.step_name || 'Approval'}</span>
+                                        <div className="flex items-center gap-1.5 truncate">
+                                            {isQr && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />}
+                                            <span className="truncate">{approval.step_name || 'Approval'}</span>
+                                        </div>
                                         {isApproved ? (
                                             <span className="shrink-0 rounded-full border border-green-200 bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 uppercase">
                                                 Stamped
+                                            </span>
+                                        ) : isQr ? (
+                                            <span className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 uppercase">
+                                                QR Code
                                             </span>
                                         ) : (
                                             <span className="shrink-0 rounded-full border border-blue-200 bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 uppercase">
@@ -439,27 +565,34 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                     <div className="truncate text-xs text-muted-foreground">{approval.user?.name || approval.approver_email}</div>
 
                                     {pos && (
-                                        <div className="mt-2 flex items-center justify-between">
-                                            <span
-                                                className={`rounded-full px-2 py-0.5 text-xs ${isCurrentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
-                                            >
-                                                Hal. {pos.page}
-                                            </span>
-
-                                            {!isCurrentPage && !readOnly && !isApproved && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 px-2 text-xs"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        moveToPage(approval.id, currentPage);
-                                                    }}
-                                                >
-                                                    Pindah ke sini
-                                                </Button>
+                                        <>
+                                            {isQr && (
+                                                <div className="mt-1 text-xs text-muted-foreground">
+                                                    Ukuran: {Math.round(pos.width)} x {Math.round(pos.height)} mm
+                                                </div>
                                             )}
-                                        </div>
+                                            <div className="mt-2 flex items-center justify-between">
+                                                <span
+                                                    className={`rounded-full px-2 py-0.5 text-xs ${isCurrentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
+                                                >
+                                                    Hal. {pos.page}
+                                                </span>
+
+                                                {!isCurrentPage && !readOnly && !isApproved && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 px-2 text-xs"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            moveToPage(approval.id, currentPage);
+                                                        }}
+                                                    >
+                                                        Pindah ke sini
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </>
                                     )}
                                 </div>
                             );
@@ -486,7 +619,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                             qr_code: {
                                                 dokumen_approval_id: 'qr_code',
                                                 page: currentPage,
-                                                x: 20,
+                                                x: 175,
                                                 y: 20,
                                                 width: 25,
                                                 height: 25,
