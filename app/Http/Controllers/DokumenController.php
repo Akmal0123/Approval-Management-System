@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use App\Services\ContextService;
 use App\Services\PdfSignatureService;
@@ -243,7 +244,7 @@ class DokumenController extends Controller
         'tgl_pengajuan' => 'required|date',
         'tgl_deadline' => 'required|date|after_or_equal:tgl_pengajuan',
         'deskripsi' => 'nullable|string',
-        'tipe_dokumen' => 'required|string|max:100',
+        'tipe_dokumen' => 'nullable|string',
         'nominal_transaksi' => 'nullable|numeric|min:0',
         'aplikasi_id'    => 'nullable|required_if:category,transaksi|exists:aplikasis,id',
         'tipe_transaksi' => 'nullable|required_if:category,transaksi|in:cuti,lembur,Purchase Request,Purchase Order',
@@ -1387,5 +1388,32 @@ $dokumen->update([
         'Content-Type' => 'application/pdf',
         'Content-Disposition' => 'inline; filename="' . ($latestVersion->nama_file ?? 'dokumen.pdf') . '"'
     ]);
+}
+
+public function lookupExternal(Request $request)
+{
+    $request->validate([
+        'aplikasi_id' => 'required',
+        'transaksi_id' => 'required',
+        'keyword' => 'required'
+    ]);
+
+    // TODO: Nanti ganti bagian ini dengan HTTP Client (Http::get) ke API aslinya
+    // Dummy response sementara untuk testing (Ketik keyword: PO-991)
+    if ($request->keyword === 'PO-991') {
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'nomor_dokumen' => 'PO-2026-991',
+                'judul' => 'Pembelian Kertas A4 - Kebutuhan Kantor',
+                'nominal' => '4500000',
+                'tanggal' => '2026-09-01',
+                // Ini string Base64 dari file PDF kosong berisikan teks "Test PDF from API"
+                'pdf_base64' => 'JVBERi0xLjQKJcOkw7zDtsO5CjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL1Jlc291cmNlcyA0IDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XSAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNDQgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxMDAgNzAwIFRkCihUZXN0IFBERiBmcm9tIEFQSSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAKMDAwMDAwMDExNyAwMDAwMCBuIAowMDAwMDAwMjI0IDAwMDAwIG4gCjAwMDAwMDAwMjY4IDAwMDAwIG4gCjAwMDAwMDAzNjIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA3IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo0NTEKJSVFT0YK'
+            ]
+        ]);
+    }
+
+    return response()->json(['status' => 'error', 'message' => 'Data transaksi tidak ditemukan'], 404);
 }
 }

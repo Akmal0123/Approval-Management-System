@@ -71,6 +71,9 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::get('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'index']);
     Route::post('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'store']);
 
+    // Lookup Dokumen
+    Route::post('/dokumen/lookup-external', [DokumenController::class, 'lookupExternal']);
+    
     // Masterflow API Routes (via UserDashboardController)
     Route::get('/masterflows', [UserDashboardController::class, 'getMasterflowsApi']);
     Route::get('/masterflows/{masterflow}/steps', [\App\Http\Controllers\Admin\MasterflowController::class, 'getSteps']);
