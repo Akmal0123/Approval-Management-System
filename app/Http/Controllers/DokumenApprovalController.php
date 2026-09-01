@@ -146,6 +146,13 @@ class DokumenApprovalController extends Controller
             'signature_method' => 'nullable|string|in:original,qr',
             'signature' => 'required_if:signature_method,original|nullable|string',
             'signature_position' => 'nullable|string|in:bottom_right,bottom_left,bottom_center',
+            'signature_positions' => 'nullable|array',
+            'signature_positions.*.dokumen_approval_id' => 'nullable',
+            'signature_positions.*.page' => 'required_with:signature_positions|integer|min:1',
+            'signature_positions.*.x' => 'required_with:signature_positions|numeric',
+            'signature_positions.*.y' => 'required_with:signature_positions|numeric',
+            'signature_positions.*.width' => 'required_with:signature_positions|numeric',
+            'signature_positions.*.height' => 'required_with:signature_positions|numeric',
         ]);
 
         // Handle signature storage (moved outside transaction)
@@ -184,6 +191,29 @@ class DokumenApprovalController extends Controller
 
         DB::beginTransaction();
         try {
+            // Update signature positions if provided by approver
+            if (!empty($validated['signature_positions'])) {
+                \App\Models\DocumentSignaturePosition::where('dokumen_id', $approval->dokumen_id)->delete();
+                $positionsData = array_map(function ($pos) use ($approval) {
+                    $approvalId = $pos['dokumen_approval_id'] ?? null;
+                    if ($approvalId === 'qr_code' || empty($approvalId)) {
+                        $approvalId = null;
+                    }
+                    return [
+                        'dokumen_id' => $approval->dokumen_id,
+                        'dokumen_approval_id' => $approvalId,
+                        'page' => $pos['page'],
+                        'x' => $pos['x'],
+                        'y' => $pos['y'],
+                        'width' => $pos['width'],
+                        'height' => $pos['height'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }, $validated['signature_positions']);
+                \App\Models\DocumentSignaturePosition::insert($positionsData);
+            }
+
             // Approve this approval with signature
             $approval->update([
                 'approval_status' => 'approved',

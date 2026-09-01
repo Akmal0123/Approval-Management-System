@@ -2,8 +2,9 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
 import SignaturePad from '@/components/signature-pad';
-import SignaturePlacementDialog from '@/components/signature-placement-dialog';
+import SignaturePlacementDialog, { SignaturePosition } from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
+import api from '@/lib/api';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -124,6 +125,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
     const [signatureData, setSignatureData] = useState<string | null>(null);
+    const [signaturePositions, setSignaturePositions] = useState<SignaturePosition[]>([]);
 
     const approveForm = useForm({
         comment: '',
@@ -177,10 +179,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 console.log('🔌 Leaving channel:', channelName);
                 window.Echo.leave(channelName);
             };
-        } else {
-            if (!window.Echo) {
-                console.error('❌ window.Echo not initialized! Check app.tsx');
-            }
+        } else if (!window.Echo) {
+            console.error('❌ window.Echo not initialized! Check app.tsx');
         }
     }, [approval?.dokumen?.id]);
 
@@ -203,7 +203,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     };
 
     // Handle approve
-    const handleApprove = () => {
+    const handleApprove = async () => {
         if (approveForm.data.signature_method === 'original' && !signatureData) {
             showToast.error('❌ Silakan tanda tangani dokumen terlebih dahulu');
             return;
@@ -212,10 +212,26 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         console.log('Submitting approval:', {
             method: approveForm.data.signature_method,
             hasComment: !!approveForm.data.comment,
+            positionsCount: signaturePositions.length,
         });
 
-        // Set signature to form data
-        approveForm.data.signature = approveForm.data.signature_method === 'original' ? signatureData! : 'qr';
+        // Pre-save positions to API if available
+        if (signaturePositions && signaturePositions.length > 0 && approval.dokumen?.id) {
+            try {
+                await api.post(`/dokumen/${approval.dokumen.id}/signature-positions`, {
+                    positions: signaturePositions,
+                });
+            } catch (err) {
+                console.warn('Pre-saving positions via API encountered an issue:', err);
+            }
+        }
+
+        // Set signature and signature_positions to form data
+        approveForm.transform((data) => ({
+            ...data,
+            signature: approveForm.data.signature_method === 'original' ? signatureData! : 'qr',
+            signature_positions: signaturePositions.length > 0 ? signaturePositions : undefined,
+        }));
 
         approveForm.post(route('approvals.approve', approval.id), {
             preserveScroll: true,
@@ -1223,6 +1239,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         fileUrl={previewFileUrl}
                                         approvals={mappedApprovalsForPlacement}
                                         defaultActiveApprovalId={approval.id}
+                                        onPositionsChange={setSignaturePositions}
+                                        onSaved={(positions) => setSignaturePositions(positions)}
                                         isEmbedded={true}
                                         readOnly={
                                             !(

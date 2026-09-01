@@ -26,6 +26,7 @@ interface Props {
     approvals: Approval[];
     initialPositions?: SignaturePosition[];
     onSaved?: (positions: SignaturePosition[]) => void;
+    onPositionsChange?: (positions: SignaturePosition[]) => void;
     isEmbedded?: boolean;
     readOnly?: boolean;
     defaultActiveApprovalId?: number | string;
@@ -48,6 +49,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     approvals,
     initialPositions,
     onSaved,
+    onPositionsChange,
     isEmbedded = false,
     readOnly = false,
     defaultActiveApprovalId,
@@ -123,9 +125,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         });
     }, [approvals]);
 
+    // Notify parent on positions changes
+    useEffect(() => {
+        if (Object.keys(positions).length > 0 && onPositionsChange) {
+            onPositionsChange(Object.values(positions));
+        }
+    }, [positions]);
+
     const initializePositions = (existingPositions: SignaturePosition[]) => {
+        const newPositions: Record<string | number, SignaturePosition> = {};
+
         if (existingPositions && existingPositions.length > 0) {
-            const newPositions: Record<string | number, SignaturePosition> = {};
             existingPositions.forEach((pos: any) => {
                 const key = pos.dokumen_approval_id || 'qr_code';
                 const matchedApp = approvals.find((a) => a.id === key);
@@ -148,11 +158,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     height: height,
                 };
             });
-            setPositions(newPositions);
-        } else {
-            // Initialize defaults
-            const newPositions: Record<string | number, SignaturePosition> = {};
-            approvals.forEach((app, idx) => {
+        }
+
+        // Ensure all approvals have a position even if missing from existingPositions
+        approvals.forEach((app, idx) => {
+            if (!newPositions[app.id]) {
                 const isQr = app.signature_method === 'qr';
                 newPositions[app.id] = {
                     dokumen_approval_id: app.id,
@@ -162,9 +172,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     width: isQr ? 25 : 35, // Default mm
                     height: isQr ? 25 : 13, // Default mm
                 };
-            });
-            setPositions(newPositions);
-        }
+            }
+        });
+
+        setPositions(newPositions);
     };
 
     const fetchExistingPositions = async () => {
@@ -193,7 +204,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             }
 
             if (onSaved) onSaved(positionsArray as any);
-            if (onOpenChange) onOpenChange(false);
+            if (!isEmbedded && onOpenChange) onOpenChange(false);
         } catch (error) {
             console.error('Failed to save positions:', error);
             showToast.error('Gagal menyimpan posisi tanda tangan.');

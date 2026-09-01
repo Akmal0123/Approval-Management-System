@@ -1121,7 +1121,10 @@ class DokumenController extends Controller
         // Get approved signatures for this document
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
+            ->where(function ($query) {
+                $query->whereNotNull('signature_path')
+                    ->orWhere('signature_method', 'qr');
+            })
             ->with(['user', 'masterflowStep'])
             ->orderBy('created_at')
             ->get();
@@ -1181,7 +1184,10 @@ class DokumenController extends Controller
         // Get approved signatures for this document
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
+            ->where(function ($query) {
+                $query->whereNotNull('signature_path')
+                    ->orWhere('signature_method', 'qr');
+            })
             ->with(['user', 'masterflowStep'])
             ->orderBy('created_at')
             ->get();
