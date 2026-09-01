@@ -15,30 +15,34 @@ class AplikasiController extends Controller
      * Display a listing of the resource.
      */
    public function index()
-{
-    $user = \Illuminate\Support\Facades\Auth::user();
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
 
-    // Trik Cerdas: Deteksi apakah API ini dipanggil dari URL halaman Super Admin
-    $isSuperAdminPanel = str_contains(request()->headers->get('referer'), '/super-admin');
+        // Trik Cerdas: Deteksi apakah API ini dipanggil dari URL halaman Super Admin
+        $isSuperAdminPanel = str_contains(request()->headers->get('referer'), '/super-admin');
 
-    // Jika dipanggil dari panel Super Admin, ATAU rolenya memang cocok, tampilkan SEMUA
-    if ($isSuperAdminPanel || $user->role === 'super-admin' || $user->role === 'Super Administrator') {
-        $aplikasi = \App\Models\Aplikasi::with('company')->get();
-    } else {
-        // Jika dipanggil oleh user biasa (misal di form Buat Dokumen), aktifkan filter
-        $allowedAplikasiIds = \App\Models\UsersAuth::where('user_id', $user->id)
-            ->pluck('aplikasi_id');
+        // Jika dipanggil dari panel Super Admin, ATAU rolenya memang cocok, tampilkan SEMUA
+        if ($isSuperAdminPanel || $user->role === 'super-admin' || $user->role === 'Super Administrator') {
+            $aplikasi = \App\Models\Aplikasi::with('company')->get();
+        } else {
+            // Jika dipanggil oleh user biasa (misal di form Buat Dokumen), aktifkan filter
+            $allowedAplikasiIds = \App\Models\UsersAuth::where('user_id', $user->id)
+                ->pluck('aplikasi_id');
 
-        $aplikasi = \App\Models\Aplikasi::with('company')
-            ->whereIn('id', $allowedAplikasiIds)
-            ->get();
+            $aplikasi = \App\Models\Aplikasi::with('company')
+                ->whereIn('id', $allowedAplikasiIds)
+                ->get();
+        }
+
+        // AMBIL DATA SELURUH PERUSAHAAN UNTUK DROPDOWN DI MODAL TAMBAH/EDIT
+        $companies = \App\Models\Company::select('id', 'name')->orderBy('name')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'aplikasis' => $aplikasi,
+            'companies' => $companies // <-- TAMBAHKAN BARIS INI
+        ]);
     }
-
-    return response()->json([
-        'status' => 'success',
-        'aplikasis' => $aplikasi
-    ]);
-}
 
     /**
      * Store a newly created resource in storage.

@@ -165,6 +165,9 @@ export default function UserDokumen() {
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
     const [transaksiList, setTransaksiList] = useState<any[]>([]);
     const [isLoadingTransaksi, setIsLoadingTransaksi] = useState(false);
+    const [lookupKeyword, setLookupKeyword] = useState('');
+    const [isLookingUp, setIsLookingUp] = useState(false);
+    const [lookupError, setLookupError] = useState('');
     const [transaksiTersedia, setTransaksiTersedia] = useState<string>('');
     const { auth } = usePage().props as any;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
@@ -255,6 +258,65 @@ const handleAplikasiChange = async (aplikasiId: string) => {
         console.error("Gagal mengambil data transaksi:", error);
     } finally {
         setIsLoadingTransaksi(false);
+    }
+};
+
+// Fungsi pembantu: Mengubah teks Base64 menjadi objek File PDF beneran
+const base64ToFile = (base64String: string, filename: string) => {
+    const byteCharacters = atob(base64String);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    return new File([blob], filename, { type: 'application/pdf' });
+};
+
+// Fungsi pengeksekusi pencarian ke backend
+const handleLookup = async () => {
+    if (!formData.aplikasi_id || !formData.transaksi_id || !lookupKeyword) return;
+    
+    setIsLookingUp(true);
+    setLookupError('');
+
+    try {
+        const response = await api.post('/dokumen/lookup-external', {
+            aplikasi_id: formData.aplikasi_id,
+            transaksi_id: formData.transaksi_id,
+            keyword: lookupKeyword
+        });
+
+        const data = response.data.data;
+
+        // Convert base64 ke file asli
+        const pdfFile = base64ToFile(data.pdf_base64, `${data.nomor_dokumen}.pdf`);
+
+        // BUAT URL PREVIEW AGAR DIALOG TANDA TANGAN BISA MEMBACANYA
+        const filePreviewUrl = URL.createObjectURL(pdfFile);
+        
+        // JIKA KAMU PUNYA STATE setLocalFileUrl, PASTIKAN INI DIPANGGIL:
+        if (typeof setLocalFileUrl === 'function') {
+            setLocalFileUrl(filePreviewUrl);
+        }
+
+       // Timpa state form secara otomatis
+        setFormData(prev => ({
+            ...prev,
+            nomor_dokumen: data.nomor_dokumen,
+            judul_dokumen: data.judul,
+            nominal_transaksi: data.nominal, // <-- UBAH nominal MENJADI nominal_transaksi
+            tgl_pengajuan: data.tanggal,
+            file: pdfFile, 
+        }));
+
+        // (Opsional) Notifikasi sukses dihapus agar tidak mengganggu, 
+        // karena sudah ada teks hijau di UI.
+
+    } catch (error: any) {
+        setLookupError(error.response?.data?.message || 'Gagal mengambil data dari aplikasi luar.');
+    } finally {
+        setIsLookingUp(false);
     }
 };
 
@@ -851,14 +913,20 @@ setAvailableApprovers(approversData);
 
             // Create FormData for file upload
             const submitData = new FormData();
-            submitData.append('nomor_dokumen', formData.nomor_dokumen);
-            submitData.append('judul_dokumen', formData.judul_dokumen);
-            submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
-            submitData.append('tgl_deadline', formData.tgl_deadline);
-            submitData.append('deskripsi', formData.deskripsi);
-            submitData.append('tipe_dokumen', formData.tipe_dokumen);
-            submitData.append('nominal_transaksi', formData.nominal_transaksi);
+            submitData.append('nomor_dokumen', formData.nomor_dokumen || '');
+            submitData.append('judul_dokumen', formData.judul_dokumen || '');
+            submitData.append('tgl_pengajuan', formData.tgl_pengajuan || '');
+            submitData.append('tgl_deadline', formData.tgl_deadline || '');
+            submitData.append('deskripsi', formData.deskripsi || '');
+            submitData.append('tipe_dokumen', formData.tipe_dokumen || 'transaksi_operasional');
+            submitData.append('nominal_transaksi', formData.nominal_transaksi || '0');
             submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
+
+            // Tambahkan parameter khusus jika dalam mode Dokumen Transaksi
+if (docTypeMode === 'transaksi') {
+    submitData.append('aplikasi_id', String(formData.aplikasi_id || ''));
+    submitData.append('transaksi_id', String(formData.transaksi_id || ''));
+}
 
             if (formData.file) {
                 submitData.append('file', formData.file);
@@ -928,7 +996,7 @@ setAvailableApprovers(approversData);
                     setErrors(errors);
 
                     // Show specific error message if available
-                    const errorMessage = errors.error || 'Failed to create document. Please check the form.';
+                    const errorMessage = errors.error || Object.values(errors).flat().join(', ') || 'Failed to create document. Please check the form.';
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -1255,37 +1323,44 @@ setAvailableApprovers(approversData);
             </DialogHeader>
 
             {/* ===== SWITCHER TAB ===== */}
-            <div className="flex bg-slate-100 p-1 rounded-lg border my-3">
-                <button
-                    type="button"
-                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                        docTypeMode === 'manual'
-                            ? 'bg-white text-emerald-700 shadow-sm font-semibold'
-                            : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                    onClick={() => {
-                        setDocTypeMode('manual');
-                        setFormData((prev) => ({
-                            ...prev,
-                            aplikasi_id: '',
-                            transaksi_id: '',
-                        }));
-                    }}
-                >
-                    Dokumen Manual
-                </button>
-                <button
-                    type="button"
-                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                        docTypeMode === 'transaksi'
-                            ? 'bg-white text-emerald-700 shadow-sm font-semibold'
-                            : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                    onClick={() => setDocTypeMode('transaksi')}
-                >
-                    Dokumen Transaksi
-                </button>
-            </div>
+<div className="flex bg-slate-100 p-1 rounded-lg border my-3">
+    <button
+        type="button"
+        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+            docTypeMode === 'manual'
+                ? 'bg-white text-emerald-700 shadow-sm font-semibold'
+                : 'text-slate-500 hover:text-slate-800'
+        }`}
+        onClick={() => {
+            setDocTypeMode('manual');
+            setFormData((prev) => ({
+                ...prev,
+                aplikasi_id: '',
+                transaksi_id: '',
+            }));
+        }}
+    >
+        Dokumen Manual
+    </button>
+    <button
+        type="button"
+        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+            docTypeMode === 'transaksi'
+                ? 'bg-white text-emerald-700 shadow-sm font-semibold'
+                : 'text-slate-500 hover:text-slate-800'
+        }`}
+        onClick={() => {
+        setDocTypeMode('transaksi');
+        setFormData((prev) => ({
+            ...prev,
+            masterflow_id: '',
+            tipe_dokumen: '' // Dikosongkan karena sudah nullable di database/backend
+        }));
+    }}
+    >
+        Dokumen Transaksi
+    </button>
+</div>
 
             <div className="grid gap-4 py-2">
                 {/* ===== FORM KHUSUS DOKUMEN TRANSAKSI ===== */}
@@ -1364,6 +1439,42 @@ setAvailableApprovers(approversData);
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* ===== FITUR PENCARIAN EXTERNAL API ===== */}
+                        {formData.aplikasi_id && formData.transaksi_id && (
+                            <div className="col-span-2 mt-2 p-4 bg-emerald-100/50 border border-emerald-200 rounded-lg">
+                                <Label className="font-sans mb-2 block font-semibold text-slate-700">
+                                    Tarik Data & File PDF dari Aplikasi
+                                </Label>
+                                <div className="flex gap-2 items-start">
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <Input
+                                            type="text"
+                                            placeholder="Masukkan Nomor Transaksi (Contoh: PO-991)..."
+                                            className="w-full font-sans bg-white border-emerald-300 focus-visible:ring-emerald-500"
+                                            value={lookupKeyword}
+                                            onChange={(e) => setLookupKeyword(e.target.value)}
+                                            disabled={isLookingUp}
+                                        />
+                                        {lookupError && <p className="text-sm text-red-500">{lookupError}</p>}
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        onClick={handleLookup}
+                                        disabled={!lookupKeyword || isLookingUp}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-sans"
+                                    >
+                                        {isLookingUp ? 'Mencari...' : '🔍 Cari Data'}
+                                    </Button>
+                                </div>
+                                {/* Indikator file sukses */}
+                                {formData.file && (
+                                    <p className="text-sm font-medium text-emerald-700 mt-3 flex items-center bg-emerald-50 p-2 rounded border border-emerald-200">
+                                        ✅ File PDF otomatis dilampirkan.
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1500,33 +1611,33 @@ setAvailableApprovers(approversData);
                 </div>
 
                 {/* Masterflow Selection */}
-<div className="grid gap-2">
-    <Label htmlFor="masterflow_id" className="font-sans">
-        Masterflow <span className="text-red-500">*</span>
-    </Label>
-    <Select
-        value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
-        onValueChange={handleMasterflowChange}
-    >
-        <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
-            <SelectValue placeholder="Pilih masterflow" />
-        </SelectTrigger>
-        <SelectContent>
-            {/* Masterflow database HANYA MUNCUL jika BUKAN mode manual (berarti tampil di Dokumen Transaksi) */}
-            {docTypeMode !== 'manual' && masterflows.map((mf) => (
-                <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
-                    {mf.name}
-                </SelectItem>
-            ))}
+                <div className="grid gap-2">
+                    <Label htmlFor="masterflow_id" className="font-sans">
+                        Masterflow <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                        value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
+                        onValueChange={handleMasterflowChange}
+                    >
+                        <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
+                            <SelectValue placeholder="Pilih masterflow" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {/* Masterflow database HANYA MUNCUL jika BUKAN mode manual (berarti tampil di Dokumen Transaksi) */}
+                            {docTypeMode !== 'manual' && masterflows.map((mf) => (
+                                <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
+                                    {mf.name}
+                                </SelectItem>
+                            ))}
 
-            {/* Custom Approval MUNCUL DI KEDUA MODE */}
-            <SelectItem value="custom" className="font-sans font-medium text-primary">
-                ✨ Custom Approval
-            </SelectItem>
-        </SelectContent>
-    </Select>
-    {errors.masterflow_id && <p className="text-sm text-red-500">{errors.masterflow_id}</p>}
-</div>
+                            {/* Custom Approval MUNCUL DI KEDUA MODE */}
+                            <SelectItem value="custom" className="font-sans font-medium text-primary">
+                                ✨ Custom Approval
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.masterflow_id && <p className="text-sm text-red-500">{errors.masterflow_id}</p>}
+                </div>
 
                 {/* Approval Flow */}
                 {formData.masterflow_id !== '' &&
@@ -1791,7 +1902,7 @@ setAvailableApprovers(approversData);
                         type="button"
                         variant="secondary"
                         onClick={openSignatureDialog}
-                        disabled={isSubmitting || (docTypeMode === 'manual' && !formData.file)}
+                        disabled={isSubmitting || !formData.file}
                         className="font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
                     >
                         <IconEdit className="mr-2 h-4 w-4" />
@@ -1842,43 +1953,43 @@ setAvailableApprovers(approversData);
     </DialogContent>
 </Dialog>
 
-                    {/* Signature Placement Dialog (Offline Mode) */}
-                    {localFileUrl && (
-                        <SignaturePlacementDialog
-                            open={signatureDialogOpen}
-                            onOpenChange={setSignatureDialogOpen}
-                            fileUrl={localFileUrl}
-                            approvals={pendingApprovalsForDialog}
-                            initialPositions={formData.signature_positions || []}
-                            onSaved={(positions) => {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    signature_positions: positions
-                                }));
-                            }}
-                        />
-                    )}
+{/* Signature Placement Dialog (Offline Mode) */}
+{localFileUrl && (
+    <SignaturePlacementDialog
+        open={signatureDialogOpen}
+        onOpenChange={setSignatureDialogOpen}
+        fileUrl={localFileUrl}
+        approvals={pendingApprovalsForDialog}
+        initialPositions={formData.signature_positions || []}
+        onSaved={(positions) => {
+            setFormData(prev => ({
+                ...prev,
+                signature_positions: positions
+            }));
+        }}
+    />
+)}
 
-                    {/* Delete Confirmation Dialog */}
-                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle className="font-serif">Hapus Dokumen</DialogTitle>
-                                <DialogDescription className="font-sans">
-                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak
-                                    dapat dibatalkan.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
-                                    Batal
-                                </Button>
-                                <Button type="button" variant="destructive" onClick={confirmDelete} className="font-sans">
-                                    Hapus
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+{/* Delete Confirmation Dialog */}
+<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+    <DialogContent>
+        <DialogHeader>
+            <DialogTitle className="font-serif">Hapus Dokumen</DialogTitle>
+            <DialogDescription className="font-sans">
+                Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak
+                dapat dibatalkan.
+            </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
+                Batal
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDelete} className="font-sans">
+                Hapus
+            </Button>
+        </DialogFooter>
+    </DialogContent>
+</Dialog>
                 </SidebarInset>
             </SidebarProvider>
         </>

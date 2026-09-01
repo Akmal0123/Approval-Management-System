@@ -325,7 +325,7 @@ export default function SuperAdminAplikasiManagement() {
                                                 <SelectValue placeholder="Pilih perusahaan" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {companies.map((company) => (
+                                                {companies?.map((company) => (
                                                     <SelectItem key={company.id} value={company.id.toString()} className="font-sans">
                                                         {company.name}
                                                     </SelectItem>
