@@ -57,6 +57,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [scale, setScale] = useState<number>(1.0);
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Positions map: approval_id -> SignaturePosition
     const [positions, setPositions] = useState<Record<string | number, SignaturePosition>>({});
@@ -76,6 +77,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     useEffect(() => {
         if (open || isEmbedded) {
+            setLoading(true);
+            setError(null);
             if (dokumenId) {
                 fetchExistingPositions();
             } else {
@@ -87,7 +90,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 setActiveApprovalId(approvals[0].id);
             }
         }
-    }, [open, isEmbedded, dokumenId]);
+    }, [open, isEmbedded, dokumenId, fileUrl]);
 
     // Synchronize positions if approval signature_method changes dynamically
     useEffect(() => {
@@ -201,6 +204,13 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
+        setLoading(false);
+        setError(null);
+    }
+
+    function onDocumentLoadError(error: Error) {
+        console.error('Error loading PDF:', error);
+        setError('Gagal memuat dokumen PDF. Silakan coba lagi.');
         setLoading(false);
     }
 
@@ -738,29 +748,53 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
             {/* PDF Viewer Area */}
             <div
-                className="relative flex flex-1 justify-center overflow-auto bg-gray-100 p-8"
+                className="relative flex flex-1 items-center justify-center overflow-auto bg-gray-100 p-8"
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
             >
-                <div ref={containerRef} className="relative bg-white shadow-xl select-none">
-                    <Document
-                        file={fileUrl}
-                        onLoadSuccess={onDocumentLoadSuccess}
-                        loading={<div className="flex items-center justify-center p-10">Memuat dokumen PDF...</div>}
-                    >
-                        <Page
-                            pageNumber={currentPage}
-                            scale={scale}
-                            renderTextLayer={false}
-                            renderAnnotationLayer={false}
-                            className="shadow-sm"
-                            onLoadSuccess={onPageLoadSuccess}
-                        />
-                    </Document>
+                {loading && (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <div className="text-center">
+                            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                            <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
+                        </div>
+                    </div>
+                )}
 
-                    {renderSignatureBoxes()}
-                </div>
+                {error && (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <div className="text-center">
+                            <p className="text-sm text-red-600">{error}</p>
+                            <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>
+                                Coba Lagi
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {!error && (
+                    <div ref={containerRef} className={`relative bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}>
+                        <Document
+                            file={fileUrl}
+                            onLoadSuccess={onDocumentLoadSuccess}
+                            onLoadError={onDocumentLoadError}
+                            loading=""
+                            error=""
+                        >
+                            <Page
+                                pageNumber={currentPage}
+                                scale={scale}
+                                renderTextLayer={false}
+                                renderAnnotationLayer={false}
+                                className="shadow-sm"
+                                onLoadSuccess={onPageLoadSuccess}
+                            />
+                        </Document>
+
+                        {renderSignatureBoxes()}
+                    </div>
+                )}
             </div>
         </div>
     );
