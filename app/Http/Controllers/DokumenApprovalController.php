@@ -230,17 +230,17 @@ class DokumenApprovalController extends Controller
             // Embed signature into the physical file immediately
             $pdfSignatureService = app(\App\Services\PdfSignatureService::class);
             $version = $approval->dokumen->latestVersion;
-            
+
             if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && ($signaturePath || $signatureMethod === 'qr')) {
                 // Generate a PDF stream with just the current signature overlaid on the existing file
                 $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                     $version->file_url,
                     collect([$approval->fresh()])
                 );
-                
+
                 // Overwrite original file
                 \Illuminate\Support\Facades\Storage::disk('local')->put($version->file_url, $pdfContent);
-                
+
                 Log::info('Approval completed - signature embedded into physical file', [
                     'signature_path' => $signaturePath,
                     'signature_method' => $signatureMethod,
@@ -315,8 +315,8 @@ class DokumenApprovalController extends Controller
                 })
                 ->update([
                     'approval_status' => 'cancelled',
-                    'tgl_approve'     => now(),
-                    'comment'         => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
+                    'tgl_approve' => now(),
+                    'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
                 ]);
 
             // Update document status to rejected
@@ -477,7 +477,7 @@ class DokumenApprovalController extends Controller
                 'user_id' => Auth::id(),
                 'created_at_custom' => now(),
             ]);
-            
+
             // Dispatch email notification to the new delegate
             \App\Jobs\SendApprovalNotification::dispatch($approval->fresh());
 
@@ -693,7 +693,7 @@ class DokumenApprovalController extends Controller
 
             foreach ($approvalsToActivate as $approval) {
                 $approval->update(['approval_status' => 'pending']);
-                
+
                 // Broadcast new approval event
                 broadcast(new \App\Events\ApprovalCreated($approval))->toOthers();
 
@@ -844,7 +844,7 @@ class DokumenApprovalController extends Controller
 
         // Use PdfSignatureService to stream/render on-demand
         $pdfSignatureService = app(\App\Services\PdfSignatureService::class);
-        
+
         // Get all approvals for this document that are approved
         $approvals = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
@@ -852,7 +852,7 @@ class DokumenApprovalController extends Controller
 
         try {
             $pdfStream = $pdfSignatureService->generateSignedPdfStream($version->file_url, $approvals, $dokumen);
-            
+
             return response($pdfStream, 200, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',

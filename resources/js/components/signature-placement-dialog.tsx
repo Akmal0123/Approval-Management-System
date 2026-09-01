@@ -748,13 +748,13 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
             {/* PDF Viewer Area */}
             <div
-                className="relative flex flex-1 items-center justify-center overflow-auto bg-gray-100 p-8"
+                className="relative flex flex-1 justify-center overflow-auto bg-gray-100 p-8"
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
             >
                 {loading && (
-                    <div className="flex h-full w-full items-center justify-center">
+                    <div className="flex h-full min-h-[300px] w-full items-center justify-center">
                         <div className="text-center">
                             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                             <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
@@ -763,7 +763,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 )}
 
                 {error && (
-                    <div className="flex h-full w-full items-center justify-center">
+                    <div className="flex h-full min-h-[300px] w-full items-center justify-center">
                         <div className="text-center">
                             <p className="text-sm text-red-600">{error}</p>
                             <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>
@@ -774,7 +774,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 )}
 
                 {!error && (
-                    <div ref={containerRef} className={`relative bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}>
+                    <div ref={containerRef} className={`relative shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}>
                         <Document
                             file={fileUrl}
                             onLoadSuccess={onDocumentLoadSuccess}

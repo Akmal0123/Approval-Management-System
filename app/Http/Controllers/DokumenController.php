@@ -1236,7 +1236,7 @@ class DokumenController extends Controller
         }
 
         $userId = \Illuminate\Support\Facades\Auth::id();
-        
+
         // Is creator?
         if ($dokumen->user_id === $userId) {
             return true;
@@ -1247,7 +1247,7 @@ class DokumenController extends Controller
         if ($isApprover) {
             return true;
         }
-        
+
         // Or Admin in the same context
         $context = $this->contextService->getContext();
         if ($context && $context->role && strtolower($context->role->role_name) === 'admin') {

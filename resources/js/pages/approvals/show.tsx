@@ -667,10 +667,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     <div className="flex items-center gap-4">
                                                                         <div
                                                                             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
-                                                                                    ? 'border-blue-200 bg-blue-100 text-blue-700'
-                                                                                    : rejectionLog
-                                                                                        ? 'border-red-200 bg-red-100 text-red-700'
-                                                                                        : 'bg-background text-muted-foreground'
+                                                                                ? 'border-blue-200 bg-blue-100 text-blue-700'
+                                                                                : rejectionLog
+                                                                                    ? 'border-red-200 bg-red-100 text-red-700'
+                                                                                    : 'bg-background text-muted-foreground'
                                                                                 }`}
                                                                         >
                                                                             <IconFileText className="h-5 w-5" />
@@ -771,12 +771,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                                                             <div
                                                                 className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
-                                                                        ? 'border-green-600 text-green-600'
-                                                                        : isRejected
-                                                                            ? 'border-red-600 text-red-600'
-                                                                            : isPending
-                                                                                ? 'border-yellow-500 text-yellow-500'
-                                                                                : 'border-muted text-muted-foreground'
+                                                                    ? 'border-green-600 text-green-600'
+                                                                    : isRejected
+                                                                        ? 'border-red-600 text-red-600'
+                                                                        : isPending
+                                                                            ? 'border-yellow-500 text-yellow-500'
+                                                                            : 'border-muted text-muted-foreground'
                                                                     }`}
                                                             >
                                                                 {isCompleted ? (
@@ -990,24 +990,24 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                 ) : (
                                     <Card
                                         className={`border shadow-sm ${approval.approval_status === 'approved'
-                                                ? 'border-green-200 bg-green-50/50'
-                                                : approval.approval_status === 'rejected'
-                                                    ? 'border-red-200 bg-red-50/50'
-                                                    : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
-                                                        ? 'border-yellow-200 bg-yellow-50/50'
-                                                        : 'border-dashed bg-muted/30'
+                                            ? 'border-green-200 bg-green-50/50'
+                                            : approval.approval_status === 'rejected'
+                                                ? 'border-red-200 bg-red-50/50'
+                                                : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
+                                                    ? 'border-yellow-200 bg-yellow-50/50'
+                                                    : 'border-dashed bg-muted/30'
                                             }`}
                                     >
                                         <CardHeader className="pb-3">
                                             <CardTitle
                                                 className={`flex items-center gap-2 text-base font-bold ${approval.approval_status === 'approved'
-                                                        ? 'text-green-700'
-                                                        : approval.approval_status === 'rejected'
-                                                            ? 'text-red-700'
-                                                            : approval.approval_status === 'waiting' ||
-                                                                (approval.approval_status === 'pending' && !canApprove)
-                                                                ? 'text-yellow-700'
-                                                                : 'text-muted-foreground'
+                                                    ? 'text-green-700'
+                                                    : approval.approval_status === 'rejected'
+                                                        ? 'text-red-700'
+                                                        : approval.approval_status === 'waiting' ||
+                                                            (approval.approval_status === 'pending' && !canApprove)
+                                                            ? 'text-yellow-700'
+                                                            : 'text-muted-foreground'
                                                     }`}
                                             >
                                                 {approval.approval_status === 'approved' ? (
