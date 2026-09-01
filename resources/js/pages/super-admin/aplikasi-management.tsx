@@ -27,6 +27,7 @@ interface Aplikasi {
     name: string;
     company_id: number;
     company: Company;
+    base_url?: string;
     created_at: string;
     updated_at: string;
 }
@@ -43,6 +44,7 @@ export default function SuperAdminAplikasiManagement() {
     const [formData, setFormData] = useState({
         name: '',
         company_id: '',
+        base_url: '',
     });
 
     // Fetch aplikasis and companies from API
@@ -128,13 +130,14 @@ export default function SuperAdminAplikasiManagement() {
     };
 
     const handleEdit = (aplikasi: Aplikasi) => {
-        setEditingAplikasi(aplikasi);
-        setFormData({
-            name: aplikasi.name,
-            company_id: aplikasi.company_id.toString(),
-        });
-        setIsCreateModalOpen(true);
-    };
+    setEditingAplikasi(aplikasi);
+    setFormData({
+        name: aplikasi.name,
+        company_id: aplikasi.company_id.toString(),
+        base_url: aplikasi.base_url || '', // <-- Tambahkan baris ini
+    });
+    setIsCreateModalOpen(true);
+};
 
     const handleDelete = async (aplikasiId: number, aplikasiName: string) => {
         showToast.confirmDelete(
@@ -154,14 +157,14 @@ export default function SuperAdminAplikasiManagement() {
 
     const handleCreate = () => {
         setEditingAplikasi(null);
-        setFormData({ name: '', company_id: '' });
+        setFormData({ name: '', company_id: '', base_url: '' });
         setIsCreateModalOpen(true);
     };
 
     const closeModal = () => {
         setIsCreateModalOpen(false);
         setEditingAplikasi(null);
-        setFormData({ name: '', company_id: '' });
+        setFormData({ name: '', company_id: '', base_url: '' });
     };
 
     if (loading) {
@@ -312,6 +315,7 @@ export default function SuperAdminAplikasiManagement() {
                                             required
                                         />
                                     </div>
+
                                     <div className="space-y-2">
                                         <Label htmlFor="company_id" className="font-sans">
                                             Perusahaan <span className="text-red-500">*</span>
@@ -333,6 +337,25 @@ export default function SuperAdminAplikasiManagement() {
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {/* ===== INPUT BASE URL MASTER DITAMBAHKAN DI SINI ===== */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="base_url" className="font-sans">
+                                            Base URL Master API
+                                        </Label>
+                                        <Input
+                                            id="base_url"
+                                            value={formData.base_url || ''}
+                                            onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
+                                            placeholder="Contoh: https://api.tisera.com/v1"
+                                            className="font-sans"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Alamat dasar endpoint API aplikasi luar untuk keperluan tarik data otomatis.
+                                        </p>
+                                    </div>
+                                    {/* =================================================== */}
+
                                     <div className="flex justify-end gap-2 pt-4">
                                         <Button type="button" variant="outline" onClick={closeModal} disabled={submitting} className="font-sans">
                                             Batal
