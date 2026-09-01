@@ -329,19 +329,19 @@ export default function UserManagement() {
             user_auths:
                 user.user_auths && user.user_auths.length > 0
                     ? user.user_auths.map((auth) => ({
-                          role_id: auth.role_id,
-                          company_id: auth.company_id,
-                          jabatan_id: auth.jabatan_id,
-                          aplikasi_id: auth.aplikasi_id,
-                      }))
+                        role_id: auth.role_id,
+                        company_id: auth.company_id,
+                        jabatan_id: auth.jabatan_id,
+                        aplikasi_id: auth.aplikasi_id,
+                    }))
                     : [
-                          {
-                              role_id: '',
-                              company_id: '',
-                              jabatan_id: '',
-                              aplikasi_id: '',
-                          },
-                      ],
+                        {
+                            role_id: '',
+                            company_id: '',
+                            jabatan_id: '',
+                            aplikasi_id: '',
+                        },
+                    ],
         });
         setErrors({});
         setIsDialogOpen(true);
@@ -542,15 +542,14 @@ export default function UserManagement() {
                                                                                     {/* Badge Role - Highlight Utama */}
                                                                                     <div>
                                                                                         <span
-                                                                                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                                                                                auth.role?.role_name === 'Super Admin'
-                                                                                                    ? 'bg-red-100 text-red-800'
-                                                                                                    : auth.role?.role_name === 'Admin'
-                                                                                                      ? 'bg-blue-100 text-blue-800'
-                                                                                                      : auth.role?.role_name === 'User'
+                                                                                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
+                                                                                                ? 'bg-red-100 text-red-800'
+                                                                                                : auth.role?.role_name === 'Admin'
+                                                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                                                    : auth.role?.role_name === 'User'
                                                                                                         ? 'bg-green-100 text-green-800'
                                                                                                         : 'bg-gray-100 text-gray-800'
-                                                                                            }`}
+                                                                                                }`}
                                                                                         >
                                                                                             {auth.role?.role_name || 'No Role'}
                                                                                         </span>
@@ -694,11 +693,10 @@ export default function UserManagement() {
                                                                 variant={currentPage === pageNum ? 'default' : 'outline'}
                                                                 size="sm"
                                                                 onClick={() => setCurrentPage(pageNum)}
-                                                                className={`h-8 w-8 p-0 ${
-                                                                    currentPage === pageNum
-                                                                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                                                        : ''
-                                                                }`}
+                                                                className={`h-8 w-8 p-0 ${currentPage === pageNum
+                                                                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                                                    : ''
+                                                                    }`}
                                                             >
                                                                 {pageNum}
                                                             </Button>
@@ -996,7 +994,7 @@ export default function UserManagement() {
                                 >
                                     Batal
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting} className="bg-red-600 font-sans hover:bg-red-700">
+                                <Button type="submit" disabled={isSubmitting} className="font-sans hover:bg-red-700">
                                     {isSubmitting ? 'Menyimpan...' : editingUser ? 'Perbarui' : 'Simpan'}
                                 </Button>
                             </DialogFooter>

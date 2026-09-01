@@ -300,7 +300,7 @@ export default function SuperAdminRoleManagement() {
                                                         >
                                                             Batal
                                                         </Button>
-                                                        <Button type="submit" disabled={submitting} className="bg-red-600 font-sans hover:bg-red-700">
+                                                        <Button type="submit" disabled={submitting} className="font-sans">
                                                             {submitting ? 'Menyimpan...' : editingRole ? 'Perbarui' : 'Simpan'}
                                                         </Button>
                                                     </div>
