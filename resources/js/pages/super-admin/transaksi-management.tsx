@@ -37,6 +37,8 @@ interface Transaksi {
     is_active: boolean;
     created_at: string;
     aplikasi?: Aplikasi;
+    lookup_path_api?: string;
+    get_pdf_path_api?: string;
 }
 
 export default function TransaksiManagement() {
@@ -58,6 +60,8 @@ export default function TransaksiManagement() {
         departemen: '',
         deskripsi: '',
         is_active: true,
+        lookup_path_api: '',
+        get_pdf_path_api: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -104,6 +108,8 @@ export default function TransaksiManagement() {
             departemen: '',
             deskripsi: '',
             is_active: true,
+            lookup_path_api: '',
+            get_pdf_path_api: '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -118,6 +124,8 @@ export default function TransaksiManagement() {
             departemen: transaksi.departemen || '',
             deskripsi: transaksi.deskripsi || '',
             is_active: transaksi.is_active,
+            lookup_path_api: transaksi.lookup_path_api || '',
+            get_pdf_path_api: transaksi.get_pdf_path_api || '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -461,6 +469,31 @@ export default function TransaksiManagement() {
                                         rows={3}
                                     />
                                 </div>
+
+                                {/* ===== TAMBAHAN LOOKUP & GET PDF PATH DI SINI ===== */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lookup_path_api">Lookup Path API (Opsional)</Label>
+                                        <Input
+                                            id="lookup_path_api"
+                                            name="lookup_path_api"
+                                            placeholder="Contoh: /po/search"
+                                            value={formData.lookup_path_api || ''}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, lookup_path_api: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="get_pdf_path_api">Get PDF Path API (Opsional)</Label>
+                                        <Input
+                                            id="get_pdf_path_api"
+                                            name="get_pdf_path_api"
+                                            placeholder="Contoh: /po/download"
+                                            value={formData.get_pdf_path_api || ''}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, get_pdf_path_api: e.target.value }))}
+                                        />
+                                    </div>
+                                </div>
+                                {/* =================================================== */}
 
                                 <div className="flex items-center gap-2 pt-2">
                                     <input

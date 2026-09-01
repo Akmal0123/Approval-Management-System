@@ -172,13 +172,18 @@ class DokumenController extends Controller
             }
             $doc->detailed_status = $doc->getDetailedStatus();
         });
+        
         $aplikasis = Aplikasi::with('company')
-    ->orderBy('name')
-    ->get();
+            ->orderBy('name')
+            ->get();
+
+        // Ambil data tipe dokumen dari database
+        $tipeDokumens = \App\Models\TipeDokumen::all();
 
         return response()->json([
             'data' => $dokumen,
             'aplikasis' => $aplikasis,
+            'tipeDokumens' => $tipeDokumens, // <-- Ditambahkan di sini
         ]);
     }
 
@@ -186,37 +191,40 @@ class DokumenController extends Controller
      * Show the form for creating a new resource.
      */
    public function create()
-    {
-        // 1. Filter masterflows by current company context
-        $query = Masterflow::where('is_active', true);
+{
+    // 1. Filter masterflows by current company context
+    $query = Masterflow::where('is_active', true);
 
-        if (!$this->contextService->isSuperAdmin()) {
-            $companyId = $this->contextService->getCurrentCompanyId();
-            if ($companyId) {
-                $query->where('company_id', $companyId);
-            }
+    if (!$this->contextService->isSuperAdmin()) {
+        $companyId = $this->contextService->getCurrentCompanyId();
+        if ($companyId) {
+            $query->where('company_id', $companyId);
         }
-
-        $masterflows = $query->get();
-
-        // 2. TAHAP 1: Filter Aplikasi berdasarkan otorisasi (User Management)
-       $userId = \Illuminate\Support\Facades\Auth::id();
-
-        if ($this->contextService->isSuperAdmin()) {
-            // Jika Super Admin, tampilkan semua aplikasi
-            $aplikasiList = \App\Models\Aplikasi::all(); 
-        } else {
-            // Jika user biasa, hanya tampilkan aplikasi yang ada di userAuths miliknya
-            $aplikasiList = \App\Models\Aplikasi::whereHas('userAuths', function ($q) use ($userId) {
-                $q->where('user_id', $userId);
-            })->get();
-        }
-
-        return Inertia::render('Dokumen/Create', [
-            'masterflows' => $masterflows,
-            'aplikasiList' => $aplikasiList, // Kirim data aplikasi ke frontend (React)
-        ]);
     }
+
+    $masterflows = $query->get();
+
+    // 2. TAHAP 1: Filter Aplikasi berdasarkan otorisasi (User Management)
+    $userId = \Illuminate\Support\Facades\Auth::id();
+
+    if ($this->contextService->isSuperAdmin()) {
+        $aplikasiList = \App\Models\Aplikasi::all(); 
+    } else {
+        $aplikasiList = \App\Models\Aplikasi::whereHas('userAuths', function ($q) use ($userId) {
+            $q->where('user_id', $userId);
+        })->get();
+    }
+
+    // ===== TAMBAHKAN INI =====
+    $tipeDokumens = \App\Models\TipeDokumen::all();
+    // =========================
+
+    return Inertia::render('Dokumen/Create', [
+        'masterflows' => $masterflows,
+        'aplikasiList' => $aplikasiList,
+        'tipeDokumens' => $tipeDokumens, // <-- Kirim ke frontend
+    ]);
+}
     /**
      * Store a newly created resource in storage.
      */

@@ -164,6 +164,7 @@ export default function UserDokumen() {
     const [aplikasiList, setAplikasiList] = useState<any[]>([]);
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
     const [transaksiList, setTransaksiList] = useState<any[]>([]);
+    const [tipeDokumens, setTipeDokumens] = useState<any[]>([])
     const [isLoadingTransaksi, setIsLoadingTransaksi] = useState(false);
     const [lookupKeyword, setLookupKeyword] = useState('');
     const [isLookingUp, setIsLookingUp] = useState(false);
@@ -218,6 +219,13 @@ export default function UserDokumen() {
                 })),
             );
             setDokumen(newDokumen);
+            
+            // ===== TAMBAHKAN BARIS INI UNTUK MENYIMPAN TIPE DOKUMEN =====
+            if (response.data.tipeDokumens) {
+                setTipeDokumens(response.data.tipeDokumens);
+            }
+            // ==========================================================
+
             console.log('✅ State updated with new dokumen data');
         } catch (error) {
             console.error('Error fetching dokumen:', error);
@@ -1525,7 +1533,7 @@ if (docTypeMode === 'transaksi') {
                     {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                 </div>
 
-                {/* Tipe Dokumen / Transaksi & Nominal HANYA UNTUK DOKUMEN MANUAL */}
+               {/* Tipe Dokumen / Transaksi & Nominal HANYA UNTUK DOKUMEN MANUAL */}
                 {docTypeMode === 'manual' && (
                     <div className="grid grid-cols-2 gap-4">
                         {/* Tipe Dokumen */}
@@ -1540,7 +1548,8 @@ if (docTypeMode === 'transaksi') {
                                     setFormData((prev) => ({
                                         ...prev,
                                         tipe_dokumen: value,
-                                        ...(value === 'memo_internal' ? { nominal_transaksi: '' } : {}),
+                                        // Jika tipe dokumen mengandung kata "Memo", kosongkan nominal
+                                        ...(value.toLowerCase().includes('memo') ? { nominal_transaksi: '' } : {}),
                                     }))
                                 }
                             >
@@ -1549,10 +1558,11 @@ if (docTypeMode === 'transaksi') {
                                 </SelectTrigger>
 
                                 <SelectContent>
-                                    <SelectItem value="proposal_business">📊 Proposal Business</SelectItem>
-                                    <SelectItem value="pengadaan">📦 Pengadaan</SelectItem>
-                                    <SelectItem value="transaksi_operasional">💼 Transaksi Operasional</SelectItem>
-                                    <SelectItem value="memo_internal">📝 Memo Internal</SelectItem>
+                                    {tipeDokumens && tipeDokumens.map((tipe: any) => (
+                                        <SelectItem key={tipe.id} value={tipe.nama_tipe}>
+                                            📄 {tipe.nama_tipe}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -1571,19 +1581,19 @@ if (docTypeMode === 'transaksi') {
                                 value={formData.nominal_transaksi || ''}
                                 onChange={handleInputChange}
                                 placeholder={
-                                    formData.tipe_dokumen === 'memo_internal'
+                                    formData.tipe_dokumen?.toLowerCase().includes('memo')
                                         ? 'Tidak memerlukan nominal'
                                         : 'Contoh: 4500000'
                                 }
-                                disabled={formData.tipe_dokumen === 'memo_internal'}
+                                disabled={formData.tipe_dokumen?.toLowerCase().includes('memo')}
                                 className={`font-sans ${
-                                    formData.tipe_dokumen === 'memo_internal'
+                                    formData.tipe_dokumen?.toLowerCase().includes('memo')
                                         ? 'bg-gray-100 cursor-not-allowed opacity-60'
                                         : ''
                                 }`}
                             />
 
-                            {formData.tipe_dokumen !== 'memo_internal' &&
+                            {!formData.tipe_dokumen?.toLowerCase().includes('memo') &&
                                 Number(formData.nominal_transaksi || 0) > 0 &&
                                 Number(formData.nominal_transaksi) < 5000000 && (
                                     <p className="text-xs text-amber-600">
