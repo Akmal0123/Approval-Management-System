@@ -37,4 +37,9 @@ class Aplikasi extends Model
     {
         return $this->belongsTo(Company::class);
     }
+
+    public function masterTransaksis()
+    {
+    return $this->hasMany(MasterTransaksi::class, 'aplikasi_id');
+    }
 }

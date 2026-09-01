@@ -38,6 +38,10 @@ interface TimelineEntry {
 
 interface RevisionHistoryProps {
     dokumenId: number;
+    dokumenCreator?: {
+        name: string;
+        created_at: string;
+    };
     className?: string;
 }
 

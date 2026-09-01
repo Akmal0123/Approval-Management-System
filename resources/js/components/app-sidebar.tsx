@@ -6,6 +6,7 @@ import {
     FolderKanbanIcon,
     GlobeIcon,
     LayoutDashboardIcon,
+    ReceiptTextIcon,
     ShieldIcon,
     UserIcon,
     UsersIcon,
@@ -60,6 +61,13 @@ const superAdminNavMain = [
         url: '/super-admin/aplikasi-management',
         icon: GlobeIcon,
     },
+
+    {
+        title: 'Transaksi Management',
+        url: '/super-admin/transaksi-management',
+        icon: ReceiptTextIcon,
+    },
+    
     {
         title: 'User Management',
         url: '/super-admin/user-management',

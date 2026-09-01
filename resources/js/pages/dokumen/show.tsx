@@ -17,7 +17,7 @@ import { showToast } from '@/lib/toast';
 import RevisionHistory from '@/components/revision-history';
 import { Head, router, usePage } from '@inertiajs/react';
 import { IconDownload, IconEdit, IconEye, IconFileText, IconPrinter, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
-import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon } from 'lucide-react';
+import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon, UserIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -143,12 +143,75 @@ interface FormData {
     custom_approvers: CustomApprover[];
 }
 
+// Helper untuk format tanggal
+const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '-';
+        return date.toLocaleDateString('id-ID', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    } catch {
+        return '-';
+    }
+};
+
+// Helper untuk menghitung SLA
+const getSlaBadge = (approval: DokumenApproval, docDeadline?: string) => {
+    const deadlineStr = approval.tgl_deadline || docDeadline;
+    if (!deadlineStr) return null;
+
+    const deadline = new Date(deadlineStr).getTime();
+
+    // Jika sudah diapprove
+    if (approval.approval_status === 'approved' && approval.tgl_approve) {
+        const approvedAt = new Date(approval.tgl_approve).getTime();
+        if (approvedAt <= deadline) {
+            return (
+                <Badge variant="outline" className="border-green-500 bg-green-50 text-[10px] text-green-700">
+                    SLA: Tepat Waktu
+                </Badge>
+            );
+        } else {
+            const overdueDays = Math.ceil((approvedAt - deadline) / (1000 * 60 * 60 * 24));
+            return (
+                <Badge variant="destructive" className="text-[10px]">
+                    SLA: Terlambat ({overdueDays}h)
+                </Badge>
+            );
+        }
+    }
+
+    // Jika masih pending
+    if (approval.approval_status === 'pending') {
+        const now = new Date().getTime();
+        if (now > deadline) {
+            const overdueDays = Math.ceil((now - deadline) / (1000 * 60 * 60 * 24));
+            return (
+                <Badge variant="destructive" className="animate-pulse text-[10px]">
+                    SLA: Overdue ({overdueDays}h)
+                </Badge>
+            );
+        } else {
+            const remainingDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+            return (
+                <Badge variant="outline" className="border-amber-400 bg-amber-50 text-[10px] text-amber-700">
+                    SLA: Sisa {remainingDays} hari
+                </Badge>
+            );
+        }
+    }
+
+    return null;
+};
+
 export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Dokumen }) {
-    // Call usePage at top level (before any conditional returns)
     const pageProps = usePage().props as any;
     const { auth } = pageProps;
 
-    // Add null check and provide default
     if (!initialDokumen || !initialDokumen.id) {
         return (
             <>
@@ -201,35 +264,20 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
 
-    // Debug log
-    useEffect(() => {
-        console.log('Dokumen data:', dokumen);
-        console.log('Initial dokumen:', initialDokumen);
-        console.log('Dokumen ID:', dokumen?.id);
-        console.log('All props:', pageProps);
-    }, []);
-
-    // Fetch latest dokumen data
     const fetchDokumen = async () => {
         try {
             const response = await api.get(`/dokumen/${dokumen.id}`);
-            console.log('Fetched dokumen:', response.data);
-
-            // Check if response has dokumen data
             if (response.data && response.data.id) {
                 setDokumen(response.data);
                 return response.data;
-            } else {
-                console.warn('Invalid dokumen data received:', response.data);
-                return null;
             }
+            return null;
         } catch (error) {
             console.error('Error fetching dokumen:', error);
             return null;
         }
     };
 
-    // Fetch masterflows
     const fetchMasterflows = async () => {
         try {
             const response = await api.get('/masterflows');
@@ -242,33 +290,21 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     useEffect(() => {
         fetchMasterflows();
 
-        // Real-time updates dengan Laravel Reverb (via Echo)
         if (typeof window !== 'undefined' && window.Echo && dokumen.id) {
-            console.log('📡 Setting up real-time listener for dokumen:', dokumen.id);
-
             const channelName = `dokumen.${dokumen.id}`;
-
             window.Echo.channel(channelName).listen('dokumen.updated', (event: any) => {
-                console.log('📡 Real-time update received:', event);
-
-                // Update dokumen state dengan data terbaru
                 if (event.dokumen && event.dokumen.id === dokumen.id) {
                     setDokumen(event.dokumen);
-
-                    // Tampilkan notifikasi toast
                     showToast.success('📡 Dokumen telah diupdate secara real-time!');
                 }
             });
 
-            // Cleanup saat component unmount
             return () => {
-                console.log('🔌 Leaving channel:', channelName);
                 window.Echo.leave(channelName);
             };
         }
     }, [dokumen.id]);
 
-    // Calculate approval progress
     const getApprovalProgress = () => {
         if (!dokumen.approvals || dokumen.approvals.length === 0) {
             return { percentage: 0, approved: 0, total: 0, pending: 0, rejected: 0 };
@@ -286,49 +322,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const progress = getApprovalProgress();
     const isCustomApproval = !dokumen.masterflow_id;
 
-    // Get status badge
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
-            draft: {
-                label: 'Draft',
-                icon: FileTextIcon,
-                className: 'bg-gray-100 text-gray-800 border-gray-300',
-            },
-            pending: {
-                label: 'Pending',
-                icon: ClockIcon,
-                className: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-            },
-            submitted: {
-                label: 'Submitted',
-                icon: CheckCircle2Icon,
-                className: 'bg-blue-100 text-blue-800 border-blue-300',
-            },
-            under_review: {
-                label: 'Under Review',
-                icon: AlertCircleIcon,
-                className: 'bg-orange-100 text-orange-800 border-orange-300',
-            },
-            approved: {
-                label: 'Approved',
-                icon: CheckCircle2Icon,
-                className: 'bg-green-100 text-green-800 border-green-300',
-            },
-            rejected: {
-                label: 'Rejected',
-                icon: XCircleIcon,
-                className: 'bg-red-100 text-red-800 border-red-300',
-            },
-            revision_requested: {
-                label: 'Perlu Revisi',
-                icon: AlertCircleIcon,
-                className: 'bg-orange-100 text-orange-800 border-orange-300',
-            },
-            needs_revision: {
-                label: 'Perlu Revisi',
-                icon: AlertCircleIcon,
-                className: 'bg-orange-100 text-orange-800 border-orange-300',
-            },
+            draft: { label: 'Draft', icon: FileTextIcon, className: 'bg-gray-100 text-gray-800 border-gray-300' },
+            pending: { label: 'Pending', icon: ClockIcon, className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+            submitted: { label: 'Submitted', icon: CheckCircle2Icon, className: 'bg-blue-100 text-blue-800 border-blue-300' },
+            under_review: { label: 'Under Review', icon: AlertCircleIcon, className: 'bg-orange-100 text-orange-800 border-orange-300' },
+            approved: { label: 'Approved', icon: CheckCircle2Icon, className: 'bg-green-100 text-green-800 border-green-300' },
+            rejected: { label: 'Rejected', icon: XCircleIcon, className: 'bg-red-100 text-red-800 border-red-300' },
+            revision_requested: { label: 'Perlu Revisi', icon: AlertCircleIcon, className: 'bg-orange-100 text-orange-800 border-orange-300' },
+            needs_revision: { label: 'Perlu Revisi', icon: AlertCircleIcon, className: 'bg-orange-100 text-orange-800 border-orange-300' },
         };
 
         const config = statusConfig[status] || statusConfig.draft;
@@ -342,7 +345,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         );
     };
 
-    // Get approval status badge
     const getApprovalStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; className: string }> = {
             pending: { label: 'Menunggu', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
@@ -360,7 +362,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         );
     };
 
-    // Format file size
     const formatFileSize = (bytes: number) => {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -369,32 +370,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
     };
 
-    // Format date
-    const formatDate = (dateString: string | null | undefined) => {
-        if (!dateString) return '-';
-
-        try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return '-';
-
-            return date.toLocaleDateString('id-ID', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-            });
-        } catch (error) {
-            return '-';
-        }
-    };
-
-    // Handle edit
     const handleEdit = () => {
         if (dokumen.status !== 'draft' && dokumen.status !== 'rejected') {
             showToast.error('❌ Hanya dokumen dengan status Draft atau Rejected yang dapat diedit.');
             return;
         }
 
-        // Populate form with current dokumen data
         setFormData({
             nomor_dokumen: dokumen.nomor_dokumen,
             id_dokumen: dokumen.id_dokumen,
@@ -408,12 +389,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             custom_approvers: [],
         });
 
-        // Load masterflow if exists
         if (dokumen.masterflow_id && dokumen.masterflow) {
             setSelectedMasterflow(dokumen.masterflow);
             fetchApproversForMasterflow(dokumen.masterflow_id);
         } else if (isCustomApproval && dokumen.approvals) {
-            // Load custom approvers
             const customApprovers = dokumen.approvals.map((a) => ({
                 email: a.approver_email || '',
                 order: a.approval_order || 1,
@@ -428,7 +407,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         setIsEditDialogOpen(true);
     };
 
-    // Fetch approvers for a specific masterflow
     const fetchApproversForMasterflow = async (masterflowId: number) => {
         try {
             const response = await api.get(`/masterflows/${masterflowId}/steps`);
@@ -438,22 +416,19 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             };
             setSelectedMasterflow(masterflowWithSteps as Masterflow);
 
-            // Fetch available approvers for each step
             const approversData: Record<number, any[]> = {};
             for (const step of response.data.steps || []) {
                 if (step.jabatan_id) {
                     try {
                         const usersResponse = await api.get(`/users-by-jabatan/${step.jabatan_id}`);
                         approversData[step.id] = usersResponse.data || [];
-                    } catch (error) {
-                        console.error(`Error fetching users for jabatan ${step.jabatan_id}:`, error);
+                    } catch {
                         approversData[step.id] = [];
                     }
                 }
             }
             setAvailableApprovers(approversData);
 
-            // Populate existing approvers
             if (dokumen.approvals) {
                 const existingApprovers: Record<number, number> = {};
                 dokumen.approvals.forEach((approval) => {
@@ -471,124 +446,34 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         }
     };
 
-    // Handle input change
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-
+        setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) {
-            setErrors((prev) => ({
-                ...prev,
-                [name]: [],
-            }));
+            setErrors((prev) => ({ ...prev, [name]: [] }));
         }
     };
 
-    // Handle file change
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-
-            // Validate file type - only PDF allowed
             if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                showToast.error('❌ Format file harus PDF! Silakan pilih file dengan format .pdf');
-                e.target.value = ''; // Reset input
+                showToast.error('❌ Format file harus PDF!');
+                e.target.value = '';
                 return;
             }
-
-            // Validate file size - max 10MB
-            const maxSize = 10 * 1024 * 1024;
-            if (file.size > maxSize) {
+            if (file.size > 10 * 1024 * 1024) {
                 showToast.error('❌ Ukuran file maksimal 10MB!');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
                 return;
             }
-
-            setFormData((prev) => ({
-                ...prev,
-                file: file,
-            }));
-
+            setFormData((prev) => ({ ...prev, file: file }));
             if (errors.file) {
-                setErrors((prev) => ({
-                    ...prev,
-                    file: [],
-                }));
+                setErrors((prev) => ({ ...prev, file: [] }));
             }
         }
     };
 
-    // Handle masterflow change in edit
-    const handleMasterflowChange = async (value: string) => {
-        if (value === 'custom') {
-            setFormData((prev) => ({
-                ...prev,
-                masterflow_id: 'custom',
-                approvers: {},
-                custom_approvers: [{ email: '', order: 1 }],
-            }));
-            setSelectedMasterflow(null);
-            setAvailableApprovers({});
-            return;
-        }
-
-        const masterflowId = Number(value);
-        setFormData((prev) => ({
-            ...prev,
-            masterflow_id: masterflowId,
-            approvers: {},
-            custom_approvers: [],
-        }));
-
-        fetchApproversForMasterflow(masterflowId);
-    };
-
-    // Handle approver selection
-    const handleApproverChange = (stepId: number, userId: string) => {
-        setFormData((prev) => ({
-            ...prev,
-            approvers: {
-                ...prev.approvers,
-                [stepId]: userId === '' ? '' : Number(userId),
-            },
-        }));
-    };
-
-    // Handle custom approver change
-    const handleCustomApproverChange = (index: number, field: 'email' | 'order', value: string | number) => {
-        setFormData((prev) => {
-            const newCustomApprovers = [...prev.custom_approvers];
-            newCustomApprovers[index] = {
-                ...newCustomApprovers[index],
-                [field]: value,
-            };
-            return {
-                ...prev,
-                custom_approvers: newCustomApprovers,
-            };
-        });
-    };
-
-    // Add custom approver
-    const addCustomApprover = () => {
-        setFormData((prev) => ({
-            ...prev,
-            custom_approvers: [...prev.custom_approvers, { email: '', order: prev.custom_approvers.length + 1 }],
-        }));
-    };
-
-    // Remove custom approver
-    const removeCustomApprover = (index: number) => {
-        setFormData((prev) => ({
-            ...prev,
-            custom_approvers: prev.custom_approvers.filter((_, i) => i !== index),
-        }));
-    };
-
-    // Submit edit
     const handleSubmitEdit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -614,21 +499,18 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                     setIsEditDialogOpen(false);
                     fetchDokumen();
                 },
-                onError: (errors) => {
-                    console.error('Form submission errors:', errors);
-                    setErrors(errors as unknown as Record<string, string[]>);
-                    showToast.error('❌ Gagal update dokumen. Silakan cek form.');
+                onError: (errs) => {
+                    setErrors(errs as unknown as Record<string, string[]>);
+                    showToast.error('❌ Gagal update dokumen.');
                 },
             });
         } catch (error: any) {
-            console.error('Form submission error:', error);
-            showToast.error(`❌ Gagal update dokumen. ${error.response?.data?.message || error.message}`);
+            showToast.error(`❌ Gagal update dokumen. ${error.message}`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // Handle delete
     const handleDelete = () => {
         if (dokumen.status !== 'draft') {
             showToast.error('❌ Hanya dokumen dengan status Draft yang dapat dihapus.');
@@ -637,18 +519,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         setIsDeleteDialogOpen(true);
     };
 
-    // Confirm delete
     const confirmDelete = async () => {
         try {
             await api.delete(`/dokumen/${dokumen.id}`);
             showToast.success('🎉 Dokumen berhasil dihapus!');
             router.visit('/dokumen');
         } catch (error: any) {
-            showToast.error(`❌ Gagal menghapus dokumen. ${error.response?.data?.message || error.message}`);
+            showToast.error(`❌ Gagal menghapus dokumen.`);
         }
     };
 
-    // Handle preview document
     const handlePreview = async (version: DokumenVersion) => {
         const fileType = version.tipe_file.toLowerCase();
         const isPDF = fileType === 'pdf' || fileType === 'application/pdf';
@@ -665,12 +545,11 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             setPreviewFileUrl(response.data.url);
             setPreviewFileName(version.nama_file);
             setIsPreviewDialogOpen(true);
-        } catch (error: any) {
-            showToast.error(error.response?.data?.message || 'Gagal membuat URL preview yang aman.');
+        } catch {
+            showToast.error('Gagal membuat URL preview.');
         }
     };
 
-    // Handle submit for approval (untuk draft dokumen)
     const handleSubmitForApproval = () => {
         if (dokumen.status !== 'draft') {
             showToast.error('❌ Hanya dokumen draft yang dapat disubmit.');
@@ -679,167 +558,130 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         setIsSubmitDialogOpen(true);
     };
 
-    // Confirm submit for approval
     const confirmSubmitForApproval = async () => {
         setIsSubmitting(true);
-
         router.post(
             `/dokumen/${dokumen.id}/submit`,
             {},
             {
-                preserveState: false, // Force full reload to get fresh data
+                preserveState: false,
                 preserveScroll: true,
                 onSuccess: () => {
-                    showToast.success('🎉 Dokumen berhasil disubmit untuk approval!');
+                    showToast.success('🎉 Dokumen berhasil disubmit!');
                     setIsSubmitDialogOpen(false);
                     setIsSubmitting(false);
                 },
-                onError: (errors: any) => {
-                    console.error('Submit error:', errors);
-                    showToast.error(`❌ Gagal submit dokumen. ${errors.error || 'Silakan coba lagi.'}`);
+                onError: () => {
+                    showToast.error(`❌ Gagal submit dokumen.`);
                     setIsSubmitting(false);
                 },
             },
         );
     };
 
-    // Handle upload revision for rejected document
     const handleUploadRevision = () => {
         if (dokumen.status !== 'rejected') {
             showToast.error('❌ Hanya dokumen yang di-reject yang dapat direvisi.');
             return;
         }
-
         if (dokumen.user_id !== auth.user.id) {
             showToast.error('❌ Hanya pemilik dokumen yang dapat mengupload revisi.');
             return;
         }
-
         setRevisionFile(null);
         setRevisionComment('');
         setIsRevisionDialogOpen(true);
     };
 
-    // Handle revision file change
     const handleRevisionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
-
         if (file) {
-            // Validate file type - only PDF allowed
             if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                showToast.error('❌ Format file harus PDF! Silakan pilih file dengan format .pdf');
-                e.target.value = ''; // Reset input
+                showToast.error('❌ Format file harus PDF!');
+                e.target.value = '';
                 return;
             }
-
-            const maxSize = 10 * 1024 * 1024; // 10MB
-            if (file.size > maxSize) {
+            if (file.size > 10 * 1024 * 1024) {
                 showToast.error('❌ Ukuran file maksimal 10MB!');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
                 return;
             }
         }
-
         setRevisionFile(file);
     };
 
-    // Confirm upload revision
     const confirmUploadRevision = async () => {
         if (!revisionFile) {
-            showToast.error('❌ Silakan pilih file revisi terlebih dahulu.');
+            showToast.error('❌ Silakan pilih file revisi.');
             return;
         }
 
         setIsUploadingRevision(true);
-
         try {
-            const formData = new FormData();
-            formData.append('file', revisionFile);
-            if (revisionComment) {
-                formData.append('comment', revisionComment);
-            }
+            const form = new FormData();
+            form.append('file', revisionFile);
+            if (revisionComment) form.append('comment', revisionComment);
 
-            const response = await api.post(`/dokumen/${dokumen.id}/upload-revision`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+            const response = await api.post(`/dokumen/${dokumen.id}/upload-revision`, form, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            // Use message from server response or fallback
-            const message = response.data?.message || '🎉 Revisi dokumen berhasil diupload!';
-            showToast.success(message);
+            showToast.success(response.data?.message || '🎉 Revisi berhasil diupload!');
             setIsRevisionDialogOpen(false);
             setRevisionFile(null);
 
-            // Update dokumen state directly from response if available
             if (response.data?.dokumen) {
                 setDokumen(response.data.dokumen);
             } else {
-                // Fallback: Refresh dokumen data via fetch
                 await fetchDokumen();
             }
-        } catch (error: any) {
-            console.error('Upload revision error:', error);
-            showToast.error(`❌ Gagal upload revisi. ${error.response?.data?.message || error.message}`);
+        } catch {
+            showToast.error(`❌ Gagal upload revisi.`);
         } finally {
             setIsUploadingRevision(false);
         }
     };
 
-    // Download file - uses on-demand signature generation
     const handleDownload = (versionId?: number) => {
-        const url = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}` : `/api/dokumen/${dokumen.id}/download`;
-        window.location.href = url;
+        window.location.href = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}` : `/api/dokumen/${dokumen.id}/download`;
     };
 
-    // Download original file - download raw PDF without signatures
     const handleDownloadOriginal = (versionId?: number) => {
-        const url = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}?original=1` : `/api/dokumen/${dokumen.id}/download?original=1`;
-        window.location.href = url;
+        window.location.href = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}?original=1` : `/api/dokumen/${dokumen.id}/download?original=1`;
     };
 
-    // Print file - opens PDF in new tab and triggers print
     const handlePrint = async (version: DokumenVersion) => {
         try {
-            const response = await api.get(`/dokumen/${dokumen.id}/get-secure-url`, {
-                params: { version: version.id },
-            });
+            const response = await api.get(`/dokumen/${dokumen.id}/get-secure-url`, { params: { version: version.id } });
             const printWindow = window.open(response.data.url, '_blank');
-        if (printWindow) {
-            printWindow.addEventListener('load', () => {
-                printWindow.print();
-            });
-        }
-        } catch (error: any) {
-            showToast.error(error.response?.data?.message || 'Gagal membuat URL cetak yang aman.');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => printWindow.print());
+            }
+        } catch {
+            showToast.error('Gagal membuka cetak dokumen.');
         }
     };
 
-    // Sort approvals by order or step_order
+    // Alur list approvals
     const sortedApprovals = [...(dokumen.approvals || [])].sort((a, b) => {
-        // For custom approval (has approval_order)
         if (a.approval_order !== undefined && b.approval_order !== undefined) {
             return a.approval_order - b.approval_order;
         }
-        // For existing masterflow (has masterflow_step)
         if (a.masterflow_step && b.masterflow_step) {
             return a.masterflow_step.step_order - b.masterflow_step.step_order;
         }
         return 0;
     });
 
-    // Group approvals logic - improved to handle non-consecutive group members
     type TimelineItem =
         | { type: 'single'; data: DokumenApproval }
         | { type: 'group'; data: DokumenApproval[]; groupIndex: string; groupType: string; firstStepOrder: number };
 
-    // First, separate grouped and single approvals
     const groupedApprovalsMap: Record<string, { approvals: DokumenApproval[]; firstStepOrder: number; groupType: string }> = {};
     const singleApprovals: { approval: DokumenApproval; stepOrder: number }[] = [];
 
     sortedApprovals.forEach((approval) => {
         const stepOrder = approval.masterflow_step?.step_order ?? approval.approval_order ?? 0;
-
         if (approval.group_index) {
             if (!groupedApprovalsMap[approval.group_index]) {
                 groupedApprovalsMap[approval.group_index] = {
@@ -849,7 +691,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 };
             }
             groupedApprovalsMap[approval.group_index].approvals.push(approval);
-            // Update firstStepOrder if this one is earlier
             if (stepOrder < groupedApprovalsMap[approval.group_index].firstStepOrder) {
                 groupedApprovalsMap[approval.group_index].firstStepOrder = stepOrder;
             }
@@ -858,14 +699,9 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         }
     });
 
-    // Build timeline items combining groups (at their first step position) and singles
     const timelineItems: TimelineItem[] = [];
-    const processedGroups = new Set<string>();
-
-    // Create a combined list of items with their effective step order
     const allItems: { item: TimelineItem; stepOrder: number }[] = [];
 
-    // Add groups
     Object.entries(groupedApprovalsMap).forEach(([groupIndex, groupData]) => {
         allItems.push({
             item: {
@@ -879,7 +715,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         });
     });
 
-    // Add singles
     singleApprovals.forEach(({ approval, stepOrder }) => {
         allItems.push({
             item: { type: 'single', data: approval },
@@ -887,7 +722,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         });
     });
 
-    // Sort by step order and build final timeline
     allItems.sort((a, b) => a.stepOrder - b.stepOrder);
     allItems.forEach(({ item }) => timelineItems.push(item));
 
@@ -930,16 +764,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     {getStatusBadge(dokumen?.status || 'draft')}
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                {dokumen?.id_dokumen && (
-                                <>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="font-mono text-xs text-muted-foreground">ID:</span>
-                                        <span className="font-mono">{dokumen.id_dokumen}</span>
-                                    </div>
-                                    <span>•</span>
-                                </>
-                            )}
-                    
+                                    {dokumen?.id_dokumen && (
+                                        <>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-mono text-xs text-muted-foreground">ID:</span>
+                                                <span className="font-mono">{dokumen.id_dokumen}</span>
+                                            </div>
+                                            <span>•</span>
+                                        </>
+                                    )}
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-4 w-4" />
                                         <span className="font-mono">{dokumen?.nomor_dokumen || '-'}</span>
@@ -952,7 +785,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                 </div>
                             </div>
 
-                            {/* Primary Actions (Desktop) */}
+                            {/* Primary Actions */}
                             <div className="hidden items-center gap-2 sm:flex">
                                 {dokumen?.status === 'draft' && (
                                     <Button onClick={handleSubmitForApproval} className="bg-green-600 hover:bg-green-700">
@@ -970,7 +803,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                         </div>
 
                         <div className="grid gap-6 lg:grid-cols-3">
-                            {/* LEFT COLUMN - Main Content */}
+                            {/* LEFT COLUMN */}
                             <div className="space-y-6 lg:col-span-2">
                                 {/* Description & Details */}
                                 <Card>
@@ -994,7 +827,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline</Label>
+                                                <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline Dokumen</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
                                         </div>
@@ -1012,17 +845,57 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     </CardContent>
                                 </Card>
 
-                                {/* Approval Timeline */}
+                                {/* Approval Timeline with SLA & Creator Info */}
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle className="font-serif text-lg">Timeline Persetujuan</CardTitle>
-                                        <CardDescription>Proses approval dokumen ini</CardDescription>
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <div>
+                                                <CardTitle className="font-serif text-lg">Timeline Persetujuan</CardTitle>
+                                                <CardDescription>Alur dan riwayat persetujuan dokumen</CardDescription>
+                                            </div>
+                                            {/* Info Pembuat & Waktu */}
+                                            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-2 text-xs">
+                                                <Avatar className="h-7 w-7 border">
+                                                    <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                                                        {dokumen.user?.name ? dokumen.user.name.substring(0, 2).toUpperCase() : 'US'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold text-foreground">
+                                                        Dibuat oleh: {dokumen.user?.name || 'Pemohon'}
+                                                    </span>
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        {formatDate(dokumen.created_at || dokumen.tgl_pengajuan)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="relative space-y-0 pl-2">
-                                            {/* Vertical Line */}
                                             <div className="absolute top-2 bottom-6 left-6 w-0.5 bg-border" />
 
+                                            {/* Step 0: Creation Node */}
+                                            <div className="relative flex gap-4 pb-8">
+                                                <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-blue-600 bg-background text-blue-600 shadow-xs">
+                                                    <FileTextIcon className="h-4 w-4" />
+                                                </div>
+                                                <div className="flex-1 pt-1">
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <div>
+                                                            <div className="text-sm font-medium">Dokumen Diajukan</div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                Oleh {dokumen.user?.name || 'Pemohon'} ({dokumen.user?.email || '-'})
+                                                            </div>
+                                                        </div>
+                                                        <Badge variant="outline" className="border-blue-300 bg-blue-50 text-[11px] text-blue-800">
+                                                            Created
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Approval Steps */}
                                             {timelineItems.map((item, index) => {
                                                 if (item.type === 'single') {
                                                     const approval = item.data;
@@ -1033,9 +906,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
                                                     return (
                                                         <div key={approval.id} className="relative flex gap-4 pb-8 last:pb-0">
-                                                            {/* Status Dot */}
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background shadow-xs ${
                                                                     isCompleted
                                                                         ? 'border-green-600 text-green-600'
                                                                         : isRejected
@@ -1054,29 +926,30 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                 )}
                                                             </div>
 
-                                                            {/* Content */}
                                                             <div className="flex-1 space-y-1.5 pt-1">
                                                                 <div className="flex items-start justify-between gap-4">
                                                                     <div>
-                                                                        <div className="font-medium">
+                                                                        <div className="font-medium text-sm">
                                                                             {isCustomApproval
                                                                                 ? approval.approver_email || 'Unknown User'
                                                                                 : approval.user?.name ||
                                                                                   approval.masterflow_step?.jabatan?.name ||
                                                                                   'Unknown Position'}
                                                                         </div>
-                                                                        <div className="text-sm text-muted-foreground">
+                                                                        <div className="text-xs text-muted-foreground">
                                                                             {isCustomApproval
-                                                                                ? `Order: ${approval.approval_order}`
+                                                                                ? `Urutan Approval ke-${approval.approval_order}`
                                                                                 : approval.masterflow_step?.step_name || 'Approval Step'}
                                                                         </div>
                                                                     </div>
-                                                                    {getApprovalStatusBadge(approval.approval_status)}
+                                                                    <div className="flex flex-col items-end gap-1.5">
+                                                                        {getApprovalStatusBadge(approval.approval_status)}
+                                                                        {getSlaBadge(approval, dokumen.tgl_deadline)}
+                                                                    </div>
                                                                 </div>
 
-                                                                {/* Comments/Rejection Reason */}
                                                                 {(approval.comment || approval.alasan_reject) && (
-                                                                    <div className="mt-2 rounded-md bg-muted/40 p-3 text-sm">
+                                                                    <div className="mt-2 rounded-md bg-muted/40 p-2.5 text-xs">
                                                                         {approval.alasan_reject && (
                                                                             <div className="mb-1 font-medium text-red-600">
                                                                                 Alasan: {approval.alasan_reject}
@@ -1088,56 +961,52 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                     </div>
                                                                 )}
 
-                                                                {/* Approval Date */}
-                                                                {approval.tgl_approve && (
-                                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                        <ClockIcon className="h-3 w-3" />
-                                                                        {formatDate(approval.tgl_approve)}
-                                                                    </div>
-                                                                )}
+                                                                <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                                                                    {approval.tgl_approve && (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <ClockIcon className="h-3 w-3" />
+                                                                            <span>Selesai: {formatDate(approval.tgl_approve)}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {(approval.tgl_deadline || dokumen.tgl_deadline) && (
+                                                                        <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                                                                            <CalendarIcon className="h-3 w-3" />
+                                                                            <span>Deadline: {formatDate(approval.tgl_deadline || dokumen.tgl_deadline)}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
                                                 } else {
-                                                    // Group Rendering
                                                     const group = item;
                                                     const allApproved = group.data.every(
                                                         (a) => a.approval_status === 'approved' || a.approval_status === 'skipped',
                                                     );
                                                     const anyRejected = group.data.some((a) => a.approval_status === 'rejected');
-                                                    const isCompleted = allApproved; // Logic might vary slightly based on group type, but for visual dot, use allApproved or custom logic?
-                                                    // Actually if type is 'any_one' and one is approved, group is approved?
-                                                    // Let's assume visual dot follows aggregate status.
                                                     const oneApproved = group.data.some((a) => a.approval_status === 'approved');
                                                     const isGroupApproved = group.groupType === 'any_one' ? oneApproved : allApproved;
 
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
-                                                        : anyRejected // If any rejected and type is all_required -> rejected.
+                                                        : anyRejected
                                                           ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500'; // Pending default
+                                                          : 'border-yellow-500 text-yellow-500';
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
-                                                            {/* Group Status Dot */}
-                                                            <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${statusColor}`}
-                                                            >
+                                                            <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${statusColor}`}>
                                                                 <IconUsers className="h-4 w-4" />
                                                             </div>
 
-                                                            {/* Group Content Box */}
                                                             <div className="flex-1 pt-1">
-                                                                <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-sm">
+                                                                <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-xs">
                                                                     <div className="flex items-center justify-between border-b bg-muted/20 p-3">
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="text-sm font-semibold">
                                                                                 {group.data[0]?.masterflow_step?.step_name || 'Group Approval'}
                                                                             </span>
-                                                                            <Badge
-                                                                                variant="outline"
-                                                                                className="h-5 px-1.5 text-[10px] tracking-wide uppercase"
-                                                                            >
+                                                                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] tracking-wide uppercase">
                                                                                 {getGroupRequirementText(group.groupType)}
                                                                             </Badge>
                                                                         </div>
@@ -1145,16 +1014,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                     <div className="divide-y p-0">
                                                                         {group.data.map((approval) => {
                                                                             const isSkipped = approval.approval_status === 'skipped';
-
                                                                             return (
                                                                                 <div key={approval.id} className="p-3">
-                                                                                    {/* Main row: Name/Role on left, Status on right */}
                                                                                     <div className="flex items-start justify-between gap-4">
                                                                                         <div className="space-y-1">
                                                                                             <div className="text-sm font-medium">
-                                                                                                {approval.user?.name ||
-                                                                                                    approval.masterflow_step?.jabatan?.name ||
-                                                                                                    'Unknown'}
+                                                                                                {approval.user?.name || approval.masterflow_step?.jabatan?.name || 'Unknown'}
                                                                                             </div>
                                                                                             <div className="text-xs text-muted-foreground">
                                                                                                 {approval.masterflow_step?.jabatan?.name}
@@ -1162,6 +1027,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                                         </div>
                                                                                         <div className="flex flex-col items-end gap-1">
                                                                                             {getApprovalStatusBadge(approval.approval_status)}
+                                                                                            {getSlaBadge(approval, dokumen.tgl_deadline)}
                                                                                             {approval.tgl_approve && (
                                                                                                 <span className="text-[10px] text-muted-foreground">
                                                                                                     {formatDate(approval.tgl_approve)}
@@ -1169,14 +1035,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                                             )}
                                                                                         </div>
                                                                                     </div>
-                                                                                    {/* Skip note - full width below */}
+
                                                                                     {isSkipped && (
                                                                                         <div className="mt-1 text-[10px] text-muted-foreground italic">
-                                                                                            *Otomatis di-skip karena grup sudah menyelesaikan
-                                                                                            approval.
+                                                                                            *Otomatis di-skip karena grup sudah memenuhi syarat approval.
                                                                                         </div>
                                                                                     )}
-                                                                                    {/* Rejection/Comments - full width below */}
+
                                                                                     {(approval.comment || approval.alasan_reject) && (
                                                                                         <div className="mt-2 rounded bg-muted/40 p-2 text-xs">
                                                                                             {approval.alasan_reject && (
@@ -1232,20 +1097,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="font-medium">Versi {version.version}</span>
                                                                             {isLatest && (
-                                                                                <Badge
-                                                                                    variant="secondary"
-                                                                                    className="bg-blue-100 text-blue-700 hover:bg-blue-100"
-                                                                                >
+                                                                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">
                                                                                     Latest
                                                                                 </Badge>
                                                                             )}
                                                                             {version.signed_file_url && (
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="gap-1 border-green-200 bg-green-50 text-green-700 hover:bg-green-50"
-                                                                                >
-                                                                                    <CheckCircle2 className="h-3 w-3" />
-                                                                                    Signed
+                                                                                <Badge variant="outline" className="gap-1 border-green-200 bg-green-50 text-green-700 hover:bg-green-50">
+                                                                                    <CheckCircle2 className="h-3 w-3" /> Signed
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
@@ -1259,46 +1117,21 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex gap-1">
-                                                                    {(version.tipe_file.toLowerCase() === 'pdf' ||
-                                                                        version.tipe_file.toLowerCase() === 'application/pdf') && (
+                                                                    {(version.tipe_file.toLowerCase() === 'pdf' || version.tipe_file.toLowerCase() === 'application/pdf') && (
                                                                         <>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePreview(version)}
-                                                                                title="Lihat"
-                                                                            >
+                                                                            <Button variant="ghost" size="icon" onClick={() => handlePreview(version)} title="Lihat">
                                                                                 <IconEye className="h-4 w-4" />
                                                                             </Button>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePrint(version)}
-                                                                                title="Print"
-                                                                            >
+                                                                            <Button variant="ghost" size="icon" onClick={() => handlePrint(version)} title="Print">
                                                                                 <IconPrinter className="h-4 w-4" />
                                                                             </Button>
                                                                         </>
                                                                     )}
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleDownloadOriginal(version.id)}
-                                                                        title="Download File PDF Asli Mentah"
-                                                                        className="h-8 border-gray-300 text-xs hover:bg-gray-100"
-                                                                    >
-                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-gray-600" />
-                                                                        PDF Asli
+                                                                    <Button variant="outline" size="sm" onClick={() => handleDownloadOriginal(version.id)} className="h-8 border-gray-300 text-xs">
+                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-gray-600" /> PDF Asli
                                                                     </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleDownload(version.id)}
-                                                                        title="Download PDF Ber-Tanda Tangan"
-                                                                        className="h-8 border-blue-300 bg-blue-50/50 text-xs text-blue-700 hover:bg-blue-100"
-                                                                    >
-                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-blue-600" />
-                                                                        Signed PDF
+                                                                    <Button variant="outline" size="sm" onClick={() => handleDownload(version.id)} className="h-8 border-blue-300 bg-blue-50/50 text-xs text-blue-700">
+                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-blue-600" /> Signed PDF
                                                                     </Button>
                                                                 </div>
                                                             </div>
@@ -1310,16 +1143,17 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                 )}
 
                                 {/* Revision History Component */}
-                                <RevisionHistory dokumenId={dokumen.id} />
+                                <RevisionHistory
+                                    dokumenId={dokumen.id}
+                                />
                             </div>
 
-                            {/* RIGHT COLUMN - Sidebar Actions & Status */}
+                            {/* RIGHT COLUMN */}
                             <div className="space-y-6">
-                                {/* Current Status Highlight */}
                                 {dokumen?.detailed_status?.current_step_description &&
                                     !dokumen?.detailed_status?.is_fully_approved &&
                                     !dokumen?.detailed_status?.is_rejected && (
-                                        <Card className="border-blue-200 bg-blue-50 shadow-sm">
+                                        <Card className="border-blue-200 bg-blue-50 shadow-xs">
                                             <CardHeader className="pb-3">
                                                 <CardTitle className="flex items-center gap-2 text-base text-blue-900">
                                                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-200">
@@ -1332,7 +1166,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <p className="text-sm leading-relaxed font-medium text-blue-800">
                                                     {dokumen.detailed_status.current_step_description}
                                                 </p>
-
                                                 {dokumen.detailed_status.next_approvers && dokumen.detailed_status.next_approvers.length > 0 && (
                                                     <div className="space-y-2 rounded-md bg-white/60 p-3">
                                                         <p className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
@@ -1341,7 +1174,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                         <div className="space-y-2">
                                                             {dokumen.detailed_status.next_approvers.map((approver, idx) => (
                                                                 <div key={idx} className="flex items-center gap-2">
-                                                                    <Avatar className="h-6 w-6 border border-white shadow-sm">
+                                                                    <Avatar className="h-6 w-6 border border-white shadow-xs">
                                                                         <AvatarFallback className="bg-blue-100 text-[10px] text-blue-700">
                                                                             {approver.user?.name?.substring(0, 2).toUpperCase() || '??'}
                                                                         </AvatarFallback>
@@ -1365,7 +1198,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         </Card>
                                     )}
 
-                                {/* Approval Stats */}
                                 <Card>
                                     <CardHeader className="pb-3">
                                         <CardTitle className="text-base font-medium">Statistik Approval</CardTitle>
@@ -1395,7 +1227,6 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     </CardContent>
                                 </Card>
 
-                                {/* Manage Actions */}
                                 {(dokumen?.status === 'draft' || dokumen?.status === 'rejected') && (
                                     <Card>
                                         <CardHeader className="pb-3">
@@ -1403,31 +1234,20 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         </CardHeader>
                                         <CardContent className="space-y-2">
                                             {dokumen?.status === 'draft' && (
-                                                <Button
-                                                    onClick={handleSubmitForApproval}
-                                                    className="w-full justify-start bg-green-600 hover:bg-green-700"
-                                                >
-                                                    <IconSend className="mr-2 h-4 w-4" />
-                                                    Submit Approval
+                                                <Button onClick={handleSubmitForApproval} className="w-full justify-start bg-green-600 hover:bg-green-700">
+                                                    <IconSend className="mr-2 h-4 w-4" /> Submit Approval
                                                 </Button>
                                             )}
                                             {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
                                                 <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700 font-sans">
-                                                    <IconFileText className="mr-2 h-4 w-4" />
-                                                    Upload Revisi
+                                                    <IconFileText className="mr-2 h-4 w-4" /> Upload Revisi
                                                 </Button>
                                             )}
                                             <Button variant="outline" onClick={handleEdit} className="w-full justify-start">
-                                                <IconEdit className="mr-2 h-4 w-4" />
-                                                Edit Informasi
+                                                <IconEdit className="mr-2 h-4 w-4" /> Edit Informasi
                                             </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={handleDelete}
-                                                className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"
-                                            >
-                                                <IconTrash className="mr-2 h-4 w-4" />
-                                                Hapus Dokumen
+                                            <Button variant="outline" onClick={handleDelete} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700">
+                                                <IconTrash className="mr-2 h-4 w-4" /> Hapus Dokumen
                                             </Button>
                                         </CardContent>
                                     </Card>
@@ -1500,13 +1320,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                 </div>
 
                                 <DialogFooter>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setIsEditDialogOpen(false)}
-                                        disabled={isSubmitting}
-                                        className="font-sans"
-                                    >
+                                    <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting} className="font-sans">
                                         Batal
                                     </Button>
                                     <Button type="submit" disabled={isSubmitting} className="font-sans">
@@ -1517,14 +1331,12 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                         </DialogContent>
                     </Dialog>
 
-                    {/* Delete Confirmation Dialog */}
                     <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="font-serif">Hapus Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{dokumen.judul_dokumen}</strong>"? Tindakan ini tidak dapat
-                                    dibatalkan.
+                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{dokumen.judul_dokumen}</strong>"? Tindakan ini tidak dapat dibatalkan.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
@@ -1538,64 +1350,41 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                         </DialogContent>
                     </Dialog>
 
-                    {/* Submit Confirmation Dialog */}
                     <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="font-serif">Submit untuk Approval</DialogTitle>
                                 <DialogDescription className="font-sans">
                                     Apakah Anda yakin ingin mengirim dokumen "<strong>{dokumen.judul_dokumen}</strong>" untuk approval?
-                                    <br />
-                                    <br />
-                                    Setelah disubmit, dokumen akan masuk ke proses approval dan tidak dapat diedit kecuali ditolak.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setIsSubmitDialogOpen(false)} className="font-sans">
                                     Batal
                                 </Button>
-                                <Button
-                                    type="button"
-                                    className="bg-green-600 font-sans hover:bg-green-700"
-                                    onClick={confirmSubmitForApproval}
-                                    disabled={isSubmitting}
-                                >
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    {isSubmitting ? 'Mengirim...' : 'Ya, Submit Sekarang'}
+                                <Button type="button" className="bg-green-600 font-sans hover:bg-green-700" onClick={confirmSubmitForApproval} disabled={isSubmitting}>
+                                    <CheckCircle2 className="mr-2 h-4 w-4" /> {isSubmitting ? 'Mengirim...' : 'Ya, Submit Sekarang'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
 
-                    {/* Upload Revision Dialog */}
                     <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
                         <DialogContent className="max-w-md">
                             <DialogHeader>
                                 <DialogTitle className="font-serif">Upload Revisi Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">
                                     Upload versi terbaru dokumen "<strong>{dokumen.judul_dokumen}</strong>".
-                                    <br />
-                                    <br />
-                                    Setelah upload, dokumen akan direset ke status "Under Review" dan approval akan dimulai dari awal dengan versi
-                                    baru.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="revision-file" className="font-sans">
-                                        File Revisi *
-                                    </Label>
+                                    <Label htmlFor="revision-file" className="font-sans">File Revisi *</Label>
                                     <Input id="revision-file" type="file" onChange={handleRevisionFileChange} className="font-sans" />
-                                    <p className="text-xs text-muted-foreground">
-                                        📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF.
-                                        Maksimal 10MB.
-                                    </p>
                                     {revisionFile && <p className="text-sm text-green-600">✓ File dipilih: {revisionFile.name}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="revision-comment" className="font-sans">
-                                        Catatan Revisi (Opsional)
-                                    </Label>
+                                    <Label htmlFor="revision-comment" className="font-sans">Catatan Revisi (Opsional)</Label>
                                     <Textarea
                                         id="revision-comment"
                                         placeholder="Jelaskan perubahan yang dilakukan..."
@@ -1610,20 +1399,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                 <Button type="button" variant="outline" onClick={() => setIsRevisionDialogOpen(false)} className="font-sans">
                                     Batal
                                 </Button>
-                                <Button
-                                    type="button"
-                                    className="bg-blue-600 font-sans hover:bg-blue-700"
-                                    onClick={confirmUploadRevision}
-                                    disabled={isUploadingRevision || !revisionFile}
-                                >
-                                    <IconFileText className="mr-2 h-4 w-4" />
-                                    {isUploadingRevision ? 'Mengupload...' : 'Upload Revisi'}
+                                <Button type="button" className="bg-blue-600 font-sans hover:bg-blue-700" onClick={confirmUploadRevision} disabled={isUploadingRevision || !revisionFile}>
+                                    <IconFileText className="mr-2 h-4 w-4" /> {isUploadingRevision ? 'Mengupload...' : 'Upload Revisi'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
 
-                    {/* PDF Preview Dialog */}
                     <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
                         <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
@@ -1631,9 +1413,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                 <DialogDescription className="font-sans">{previewFileName}</DialogDescription>
                             </DialogHeader>
                             <div className="flex-1 overflow-auto p-4">
-                                {previewFileUrl && (
-                                    <PDFViewer fileUrl={previewFileUrl} fileName={previewFileName} showControls={true} height="100%" />
-                                )}
+                                {previewFileUrl && <PDFViewer fileUrl={previewFileUrl} fileName={previewFileName} showControls={true} height="100%" />}
                             </div>
                         </DialogContent>
                     </Dialog>

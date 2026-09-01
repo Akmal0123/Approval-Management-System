@@ -24,6 +24,22 @@ interface User {
     email: string;
 }
 
+interface Aplikasi {
+    id: number;
+    nama_aplikasi: string;
+    kode_aplikasi?: string;
+}
+
+interface MasterTransaksiItem {
+    id: number;
+    aplikasi_id: number;
+    kode_transaksi: string;
+    nama_transaksi: string;
+    kategori?: string;
+    deskripsi?: string;
+    aplikasi?: Aplikasi;
+}
+
 interface Masterflow {
     id: number;
     name: string;
@@ -123,18 +139,20 @@ interface StepApprovers {
 interface FormData {
     id_dokumen: string;
     nomor_dokumen: string;
-    kategori_dokumen: 'manual' | 'transaksi' |'';
-    metode_dokumen: 'template'|'upload_manual';
+    kategori_dokumen: 'manual' | 'transaksi';
+    metode_dokumen: 'template' | 'upload_manual';
+    aplikasi_id: number | '';
+    master_transaksi_id: number | '';
     tipe_dokumen: string;
     judul_dokumen: string;
-    masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
+    masterflow_id: number | '' | 'custom';
     tgl_pengajuan: string;
     tgl_deadline: string;
     deskripsi: string;
     file: File | null;
-    approvers: Record<number, number | ''>; // stepId -> userId (for single approver mode)
-    custom_approvers: CustomApprover[]; // for custom approvals
-    step_approvers: Record<number, StepApprovers>; // stepId -> { userIds, jenisGroup } (for group mode)
+    approvers: Record<number, number | ''>;
+    custom_approvers: CustomApprover[];
+    step_approvers: Record<number, StepApprovers>;
 }
 
 const initialFormData: FormData = {
@@ -142,6 +160,8 @@ const initialFormData: FormData = {
     nomor_dokumen: '',
     kategori_dokumen: 'manual',
     metode_dokumen: 'upload_manual',
+    aplikasi_id: '',
+    master_transaksi_id: '',
     tipe_dokumen: '',
     judul_dokumen: '',
     masterflow_id: '',
@@ -158,342 +178,160 @@ export default function UserDokumen() {
     const { auth } = usePage().props as any;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
+    const [masterTransaksis, setMasterTransaksis] = useState<MasterTransaksiItem[]>([]);
+    const [aplikasiList, setAplikasiList] = useState<Aplikasi[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedDokumen, setSelectedDokumen] = useState<Dokumen | null>(null);
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft'); // Track button clicked
+    const [submitType, setSubmitType] = useState<'draft' | 'submit'>('draft');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
-    const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
+    const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set());
 
-    // Fetch dokumen from backend
+    // Fetch dokumen
     const fetchDokumen = async () => {
         try {
-            console.log('Fetching dokumen...');
             setIsLoading(true);
-
-            // Fetch only current user's documents
             const response = await api.get('/dokumen', {
-                params: {
-                    my_documents: true,
-                },
+                params: { my_documents: true },
             });
-
-            console.log('Dokumen fetched:', response.data);
             const newDokumen = response.data.data || response.data;
-            console.log('📊 Total dokumen received:', newDokumen.length);
-            console.log(
-                '📊 Dokumen list:',
-                newDokumen.map((d: Dokumen) => ({
-                    id: d.id,
-                    judul: d.judul_dokumen,
-                    status: d.status,
-                })),
-            );
             setDokumen(newDokumen);
-            console.log('✅ State updated with new dokumen data');
         } catch (error) {
             console.error('Error fetching dokumen:', error);
-            showToast.error('❌ Failed to load documents. Please try again.');
+            showToast.error('❌ Gagal memuat daftar dokumen.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Fetch masterflows for dropdown
+    // Fetch masterflows
     const fetchMasterflows = async () => {
         try {
-            console.log('Fetching masterflows...');
             const response = await api.get('/masterflows');
-            console.log('Masterflows fetched:', response.data);
-            // API returns { masterflows: [...] }, not direct array
             setMasterflows(response.data.masterflows || []);
         } catch (error) {
             console.error('Error fetching masterflows:', error);
-            showToast.error('❌ Failed to load masterflows.');
+        }
+    };
+
+    // Fetch Master Transaksi & Aplikasi
+    // Fetch Master Transaksi & Aplikasi
+    const fetchMasterTransaksis = async () => {
+        try {
+            // 1. Ambil list aplikasi langsung dari API
+            try {
+                const resApp = await api.get('/aplikasis');
+                const appsData = resApp.data.data || resApp.data.aplikasis || resApp.data || [];
+                if (Array.isArray(appsData) && appsData.length > 0) {
+                    setAplikasiList(appsData);
+                }
+            } catch (err) {
+                console.warn('Endpoint /aplikasis belum aktif, menggunakan fallback relasi...');
+            }
+
+            // 2. Ambil list transaksi
+            const res = await api.get('/transaksis');
+            const data = res.data.data || res.data || [];
+            const trxArray = Array.isArray(data) ? data : [];
+            setMasterTransaksis(trxArray);
+
+            // 3. Fallback: Ekstrak list unik aplikasi jika step 1 kosong
+            setAplikasiList((prevApps) => {
+                if (prevApps.length > 0) return prevApps;
+
+                const appsMap: Record<number, Aplikasi> = {};
+                trxArray.forEach((item: any) => {
+                    if (item.aplikasi && item.aplikasi.id) {
+                        appsMap[item.aplikasi.id] = item.aplikasi;
+                    } else if (item.aplikasi_id) {
+                        appsMap[item.aplikasi_id] = {
+                            id: item.aplikasi_id,
+                            nama_aplikasi: item.aplikasi?.nama_aplikasi || item.nama_aplikasi || `Aplikasi ${item.aplikasi_id}`,
+                        };
+                    }
+                });
+                return Object.values(appsMap);
+            });
+        } catch (error) {
+            console.error('Error fetching master transaksis:', error);
         }
     };
 
     useEffect(() => {
         if (!auth.user) {
-            console.log('No authenticated user found, redirecting to home');
-            showToast.error('❌ Please login first to access Documents.');
+            showToast.error('❌ Silakan login terlebih dahulu.');
             window.location.href = '/';
             return;
         }
-        console.log('Authenticated user found, loading data');
         fetchDokumen();
         fetchMasterflows();
+        fetchMasterTransaksis();
 
-        // Real-time updates dengan Laravel Reverb untuk user-specific dokumen
+        // Real-time updates dengan Laravel Reverb
         if (typeof window !== 'undefined' && window.Echo && auth.user?.id) {
-            console.log('📡 Setting up real-time listener for user dokumen:', auth.user.id);
-
-            // Listen to user-specific channel untuk dokumen mereka
             const userChannelName = `user.${auth.user.id}.dokumen`;
-
-            console.log('🔧 Creating channel:', userChannelName);
             const channel = window.Echo.channel(userChannelName);
 
-            console.log('🔧 Channel object:', channel);
-            console.log('🔧 Echo instance:', window.Echo);
-
-            // ALTERNATIVE: Listen directly on Pusher channel
-            if (window.Echo.connector?.pusher) {
-                const pusherChannel = window.Echo.connector.pusher.subscribe(userChannelName);
-
-                console.log('🔧 Pusher channel subscribed:', pusherChannel);
-
-                // Listen on Pusher channel directly
-                pusherChannel.bind('dokumen.updated', (event: any) => {
-                    console.log('🎉🎉🎉 PUSHER DIRECT LISTENER TRIGGERED! 🎉🎉🎉');
-                    console.log('📡 Real-time dokumen update received:', event);
-                    console.log('📡 Event data:', JSON.stringify(event, null, 2));
-
-                    // Update dokumen in state smoothly (no full refresh)
-                    if (event.dokumen?.id) {
-                        console.log('🔄 Updating dokumen state smoothly for ID:', event.dokumen.id);
-
-                        setDokumen((prevDokumen) => {
-                            const updatedDokumen = prevDokumen.map((doc) => {
-                                if (doc.id === event.dokumen.id) {
-                                    console.log('✨ Found matching dokumen, updating:', {
-                                        oldStatus: doc.status,
-                                        newStatus: event.dokumen.status,
-                                        oldCurrentStep: doc.detailed_status?.current_step_description,
-                                        newCurrentStep: event.dokumen.detailed_status?.current_step_description,
-                                    });
-
-                                    // Merge updated data with existing data
-                                    return {
-                                        ...doc,
-                                        ...event.dokumen,
-                                        // Preserve nested relations if not in event
-                                        user: event.dokumen.user || doc.user,
-                                        masterflow: event.dokumen.masterflow || doc.masterflow,
-                                        latest_version: event.dokumen.latest_version || doc.latest_version,
-                                        approvals: event.dokumen.approvals || doc.approvals,
-                                        detailed_status: event.dokumen.detailed_status || doc.detailed_status,
-                                    };
-                                }
-                                return doc;
-                            });
-
-                            console.log('✅ Dokumen state updated smoothly');
-                            return updatedDokumen;
-                        });
-
-                        // Mark document as recently updated for animation
-                        setUpdatedDokumenIds((prev) => new Set(prev).add(event.dokumen.id));
-
-                        // Remove highlight after animation
-                        setTimeout(() => {
-                            setUpdatedDokumenIds((prev) => {
-                                const newSet = new Set(prev);
-                                newSet.delete(event.dokumen.id);
-                                return newSet;
-                            });
-                        }, 2000); // Remove after 2 seconds
-                    }
-
-                    // Tampilkan notifikasi toast
-                    console.log('🔔 Showing toast notification...');
-                    if (event.dokumen?.judul_dokumen) {
-                        const statusText = event.dokumen.status === 'approved' ? 'disetujui' : 'diupdate';
-                        showToast.success(`📡 Dokumen "${event.dokumen.judul_dokumen}" telah ${statusText}!`);
-                    } else {
-                        showToast.success('📡 Daftar dokumen telah diupdate secara real-time!');
-                    }
-                    console.log('✅ Toast notification triggered');
-                });
-
-                pusherChannel.bind('pusher:subscription_succeeded', () => {
-                    console.log('✅ Pusher subscription succeeded for:', userChannelName);
-                });
-
-                pusherChannel.bind('pusher:subscription_error', (error: any) => {
-                    console.error('❌ Pusher subscription error:', error);
-                });
-            }
-
-            // Subscribe to channel events FIRST before monitoring
-            console.log('🎯 Attaching listener for event: dokumen.updated');
             channel.listen('dokumen.updated', (event: any) => {
-                console.log('🎉🎉🎉 CHANNEL LISTENER TRIGGERED! 🎉🎉🎉');
-                console.log('📡 Real-time dokumen update received:', event);
-                console.log('📡 Event data:', JSON.stringify(event, null, 2));
-
-                // Update dokumen in state smoothly (no full refresh)
                 if (event.dokumen?.id) {
-                    console.log('🔄 Updating dokumen state smoothly for ID:', event.dokumen.id);
-
-                    setDokumen((prevDokumen) => {
-                        const updatedDokumen = prevDokumen.map((doc) => {
-                            if (doc.id === event.dokumen.id) {
-                                console.log('✨ Found matching dokumen, updating:', {
-                                    oldStatus: doc.status,
-                                    newStatus: event.dokumen.status,
-                                    oldCurrentStep: doc.detailed_status?.current_step_description,
-                                    newCurrentStep: event.dokumen.detailed_status?.current_step_description,
-                                });
-
-                                // Merge updated data with existing data
-                                return {
-                                    ...doc,
-                                    ...event.dokumen,
-                                    // Preserve nested relations if not in event
-                                    user: event.dokumen.user || doc.user,
-                                    masterflow: event.dokumen.masterflow || doc.masterflow,
-                                    latest_version: event.dokumen.latest_version || doc.latest_version,
-                                    approvals: event.dokumen.approvals || doc.approvals,
-                                    detailed_status: event.dokumen.detailed_status || doc.detailed_status,
-                                };
-                            }
-                            return doc;
-                        });
-
-                        console.log('✅ Dokumen state updated smoothly');
-                        return updatedDokumen;
-                    });
-
-                    // Mark document as recently updated for animation
+                    setDokumen((prevDokumen) =>
+                        prevDokumen.map((doc) => (doc.id === event.dokumen.id ? { ...doc, ...event.dokumen } : doc))
+                    );
                     setUpdatedDokumenIds((prev) => new Set(prev).add(event.dokumen.id));
-
-                    // Remove highlight after animation
                     setTimeout(() => {
                         setUpdatedDokumenIds((prev) => {
                             const newSet = new Set(prev);
                             newSet.delete(event.dokumen.id);
                             return newSet;
                         });
-                    }, 2000); // Remove after 2 seconds
+                    }, 2000);
                 }
-
-                // Tampilkan notifikasi toast
-                console.log('🔔 Showing toast notification...');
-                if (event.dokumen?.judul_dokumen) {
-                    const statusText = event.dokumen.status === 'approved' ? 'disetujui' : 'diupdate';
-                    showToast.success(`📡 Dokumen "${event.dokumen.judul_dokumen}" telah ${statusText}!`);
-                } else {
-                    showToast.success('📡 Daftar dokumen telah diupdate secara real-time!');
-                }
-                console.log('✅ Toast notification triggered');
+                const statusText = event.dokumen?.status === 'approved' ? 'disetujui' : 'diupdate';
+                showToast.success(`📡 Dokumen "${event.dokumen?.judul_dokumen || ''}" telah ${statusText}!`);
             });
 
-            // Monitor subscription success/error
-            channel.subscribed(() => {
-                console.log('✅ Successfully subscribed to channel:', userChannelName);
-                console.log('✅ Ready to receive real-time updates for user:', auth.user.id);
-            });
-
-            channel.error((error: any) => {
-                console.error('❌ Channel subscription error:', error);
-            });
-
-            // Monitor connection state
-            if (window.Echo.connector?.pusher) {
-                window.Echo.connector.pusher.connection.bind('connected', () => {
-                    console.log('✅ WebSocket connected successfully');
-                });
-
-                window.Echo.connector.pusher.connection.bind('error', (err: any) => {
-                    console.error('❌ WebSocket connection error:', err);
-                });
-
-                window.Echo.connector.pusher.connection.bind('disconnected', () => {
-                    console.warn('⚠️ WebSocket disconnected');
-                });
-
-                // Monitor all events for debugging (filter out internal Pusher events)
-                window.Echo.connector.pusher.bind_global((eventName: string, data: any) => {
-                    // Ignore internal Pusher protocol events (heartbeat/keepalive)
-                    if (eventName.startsWith('pusher:')) {
-                        return;
-                    }
-                    console.log('🔔 Global event received:', eventName, data);
-                    console.log('🔔 Event received on channel:', data?.channel || 'unknown');
-                    console.log('🔔 Looking for listener on channel:', userChannelName);
-                    console.log('🔔 Event name received:', eventName);
-                    console.log('🔔 Expected event name: dokumen.updated');
-                });
-            }
-
-            // Log subscription
-            console.log('📻 Subscribed to channel:', userChannelName);
-
-            // Cleanup saat component unmount
             return () => {
-                console.log('🔌 Leaving channel:', userChannelName);
-                if (window.Echo.connector?.pusher) {
-                    window.Echo.connector.pusher.unsubscribe(userChannelName);
-                }
                 window.Echo.leave(userChannelName);
             };
-        } else {
-            if (!window.Echo) {
-                console.error('❌ window.Echo not initialized! Check app.tsx');
-            }
         }
     }, [auth.user]);
 
-    // Handle form input changes
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-
+        setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) {
-            setErrors((prev) => ({
-                ...prev,
-                [name]: [],
-            }));
+            setErrors((prev) => ({ ...prev, [name]: [] }));
         }
     };
 
-    // Handle file input change
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-
-            // Validate file type - only PDF allowed
             if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                showToast.error('❌ Format file harus PDF! Silakan pilih file dengan format .pdf');
-                e.target.value = ''; // Reset input
+                showToast.error('❌ Format file harus PDF!');
+                e.target.value = '';
                 return;
             }
-
-            // Validate file size - max 10MB
-            const maxSize = 10 * 1024 * 1024;
-            if (file.size > maxSize) {
+            if (file.size > 10 * 1024 * 1024) {
                 showToast.error('❌ Ukuran file maksimal 10MB!');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
                 return;
             }
-
-            setFormData((prev) => ({
-                ...prev,
-                file: file,
-            }));
-
+            setFormData((prev) => ({ ...prev, file: file }));
             if (errors.file) {
-                setErrors((prev) => ({
-                    ...prev,
-                    file: [],
-                }));
+                setErrors((prev) => ({ ...prev, file: [] }));
             }
         }
     };
 
-    // Generate document number
     const generateDocumentNumber = () => {
         const now = new Date();
         const year = now.getFullYear();
@@ -504,9 +342,7 @@ export default function UserDokumen() {
         return `${year}${month}${random}`;
     };
 
-    // Handle masterflow select change (including 'custom' option)
     const handleMasterflowChange = async (value: string) => {
-        // Check if user selected 'custom'
         if (value === 'custom') {
             setFormData((prev) => ({
                 ...prev,
@@ -523,71 +359,46 @@ export default function UserDokumen() {
         setFormData((prev) => ({
             ...prev,
             masterflow_id: masterflowId,
-            approvers: {}, // Reset approvers
-            custom_approvers: [], // Clear custom approvers
+            approvers: {},
+            custom_approvers: [],
         }));
 
-        if (errors.masterflow_id) {
-            setErrors((prev) => ({
-                ...prev,
-                masterflow_id: [],
-            }));
-        }
-
-        // Find selected masterflow with steps
         const selected = masterflows.find((mf) => mf.id === masterflowId);
         if (selected) {
             try {
-                // Fetch masterflow details with steps
                 const response = await api.get(`/masterflows/${masterflowId}/steps`);
-                console.log('Masterflow steps:', response.data);
-
                 const masterflowWithSteps = {
                     ...selected,
                     steps: response.data.steps || [],
                 };
                 setSelectedMasterflow(masterflowWithSteps);
 
-                // Fetch available approvers for each step
                 const approversData: Record<number, UserOption[]> = {};
                 for (const step of masterflowWithSteps.steps || []) {
                     if (step.jabatan_id) {
                         try {
                             const usersResponse = await api.get(`/users-by-jabatan/${step.jabatan_id}`);
                             approversData[step.id] = usersResponse.data || [];
-                        } catch (error) {
-                            console.error(`Error fetching users for jabatan ${step.jabatan_id}:`, error);
+                        } catch {
                             approversData[step.id] = [];
                         }
                     }
                 }
                 setAvailableApprovers(approversData);
-            } catch (error) {
-                console.error('Error fetching masterflow steps:', error);
+            } catch {
                 setSelectedMasterflow({ ...selected, steps: [] });
             }
-        } else {
-            setSelectedMasterflow(null);
-            setAvailableApprovers({});
         }
     };
 
-    // Handle custom approver change
     const handleCustomApproverChange = (index: number, field: 'email' | 'order', value: string | number) => {
         setFormData((prev) => {
             const newCustomApprovers = [...prev.custom_approvers];
-            newCustomApprovers[index] = {
-                ...newCustomApprovers[index],
-                [field]: value,
-            };
-            return {
-                ...prev,
-                custom_approvers: newCustomApprovers,
-            };
+            newCustomApprovers[index] = { ...newCustomApprovers[index], [field]: value };
+            return { ...prev, custom_approvers: newCustomApprovers };
         });
     };
 
-    // Add new custom approver
     const addCustomApprover = () => {
         setFormData((prev) => ({
             ...prev,
@@ -595,15 +406,13 @@ export default function UserDokumen() {
         }));
     };
 
-    // Remove custom approver
     const removeCustomApprover = (index: number) => {
         setFormData((prev) => ({
             ...prev,
-            custom_approvers: prev.custom_approvers.filter((_, i) => i !== index).map((approver, idx) => ({ ...approver, order: idx + 1 })),
+            custom_approvers: prev.custom_approvers.filter((_, i) => i !== index).map((a, idx) => ({ ...a, order: idx + 1 })),
         }));
     };
 
-    // Handle approver selection
     const handleApproverChange = (stepId: number, userId: string) => {
         setFormData((prev) => ({
             ...prev,
@@ -614,124 +423,90 @@ export default function UserDokumen() {
         }));
     };
 
-    // Toggle step mode between single and group
     const toggleStepMode = (stepId: number) => {
         setStepModes((prev) => {
             const currentMode = prev[stepId] || 'single';
             const newMode = currentMode === 'single' ? 'group' : 'single';
 
-            // Clear data for the previous mode
             if (newMode === 'single') {
-                // Switching to single mode - clear group data
                 setFormData((prevForm) => {
                     const newStepApprovers = { ...prevForm.step_approvers };
                     delete newStepApprovers[stepId];
-                    return {
-                        ...prevForm,
-                        step_approvers: newStepApprovers,
-                    };
+                    return { ...prevForm, step_approvers: newStepApprovers };
                 });
             } else {
-                // Switching to group mode - clear single approver
                 setFormData((prevForm) => ({
                     ...prevForm,
-                    approvers: {
-                        ...prevForm.approvers,
-                        [stepId]: '',
-                    },
+                    approvers: { ...prevForm.approvers, [stepId]: '' },
                 }));
             }
 
-            return {
-                ...prev,
-                [stepId]: newMode,
-            };
+            return { ...prev, [stepId]: newMode };
         });
     };
 
-    // Handle multiple approver selection for group mode
     const handleMultipleApproverChange = (stepId: number, userId: number, checked: boolean) => {
         setFormData((prev) => {
             const currentStepApprovers = prev.step_approvers[stepId] || { userIds: [], jenisGroup: null };
             const newUserIds = checked ? [...currentStepApprovers.userIds, userId] : currentStepApprovers.userIds.filter((id) => id !== userId);
-
             return {
                 ...prev,
                 step_approvers: {
                     ...prev.step_approvers,
-                    [stepId]: {
-                        ...currentStepApprovers,
-                        userIds: newUserIds,
-                    },
+                    [stepId]: { ...currentStepApprovers, userIds: newUserIds },
                 },
             };
         });
     };
 
-    // Handle jenis group selection
     const handleJenisGroupChange = (stepId: number, jenisGroup: 'all_required' | 'any_one' | 'majority') => {
         setFormData((prev) => {
             const currentStepApprovers = prev.step_approvers[stepId] || { userIds: [], jenisGroup: null };
-
             return {
                 ...prev,
                 step_approvers: {
                     ...prev.step_approvers,
-                    [stepId]: {
-                        ...currentStepApprovers,
-                        jenisGroup,
-                    },
+                    [stepId]: { ...currentStepApprovers, jenisGroup },
                 },
             };
         });
     };
 
-    // Open create dialog
     const handleCreate = async () => {
         try {
-            await fetch('/sanctum/csrf-cookie', {
-                credentials: 'include',
-            });
-        } catch (error) {
-            console.warn('Failed to refresh CSRF token:', error);
+            await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+        } catch {
+            // ignore
         }
-
-        // Generate new document number
-        const newFormData = {
+        setFormData({
             ...initialFormData,
             id_dokumen: generateDocumentNumber(),
             nomor_dokumen: '',
             tipe_dokumen: '',
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
-        };
-
-        setFormData(newFormData);
+        });
         setSelectedMasterflow(null);
         setAvailableApprovers({});
-        setStepModes({}); // Reset step modes
+        setStepModes({});
         setErrors({});
         setIsCreateDialogOpen(true);
     };
 
-    // Helper function to safely render validation error message
     const renderError = (err: any) => {
         if (!err) return null;
         if (Array.isArray(err)) return err[0];
         return String(err);
     };
 
-    // Submit form to create document
     const handleSubmit = async (e: React.FormEvent, type: 'draft' | 'submit') => {
         e.preventDefault();
 
-        // 1. Validasi Client-Side
         const validationErrors: Record<string, string> = {};
         if (!formData.judul_dokumen.trim()) {
             validationErrors.judul_dokumen = 'Judul dokumen wajib diisi.';
         }
 
-        // Cek apakah file utama wajib diunggah
         const isFileWajib =
             formData.kategori_dokumen === 'manual' ||
             (formData.kategori_dokumen === 'transaksi' && formData.metode_dokumen === 'upload_manual');
@@ -759,19 +534,17 @@ export default function UserDokumen() {
         setErrors({});
 
         try {
-            // Refresh CSRF token
-            await fetch('/sanctum/csrf-cookie', {
-                credentials: 'include',
-            });
-
+            await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            // 2. Bungkus Data ke FormData
             const submitData = new FormData();
             submitData.append('id_dokumen', formData.id_dokumen || generateDocumentNumber());
             submitData.append('nomor_dokumen', formData.nomor_dokumen || '');
-            submitData.append('kategori_dokumen', formData.kategori_dokumen || 'manual'); // 👈 Kategori (Manual / Transaksi)
-            submitData.append('metode_dokumen', formData.metode_dokumen || 'upload_manual'); // 👈 Metode (Template / Upload)
+            submitData.append('kategori_dokumen', formData.kategori_dokumen || 'manual');
+            submitData.append('metode_dokumen', formData.metode_dokumen || 'upload_manual');
+            if (formData.master_transaksi_id) {
+                submitData.append('master_transaksi_id', String(formData.master_transaksi_id));
+            }
             submitData.append('tipe_dokumen', formData.tipe_dokumen || '');
             submitData.append('judul_dokumen', formData.judul_dokumen);
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
@@ -783,21 +556,15 @@ export default function UserDokumen() {
                 submitData.append('file', formData.file);
             }
 
-            // Approvers handling
-            // Approvers handling
             if (formData.masterflow_id === 'custom') {
                 submitData.append('masterflow_id', 'custom');
-            
-            // Filter dan kirim custom approvers yang emailnya tidak kosong
-            const validCustomApprovers = formData.custom_approvers.filter(a => a.email && a.email.trim() !== '');
-            
-            validCustomApprovers.forEach((approver, index) => {
-                submitData.append(`custom_approvers[${index}][email]`, approver.email.trim());
-                submitData.append(`custom_approvers[${index}][order]`, String(approver.order || index + 1));
-            });
+                const validCustomApprovers = formData.custom_approvers.filter((a) => a.email && a.email.trim() !== '');
+                validCustomApprovers.forEach((approver, index) => {
+                    submitData.append(`custom_approvers[${index}][email]`, approver.email.trim());
+                    submitData.append(`custom_approvers[${index}][order]`, String(approver.order || index + 1));
+                });
             } else {
                 submitData.append('masterflow_id', formData.masterflow_id.toString());
-
                 Object.entries(formData.step_approvers).forEach(([stepId, stepApprover]) => {
                     if (stepApprover.userIds && stepApprover.userIds.length > 0 && stepApprover.jenisGroup) {
                         submitData.append(`step_approvers[${stepId}][jenis_group]`, stepApprover.jenisGroup);
@@ -829,11 +596,10 @@ export default function UserDokumen() {
                     setStepModes({});
                     fetchDokumen();
                 },
-                onError: (errors) => {
-                    console.error('Form submission errors:', errors);
-                    setErrors(errors as unknown as Record<string, string[]>);
-                    const firstVal = Object.values(errors)[0];
-                    const errorMessage = Array.isArray(firstVal) ? firstVal[0] : (typeof firstVal === 'string' ? firstVal : 'Failed to create document.');
+                onError: (errs) => {
+                    setErrors(errs as unknown as Record<string, string[]>);
+                    const firstVal = Object.values(errs)[0];
+                    const errorMessage = Array.isArray(firstVal) ? firstVal[0] : (typeof firstVal === 'string' ? firstVal : 'Gagal membuat dokumen.');
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -841,39 +607,29 @@ export default function UserDokumen() {
                 },
             });
         } catch (error: any) {
-            console.error('Form submission error:', error);
             setIsSubmitting(false);
-
-            if (error.response?.status === 419) {
-                showToast.error('❌ Session expired. Please refresh the page and try again.');
-            } else {
-                showToast.error(`❌ Failed to save document. ${error.response?.data?.message || error.message}`);
-            }
+            showToast.error(`❌ Gagal menyimpan dokumen. ${error.message}`);
         }
     };
 
-    // Handle delete
     const handleDelete = (doc: Dokumen) => {
         setSelectedDokumen(doc);
         setIsDeleteDialogOpen(true);
     };
 
-    // Confirm delete
     const confirmDelete = async () => {
         if (!selectedDokumen) return;
-
         try {
             await api.delete(`/dokumen/${selectedDokumen.id}`);
-            showToast.success(`🎉 Dokumen "${selectedDokumen.judul_dokumen}" berhasil dihapus!`);
+            showToast.success(`🎉 Dokumen berhasil dihapus!`);
             setIsDeleteDialogOpen(false);
             setSelectedDokumen(null);
             fetchDokumen();
         } catch (error: any) {
-            showToast.error(`❌ Failed to delete document. ${error.response?.data?.message || error.message}`);
+            showToast.error(`❌ Gagal menghapus dokumen.`);
         }
     };
 
-    // Get status badge
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; className: string }> = {
             draft: { label: 'Draft', className: 'bg-gray-100 text-gray-800 border-gray-300' },
@@ -884,7 +640,6 @@ export default function UserDokumen() {
             revision_requested: { label: 'Perlu Revisi', className: 'bg-orange-100 text-orange-800 border-orange-300' },
             needs_revision: { label: 'Perlu Revisi', className: 'bg-orange-100 text-orange-800 border-orange-300' },
         };
-
         const config = statusConfig[status] || statusConfig.draft;
         return (
             <Badge variant="outline" className={`font-sans ${config.className}`}>
@@ -893,25 +648,30 @@ export default function UserDokumen() {
         );
     };
 
-    // Filter documents
     const filteredDokumen = dokumen.filter((doc) => {
         const matchesSearch =
             doc.judul_dokumen.toLowerCase().includes(searchQuery.toLowerCase()) ||
             doc.deskripsi?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             doc.masterflow?.name.toLowerCase().includes(searchQuery.toLowerCase());
-
         const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
-
         return matchesSearch && matchesStatus;
     });
 
-    // Calculate stats
     const stats = {
         total: dokumen.length,
         draft: dokumen.filter((d) => d.status === 'draft').length,
         submitted: dokumen.filter((d) => d.status === 'submitted' || d.status === 'under_review').length,
         approved: dokumen.filter((d) => d.status === 'approved').length,
     };
+
+    // Filter list transaksi berdasarkan aplikasi yang sedang dipilih
+    // Filter transaksi yang cocok dengan aplikasi yang dipilih
+    const filteredTransaksis = formData.aplikasi_id
+        ? masterTransaksis.filter((t: any) => {
+              const appId = t.aplikasi_id || t.aplikasi?.id || t.master_aplikasi_id;
+              return String(appId) === String(formData.aplikasi_id);
+          })
+        : masterTransaksis;
 
     return (
         <>
@@ -994,23 +754,40 @@ export default function UserDokumen() {
                                         <SelectTrigger className="w-[180px] font-sans">
                                             <SelectValue placeholder="Filter Status" />
                                         </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all" className="font-sans">
-                                                Semua Status
-                                            </SelectItem>
-                                            <SelectItem value="draft" className="font-sans">
-                                                Draft
-                                            </SelectItem>
-                                            <SelectItem value="submitted" className="font-sans">
-                                                Submitted
-                                            </SelectItem>
-                                            <SelectItem value="approved" className="font-sans">
-                                                Approved
-                                            </SelectItem>
-                                            <SelectItem value="rejected" className="font-sans">
-                                                Rejected
-                                            </SelectItem>
-                                        </SelectContent>
+                                        <Select
+    value={formData.master_transaksi_id ? String(formData.master_transaksi_id) : ''}
+    disabled={!formData.aplikasi_id}
+    onValueChange={(trxId) => {
+        const trx: any = masterTransaksis.find((t: any) => String(t.id) === String(trxId));
+        const kode = trx?.kode_transaksi || trx?.kode || '';
+        const nama = trx?.nama_transaksi || trx?.nama || trx?.name || '';
+        setFormData((prev) => ({
+            ...prev,
+            master_transaksi_id: Number(trxId),
+            tipe_dokumen: kode ? `${kode} - ${nama}` : nama,
+        }));
+    }}
+>
+    <SelectTrigger className="bg-background font-sans">
+        <SelectValue placeholder={formData.aplikasi_id ? 'Pilih Transaksi' : 'Pilih aplikasi dahulu'} />
+    </SelectTrigger>
+    <SelectContent>
+        {filteredTransaksis.length > 0 ? (
+            filteredTransaksis.map((trx: any) => (
+                <SelectItem key={trx.id} value={String(trx.id)} className="font-sans">
+                    <span className="font-semibold text-primary">
+                        [{trx.kode_transaksi || trx.kode || trx.id}]
+                    </span>{' '}
+                    {trx.nama_transaksi || trx.nama || trx.name || 'Transaksi'}
+                </SelectItem>
+            ))
+        ) : (
+            <div className="p-2 text-center text-xs text-muted-foreground">
+                Belum ada transaksi untuk aplikasi ini
+            </div>
+        )}
+    </SelectContent>
+</Select>
                                     </Select>
                                 </div>
 
@@ -1043,8 +820,9 @@ export default function UserDokumen() {
                                                             filteredDokumen.map((doc, index) => (
                                                                 <TableRow
                                                                     key={doc.id}
-                                                                    className={`transition-all duration-500 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
-                                                                        }`}
+                                                                    className={`transition-all duration-500 ${
+                                                                        updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
+                                                                    }`}
                                                                 >
                                                                     <TableCell className="font-mono">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
@@ -1058,19 +836,17 @@ export default function UserDokumen() {
                                                                             )}
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="font-sans">{doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}</TableCell>
+                                                                    <TableCell className="font-sans">
+                                                                        {doc.masterflow?.name || (doc.masterflow_id === null ? '✨ Custom Approval' : '-')}
+                                                                    </TableCell>
                                                                     <TableCell className="font-sans">{getStatusBadge(doc.status)}</TableCell>
                                                                     <TableCell className="font-sans">
                                                                         {doc.detailed_status?.current_step_description ? (
-                                                                            <div className="flex flex-col gap-1">
-                                                                                <span className="text-xs text-muted-foreground">
-                                                                                    {doc.detailed_status.current_step_description}
-                                                                                </span>
-                                                                            </div>
-                                                                        ) : doc.detailed_status?.is_fully_approved ? (
-                                                                            <span className="text-xs font-medium text-green-600">
-                                                                                ✓ Semua sudah approve
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                {doc.detailed_status.current_step_description}
                                                                             </span>
+                                                                        ) : doc.detailed_status?.is_fully_approved ? (
+                                                                            <span className="text-xs font-medium text-green-600">✓ Semua sudah approve</span>
                                                                         ) : doc.detailed_status?.is_rejected ? (
                                                                             <span className="text-xs font-medium text-red-600">✗ Ditolak</span>
                                                                         ) : (
@@ -1083,31 +859,18 @@ export default function UserDokumen() {
                                                                     <TableCell className="text-right">
                                                                         <div className="flex justify-end gap-2">
                                                                             <Link href={`/dokumen/${doc.id}`}>
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
-                                                                                >
+                                                                                <Button variant="outline" size="sm" className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50">
                                                                                     <Eye className="h-4 w-4" />
                                                                                 </Button>
                                                                             </Link>
                                                                             {doc.status === 'draft' && (
                                                                                 <>
                                                                                     <Link href={`/dokumen/${doc.id}/edit`}>
-                                                                                        <Button
-                                                                                            variant="outline"
-                                                                                            size="sm"
-                                                                                            className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50"
-                                                                                        >
+                                                                                        <Button variant="outline" size="sm" className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50">
                                                                                             <IconEdit className="h-4 w-4" />
                                                                                         </Button>
                                                                                     </Link>
-                                                                                    <Button
-                                                                                        variant="outline"
-                                                                                        size="sm"
-                                                                                        onClick={() => handleDelete(doc)}
-                                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
-                                                                                    >
+                                                                                    <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50">
                                                                                         <IconTrash className="h-4 w-4" />
                                                                                     </Button>
                                                                                 </>
@@ -1142,415 +905,462 @@ export default function UserDokumen() {
                                 <DialogHeader>
                                     <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
                                     <DialogDescription className="font-sans">
-                                        Isi form di bawah untuk membuat dokumen baru. Klik simpan setelah selesai.
+                                        Isi formulir di bawah untuk membuat dokumen baru.
                                     </DialogDescription>
                                 </DialogHeader>
 
                                 <div className="grid gap-4 py-4">
-    {/* Baris 1: ID Dokumen & Nomor Dokumen */}
-    <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-            <Label htmlFor="id_dokumen" className="font-sans">
-                ID Dokumen
-            </Label>
-            <Input
-                id="id_dokumen"
-                name="id_dokumen"
-                value={formData.id_dokumen}
-                onChange={handleInputChange}
-                className="font-mono bg-muted/40"
-                placeholder="Auto-generated"
-                readOnly
-            />
-        </div>
+                                    {/* Baris 1: ID Dokumen & Nomor Dokumen */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="id_dokumen" className="font-sans">ID Dokumen</Label>
+                                            <Input
+                                                id="id_dokumen"
+                                                name="id_dokumen"
+                                                value={formData.id_dokumen}
+                                                onChange={handleInputChange}
+                                                className="font-mono bg-muted/40"
+                                                placeholder="Auto-generated"
+                                                readOnly
+                                            />
+                                        </div>
 
-        <div className="grid gap-2">
-            <Label htmlFor="nomor_dokumen" className="font-sans">
-                {formData.kategori_dokumen === 'transaksi' ? 'Nomor Transaksi / Ref ID' : 'Nomor Dokumen'} <span className="text-red-500">*</span>
-            </Label>
-            <Input
-                id="nomor_dokumen"
-                name="nomor_dokumen"
-                value={formData.nomor_dokumen}
-                onChange={handleInputChange}
-                className={errors.nomor_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-                placeholder={formData.kategori_dokumen === 'transaksi' ? 'Contoh: PR-2026-08-001' : 'Contoh: 001/SK/DIR/VIII/2026'}
-            />
-            {errors.nomor_dokumen && <p className="text-sm text-red-500">{renderError(errors.nomor_dokumen)}</p>}
-        </div>
-    </div>
-
-    {/* Baris 2: Kategori Dokumen & Tipe Dokumen */}
-    <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-            <Label htmlFor="kategori_dokumen" className="font-sans">
-                Kategori Dokumen <span className="text-red-500">*</span>
-            </Label>
-            <Select
-                value={formData.kategori_dokumen}
-                onValueChange={(value: 'manual' | 'transaksi') => {
-                    setFormData((prev) => ({ 
-                        ...prev, 
-                        kategori_dokumen: value,
-                        metode_dokumen: value === 'transaksi' ? 'template' : 'upload_manual',
-                        tipe_dokumen: '',
-                        file: value === 'transaksi' ? null : prev.file 
-                    }));
-                }}
-            >
-                <SelectTrigger className="font-sans">
-                    <SelectValue placeholder="Pilih Kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="manual" className="font-sans">Dokumen Manual (Upload File)</SelectItem>
-                    <SelectItem value="transaksi" className="font-sans">Dokumen Teknis / Transaksi</SelectItem>
-                </SelectContent>
-            </Select>
-        </div>
-
-        <div className="grid gap-2">
-            <Label htmlFor="tipe_dokumen" className="font-sans">
-                Tipe Dokumen <span className="text-red-500">*</span>
-            </Label>
-            <Select
-                value={formData.tipe_dokumen}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, tipe_dokumen: value }))}
-            >
-                <SelectTrigger className={errors.tipe_dokumen ? 'border-red-500 font-sans' : 'font-sans'}>
-                    <SelectValue placeholder={formData.kategori_dokumen === 'manual' ? 'Pilih jenis dokumen' : 'Pilih jenis transaksi'} />
-                </SelectTrigger>
-                <SelectContent>
-                    {formData.kategori_dokumen === 'manual' ? (
-                        <>
-                            <SelectItem value="Surat Keputusan" className="font-sans">Surat Keputusan (SK)</SelectItem>
-                            <SelectItem value="Proposal" className="font-sans">Proposal</SelectItem>
-                            <SelectItem value="Memo Internal" className="font-sans">Memo Internal</SelectItem>
-                            <SelectItem value="Surat Jalan" className="font-sans">Surat Jalan / Berkas Eksternal</SelectItem>
-                        </>
-                    ) : (
-                        <>
-                            <SelectItem value="Pengajuan Cuti" className="font-sans">Cuti Karyawan (HRIS)</SelectItem>
-                            <SelectItem value="Lembur" className="font-sans">Pengajuan Lembur (HRIS)</SelectItem>
-                            <SelectItem value="Purchase Request" className="font-sans">Purchase Request (PR)</SelectItem>
-                            <SelectItem value="Purchase Order" className="font-sans">Purchase Order (PO)</SelectItem>
-                        </>
-                    )}
-                </SelectContent>
-            </Select>
-            {errors.tipe_dokumen && <p className="text-sm text-red-500">{renderError(errors.tipe_dokumen)}</p>}
-        </div>
-    </div>
-
-    {/* Baris 3: Tanggal Pengajuan & Tanggal Deadline */}
-    <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-            <Label htmlFor="tgl_pengajuan" className="font-sans">
-                Tanggal Pengajuan <span className="text-red-500">*</span>
-            </Label>
-            <Input
-                id="tgl_pengajuan"
-                name="tgl_pengajuan"
-                type="date"
-                value={formData.tgl_pengajuan}
-                onChange={handleInputChange}
-                className="font-sans"
-            />
-        </div>
-
-        <div className="grid gap-2">
-            <Label htmlFor="tgl_deadline" className="font-sans">
-                Deadline <span className="text-red-500">*</span>
-            </Label>
-            <Input
-                id="tgl_deadline"
-                name="tgl_deadline"
-                type="date"
-                value={formData.tgl_deadline}
-                onChange={handleInputChange}
-                className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
-            />
-            {errors.tgl_deadline && <p className="text-sm text-red-500">{renderError(errors.tgl_deadline)}</p>}
-        </div>
-    </div>
-
-    {/* Baris 4: Judul Dokumen */}
-    <div className="grid gap-2">
-        <Label htmlFor="judul_dokumen" className="font-sans">
-            Judul Dokumen <span className="text-red-500">*</span>
-        </Label>
-        <Input
-            id="judul_dokumen"
-            name="judul_dokumen"
-            value={formData.judul_dokumen}
-            onChange={handleInputChange}
-            className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-            placeholder="Masukkan judul pengajuan..."
-        />
-        {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
-    </div>
-
-    {/* Baris 5: Masterflow */}
-    <div className="grid gap-2">
-        <Label htmlFor="masterflow_id" className="font-sans">
-            Masterflow <span className="text-red-500">*</span>
-        </Label>
-        <Select
-            value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
-            onValueChange={handleMasterflowChange}
-        >
-            <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
-                <SelectValue placeholder="Pilih masterflow" />
-            </SelectTrigger>
-            <SelectContent>
-                {masterflows.map((mf) => (
-                    <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
-                        {mf.name}
-                    </SelectItem>
-                ))}
-                <SelectItem value="custom" className="font-sans font-medium text-primary">
-                    Custom Approval
-                </SelectItem>
-            </SelectContent>
-        </Select>
-        {errors.masterflow_id && <p className="text-sm text-red-500">{renderError(errors.masterflow_id)}</p>}
-    </div>
-
-    {/* Approval Flow Steps (Single/Group/Custom) */}
-    {formData.masterflow_id !== '' && formData.masterflow_id !== 'custom' && selectedMasterflow?.steps && selectedMasterflow.steps.length > 0 && (
-        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
-            <div className="flex items-center justify-between">
-                <Label className="font-sans font-semibold">Alur Persetujuan</Label>
-                <span className="text-xs text-muted-foreground">{selectedMasterflow.steps.length} tahap persetujuan</span>
-            </div>
-
-            {selectedMasterflow.steps.sort((a, b) => a.step_order - b.step_order).map((step, index) => (
-                <div key={step.id} className="grid grid-cols-[80px_1fr_1fr_40px] items-center gap-3">
-                    <div className="flex items-center justify-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
-                            {index + 1}
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs text-muted-foreground">Jabatan</span>
-                        <div className="rounded-md border border-border bg-background px-3 py-2 font-sans text-sm">
-                            {step.jabatan?.name || 'Sekertaris'}
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                                {stepModes[step.id] === 'group' ? 'Group Approval' : 'Nama Approval'}
-                            </span>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => toggleStepMode(step.id)}
-                                className="h-6 px-2 text-xs"
-                            >
-                                {stepModes[step.id] === 'group' ? 'Single' : 'Group'}
-                            </Button>
-                        </div>
-
-                        {stepModes[step.id] === 'group' ? (
-                            <div className="space-y-2">
-                                <Select
-                                    value={formData.step_approvers[step.id]?.jenisGroup || ''}
-                                    onValueChange={(value) => handleJenisGroupChange(step.id, value as 'all_required' | 'any_one' | 'majority')}
-                                >
-                                    <SelectTrigger className="font-sans">
-                                        <SelectValue placeholder="Pilih jenis group" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all_required" className="font-sans">Semua Harus Approve</SelectItem>
-                                        <SelectItem value="any_one" className="font-sans">Salah Satu Saja</SelectItem>
-                                        <SelectItem value="majority" className="font-sans">Mayoritas (&gt; 50%)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-
-                                <div className="rounded-md border border-border bg-background">
-                                    <div className="max-h-40 space-y-1 overflow-y-auto p-2">
-                                        {(availableApprovers[step.id] || []).map((user) => (
-                                            <label key={user.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.step_approvers[step.id]?.userIds.includes(user.id) || false}
-                                                    onChange={(e) => handleMultipleApproverChange(step.id, user.id, e.target.checked)}
-                                                    className="h-4 w-4 rounded border-gray-300"
-                                                />
-                                                <span className="text-sm">{user.name}</span>
-                                            </label>
-                                        ))}
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="nomor_dokumen" className="font-sans">
+                                                {formData.kategori_dokumen === 'transaksi' ? 'Nomor Transaksi / Ref ID' : 'Nomor Dokumen'} <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="nomor_dokumen"
+                                                name="nomor_dokumen"
+                                                value={formData.nomor_dokumen}
+                                                onChange={handleInputChange}
+                                                className={errors.nomor_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
+                                                placeholder={formData.kategori_dokumen === 'transaksi' ? 'Contoh: PR-2026-08-001' : 'Contoh: 001/SK/DIR/VIII/2026'}
+                                            />
+                                            {errors.nomor_dokumen && <p className="text-sm text-red-500">{renderError(errors.nomor_dokumen)}</p>}
+                                        </div>
                                     </div>
+
+                                    {/* Baris 2: Kategori Dokumen */}
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="kategori_dokumen" className="font-sans">
+                                            Kategori Dokumen <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Select
+                                            value={formData.kategori_dokumen}
+                                            onValueChange={(value: 'manual' | 'transaksi') => {
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    kategori_dokumen: value,
+                                                    metode_dokumen: value === 'transaksi' ? 'template' : 'upload_manual',
+                                                    aplikasi_id: '',
+                                                    master_transaksi_id: '',
+                                                    tipe_dokumen: '',
+                                                    file: value === 'transaksi' ? null : prev.file,
+                                                }));
+                                            }}
+                                        >
+                                            <SelectTrigger className="font-sans">
+                                                <SelectValue placeholder="Pilih Kategori" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="manual" className="font-sans">Dokumen Manual (Upload File)</SelectItem>
+                                                <SelectItem value="transaksi" className="font-sans">Dokumen Transaksi (Terintegrasi Aplikasi)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Opsi Khusus Transaksi: Pilih Aplikasi & Jenis Transaksi Dinamis */}
+                                    {formData.kategori_dokumen === 'transaksi' ? (
+                                        <div className="grid grid-cols-2 gap-4 rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+                                            <div className="grid gap-2">
+                                                <Label className="font-sans text-xs font-semibold text-blue-900 dark:text-blue-200">
+                                                    Pilih Aplikasi <span className="text-red-500">*</span>
+                                                </Label>
+                                                <Select
+                                                    value={formData.aplikasi_id ? String(formData.aplikasi_id) : ''}
+                                                    onValueChange={(appId) => {
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            aplikasi_id: Number(appId),
+                                                            master_transaksi_id: '',
+                                                            tipe_dokumen: '',
+                                                        }));
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="bg-background font-sans">
+                                                        <SelectValue placeholder="Pilih Aplikasi" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {aplikasiList.map((app: any) => (
+                                                            <SelectItem key={app.id} value={String(app.id)} className="font-sans">
+                                                                {app.nama_aplikasi || app.name || app.nama || app.kode_aplikasi || `Aplikasi #${app.id}`}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="grid gap-2">
+                                                <Label className="font-sans text-xs font-semibold text-blue-900 dark:text-blue-200">
+                                                    Jenis Transaksi <span className="text-red-500">*</span>
+                                                </Label>
+                                                <Select
+                                                    value={formData.master_transaksi_id ? String(formData.master_transaksi_id) : ''}
+                                                    disabled={!formData.aplikasi_id}
+                                                    onValueChange={(trxId) => {
+                                                        const trx = masterTransaksis.find((t) => t.id === Number(trxId));
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            master_transaksi_id: Number(trxId),
+                                                            tipe_dokumen: trx ? `${trx.kode_transaksi} - ${trx.nama_transaksi}` : '',
+                                                        }));
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="bg-background font-sans">
+                                                        <SelectValue placeholder={formData.aplikasi_id ? 'Pilih Transaksi' : 'Pilih aplikasi dahulu'} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {filteredTransaksis.map((trx) => (
+                                                            <SelectItem key={trx.id} value={String(trx.id)} className="font-sans">
+                                                                <span className="font-semibold text-primary">[{trx.kode_transaksi}]</span> {trx.nama_transaksi}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* Pilihan Manual */
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tipe_dokumen" className="font-sans">
+                                                Tipe Dokumen <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Select
+                                                value={formData.tipe_dokumen}
+                                                onValueChange={(value) => setFormData((prev) => ({ ...prev, tipe_dokumen: value }))}
+                                            >
+                                                <SelectTrigger className={errors.tipe_dokumen ? 'border-red-500 font-sans' : 'font-sans'}>
+                                                    <SelectValue placeholder="Pilih jenis dokumen manual" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Surat Keputusan" className="font-sans">Surat Keputusan (SK)</SelectItem>
+                                                    <SelectItem value="Proposal" className="font-sans">Proposal</SelectItem>
+                                                    <SelectItem value="Memo Internal" className="font-sans">Memo Internal</SelectItem>
+                                                    <SelectItem value="Surat Jalan" className="font-sans">Surat Jalan / Berkas Eksternal</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Baris 3: Tanggal Pengajuan & Tanggal Deadline */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tgl_pengajuan" className="font-sans">
+                                                Tanggal Pengajuan <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tgl_pengajuan"
+                                                name="tgl_pengajuan"
+                                                type="date"
+                                                value={formData.tgl_pengajuan}
+                                                onChange={handleInputChange}
+                                                className="font-sans"
+                                            />
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tgl_deadline" className="font-sans">
+                                                Deadline <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tgl_deadline"
+                                                name="tgl_deadline"
+                                                type="date"
+                                                value={formData.tgl_deadline}
+                                                onChange={handleInputChange}
+                                                className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
+                                            />
+                                            {errors.tgl_deadline && <p className="text-sm text-red-500">{renderError(errors.tgl_deadline)}</p>}
+                                        </div>
+                                    </div>
+
+                                    {/* Baris 4: Judul Dokumen */}
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="judul_dokumen" className="font-sans">
+                                            Judul Dokumen <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="judul_dokumen"
+                                            name="judul_dokumen"
+                                            value={formData.judul_dokumen}
+                                            onChange={handleInputChange}
+                                            className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
+                                            placeholder="Masukkan judul pengajuan..."
+                                        />
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{renderError(errors.judul_dokumen)}</p>}
+                                    </div>
+
+                                    {/* Baris 5: Masterflow */}
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="masterflow_id" className="font-sans">
+                                            Masterflow <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Select
+                                            value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
+                                            onValueChange={handleMasterflowChange}
+                                        >
+                                            <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
+                                                <SelectValue placeholder="Pilih masterflow" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {masterflows.map((mf) => (
+                                                    <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
+                                                        {mf.name}
+                                                    </SelectItem>
+                                                ))}
+                                                <SelectItem value="custom" className="font-sans font-medium text-primary">
+                                                    Custom Approval
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.masterflow_id && <p className="text-sm text-red-500">{renderError(errors.masterflow_id)}</p>}
+                                    </div>
+
+                                    {/* Approval Flow Steps */}
+                                    {formData.masterflow_id !== '' && formData.masterflow_id !== 'custom' && selectedMasterflow?.steps && selectedMasterflow.steps.length > 0 && (
+                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="font-sans font-semibold">Alur Persetujuan</Label>
+                                                <span className="text-xs text-muted-foreground">{selectedMasterflow.steps.length} tahap persetujuan</span>
+                                            </div>
+
+                                            {selectedMasterflow.steps.sort((a, b) => a.step_order - b.step_order).map((step, index) => (
+                                                <div key={step.id} className="grid grid-cols-[80px_1fr_1fr_40px] items-center gap-3">
+                                                    <div className="flex items-center justify-center">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
+                                                            {index + 1}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-xs text-muted-foreground">Jabatan</span>
+                                                        <div className="rounded-md border border-border bg-background px-3 py-2 font-sans text-sm">
+                                                            {step.jabatan?.name || 'Sekretaris'}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {stepModes[step.id] === 'group' ? 'Group Approval' : 'Nama Approval'}
+                                                            </span>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => toggleStepMode(step.id)}
+                                                                className="h-6 px-2 text-xs"
+                                                            >
+                                                                {stepModes[step.id] === 'group' ? 'Single' : 'Group'}
+                                                            </Button>
+                                                        </div>
+
+                                                        {stepModes[step.id] === 'group' ? (
+                                                            <div className="space-y-2">
+                                                                <Select
+                                                                    value={formData.step_approvers[step.id]?.jenisGroup || ''}
+                                                                    onValueChange={(value) => handleJenisGroupChange(step.id, value as 'all_required' | 'any_one' | 'majority')}
+                                                                >
+                                                                    <SelectTrigger className="font-sans">
+                                                                        <SelectValue placeholder="Pilih jenis group" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="all_required" className="font-sans">Semua Harus Approve</SelectItem>
+                                                                        <SelectItem value="any_one" className="font-sans">Salah Satu Saja</SelectItem>
+                                                                        <SelectItem value="majority" className="font-sans">Mayoritas (&gt; 50%)</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+
+                                                                <div className="rounded-md border border-border bg-background">
+                                                                    <div className="max-h-40 space-y-1 overflow-y-auto p-2">
+                                                                        {(availableApprovers[step.id] || []).map((user) => (
+                                                                            <label key={user.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={formData.step_approvers[step.id]?.userIds.includes(user.id) || false}
+                                                                                    onChange={(e) => handleMultipleApproverChange(step.id, user.id, e.target.checked)}
+                                                                                    className="h-4 w-4 rounded border-gray-300"
+                                                                                />
+                                                                                <span className="text-sm">{user.name}</span>
+                                                                            </label>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <Select
+                                                                value={formData.approvers[step.id]?.toString() || ''}
+                                                                onValueChange={(value) => handleApproverChange(step.id, value)}
+                                                            >
+                                                                <SelectTrigger className="font-sans">
+                                                                    <SelectValue placeholder="Pilih approver" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {(availableApprovers[step.id] || []).map((user) => (
+                                                                        <SelectItem key={user.id} value={user.id.toString()} className="font-sans">
+                                                                            {user.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex items-center justify-center">
+                                                        <Badge variant="outline" className="h-8 w-8 justify-center border-primary/30 font-mono text-xs">
+                                                            {index + 1}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Custom Approvers Flow */}
+                                    {formData.masterflow_id === 'custom' && (
+                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="font-sans font-semibold">Custom Approval Flow</Label>
+                                                <Button type="button" size="sm" variant="outline" onClick={addCustomApprover} className="h-8 font-sans">
+                                                    <IconPlus className="mr-1 h-3 w-3" /> Tambah Approver
+                                                </Button>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {formData.custom_approvers.map((approver, index) => (
+                                                    <div key={index} className="grid grid-cols-[80px_1fr_100px_40px] items-start gap-3">
+                                                        <div className="flex items-center justify-center pt-2">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
+                                                                {index + 1}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs text-muted-foreground">Email Approver</span>
+                                                            <Input
+                                                                type="email"
+                                                                value={approver.email}
+                                                                onChange={(e) => handleCustomApproverChange(index, 'email', e.target.value)}
+                                                                placeholder="approver@example.com"
+                                                                className="font-sans"
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-xs text-muted-foreground">Tingkat</span>
+                                                            <Input
+                                                                type="number"
+                                                                min="1"
+                                                                value={approver.order}
+                                                                onChange={(e) => handleCustomApproverChange(index, 'order', Number(e.target.value))}
+                                                                className="font-sans"
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex items-center justify-center pt-6">
+                                                            {formData.custom_approvers.length > 1 && (
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => removeCustomApprover(index)}
+                                                                    className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                >
+                                                                    <IconTrash className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Baris 6: Komentar */}
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="deskripsi" className="font-sans">
+                                            Komentar / Keterangan
+                                        </Label>
+                                        <Textarea
+                                            id="deskripsi"
+                                            name="deskripsi"
+                                            value={formData.deskripsi}
+                                            onChange={handleInputChange}
+                                            className={errors.deskripsi ? 'border-red-500 font-sans' : 'font-sans'}
+                                            placeholder="Tuliskan catatan pengajuan..."
+                                            rows={3}
+                                        />
+                                        {errors.deskripsi && <p className="text-sm text-red-500">{renderError(errors.deskripsi)}</p>}
+                                    </div>
+
+                                    {/* Baris 7: Opsi Format Dokumen Transaksi */}
+                                    {formData.kategori_dokumen === 'transaksi' && (
+                                        <div className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3">
+                                            <Label className="font-sans text-sm font-medium">Metode Format Dokumen</Label>
+                                            <div className="flex flex-wrap gap-4">
+                                                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                                                    <input
+                                                        type="radio"
+                                                        name="metode_dokumen"
+                                                        value="template"
+                                                        checked={formData.metode_dokumen === 'template'}
+                                                        onChange={() => setFormData((p) => ({ ...p, metode_dokumen: 'template' }))}
+                                                        className="text-primary"
+                                                    />
+                                                    Generate Otomatis dari Template
+                                                </label>
+                                                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                                                    <input
+                                                        type="radio"
+                                                        name="metode_dokumen"
+                                                        value="upload_manual"
+                                                        checked={formData.metode_dokumen === 'upload_manual'}
+                                                        onChange={() => setFormData((p) => ({ ...p, metode_dokumen: 'upload_manual' }))}
+                                                        className="text-primary"
+                                                    />
+                                                    Upload Berkas Fisik Sendiri
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Input File PDF */}
+                                    {(formData.kategori_dokumen === 'manual' || formData.metode_dokumen === 'upload_manual') && (
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="file" className="font-sans">
+                                                File Dokumen Utama (PDF) <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="file"
+                                                name="file"
+                                                type="file"
+                                                accept=".pdf"
+                                                onChange={handleFileChange}
+                                                className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
+                                            />
+                                            <p className="text-xs text-muted-foreground">Format file PDF (Maksimal 10MB).</p>
+                                            {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
+                                        </div>
+                                    )}
+
+                                    {formData.kategori_dokumen === 'transaksi' && formData.metode_dokumen === 'template' && (
+                                        <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 text-xs text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300">
+                                            Dokumen PDF akan digenerate otomatis oleh sistem berdasarkan template transaksi saat disimpan.
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ) : (
-                            <Select
-                                value={formData.approvers[step.id]?.toString() || ''}
-                                onValueChange={(value) => handleApproverChange(step.id, value)}
-                            >
-                                <SelectTrigger className="font-sans">
-                                    <SelectValue placeholder="Pilih approver" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {(availableApprovers[step.id] || []).map((user) => (
-                                        <SelectItem key={user.id} value={user.id.toString()} className="font-sans">
-                                            {user.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
 
-                    <div className="flex items-center justify-center">
-                        <Badge variant="outline" className="h-8 w-8 justify-center border-primary/30 font-mono text-xs">
-                            {index + 1}
-                        </Badge>
-                    </div>
-                </div>
-            ))}
-        </div>
-    )}
-
-    {/* Custom Approvers Flow */}
-    {formData.masterflow_id === 'custom' && (
-        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
-            <div className="flex items-center justify-between">
-                <Label className="font-sans font-semibold">Custom Approval Flow</Label>
-                <Button type="button" size="sm" variant="outline" onClick={addCustomApprover} className="h-8 font-sans">
-                    <IconPlus className="mr-1 h-3 w-3" /> Tambah Approver
-                </Button>
-            </div>
-
-            <div className="space-y-3">
-                {formData.custom_approvers.map((approver, index) => (
-                    <div key={index} className="grid grid-cols-[80px_1fr_100px_40px] items-start gap-3">
-                        <div className="flex items-center justify-center pt-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
-                                {index + 1}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                            <span className="text-xs text-muted-foreground">Email Approver</span>
-                            <Input
-                                type="email"
-                                value={approver.email}
-                                onChange={(e) => handleCustomApproverChange(index, 'email', e.target.value)}
-                                placeholder="approver@example.com"
-                                className="font-sans"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                            <span className="text-xs text-muted-foreground">Tingkat</span>
-                            <Input
-                                type="number"
-                                min="1"
-                                value={approver.order}
-                                onChange={(e) => handleCustomApproverChange(index, 'order', Number(e.target.value))}
-                                className="font-sans"
-                            />
-                        </div>
-
-                        <div className="flex items-center justify-center pt-6">
-                            {formData.custom_approvers.length > 1 && (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeCustomApprover(index)}
-                                    className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                >
-                                    <IconTrash className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    )}
-
-    {/* Baris 6: Komentar / Catatan */}
-    <div className="grid gap-2">
-        <Label htmlFor="deskripsi" className="font-sans">
-            Tambahkan Komentar / Keterangan
-        </Label>
-        <Textarea
-            id="deskripsi"
-            name="deskripsi"
-            value={formData.deskripsi}
-            onChange={handleInputChange}
-            className={errors.deskripsi ? 'border-red-500 font-sans' : 'font-sans'}
-            placeholder="Tuliskan catatan atau rincian pengajuan..."
-            rows={3}
-        />
-        {errors.deskripsi && <p className="text-sm text-red-500">{renderError(errors.deskripsi)}</p>}
-    </div>
-
-    {/* Baris 7: Opsi Format Dokumen Transaksi */}
-    {formData.kategori_dokumen === 'transaksi' && (
-        <div className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3">
-            <Label className="font-sans text-sm font-medium">Metode Format Dokumen</Label>
-            <div className="flex flex-wrap gap-4">
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input
-                        type="radio"
-                        name="metode_dokumen"
-                        value="template"
-                        checked={formData.metode_dokumen === 'template'}
-                        onChange={() => setFormData((p) => ({ ...p, metode_dokumen: 'template' }))}
-                        className="text-primary"
-                    />
-                    Generate Otomatis dari Template
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input
-                        type="radio"
-                        name="metode_dokumen"
-                        value="upload_manual"
-                        checked={formData.metode_dokumen === 'upload_manual'}
-                        onChange={() => setFormData((p) => ({ ...p, metode_dokumen: 'upload_manual' }))}
-                        className="text-primary"
-                    />
-                    Upload Berkas Fisik Sendiri
-                </label>
-            </div>
-        </div>
-    )}
-
-    {/* Input File Dokumen Utama */}
-    {(formData.kategori_dokumen === 'manual' || formData.metode_dokumen === 'upload_manual') && (
-        <div className="grid gap-2">
-            <Label htmlFor="file" className="font-sans">
-                File Dokumen Utama (PDF) <span className="text-red-500">*</span>
-            </Label>
-            <Input
-                id="file"
-                name="file"
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className={errors.file ? 'border-red-500 font-sans' : 'font-sans'}
-            />
-            <p className="text-xs text-muted-foreground">
-                Format file PDF (Maksimal 10MB).
-            </p>
-            {errors.file && <p className="text-sm text-red-500">{renderError(errors.file)}</p>}
-        </div>
-    )}
-
-    {/* Info Template Otomatis */}
-    {formData.kategori_dokumen === 'transaksi' && formData.metode_dokumen === 'template' && (
-        <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 text-xs text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300">
-            Dokumen PDF akan digenerate otomatis oleh sistem berdasarkan data formulir di atas saat disimpan.
-        </div>
-    )}
-</div>
                                 <DialogFooter className="sm:justify-between">
                                     <Button
                                         type="button"
@@ -1569,17 +1379,7 @@ export default function UserDokumen() {
                                             disabled={isSubmitting}
                                             className="border-gray-300 font-sans hover:bg-gray-50"
                                         >
-                                            {isSubmitting && submitType === 'draft' ? (
-                                                <>
-                                                    <IconFileText className="mr-2 h-4 w-4 animate-spin" />
-                                                    Menyimpan Draft...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <IconFileText className="mr-2 h-4 w-4" />
-                                                    Simpan sebagai Draft
-                                                </>
-                                            )}
+                                            {isSubmitting && submitType === 'draft' ? 'Menyimpan...' : 'Simpan sebagai Draft'}
                                         </Button>
                                         <Button
                                             type="button"
@@ -1587,17 +1387,7 @@ export default function UserDokumen() {
                                             disabled={isSubmitting}
                                             className="bg-green-600 font-sans hover:bg-green-700"
                                         >
-                                            {isSubmitting && submitType === 'submit' ? (
-                                                <>
-                                                    <CheckCircle2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Mengirim...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                    Submit untuk Approval
-                                                </>
-                                            )}
+                                            {isSubmitting && submitType === 'submit' ? 'Mengirim...' : 'Submit untuk Approval'}
                                         </Button>
                                     </div>
                                 </DialogFooter>
@@ -1611,8 +1401,7 @@ export default function UserDokumen() {
                             <DialogHeader>
                                 <DialogTitle className="font-serif">Hapus Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak
-                                    dapat dibatalkan.
+                                    Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak dapat dibatalkan.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>

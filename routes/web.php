@@ -12,6 +12,9 @@ use App\Services\ContextService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Http\Controllers\Admin\MasterTransaksiController;
+
+
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -87,6 +90,10 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
     Route::get('/super-admin/aplikasi-management', function () {
         return Inertia::render('super-admin/aplikasi-management');
     })->name('super-admin.aplikasi-management');
+
+    Route::resource('/super-admin/transaksi-management', MasterTransaksiController::class)
+        ->names('super-admin.transaksi-management')
+        ->except(['create', 'show', 'edit']);
 
     Route::get('/super-admin/user-management', function () {
         return Inertia::render('super-admin/user-management');

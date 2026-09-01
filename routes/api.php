@@ -46,6 +46,17 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // Aplikasi Management
     Route::apiResource('aplikasis', AplikasiController::class);
 
+    // Transaksi Management
+    Route::get('/transaksis', [\App\Http\Controllers\MasterTransaksiController::class, 'index']);
+
+    // Transaksi Management
+    Route::get('/transaksis', function () {
+        return response()->json([
+            'success' => true,
+            'data' => \App\Models\MasterTransaksi::with('aplikasi')->get(),
+        ]);
+    });
+    
     // User Management
     Route::apiResource('users', UserController::class);
 

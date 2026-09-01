@@ -9,6 +9,7 @@ use App\Models\Masterflow;
 use App\Models\Comment;
 use App\Models\RevisionLog;
 use App\Models\User;
+use App\Models\MasterTransaksi;
 use App\Events\ApprovalCreated;
 use App\Events\BrowserNotificationEvent;
 use App\Jobs\SendApprovalNotification;
@@ -24,6 +25,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use App\Services\ContextService;
 use App\Services\PdfSignatureService;
+
 
 class DokumenController extends Controller
 {
@@ -173,18 +175,25 @@ class DokumenController extends Controller
     public function create()
     {
         $query = Masterflow::where('is_active', true);
+        $transaksiQuery = MasterTransaksi::where('is_active', true);
 
         if (!$this->contextService->isSuperAdmin()) {
             $companyId = $this->contextService->getCurrentCompanyId();
+            $aplikasiId = $this->contextService->getCurrentAplikasiId();
             if ($companyId) {
                 $query->where('company_id', $companyId);
+            }
+            if ($aplikasiId) {
+                $transaksiQuery->where('aplikasi_id', $aplikasiId);
             }
         }
 
         $masterflows = $query->get();
+        $transaksis = $transaksiQuery->with('aplikasi')->get();
 
         return Inertia::render('Dokumen/Create', [
             'masterflows' => $masterflows,
+            'transaksis' => $transaksis,
         ]);
     }
 
@@ -218,6 +227,7 @@ class DokumenController extends Controller
         $rules = [
             'id_dokumen'       => 'required|string',
             'nomor_dokumen'    => 'nullable|string',
+            'master_transaksi_id' => 'nullable|exists:master_transaksis,id',
             'kategori_dokumen' => 'nullable|string|in:manual,transaksi',
             'metode_dokumen'   => 'nullable|string|in:template,upload_manual',
             'tipe_dokumen'     => 'nullable|string',
@@ -246,6 +256,7 @@ class DokumenController extends Controller
             $dokumen = Dokumen::create([
                 'id_dokumen'       => $validated['id_dokumen'],
                 'nomor_dokumen'    => $validated['nomor_dokumen'] ?? null,
+                'master_transaksi_id' => $validated['master_transaksi_id'] ?? null,
                 'kategori_dokumen' => $validated['kategori_dokumen'] ?? 'manual',
                 'tipe_dokumen'     => $validated['tipe_dokumen'] ?? null,
                 'judul_dokumen'    => $validated['judul_dokumen'],
