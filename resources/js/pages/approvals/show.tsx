@@ -3,7 +3,9 @@ import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
 import RevisionHistory from '@/components/revision-history';
 import SignaturePad from '@/components/signature-pad';
+import SignaturePlacementDialog, { SignaturePosition } from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
+import api from '@/lib/api';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,10 +16,11 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { showToast } from '@/lib/toast';
-import api from '@/lib/api';
 import { Head, router, useForm } from '@inertiajs/react';
+import { getApprovalDuration } from '@/lib/approval-sla';
 import {
     IconAlertCircle,
+    IconAlertTriangle,
     IconCalendar,
     IconCheck,
     IconClock,
@@ -29,7 +32,7 @@ import {
     IconUsers,
     IconX,
 } from '@tabler/icons-react';
-import { CheckCircle2Icon, XCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon, Timer, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -97,6 +100,7 @@ interface DokumenApproval {
     id: number;
     dokumen_id: number;
     user_id: number;
+    approval_order?: number;
     approval_status: string;
     tgl_deadline?: string;
     tgl_approve?: string;
@@ -104,6 +108,8 @@ interface DokumenApproval {
     comment?: string;
     signature_path?: string;
     signature_url?: string;
+    signature_method?: string;
+    verification_token?: string | null;
     created_at: string;
     dokumen: Dokumen;
     masterflow_step?: MasterflowStep;
@@ -125,10 +131,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [showSignaturePad, setShowSignaturePad] = useState(false);
     const [signatureData, setSignatureData] = useState<string | null>(null);
+    const [signaturePositions, setSignaturePositions] = useState<SignaturePosition[]>([]);
 
     const approveForm = useForm({
         comment: '',
         signature: '',
+        signature_method: 'original',
     });
 
     const rejectForm = useForm({
@@ -177,10 +185,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 console.log('🔌 Leaving channel:', channelName);
                 window.Echo.leave(channelName);
             };
-        } else {
-            if (!window.Echo) {
-                console.error('❌ window.Echo not initialized! Check app.tsx');
-            }
+        } else if (!window.Echo) {
+            console.error('❌ window.Echo not initialized! Check app.tsx');
         }
     }, [approval?.dokumen?.id]);
 
@@ -188,6 +194,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
+
+    // State for PDFViewer standalone preview
+    const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false);
+    const [pdfViewerFileUrl, setPdfViewerFileUrl] = useState<string | null>(null);
+    const [pdfViewerFileName, setPdfViewerFileName] = useState<string>('');
 
     // Handle signature complete
     const handleSignatureComplete = (signature: string) => {
@@ -198,20 +209,35 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     };
 
     // Handle approve
-    const handleApprove = () => {
-        if (!signatureData) {
+    const handleApprove = async () => {
+        if (approveForm.data.signature_method === 'original' && !signatureData) {
             showToast.error('❌ Silakan tanda tangani dokumen terlebih dahulu');
             return;
         }
 
-        console.log('Submitting approval with signature:', {
-            signatureLength: signatureData.length,
-            signaturePreview: signatureData.substring(0, 50) + '...',
+        console.log('Submitting approval:', {
+            method: approveForm.data.signature_method,
             hasComment: !!approveForm.data.comment,
+            positionsCount: signaturePositions.length,
         });
 
-        // Set signature to form data
-        approveForm.data.signature = signatureData;
+        // Pre-save positions to API if available
+        if (signaturePositions && signaturePositions.length > 0 && approval.dokumen?.id) {
+            try {
+                await api.post(`/dokumen/${approval.dokumen.id}/signature-positions`, {
+                    positions: signaturePositions,
+                });
+            } catch (err) {
+                console.warn('Pre-saving positions via API encountered an issue:', err);
+            }
+        }
+
+        // Set signature and signature_positions to form data
+        approveForm.transform((data) => ({
+            ...data,
+            signature: approveForm.data.signature_method === 'original' ? signatureData! : 'qr',
+            signature_positions: signaturePositions.length > 0 ? signaturePositions : undefined,
+        }));
 
         approveForm.post(route('approvals.approve', approval.id), {
             preserveScroll: true,
@@ -220,6 +246,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 setIsPreviewDialogOpen(false);
                 setSignatureData(null);
                 setShowSignaturePad(false);
+                approveForm.reset();
             },
             onError: (errors: any) => {
                 console.error('Approval error:', errors);
@@ -261,8 +288,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 revisionForm.reset();
             },
             onError: (errors: any) => {
-                console.error('Request revision error:', errors);
-                const errorMessage = errors.error || errors.revision_notes || errors.message || 'Gagal meminta revisi';
+                console.error('Revision error:', errors);
+                const errorMessage = errors.error || errors.revision_notes || errors.message || 'Gagal mengirim permintaan revisi.';
                 showToast.error(`❌ ${errorMessage}`);
             },
         });
@@ -275,24 +302,35 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         }
     };
 
-    // Handle preview
-    const handlePreview = async (version?: DokumenVersion) => {
+    // Handle standalone PDFViewer preview for eye icon buttons
+    const handlePDFViewerPreview = (version?: DokumenVersion) => {
         const targetVersion = version || approval.dokumen_version;
         if (!targetVersion) return;
 
         const fileType = targetVersion.tipe_file.toLowerCase();
         if (fileType === 'pdf' || fileType === 'application/pdf') {
-            try {
-                const response = await api.get(`/dokumen/${approval.dokumen.id}/get-secure-url`, {
-                    params: { version: targetVersion.id },
-                });
-                setPreviewFileUrl(response.data.url);
-                setPreviewFileName(targetVersion.nama_file);
-                setPreviewVersionId(targetVersion.id);
-                setIsPreviewDialogOpen(true);
-            } catch (error: any) {
-                showToast.error(error.response?.data?.message || 'Gagal membuat URL preview yang aman.');
-            }
+            const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
+            setPdfViewerFileUrl(url);
+            setPdfViewerFileName(targetVersion.nama_file);
+            setPreviewVersionId(targetVersion.id);
+            setIsPDFViewerOpen(true);
+        } else {
+            showToast.error('❌ Preview hanya tersedia untuk file PDF.');
+        }
+    };
+
+    // Handle preview
+    const handlePreview = (version?: DokumenVersion) => {
+        const targetVersion = version || approval.dokumen_version;
+        if (!targetVersion) return;
+
+        const fileType = targetVersion.tipe_file.toLowerCase();
+        if (fileType === 'pdf' || fileType === 'application/pdf') {
+            const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
+            setPreviewFileUrl(url);
+            setPreviewFileName(targetVersion.nama_file);
+            setPreviewVersionId(targetVersion.id);
+            setIsPreviewDialogOpen(true);
         } else {
             showToast.error('❌ Preview hanya tersedia untuk file PDF.');
         }
@@ -378,9 +416,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     // Check if overdue
     const isOverdue = approval.tgl_deadline && new Date(approval.tgl_deadline) < new Date();
 
-    // Use signed PDF if available, otherwise use original
-    // const fileUrl = approval.dokumen_version ? `/storage/${approval.dokumen_version.signed_file_url || approval.dokumen_version.file_url}` : '';
-
     // Sort approvals by step order
     const sortedApprovals = [...(allApprovals || [])].sort((a, b) => {
         if (a.masterflow_step && b.masterflow_step) {
@@ -388,6 +423,18 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
         }
         return 0;
     });
+
+    const mappedApprovalsForPlacement = (allApprovals || [])
+        .filter((a) => a.approval_status !== 'skipped')
+        .map((a) => ({
+            id: a.id,
+            step_name: a.masterflow_step?.step_name || 'Approval Step',
+            jabatan_name: a.masterflow_step?.jabatan?.name || '',
+            user: a.user ? { name: a.user.name } : undefined,
+            approver_email: a.user?.email || '',
+            approval_status: a.approval_status,
+            signature_method: a.id === approval.id ? approveForm.data.signature_method : a.signature_method,
+        }));
 
     // Group approvals logic - handles non-consecutive group members
     type TimelineItem =
@@ -488,10 +535,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                 </div>
                                 <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
                                     {approval.dokumen.id_dokumen && (
-                                    <>
-                                        <span className="font-mono">ID: {approval.dokumen.id_dokumen}</span>
-                                        <span>•</span>
-                                    </>
+                                        <>
+                                            <span className="font-mono">ID: {approval.dokumen.id_dokumen}</span>
+                                            <span>•</span>
+                                        </>
                                     )}
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
@@ -550,11 +597,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Tipe Dokumen
                                                 </Label>
-                                                <div className ="font-medium">
+                                                <div className="font-medium">
                                                     {approval.dokumen.tipe_dokumen || '-'}
                                                 </div>
                                             </div>
-                                    
+
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Deadline Approval
@@ -623,15 +670,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <div className="flex shrink-0 justify-end gap-2">
                                                     {(approval.dokumen_version.tipe_file.toLowerCase() === 'pdf' ||
                                                         approval.dokumen_version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handlePreview(approval.dokumen_version)}
-                                                            title="Preview"
-                                                        >
-                                                            <IconEye className="h-5 w-5" />
-                                                        </Button>
-                                                    )}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handlePDFViewerPreview(approval.dokumen_version)}
+                                                                title="Preview"
+                                                            >
+                                                                <IconEye className="h-5 w-5" />
+                                                            </Button>
+                                                        )}
                                                     <Button variant="ghost" size="icon" onClick={handleDownload} title="Download">
                                                         <IconDownload className="h-5 w-5" />
                                                     </Button>
@@ -665,13 +712,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-4">
                                                                         <div
-                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
-                                                                                isLatest
-                                                                                    ? 'border-blue-200 bg-blue-100 text-blue-700'
-                                                                                    : rejectionLog
-                                                                                      ? 'border-red-200 bg-red-100 text-red-700'
-                                                                                      : 'bg-background text-muted-foreground'
-                                                                            }`}
+                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
+                                                                                ? 'border-blue-200 bg-blue-100 text-blue-700'
+                                                                                : rejectionLog
+                                                                                    ? 'border-red-200 bg-red-100 text-red-700'
+                                                                                    : 'bg-background text-muted-foreground'
+                                                                                }`}
                                                                         >
                                                                             <IconFileText className="h-5 w-5" />
                                                                         </div>
@@ -707,19 +753,20 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     <div className="flex gap-2">
                                                                         {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                             version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => handlePreview(version)}
-                                                                            >
-                                                                                <IconEye className="h-4 w-4" />
-                                                                            </Button>
-                                                                        )}
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePDFViewerPreview(version)}
+                                                                                    title="Lihat"
+                                                                                >
+                                                                                    <IconEye className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
                                                                             onClick={() =>
-                                                                                (window.location.href = `/dokumen/${approval.dokumen.id}/download/${version.id}`)
+                                                                                (window.location.href = `/api/dokumen/${approval.dokumen.id}/download/${version.id}`)
                                                                             }
                                                                         >
                                                                             <IconDownload className="h-4 w-4" />
@@ -772,15 +819,14 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                             )}
 
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
-                                                                    isCompleted
-                                                                        ? 'border-green-600 text-green-600'
-                                                                        : isRejected
-                                                                          ? 'border-red-600 text-red-600'
-                                                                          : isPending
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
+                                                                    ? 'border-green-600 text-green-600'
+                                                                    : isRejected
+                                                                        ? 'border-red-600 text-red-600'
+                                                                        : isPending
                                                                             ? 'border-yellow-500 text-yellow-500'
                                                                             : 'border-muted text-muted-foreground'
-                                                                }`}
+                                                                    }`}
                                                             >
                                                                 {isCompleted ? (
                                                                     <CheckCircle2Icon className="h-4 w-4" />
@@ -818,6 +864,22 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                         </span>
                                                                     </div>
                                                                 )}
+
+                                                                {/* Approval Duration (SLA) */}
+                                                                {(() => {
+                                                                    const duration = getApprovalDuration(
+                                                                        app,
+                                                                        allApprovals,
+                                                                        approval.dokumen?.tgl_pengajuan,
+                                                                    );
+                                                                    if (!duration) return null;
+                                                                    return (
+                                                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+                                                                            <Timer className="h-3 w-3 shrink-0" />
+                                                                            <span>Durasi approval: {duration}</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
 
                                                                 {(app.comment || app.alasan_reject) && (
                                                                     <div
@@ -860,8 +922,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
                                                         : anyRejected
-                                                          ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500';
+                                                            ? 'border-red-600 text-red-600'
+                                                            : 'border-yellow-500 text-yellow-500';
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
@@ -892,7 +954,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     </div>
                                                                     <div className="divide-y p-0">
                                                                         {group.data.map((app) => {
-                                                                            // Check if this member should show as auto-skipped
                                                                             const isAnyOneGroup = group.groupType === 'any_one';
                                                                             const someoneElseApproved = group.data.some(
                                                                                 (a) => a.id !== app.id && a.approval_status === 'approved',
@@ -902,7 +963,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                 someoneElseApproved &&
                                                                                 app.approval_status === 'pending';
 
-                                                                            // Check if this member is skipped (either from DB or auto-calculated)
                                                                             const isSkipped = app.approval_status === 'skipped' || isAutoSkipped;
 
                                                                             return (
@@ -921,18 +981,31 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                         </div>
                                                                                         {isSkipped && (
                                                                                             <div className="text-[10px] text-muted-foreground italic">
-                                                                                                *Otomatis di-skip karena grup sudah menyelesaikan
-                                                                                                approval.
+                                                                                                *Otomatis di-skip karena grup sudah menyelesaikan approval.
                                                                                             </div>
                                                                                         )}
                                                                                     </div>
-                                                                                    <div className="flex flex-col items-end gap-2">
+                                                                                    <div className="flex flex-col items-end gap-1">
                                                                                         {getStatusBadge(app.approval_status)}
                                                                                         {app.tgl_approve && (
                                                                                             <span className="text-[10px] text-muted-foreground">
                                                                                                 {formatDateTime(app.tgl_approve)}
                                                                                             </span>
                                                                                         )}
+                                                                                        {(() => {
+                                                                                            const duration = getApprovalDuration(
+                                                                                                app,
+                                                                                                allApprovals,
+                                                                                                approval.dokumen?.tgl_pengajuan,
+                                                                                            );
+                                                                                            if (!duration) return null;
+                                                                                            return (
+                                                                                                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                                                    <Timer className="h-2.5 w-2.5 shrink-0" />
+                                                                                                    <span>Durasi: {duration}</span>
+                                                                                                </span>
+                                                                                            );
+                                                                                        })()}
                                                                                         {app.id === approval.id && (
                                                                                             <Badge
                                                                                                 variant="outline"
@@ -975,17 +1048,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 Setujui Dokumen
                                             </Button>
                                             <Button
-                                                variant="outline"
                                                 onClick={() => setIsRevisionDialogOpen(true)}
-                                                className="w-full border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900 font-sans"
+                                                className="w-full bg-orange-500 text-white hover:bg-orange-600 font-sans"
                                             >
-                                                <IconRefresh className="mr-2 h-4 w-4" />
+                                                <IconAlertTriangle className="mr-2 h-4 w-4" />
                                                 Minta Revisi
                                             </Button>
                                             <Button
-                                                variant="outline"
                                                 onClick={() => setIsRejectDialogOpen(true)}
-                                                className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 font-sans"
+                                                className="w-full bg-red-600 text-white hover:bg-red-700 font-sans"
                                             >
                                                 <IconX className="mr-2 h-4 w-4" />
                                                 Tolak Dokumen
@@ -994,35 +1065,33 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     </Card>
                                 ) : (
                                     <Card
-                                        className={`border shadow-sm ${
-                                            approval.approval_status === 'approved'
-                                                ? 'border-green-200 bg-green-50/50'
-                                                : approval.approval_status === 'rejected'
-                                                  ? 'border-red-200 bg-red-50/50'
-                                                  : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
+                                        className={`border shadow-sm ${approval.approval_status === 'approved'
+                                            ? 'border-green-200 bg-green-50/50'
+                                            : approval.approval_status === 'rejected'
+                                                ? 'border-red-200 bg-red-50/50'
+                                                : approval.approval_status === 'waiting' || (approval.approval_status === 'pending' && !canApprove)
                                                     ? 'border-yellow-200 bg-yellow-50/50'
                                                     : 'border-dashed bg-muted/30'
-                                        }`}
+                                            }`}
                                     >
                                         <CardHeader className="pb-3">
                                             <CardTitle
-                                                className={`flex items-center gap-2 text-base font-bold ${
-                                                    approval.approval_status === 'approved'
-                                                        ? 'text-green-700'
-                                                        : approval.approval_status === 'rejected'
-                                                          ? 'text-red-700'
-                                                          : approval.approval_status === 'waiting' ||
-                                                              (approval.approval_status === 'pending' && !canApprove)
+                                                className={`flex items-center gap-2 text-base font-bold ${approval.approval_status === 'approved'
+                                                    ? 'text-green-700'
+                                                    : approval.approval_status === 'rejected'
+                                                        ? 'text-red-700'
+                                                        : approval.approval_status === 'waiting' ||
+                                                            (approval.approval_status === 'pending' && !canApprove)
                                                             ? 'text-yellow-700'
                                                             : 'text-muted-foreground'
-                                                }`}
+                                                    }`}
                                             >
                                                 {approval.approval_status === 'approved' ? (
                                                     <IconCheck className="h-5 w-5" />
                                                 ) : approval.approval_status === 'rejected' ? (
                                                     <IconX className="h-5 w-5" />
                                                 ) : approval.approval_status === 'waiting' ||
-                                                  (approval.approval_status === 'pending' && !canApprove) ? (
+                                                    (approval.approval_status === 'pending' && !canApprove) ? (
                                                     <IconClock className="h-5 w-5" />
                                                 ) : (
                                                     <IconAlertCircle className="h-5 w-5" />
@@ -1050,13 +1119,13 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 )}
                                                 {(approval.approval_status === 'waiting' ||
                                                     (approval.approval_status === 'pending' && !canApprove)) && (
-                                                    <>
-                                                        <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
-                                                        <p className="text-sm text-yellow-700">
-                                                            Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
-                                                        </p>
-                                                    </>
-                                                )}
+                                                        <>
+                                                            <p className="font-semibold text-yellow-900">Menunggu Giliran</p>
+                                                            <p className="text-sm text-yellow-700">
+                                                                Anda belum dapat melakukan persetujuan karena tahap sebelumnya belum selesai.
+                                                            </p>
+                                                        </>
+                                                    )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1076,6 +1145,57 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             </div>
                         </div>
                     </div>
+
+                    {/* Revision Request Dialog */}
+                    <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle className="font-serif">Minta Revisi</DialogTitle>
+                                <DialogDescription className="font-sans">
+                                    Jelaskan bagian dokumen "{approval.dokumen.judul_dokumen}" yang perlu direvisi.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="revision_notes" className="font-sans">
+                                        Catatan Revisi <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Textarea
+                                        id="revision_notes"
+                                        placeholder="Jelaskan bagian mana saja yang perlu diperbaiki atau dilengkapi..."
+                                        value={revisionForm.data.revision_notes}
+                                        onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
+                                        className="font-sans"
+                                        rows={4}
+                                        required
+                                    />
+                                    {revisionForm.errors.revision_notes && (
+                                        <p className="font-sans text-sm text-red-600">{revisionForm.errors.revision_notes}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsRevisionDialogOpen(false)}
+                                    disabled={revisionForm.processing}
+                                    className="font-sans"
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    onClick={handleRequestRevision}
+                                    disabled={revisionForm.processing || !revisionForm.data.revision_notes.trim()}
+                                    className="bg-orange-500 font-sans text-white hover:bg-orange-600"
+                                >
+                                    <IconAlertTriangle className="mr-2 h-4 w-4" />
+                                    {revisionForm.processing ? 'Mengirim...' : 'Kirim Permintaan Revisi'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     {/* Reject Dialog */}
                     <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
@@ -1137,52 +1257,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                         </DialogContent>
                     </Dialog>
 
-                    {/* Request Revision Dialog */}
-                    <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle className="font-serif">Minta Revisi Dokumen</DialogTitle>
-                                <DialogDescription className="font-sans">
-                                    Berikan catatan perbaikan detail yang perlu dilakukan oleh pengaju dokumen "{approval.dokumen.judul_dokumen}"
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="revision_notes" className="font-sans">
-                                        Catatan Instruktur Revisi <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Textarea
-                                        id="revision_notes"
-                                        placeholder="Jelaskan bagian mana saja yang perlu diperbaiki atau dilengkapi..."
-                                        value={revisionForm.data.revision_notes}
-                                        onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
-                                        className="font-sans"
-                                        rows={4}
-                                        required
-                                    />
-                                    {revisionForm.errors.revision_notes && (
-                                        <p className="font-sans text-sm text-red-600">{revisionForm.errors.revision_notes}</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setIsRevisionDialogOpen(false)} className="font-sans">
-                                    Batal
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={handleRequestRevision}
-                                    disabled={revisionForm.processing || !revisionForm.data.revision_notes.trim()}
-                                    className="border-amber-300 bg-amber-600 font-sans text-white hover:bg-amber-700"
-                                >
-                                    {revisionForm.processing ? 'Memproses...' : 'Kirim Minta Revisi'}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
                     {/* PDF Preview Dialog with Signature */}
                     <Dialog
                         open={isPreviewDialogOpen}
@@ -1201,7 +1275,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     <DialogDescription className="font-sans">
                                         {previewFileName || approval.dokumen_version?.nama_file}
                                     </DialogDescription>
-                                    {/* Show status info */}
                                     {approval.approval_status !== 'pending' && (
                                         <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
                                             Dokumen ini sudah {approval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
@@ -1217,22 +1290,28 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                             <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 lg:flex-row">
                                 {/* PDF Preview - Left Side */}
-                                <div
-                                    className={`${
-                                        canApprove && approval.approval_status === 'pending' ? 'min-h-[300px] flex-1 lg:h-auto' : 'w-full'
-                                    } overflow-auto rounded-lg border`}
-                                >
-                                    {previewFileUrl && (
-                                        <PDFViewer
-                                            fileUrl={previewFileUrl}
-                                            fileName={previewFileName || 'document.pdf'}
-                                            showControls={true}
-                                            height="100%"
-                                        />
-                                    )}
-                                </div>
+                                {previewFileUrl && (
+                                    <SignaturePlacementDialog
+                                        open={isPreviewDialogOpen}
+                                        onOpenChange={setIsPreviewDialogOpen}
+                                        dokumenId={approval.dokumen.id}
+                                        fileUrl={previewFileUrl}
+                                        approvals={mappedApprovalsForPlacement}
+                                        defaultActiveApprovalId={approval.id}
+                                        onPositionsChange={setSignaturePositions}
+                                        onSaved={(positions) => setSignaturePositions(positions)}
+                                        isEmbedded={true}
+                                        readOnly={
+                                            !(
+                                                canApprove &&
+                                                approval.approval_status === 'pending' &&
+                                                (previewVersionId === approval.dokumen_version?.id || !previewVersionId)
+                                            )
+                                        }
+                                    />
+                                )}
 
-                                {/* Signature Panel - Right Side - Only show for pending approvals that user can approve AND viewing current version */}
+                                {/* Signature Panel - Right Side */}
                                 {canApprove &&
                                     approval.approval_status === 'pending' &&
                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId) && (
@@ -1244,72 +1323,133 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                                             <Separator />
 
-                                            {!showSignaturePad && !signatureData ? (
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                                    Metode Tanda Tangan
+                                                </Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant={approveForm.data.signature_method === 'original' ? 'default' : 'outline'}
+                                                        onClick={() => {
+                                                            approveForm.setData('signature_method', 'original');
+                                                        }}
+                                                        className="w-full text-xs font-medium"
+                                                    >
+                                                        Tanda Tangan Asli
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant={approveForm.data.signature_method === 'qr' ? 'default' : 'outline'}
+                                                        onClick={() => {
+                                                            approveForm.setData('signature_method', 'qr');
+                                                        }}
+                                                        className="w-full text-xs font-medium"
+                                                    >
+                                                        Tanda Tangan QR Code
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <Separator />
+
+                                            {approveForm.data.signature_method === 'original' ? (
+                                                !showSignaturePad && !signatureData ? (
+                                                    <div className="space-y-3">
+                                                        <Card className="border-dashed">
+                                                            <CardContent className="flex flex-col items-center justify-center py-8">
+                                                                <IconPencil className="h-12 w-12 text-muted-foreground" />
+                                                                <p className="mt-2 text-center font-sans text-sm text-muted-foreground">
+                                                                    Belum ada tanda tangan
+                                                                </p>
+                                                            </CardContent>
+                                                        </Card>
+                                                        <Button
+                                                            type="button"
+                                                            onClick={() => setShowSignaturePad(true)}
+                                                            className="w-full font-sans"
+                                                            variant="outline"
+                                                        >
+                                                            <IconPencil className="mr-2 h-4 w-4" />
+                                                            Tambah Tanda Tangan
+                                                        </Button>
+                                                    </div>
+                                                ) : signatureData ? (
+                                                    <div className="space-y-3">
+                                                        <Card>
+                                                            <CardContent className="p-4">
+                                                                <div className="flex items-center justify-center rounded border bg-white p-4">
+                                                                    <img
+                                                                        src={signatureData}
+                                                                        alt="Signature"
+                                                                        className="max-h-24 max-w-full object-contain"
+                                                                    />
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setSignatureData(null);
+                                                                    setShowSignaturePad(true);
+                                                                }}
+                                                                className="flex-1 font-sans"
+                                                            >
+                                                                Ganti
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setSignatureData(null);
+                                                                    approveForm.setData('signature', '');
+                                                                }}
+                                                                className="font-sans text-red-600 hover:bg-red-50"
+                                                            >
+                                                                <IconX className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <SignaturePad
+                                                        onSignatureComplete={handleSignatureComplete}
+                                                        onCancel={() => setShowSignaturePad(false)}
+                                                    />
+                                                )
+                                            ) : (
                                                 <div className="space-y-3">
-                                                    <Card className="border-dashed">
-                                                        <CardContent className="flex flex-col items-center justify-center py-8">
-                                                            <IconPencil className="h-12 w-12 text-muted-foreground" />
-                                                            <p className="mt-2 text-center font-sans text-sm text-muted-foreground">
-                                                                Belum ada tanda tangan
+                                                    <Card className="border bg-white">
+                                                        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                                                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    className="h-10 w-10"
+                                                                >
+                                                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                                                    <rect x="7" y="7" width="3" height="3" />
+                                                                    <rect x="14" y="7" width="3" height="3" />
+                                                                    <rect x="7" y="14" width="3" height="3" />
+                                                                    <rect x="14" y="14" width="3" height="3" />
+                                                                </svg>
+                                                            </div>
+                                                            <p className="mt-4 font-serif text-base font-semibold">Tanda Tangan QR Code Terpilih</p>
+                                                            <p className="mt-1 max-w-[280px] font-sans text-xs text-muted-foreground">
+                                                                Sistem akan menyematkan QR Code unik pada dokumen untuk verifikasi keaslian tanda tangan.
                                                             </p>
                                                         </CardContent>
                                                     </Card>
-                                                    <Button
-                                                        type="button"
-                                                        onClick={() => setShowSignaturePad(true)}
-                                                        className="w-full font-sans"
-                                                        variant="outline"
-                                                    >
-                                                        <IconPencil className="mr-2 h-4 w-4" />
-                                                        Tambah Tanda Tangan
-                                                    </Button>
                                                 </div>
-                                            ) : signatureData ? (
-                                                <div className="space-y-3">
-                                                    <Card>
-                                                        <CardContent className="p-4">
-                                                            <div className="flex items-center justify-center rounded border bg-white p-4">
-                                                                <img
-                                                                    src={signatureData}
-                                                                    alt="Signature"
-                                                                    className="max-h-24 max-w-full object-contain"
-                                                                />
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                setSignatureData(null);
-                                                                setShowSignaturePad(true);
-                                                            }}
-                                                            className="flex-1 font-sans"
-                                                        >
-                                                            Ganti
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                setSignatureData(null);
-                                                                approveForm.setData('signature', '');
-                                                            }}
-                                                            className="font-sans text-red-600 hover:bg-red-50"
-                                                        >
-                                                            <IconX className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <SignaturePad
-                                                    onSignatureComplete={handleSignatureComplete}
-                                                    onCancel={() => setShowSignaturePad(false)}
-                                                />
                                             )}
 
-                                            {signatureData && (
+                                            {(signatureData || approveForm.data.signature_method === 'qr') && (
                                                 <>
                                                     <Separator />
 
@@ -1353,6 +1493,21 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             )}
                                         </div>
                                     )}
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Standalone PDF Viewer Preview Dialog */}
+                    <Dialog open={isPDFViewerOpen} onOpenChange={setIsPDFViewerOpen}>
+                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
+                            <DialogHeader className="shrink-0 border-b p-4">
+                                <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                <DialogDescription className="font-sans">{pdfViewerFileName}</DialogDescription>
+                            </DialogHeader>
+                            <div className="flex-1 overflow-auto p-4">
+                                {pdfViewerFileUrl && (
+                                    <PDFViewer fileUrl={pdfViewerFileUrl} fileName={pdfViewerFileName} showControls={true} height="100%" />
+                                )}
                             </div>
                         </DialogContent>
                     </Dialog>

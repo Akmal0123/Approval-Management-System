@@ -34,6 +34,8 @@ class DokumenApproval extends Model
         'alasan_reject',
         'comment',
         'signature_path',
+        'signature_method',
+        'verification_token',
         'revision_notes',
         'revision_requested_by',
         'revision_requested_at',
@@ -90,6 +92,14 @@ class DokumenApproval extends Model
     }
 
     /**
+     * Get the signature position for this approval.
+     */
+    public function signaturePosition()
+    {
+        return $this->hasOne(DocumentSignaturePosition::class, 'dokumen_approval_id');
+    }
+
+    /**
      * Get the jabatan through masterflow step.
      */
     public function jabatan()
@@ -138,11 +148,11 @@ class DokumenApproval extends Model
     }
 
     /**
-     * Check if this approval is pending.
+     * Check if this approval is pending (or revision_requested which is also actionable).
      */
     public function isPending(): bool
     {
-        return $this->approval_status === 'pending';
+        return in_array($this->approval_status, ['pending', 'revision_requested']);
     }
 
     /**
@@ -197,9 +207,9 @@ class DokumenApproval extends Model
             return true;
         }
 
-        // Check if all previous approvals are completed (approved or skipped)
+        // Check if all previous approvals are completed (approved, skipped, or revision_requested)
         foreach ($previousApprovals as $previousApproval) {
-            if (!in_array($previousApproval->approval_status, ['approved', 'skipped'])) {
+            if (!in_array($previousApproval->approval_status, ['approved', 'skipped', 'revision_requested'])) {
                 return false;
             }
         }

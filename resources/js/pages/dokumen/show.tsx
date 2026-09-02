@@ -1,6 +1,7 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
+import SignaturePlacementDialog from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +17,9 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import RevisionHistory from '@/components/revision-history';
 import { Head, router, usePage } from '@inertiajs/react';
+import { getApprovalDuration } from '@/lib/approval-sla';
 import { IconDownload, IconEdit, IconEye, IconFileText, IconPrinter, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
-import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon, UserIcon } from 'lucide-react';
+import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, Timer, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -76,6 +78,8 @@ interface DokumenApproval {
     comment?: string;
     user?: User;
     masterflow_step?: MasterflowStep;
+    created_at?: string;
+    updated_at?: string;
 }
 
 interface NextApprover {
@@ -242,6 +246,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
     const [isRevisionDialogOpen, setIsRevisionDialogOpen] = useState(false);
+    const [isPlacementDialogOpen, setIsPlacementDialogOpen] = useState(false);
     const [previewFileUrl, setPreviewFileUrl] = useState<string>('');
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [revisionFile, setRevisionFile] = useState<File | null>(null);
@@ -262,7 +267,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         custom_approvers: [],
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const fetchDokumen = async () => {
         try {
@@ -324,14 +329,41 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
-            draft: { label: 'Draft', icon: FileTextIcon, className: 'bg-gray-100 text-gray-800 border-gray-300' },
-            pending: { label: 'Pending', icon: ClockIcon, className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-            submitted: { label: 'Submitted', icon: CheckCircle2Icon, className: 'bg-blue-100 text-blue-800 border-blue-300' },
-            under_review: { label: 'Under Review', icon: AlertCircleIcon, className: 'bg-orange-100 text-orange-800 border-orange-300' },
-            approved: { label: 'Approved', icon: CheckCircle2Icon, className: 'bg-green-100 text-green-800 border-green-300' },
-            rejected: { label: 'Rejected', icon: XCircleIcon, className: 'bg-red-100 text-red-800 border-red-300' },
-            revision_requested: { label: 'Perlu Revisi', icon: AlertCircleIcon, className: 'bg-orange-100 text-orange-800 border-orange-300' },
-            needs_revision: { label: 'Perlu Revisi', icon: AlertCircleIcon, className: 'bg-orange-100 text-orange-800 border-orange-300' },
+            draft: {
+                label: 'Draft',
+                icon: FileTextIcon,
+                className: 'bg-gray-100 text-gray-800 border-gray-300',
+            },
+            pending: {
+                label: 'Pending',
+                icon: ClockIcon,
+                className: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            },
+            submitted: {
+                label: 'Submitted',
+                icon: CheckCircle2Icon,
+                className: 'bg-blue-100 text-blue-800 border-blue-300',
+            },
+            under_review: {
+                label: 'Under Review',
+                icon: AlertCircleIcon,
+                className: 'bg-orange-100 text-orange-800 border-orange-300',
+            },
+            approved: {
+                label: 'Approved',
+                icon: CheckCircle2Icon,
+                className: 'bg-green-100 text-green-800 border-green-300',
+            },
+            rejected: {
+                label: 'Rejected',
+                icon: XCircleIcon,
+                className: 'bg-red-100 text-red-800 border-red-300',
+            },
+            needs_revision: {
+                label: 'Perlu Revisi',
+                icon: AlertCircleIcon,
+                className: 'bg-purple-100 text-purple-800 border-purple-300',
+            },
         };
 
         const config = statusConfig[status] || statusConfig.draft;
@@ -352,6 +384,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             skipped: { label: 'Disetujui', className: 'bg-green-100 text-green-800 border-green-300' },
             rejected: { label: 'Ditolak', className: 'bg-red-100 text-red-800 border-red-300' },
             waiting: { label: 'Menunggu Giliran', className: 'bg-gray-100 text-gray-800 border-gray-300' },
+            revision_requested: { label: 'Perlu Revisi', className: 'bg-purple-100 text-purple-800 border-purple-300' },
         };
 
         const config = statusConfig[status] || statusConfig.pending;
@@ -450,7 +483,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) {
-            setErrors((prev) => ({ ...prev, [name]: [] }));
+            setErrors((prev) => ({
+                ...prev,
+                [name]: '',
+            }));
         }
     };
 
@@ -469,7 +505,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
             }
             setFormData((prev) => ({ ...prev, file: file }));
             if (errors.file) {
-                setErrors((prev) => ({ ...prev, file: [] }));
+                setErrors((prev) => ({
+                    ...prev,
+                    file: '',
+                }));
             }
         }
     };
@@ -491,7 +530,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 submitData.append('file', formData.file);
             }
 
-            router.post(`/dokumen/${dokumen.id}`, submitData, {
+            router.post(`/api/dokumen/${dokumen.id}`, submitData, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -499,9 +538,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                     setIsEditDialogOpen(false);
                     fetchDokumen();
                 },
-                onError: (errs) => {
-                    setErrors(errs as unknown as Record<string, string[]>);
-                    showToast.error('❌ Gagal update dokumen.');
+                onError: (errors) => {
+                    console.error('Form submission errors:', errors);
+                    setErrors(errors);
+                    showToast.error('❌ Gagal update dokumen. Silakan cek form.');
                 },
             });
         } catch (error: any) {
@@ -561,7 +601,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const confirmSubmitForApproval = async () => {
         setIsSubmitting(true);
         router.post(
-            `/dokumen/${dokumen.id}/submit`,
+            `/api/dokumen/${dokumen.id}/submit`,
             {},
             {
                 preserveState: false,
@@ -580,8 +620,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     };
 
     const handleUploadRevision = () => {
-        if (dokumen.status !== 'rejected') {
-            showToast.error('❌ Hanya dokumen yang di-reject yang dapat direvisi.');
+        if (dokumen.status !== 'rejected' && dokumen.status !== 'needs_revision') {
+            showToast.error('❌ Hanya dokumen yang memerlukan revisi atau di-reject yang dapat direvisi.');
             return;
         }
         if (dokumen.user_id !== auth.user.id) {
@@ -788,15 +828,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             {/* Primary Actions */}
                             <div className="hidden items-center gap-2 sm:flex">
                                 {dokumen?.status === 'draft' && (
+                                    <Button onClick={() => setIsPlacementDialogOpen(true)} variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                                        <IconEdit className="mr-2 h-4 w-4" />
+                                        Atur Posisi TTD
+                                    </Button>
+                                )}
+                                {dokumen?.status === 'draft' && (
                                     <Button onClick={handleSubmitForApproval} className="bg-green-600 hover:bg-green-700">
                                         <IconSend className="mr-2 h-4 w-4" />
                                         Submit Approval
-                                    </Button>
-                                )}
-                                {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
-                                    <Button onClick={handleUploadRevision} className="bg-blue-600 hover:bg-blue-700 font-sans">
-                                        <IconFileText className="mr-2 h-4 w-4" />
-                                        Upload Revisi
                                     </Button>
                                 )}
                             </div>
@@ -907,15 +947,14 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                     return (
                                                         <div key={approval.id} className="relative flex gap-4 pb-8 last:pb-0">
                                                             <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background shadow-xs ${
-                                                                    isCompleted
+                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
                                                                         ? 'border-green-600 text-green-600'
                                                                         : isRejected
-                                                                          ? 'border-red-600 text-red-600'
-                                                                          : isPending
-                                                                            ? 'border-yellow-500 text-yellow-500'
-                                                                            : 'border-muted text-muted-foreground'
-                                                                }`}
+                                                                            ? 'border-red-600 text-red-600'
+                                                                            : isPending
+                                                                                ? 'border-yellow-500 text-yellow-500'
+                                                                                : 'border-muted text-muted-foreground'
+                                                                    }`}
                                                             >
                                                                 {isCompleted ? (
                                                                     <CheckCircle2Icon className="h-4 w-4" />
@@ -933,8 +972,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                             {isCustomApproval
                                                                                 ? approval.approver_email || 'Unknown User'
                                                                                 : approval.user?.name ||
-                                                                                  approval.masterflow_step?.jabatan?.name ||
-                                                                                  'Unknown Position'}
+                                                                                approval.masterflow_step?.jabatan?.name ||
+                                                                                'Unknown Position'}
                                                                         </div>
                                                                         <div className="text-xs text-muted-foreground">
                                                                             {isCustomApproval
@@ -961,20 +1000,29 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                     </div>
                                                                 )}
 
-                                                                <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                                                                    {approval.tgl_approve && (
-                                                                        <div className="flex items-center gap-1">
-                                                                            <ClockIcon className="h-3 w-3" />
-                                                                            <span>Selesai: {formatDate(approval.tgl_approve)}</span>
+                                                                {/* Approval Date */}
+                                                                {approval.tgl_approve && (
+                                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                        <ClockIcon className="h-3 w-3" />
+                                                                        {formatDate(approval.tgl_approve)}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Approval Duration (SLA) */}
+                                                                {(() => {
+                                                                    const duration = getApprovalDuration(
+                                                                        approval,
+                                                                        dokumen.approvals,
+                                                                        dokumen.tgl_pengajuan || dokumen.created_at,
+                                                                    );
+                                                                    if (!duration) return null;
+                                                                    return (
+                                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                            <Timer className="h-3 w-3" />
+                                                                            <span>Durasi approval: {duration}</span>
                                                                         </div>
-                                                                    )}
-                                                                    {(approval.tgl_deadline || dokumen.tgl_deadline) && (
-                                                                        <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
-                                                                            <CalendarIcon className="h-3 w-3" />
-                                                                            <span>Deadline: {formatDate(approval.tgl_deadline || dokumen.tgl_deadline)}</span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         </div>
                                                     );
@@ -989,9 +1037,9 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
                                                     const statusColor = isGroupApproved
                                                         ? 'border-green-600 text-green-600'
-                                                        : anyRejected
-                                                          ? 'border-red-600 text-red-600'
-                                                          : 'border-yellow-500 text-yellow-500';
+                                                        : anyRejected // If any rejected and type is all_required -> rejected.
+                                                            ? 'border-red-600 text-red-600'
+                                                            : 'border-yellow-500 text-yellow-500'; // Pending default
 
                                                     return (
                                                         <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
@@ -1033,6 +1081,21 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                                                     {formatDate(approval.tgl_approve)}
                                                                                                 </span>
                                                                                             )}
+                                                                                            {/* Approval Duration (SLA) */}
+                                                                                            {(() => {
+                                                                                                const duration = getApprovalDuration(
+                                                                                                    approval,
+                                                                                                    dokumen.approvals,
+                                                                                                    dokumen.tgl_pengajuan || dokumen.created_at,
+                                                                                                );
+                                                                                                if (!duration) return null;
+                                                                                                return (
+                                                                                                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                                                        <Timer className="h-2.5 w-2.5" />
+                                                                                                        <span>Durasi: {duration}</span>
+                                                                                                    </span>
+                                                                                                );
+                                                                                            })()}
                                                                                         </div>
                                                                                     </div>
 
@@ -1117,21 +1180,34 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex gap-1">
-                                                                    {(version.tipe_file.toLowerCase() === 'pdf' || version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                        <>
-                                                                            <Button variant="ghost" size="icon" onClick={() => handlePreview(version)} title="Lihat">
-                                                                                <IconEye className="h-4 w-4" />
-                                                                            </Button>
-                                                                            <Button variant="ghost" size="icon" onClick={() => handlePrint(version)} title="Print">
-                                                                                <IconPrinter className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </>
-                                                                    )}
-                                                                    <Button variant="outline" size="sm" onClick={() => handleDownloadOriginal(version.id)} className="h-8 border-gray-300 text-xs">
-                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-gray-600" /> PDF Asli
-                                                                    </Button>
-                                                                    <Button variant="outline" size="sm" onClick={() => handleDownload(version.id)} className="h-8 border-blue-300 bg-blue-50/50 text-xs text-blue-700">
-                                                                        <IconDownload className="mr-1 h-3.5 w-3.5 text-blue-600" /> Signed PDF
+                                                                    {(version.tipe_file.toLowerCase() === 'pdf' ||
+                                                                        version.tipe_file.toLowerCase() === 'application/pdf') && (
+                                                                            <>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePreview(version)}
+                                                                                    title="Lihat"
+                                                                                >
+                                                                                    <IconEye className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => handlePrint(version)}
+                                                                                    title="Print"
+                                                                                >
+                                                                                    <IconPrinter className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </>
+                                                                        )}
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => handleDownload(version.id)}
+                                                                        title="Download"
+                                                                    >
+                                                                        <IconDownload className="h-4 w-4" />
                                                                     </Button>
                                                                 </div>
                                                             </div>
@@ -1227,7 +1303,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     </CardContent>
                                 </Card>
 
-                                {(dokumen?.status === 'draft' || dokumen?.status === 'rejected') && (
+                                {/* Manage Actions */}
+                                {(dokumen?.status === 'draft' || dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && (
                                     <Card>
                                         <CardHeader className="pb-3">
                                             <CardTitle className="text-base font-medium">Kelola Dokumen</CardTitle>
@@ -1238,9 +1315,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                     <IconSend className="mr-2 h-4 w-4" /> Submit Approval
                                                 </Button>
                                             )}
-                                            {['rejected', 'revision_requested', 'needs_revision'].includes(dokumen?.status || '') && dokumen?.user_id === auth.user.id && (
-                                                <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700 font-sans">
-                                                    <IconFileText className="mr-2 h-4 w-4" /> Upload Revisi
+                                            {(dokumen?.status === 'rejected' || dokumen?.status === 'needs_revision') && dokumen?.user_id === auth.user.id && (
+                                                <Button onClick={handleUploadRevision} className="w-full justify-start bg-blue-600 hover:bg-blue-700">
+                                                    <IconFileText className="mr-2 h-4 w-4" />
+                                                    Upload Revisi
                                                 </Button>
                                             )}
                                             <Button variant="outline" onClick={handleEdit} className="w-full justify-start">
@@ -1277,7 +1355,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                             onChange={handleInputChange}
                                             className={errors.judul_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
                                         />
-                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen[0]}</p>}
+                                        {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
                                     <div className="grid gap-2">
@@ -1417,6 +1495,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             </div>
                         </DialogContent>
                     </Dialog>
+
+                    {/* Signature Placement Dialog */}
+                    <SignaturePlacementDialog
+                        open={isPlacementDialogOpen}
+                        onOpenChange={setIsPlacementDialogOpen}
+                        dokumenId={dokumen.id}
+                        fileUrl={dokumen.versions && dokumen.versions.length > 0 ? `/api/dokumen/${dokumen.id}/signed-pdf/${dokumen.versions[0].id}` : ''}
+                        approvals={sortedApprovals.filter(a => a.approval_status !== 'skipped')}
+                    />
                 </SidebarInset>
             </SidebarProvider>
         </>

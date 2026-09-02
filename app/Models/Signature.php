@@ -123,16 +123,16 @@ class Signature extends Model
         static::deleting(function ($signature) {
             if (!$signature->isForceDeleting()) {
                 // This is a soft delete, delete the file
-                if ($signature->signature_path && Storage::disk('public')->exists($signature->signature_path)) {
-                    Storage::disk('public')->delete($signature->signature_path);
+                if ($signature->signature_path && Storage::disk('local')->exists($signature->signature_path)) {
+                    Storage::disk('local')->delete($signature->signature_path);
                 }
             }
         });
 
         // When force deleting (permanent delete), also ensure file is deleted
         static::forceDeleting(function ($signature) {
-            if ($signature->signature_path && Storage::disk('public')->exists($signature->signature_path)) {
-                Storage::disk('public')->delete($signature->signature_path);
+            if ($signature->signature_path && Storage::disk('local')->exists($signature->signature_path)) {
+                Storage::disk('local')->delete($signature->signature_path);
             }
         });
     }

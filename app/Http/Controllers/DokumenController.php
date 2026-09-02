@@ -252,6 +252,8 @@ class DokumenController extends Controller
             $statusCurrent = $submitType === 'draft' ? 'draft' : 'waiting_approval_1';
             $masterflowIdVal = ($request->masterflow_id === 'custom' || empty($request->masterflow_id)) ? null : $request->masterflow_id;
 
+            $frontendIdToApprovalId = [];
+
             // 1. Buat Dokumen
             $dokumen = Dokumen::create([
                 'id_dokumen'       => $validated['id_dokumen'],
@@ -294,74 +296,150 @@ class DokumenController extends Controller
                 $masterflow = Masterflow::with('steps.jabatan')->find($validated['masterflow_id']);
                 if ($masterflow && $masterflow->steps) {
                     foreach ($masterflow->steps as $step) {
-                        $userId = $request->input("approvers.{$step->id}");
+                        $isFirstLevel = $step->step_order == $minStepOrder;
+                        // Check if user selected group approval for this step
+                        if ($request->has("step_approvers.{$step->id}")) {
+                            $stepApprover = $request->input("step_approvers.{$step->id}");
+                            $groupIndex = 'user_selected_' . $dokumen->id . '_' . $step->id;
 
-                        // Jika approver tidak dipilih di dropdown, cari user yang punya jabatan ini
-                        if (empty($userId)) {
-                            $fallbackUser = User::whereHas('userAuths', function ($q) use ($step) {
-                                $q->where('jabatan_id', $step->jabatan_id);
-                            })->first();
-                            $userId = $fallbackUser?->id ?? Auth::id();
+                            Log::info('Creating group approval', [
+                                'step_id' => $step->id,
+                                'group_index' => $groupIndex,
+                                'jenis_group' => $stepApprover['jenis_group'],
+                                'user_ids' => $stepApprover['user_ids'],
+                            ]);
+
+                            // Create approval records for all selected users in the group
+                            foreach ($stepApprover['user_ids'] as $userId) {
+                                $approval = DokumenApproval::create([
+                                    'dokumen_id' => $dokumen->id,
+                                    'user_id' => $userId,
+                                    'masterflow_step_id' => $step->id,
+                                    'dokumen_version_id' => $version->id,
+                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
+                                    'tgl_deadline' => $validated['tgl_deadline'],
+                                    'group_index' => $groupIndex,
+                                    'jenis_group' => $stepApprover['jenis_group'],
+                                ]);
+
+                                if (!isset($frontendIdToApprovalId["group_{$step->id}"])) {
+                                    $frontendIdToApprovalId["group_{$step->id}"] = [];
+                                }
+                                $frontendIdToApprovalId["group_{$step->id}"][] = $approval->id;
+
+                                if ($isFirstLevel && $submitType !== 'draft') {
+                                    // Broadcast new approval event
+                                    Log::info('Broadcasting ApprovalCreated event', [
+                                        'approval_id' => $approval->id,
+                                        'user_id' => $userId,
+                                        'dokumen_id' => $dokumen->id,
+                                    ]);
+                                    broadcast(new ApprovalCreated($approval))->toOthers();
+
+                                    // Dispatch email notification job
+                                    SendApprovalNotification::dispatch($approval);
+
+                                    // Broadcast browser notification to approver
+                                    broadcast(new BrowserNotificationEvent(
+                                        userId: $userId,
+                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                        url: route('approvals.show', $approval->id),
+                                        type: 'info'
+                                    ));
+                                }
+                            }
+                        } else {
+                            // Single approver selected by user
+                            if (isset($validated['approvers'][$step->id])) {
+                                Log::info('Creating single approval', [
+                                    'step_id' => $step->id,
+                                    'user_id' => $validated['approvers'][$step->id],
+                                ]);
+
+                                $approval = DokumenApproval::create([
+                                    'dokumen_id' => $dokumen->id,
+                                    'user_id' => $validated['approvers'][$step->id],
+                                    'masterflow_step_id' => $step->id,
+                                    'dokumen_version_id' => $version->id,
+                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
+                                    'tgl_deadline' => $validated['tgl_deadline'],
+                                ]);
+
+                                $userId = $validated['approvers'][$step->id];
+                                $frontendIdToApprovalId["step_{$step->id}_user_{$userId}"] = $approval->id;
+
+                                if ($isFirstLevel && $submitType !== 'draft') {
+                                    // Broadcast new approval event
+                                    Log::info('Broadcasting ApprovalCreated event', [
+                                        'approval_id' => $approval->id,
+                                        'user_id' => $validated['approvers'][$step->id],
+                                        'dokumen_id' => $dokumen->id,
+                                    ]);
+                                    broadcast(new ApprovalCreated($approval))->toOthers();
+
+                                    // Dispatch email notification job
+                                    SendApprovalNotification::dispatch($approval);
+
+                                    // Broadcast browser notification to approver
+                                    broadcast(new BrowserNotificationEvent(
+                                        userId: $validated['approvers'][$step->id],
+                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                        url: route('approvals.show', $approval->id),
+                                        type: 'info'
+                                    ));
+                                }
+                            }
                         }
-
-                        DokumenApproval::create([
-                            'dokumen_id'         => $dokumen->id,
-                            'user_id'            => $userId,
-                            'masterflow_step_id' => $step->id,
-                            'approval_order'     => $step->step_order,
-                            'approval_status'    => 'pending',
-                            'tgl_deadline'       => $validated['tgl_deadline'],
-                        ]);
                     }
                 }
             }
 
-            // 3. GENERATE FILE / TEMPLATE PDF
-            $folderPath = 'dokumen/' . $validated['id_dokumen'];
-            $cleanJudul = preg_replace('/[^A-Za-z0-9\-_]/', '_', $validated['judul_dokumen']);
-            $cleanJudul = preg_replace('/_+/', '_', $cleanJudul);
+            // Handle signature positions if any
+            if ($request->has('signature_positions')) {
+                $positions = json_decode($request->signature_positions, true);
+                if (is_array($positions)) {
+                    $positionsData = [];
+                    foreach ($positions as $pos) {
+                        $frontendId = $pos['dokumen_approval_id'];
 
-            if ($request->hasFile('file')) {
-                $file = $request->file('file');
-                $extension = $file->getClientOriginalExtension();
-                $filename = $validated['id_dokumen'] . '_' . $cleanJudul . '_v1.' . $extension;
-                $path = $file->storeAs($folderPath, $filename, 'public');
-                $originalName = $file->getClientOriginalName();
-                $fileSize = $file->getSize();
-            } else {
-                $filename = $validated['id_dokumen'] . '_' . $cleanJudul . '_v1.pdf';
-                $path = $folderPath . '/' . $filename;
-                $extension = 'pdf';
-                $originalName = $filename;
+                        if ($frontendId === 'qr_code' || empty($frontendId)) {
+                            $positionsData[] = [
+                                'dokumen_id' => $dokumen->id,
+                                'dokumen_approval_id' => null,
+                                'page' => $pos['page'],
+                                'x' => $pos['x'],
+                                'y' => $pos['y'],
+                                'width' => $pos['width'],
+                                'height' => $pos['height'],
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        } else if (isset($frontendIdToApprovalId[$frontendId])) {
+                            $mapped = $frontendIdToApprovalId[$frontendId];
+                            $approvalIds = is_array($mapped) ? $mapped : [$mapped];
 
-                // Ambil daftar approval yang baru saja tersimpan di DB
-                $listApprovals = DokumenApproval::with(['user', 'masterflowStep.jabatan'])
-                    ->where('dokumen_id', $dokumen->id)
-                    ->orderBy('approval_order', 'asc')
-                    ->get();
-
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('templates.dokumen_transaksi', [
-                    'dokumen'   => $dokumen->load(['user', 'company']),
-                    'approvals' => $listApprovals,
-                ])->setPaper('a4', 'portrait');
-
-                Storage::disk('public')->put($path, $pdf->output());
-                $fileSize = Storage::disk('public')->size($path);
+                            foreach ($approvalIds as $approvalId) {
+                                $positionsData[] = [
+                                    'dokumen_id' => $dokumen->id,
+                                    'dokumen_approval_id' => $approvalId,
+                                    'page' => $pos['page'],
+                                    'x' => $pos['x'],
+                                    'y' => $pos['y'],
+                                    'width' => $pos['width'],
+                                    'height' => $pos['height'],
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                            }
+                        }
+                    }
+                    if (count($positionsData) > 0) {
+                        \App\Models\DocumentSignaturePosition::insert($positionsData);
+                    }
+                }
             }
-
-            // 4. Catat Versi Dokumen
-            $version = DokumenVersion::create([
-                'dokumen_id' => $dokumen->id,
-                'version'    => '1.0',
-                'nama_file'  => $originalName,
-                'tgl_upload' => now(),
-                'tipe_file'  => $extension,
-                'file_url'   => $path,
-                'size_file'  => $fileSize,
-                'status'     => 'active',
-            ]);
-
-            $dokumen->approvals()->update(['dokumen_version_id' => $version->id]);
 
             DB::commit();
 
@@ -476,13 +554,14 @@ class DokumenController extends Controller
 
                 $latestVersion = $dokumen->versions()->latest()->first();
                 $versionParts = explode('.', $latestVersion->version);
-                $newVersion = $versionParts[0] . '.' . ((int)$versionParts[1] + 1);
+                $newVersion = $versionParts[0] . '.' . ((int) $versionParts[1] + 1);
 
                 $extension = $file->getClientOriginalExtension();
                 $versionNumber = str_replace('.', '', $newVersion);
                 $filename = $dokumen->id_dokumen . '_' . $cleanJudul . '_v' . $versionNumber . '.' . $extension;
 
-                $path = $file->storeAs($folderPath, $filename, 'public');
+                // Store file in document-specific folder
+                $path = $file->storeAs($folderPath, $filename, 'local');
 
                 $dokumen->versions()->update(['status' => 'inactive']);
 
@@ -518,8 +597,8 @@ class DokumenController extends Controller
         }
 
         foreach ($dokumen->versions as $version) {
-            if (Storage::disk('public')->exists($version->file_url)) {
-                Storage::disk('public')->delete($version->file_url);
+            if (Storage::disk('local')->exists($version->file_url)) {
+                Storage::disk('local')->delete($version->file_url);
             }
         }
 
@@ -539,14 +618,30 @@ class DokumenController extends Controller
 
         DB::beginTransaction();
         try {
-            $dokumen->approvals()->delete();
-
+            // Update document status
             $dokumen->update([
                 'status' => 'submitted',
-                'status_current' => 'waiting_approval',
+                'status_current' => 'waiting_approval_1',
             ]);
 
-            $this->createApprovalWorkflow($dokumen);
+            // Notify first-level approvers that are pending
+            $firstLevelApprovals = $dokumen->approvals()->where('approval_status', 'pending')->get();
+
+            foreach ($firstLevelApprovals as $approval) {
+                if ($approval->user_id) {
+                    // Dispatch email notification job
+                    SendApprovalNotification::dispatch($approval);
+
+                    // Broadcast browser notification to approver
+                    broadcast(new BrowserNotificationEvent(
+                        userId: $approval->user_id,
+                        title: 'Dokumen Baru Membutuhkan Persetujuan',
+                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                        url: route('approvals.show', $approval->id),
+                        type: 'info'
+                    ));
+                }
+            }
 
             DB::commit();
 
@@ -574,10 +669,14 @@ class DokumenController extends Controller
             return;
         }
 
+        $minStepOrder = $masterflow->steps->min('step_order');
+
         foreach ($masterflow->steps as $step) {
             $user = \App\Models\User::whereHas('userAuths', function ($query) use ($step) {
                 $query->where('jabatan_id', $step->jabatan_id);
             })->first();
+
+            $isFirstLevel = $step->step_order == $minStepOrder;
 
             if ($user) {
                 $approval = DokumenApproval::create([
@@ -585,11 +684,13 @@ class DokumenController extends Controller
                     'user_id' => $user->id,
                     'dokumen_version_id' => $latestVersion->id,
                     'masterflow_step_id' => $step->id,
-                    'approval_status' => 'pending',
-                    'tgl_deadline' => now()->addDays(3),
+                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
+                    'tgl_deadline' => now()->addDays(3), // 3 days deadline
                 ]);
 
-                SendApprovalNotification::dispatch($approval);
+                if ($isFirstLevel) {
+                    SendApprovalNotification::dispatch($approval);
+                }
             }
         }
     }
@@ -609,8 +710,6 @@ class DokumenController extends Controller
                 'status' => 'draft',
                 'status_current' => 'draft',
             ]);
-
-            $dokumen->approvals()->where('approval_status', 'pending')->delete();
 
             DB::commit();
 
@@ -662,7 +761,8 @@ class DokumenController extends Controller
             $extension = $file->getClientOriginalExtension();
             $filename = $dokumen->id_dokumen . '_' . $cleanJudul . '_v' . str_replace('.', '', $newVersion) . '.' . $extension;
 
-            $path = $file->storeAs($folderPath, $filename, 'public');
+            // Store file in document-specific folder
+            $path = $file->storeAs($folderPath, $filename, 'local');
 
             $dokumenVersion = DokumenVersion::create([
                 'dokumen_id' => $dokumen->id,
@@ -906,15 +1006,25 @@ class DokumenController extends Controller
             return back()->withErrors(['error' => 'File tidak ditemukan.']);
         }
 
-        // Option to explicitly download original PDF without signatures
-        if (request()->has('original') && request('original') == '1') {
-            $filePath = Storage::disk('public')->path($version->file_url);
-            return response()->download($filePath, 'ASLI_' . $version->nama_file);
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
+        // Check if original file exists
+        if (!$version->file_url || !Storage::disk('local')->exists($version->file_url)) {
+            return back()->withErrors(['error' => 'File tidak ditemukan.']);
         }
 
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
+            ->where(function ($query) {
+                $query->whereNotNull('signature_path')
+                    ->orWhere('signature_method', 'qr');
+            })
             ->with(['user', 'masterflowStep'])
             ->orderBy('created_at')
             ->get();
@@ -937,7 +1047,8 @@ class DokumenController extends Controller
             }
         }
 
-        $filePath = Storage::disk('public')->path($version->file_url);
+        // Download original file
+        $filePath = Storage::disk('local')->path($version->file_url);
         return response()->download($filePath, $version->nama_file);
     }
 
@@ -1023,18 +1134,38 @@ class DokumenController extends Controller
             abort(404, 'File dokumen tidak ditemukan di server.');
         }
 
-        $filePath = Storage::disk('public')->path($version->file_url);
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
+        // Check if original file exists
+        if (!$version->file_url || !Storage::disk('local')->exists($version->file_url)) {
+            abort(404, 'File tidak ditemukan.');
+        }
 
         // 3. Ambil tanda tangan yang sudah diapprove
         $approvedSignatures = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->where('approval_status', 'approved')
-            ->whereNotNull('signature_path')
+            ->where(function ($query) {
+                $query->whereNotNull('signature_path')
+                    ->orWhere('signature_method', 'qr');
+            })
             ->with(['user', 'masterflowStep'])
             ->orderBy('created_at')
             ->get();
 
-        // 4. Jika belum ada signature / bukan PDF, langsung tampilkan file aslinya
-        if ($approvedSignatures->count() === 0 || strtolower($version->tipe_file) !== 'pdf') {
+        // Check if QR code position is configured for this document
+        $hasQrCode = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
+            ->whereNull('dokumen_approval_id')
+            ->exists();
+
+        // If no signatures and no QR code, or not a PDF, stream original file
+        if (($approvedSignatures->count() === 0 && !$hasQrCode) || strtolower($version->tipe_file) !== 'pdf') {
+            $filePath = Storage::disk('local')->path($version->file_url);
             return response()->file($filePath, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
@@ -1045,7 +1176,8 @@ class DokumenController extends Controller
         try {
             $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                 $version->file_url,
-                $approvedSignatures
+                $approvedSignatures,
+                $dokumen
             );
 
             return response($pdfContent, 200, [
@@ -1055,11 +1187,45 @@ class DokumenController extends Controller
         } catch (\Exception $e) {
             Log::error('Gagal generate signed PDF: ' . $e->getMessage());
 
-            // Fallback kirim file asli jika generate gagal
+            // Fallback to original file
+            $filePath = Storage::disk('local')->path($version->file_url);
             return response()->file($filePath, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
             ]);
         }
+    }
+
+    /**
+     * Check if user has access to view/download this document
+     */
+    private function canAccessDokumen(\App\Models\Dokumen $dokumen)
+    {
+        if ($this->contextService->isSuperAdmin()) {
+            return true;
+        }
+
+        $userId = \Illuminate\Support\Facades\Auth::id();
+
+        // Is creator?
+        if ($dokumen->user_id === $userId) {
+            return true;
+        }
+
+        // Is approver?
+        $isApprover = $dokumen->approvals()->where('user_id', $userId)->exists();
+        if ($isApprover) {
+            return true;
+        }
+
+        // Or Admin in the same context
+        $context = $this->contextService->getContext();
+        if ($context && $context->role && strtolower($context->role->role_name) === 'admin') {
+            if ($dokumen->company_id === $context->company_id && $dokumen->aplikasi_id === $context->aplikasi_id) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

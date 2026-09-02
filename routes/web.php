@@ -91,6 +91,11 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
         return Inertia::render('super-admin/aplikasi-management');
     })->name('super-admin.aplikasi-management');
 
+    Route::get('/super-admin/transaksi-management', function () {
+        return Inertia::render('super-admin/transaksi-management');
+    })->name('super-admin.transaksi-management');
+
+
     Route::resource('/super-admin/transaksi-management', MasterTransaksiController::class)
         ->names('super-admin.transaksi-management')
         ->except(['create', 'show', 'edit']);
@@ -187,6 +192,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('signatures', [\App\Http\Controllers\SignatureController::class, 'index'])->name('signatures.index');
     Route::post('signatures', [\App\Http\Controllers\SignatureController::class, 'store'])->name('signatures.store');
     Route::post('signatures/upload', [\App\Http\Controllers\SignatureController::class, 'upload'])->name('signatures.upload');
+    Route::get('signatures/{signature}/file', [\App\Http\Controllers\SignatureController::class, 'file'])->name('signatures.file');
     Route::post('signatures/{signature}/set-default', [\App\Http\Controllers\SignatureController::class, 'setDefault'])->name('signatures.setDefault');
     Route::delete('signatures/{signature}', [\App\Http\Controllers\SignatureController::class, 'destroy'])->name('signatures.destroy');
 
@@ -204,6 +210,10 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('masterflows.steps');
 });
+
+// Public Signature Verification Routes
+Route::get('/verify/signature/{token}', [\App\Http\Controllers\DokumenApprovalController::class, 'verifySignature'])->name('verify.signature');
+Route::get('/verify/signature/{token}/download', [\App\Http\Controllers\DokumenApprovalController::class, 'downloadSignedDocument'])->name('verify.signature.download');
 
 // Legacy SPA Routes (redirect to appropriate role dashboards)
 Route::get('/spa', function () {

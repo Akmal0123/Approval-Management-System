@@ -46,7 +46,7 @@ class DeadlineReminderMail extends Mailable implements ShouldQueue
                 'dokumen' => $this->approval->dokumen,
                 'timeLabel' => $this->timeLabel,
                 'deadline' => $this->approval->tgl_deadline,
-                'approvalUrl' => route('approvals.show', $this->approval->id),
+                'approvalUrl' => 'http://localhost:8000/api/dokumen/' . $this->approval->dokumen_id,
             ],
         );
     }

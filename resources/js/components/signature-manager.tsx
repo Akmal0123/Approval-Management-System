@@ -404,15 +404,11 @@ export default function SignatureManager() {
                                         </div>
                                         <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2">
                                             <img
-                                                src={
-                                                    signature.signature_url.startsWith('http') || signature.signature_url.startsWith('data:')
-                                                        ? signature.signature_url
-                                                        : `${window.location.origin}${signature.signature_url}`
-                                                }
+                                                src={`/signatures/${signature.id}/file`}
                                                 alt="Tanda Tangan"
                                                 className="max-h-full max-w-full object-contain"
                                                 onError={(e) => {
-                                                    console.error('Failed to load signature image:', signature.signature_url);
+                                                    console.error('Failed to load signature image:', signature.signature_path);
                                                     e.currentTarget.src =
                                                         'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjgwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNmOGZhZmMiLz48dGV4dCB4PSI1MCUiIHk9IjU1JSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5NGEzYjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZpbGUgVGlkYWsgRGl0ZW11a2FuPC90ZXh0Pjwvc3ZnPg==';
                                                 }}
