@@ -16,6 +16,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { showToast } from '@/lib/toast';
 import { Head, router, useForm } from '@inertiajs/react';
+import { getApprovalDuration } from '@/lib/approval-sla';
 import {
     IconAlertCircle,
     IconAlertTriangle,
@@ -29,7 +30,7 @@ import {
     IconUsers,
     IconX,
 } from '@tabler/icons-react';
-import { CheckCircle2Icon, XCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon, Timer, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -95,6 +96,7 @@ interface DokumenApproval {
     id: number;
     dokumen_id: number;
     user_id: number;
+    approval_order?: number;
     approval_status: string;
     tgl_deadline?: string;
     tgl_approve?: string;
@@ -832,6 +834,22 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     </div>
                                                                 )}
 
+                                                                {/* Approval Duration (SLA) */}
+                                                                {(() => {
+                                                                    const duration = getApprovalDuration(
+                                                                        app,
+                                                                        allApprovals,
+                                                                        approval.dokumen?.tgl_pengajuan,
+                                                                    );
+                                                                    if (!duration) return null;
+                                                                    return (
+                                                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+                                                                            <Timer className="h-3 w-3 shrink-0" />
+                                                                            <span>Durasi approval: {duration}</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+
                                                                 {(app.comment || app.alasan_reject) && (
                                                                     <div
                                                                         className={`mt-2 rounded-md border p-3 text-sm ${isRejected ? 'border-red-200 bg-red-50 text-red-900' : 'border-border bg-muted/30'}`}
@@ -939,13 +957,28 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                             </div>
                                                                                         )}
                                                                                     </div>
-                                                                                    <div className="flex flex-col items-end gap-2">
+                                                                                    <div className="flex flex-col items-end gap-1">
                                                                                         {getStatusBadge(app.approval_status)}
                                                                                         {app.tgl_approve && (
                                                                                             <span className="text-[10px] text-muted-foreground">
                                                                                                 {formatDateTime(app.tgl_approve)}
                                                                                             </span>
                                                                                         )}
+                                                                                        {/* Approval Duration (SLA) */}
+                                                                                        {(() => {
+                                                                                            const duration = getApprovalDuration(
+                                                                                                app,
+                                                                                                allApprovals,
+                                                                                                approval.dokumen?.tgl_pengajuan,
+                                                                                            );
+                                                                                            if (!duration) return null;
+                                                                                            return (
+                                                                                                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                                                    <Timer className="h-2.5 w-2.5 shrink-0" />
+                                                                                                    <span>Durasi: {duration}</span>
+                                                                                                </span>
+                                                                                            );
+                                                                                        })()}
                                                                                         {app.id === approval.id && (
                                                                                             <Badge
                                                                                                 variant="outline"

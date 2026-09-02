@@ -16,8 +16,9 @@ import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, router, usePage } from '@inertiajs/react';
+import { getApprovalDuration } from '@/lib/approval-sla';
 import { IconDownload, IconEdit, IconEye, IconFileText, IconPrinter, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
-import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, XCircleIcon } from 'lucide-react';
+import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, Timer, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -74,6 +75,8 @@ interface DokumenApproval {
     comment?: string;
     user?: User;
     masterflow_step?: MasterflowStep;
+    created_at?: string;
+    updated_at?: string;
 }
 
 interface NextApprover {
@@ -1057,6 +1060,22 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                         {formatDate(approval.tgl_approve)}
                                                                     </div>
                                                                 )}
+
+                                                                {/* Approval Duration (SLA) */}
+                                                                {(() => {
+                                                                    const duration = getApprovalDuration(
+                                                                        approval,
+                                                                        dokumen.approvals,
+                                                                        dokumen.tgl_pengajuan || dokumen.created_at,
+                                                                    );
+                                                                    if (!duration) return null;
+                                                                    return (
+                                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                            <Timer className="h-3 w-3" />
+                                                                            <span>Durasi approval: {duration}</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         </div>
                                                     );
@@ -1129,6 +1148,21 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                                                     {formatDate(approval.tgl_approve)}
                                                                                                 </span>
                                                                                             )}
+                                                                                            {/* Approval Duration (SLA) */}
+                                                                                            {(() => {
+                                                                                                const duration = getApprovalDuration(
+                                                                                                    approval,
+                                                                                                    dokumen.approvals,
+                                                                                                    dokumen.tgl_pengajuan || dokumen.created_at,
+                                                                                                );
+                                                                                                if (!duration) return null;
+                                                                                                return (
+                                                                                                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                                                        <Timer className="h-2.5 w-2.5" />
+                                                                                                        <span>Durasi: {duration}</span>
+                                                                                                    </span>
+                                                                                                );
+                                                                                            })()}
                                                                                         </div>
                                                                                     </div>
                                                                                     {/* Skip note - full width below */}
