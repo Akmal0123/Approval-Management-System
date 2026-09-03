@@ -19,32 +19,60 @@ async function run() {
         const pages = pdfDoc.getPages();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-        for (const sig of inputData.signatures) {
+        for (const sig of inputData.signatures || []) {
             const pageIndex = Math.min(Math.max(sig.page - 1, 0), pages.length - 1);
             const page = pages[pageIndex];
 
-            let img;
+            let img = null;
             if (sig.qrText) {
-                const QRCode = require('qrcode');
-                const qrPngBuffer = await QRCode.toBuffer(sig.qrText, {
-                    type: 'png',
-                    margin: 1,
-                    width: 300 // sufficiently high resolution
-                });
-                img = await pdfDoc.embedPng(qrPngBuffer);
+                try {
+                    const QRCode = require('qrcode');
+                    const qrPngBuffer = await QRCode.toBuffer(sig.qrText, {
+                        type: 'png',
+                        margin: 1,
+                        width: 300 // sufficiently high resolution
+                    });
+                    img = await pdfDoc.embedPng(qrPngBuffer);
+                } catch (qrErr) {
+                    console.error('Failed to generate signature QR code:', qrErr.message);
+                    continue;
+                }
             } else if (sig.imagePath && fs.existsSync(sig.imagePath)) {
-                const imgBytes = fs.readFileSync(sig.imagePath);
-                
-                if (sig.imagePath.toLowerCase().endsWith('.png')) {
-                    img = await pdfDoc.embedPng(imgBytes);
-                } else if (sig.imagePath.toLowerCase().endsWith('.jpg') || sig.imagePath.toLowerCase().endsWith('.jpeg')) {
-                    img = await pdfDoc.embedJpg(imgBytes);
-                } else {
-                    continue; // Unsupported image
+                try {
+                    const imgBytes = fs.readFileSync(sig.imagePath);
+                    
+                    // Check magic bytes:
+                    // PNG starts with: 89 50 4E 47
+                    // JPEG starts with: FF D8 FF
+                    const isPng = imgBytes.length > 4 && imgBytes[0] === 0x89 && imgBytes[1] === 0x50 && imgBytes[2] === 0x4E && imgBytes[3] === 0x47;
+                    const isJpg = imgBytes.length > 3 && imgBytes[0] === 0xFF && imgBytes[1] === 0xD8 && imgBytes[2] === 0xFF;
+
+                    if (isPng) {
+                        img = await pdfDoc.embedPng(imgBytes);
+                    } else if (isJpg) {
+                        img = await pdfDoc.embedJpg(imgBytes);
+                    } else {
+                        // Fallback: try PNG first, then JPG
+                        try {
+                            img = await pdfDoc.embedPng(imgBytes);
+                        } catch (e1) {
+                            try {
+                                img = await pdfDoc.embedJpg(imgBytes);
+                            } catch (e2) {
+                                console.error('Failed to embed signature image:', e2.message);
+                                continue;
+                            }
+                        }
+                    }
+                } catch (imgErr) {
+                    console.error('Failed reading/embedding image:', imgErr.message);
+                    continue;
                 }
             } else {
                 continue; // Missing image or QR text
             }
+
+            if (!img) continue;
 
             // Convert mm to PDF points (1 mm = 2.83465 points)
             const mmToPt = 2.83465;
@@ -76,42 +104,46 @@ async function run() {
             }
         }
 
-        // Draw QR Code if provided in configuration
+        // Draw Document QR Code if provided in configuration
         if (inputData.qrCode) {
-            const qr = inputData.qrCode;
-            const pageIndex = Math.min(Math.max(qr.page - 1, 0), pages.length - 1);
-            const page = pages[pageIndex];
+            try {
+                const qr = inputData.qrCode;
+                const pageIndex = Math.min(Math.max(qr.page - 1, 0), pages.length - 1);
+                const page = pages[pageIndex];
 
-            const QRCode = require('qrcode');
-            const qrPngBuffer = await QRCode.toBuffer(qr.text, {
-                type: 'png',
-                margin: 1,
-                width: 300 // sufficiently high resolution
-            });
+                const QRCode = require('qrcode');
+                const qrPngBuffer = await QRCode.toBuffer(qr.text, {
+                    type: 'png',
+                    margin: 1,
+                    width: 300 // sufficiently high resolution
+                });
 
-            const qrImg = await pdfDoc.embedPng(qrPngBuffer);
+                const qrImg = await pdfDoc.embedPng(qrPngBuffer);
 
-            const mmToPt = 2.83465;
-            const width = qr.width * mmToPt;
-            const height = qr.height * mmToPt;
-            const x = qr.x * mmToPt;
+                const mmToPt = 2.83465;
+                const width = qr.width * mmToPt;
+                const height = qr.height * mmToPt;
+                const x = qr.x * mmToPt;
 
-            const pageHeight = page.getHeight();
-            const yFromBottom = pageHeight - (qr.y * mmToPt) - height;
+                const pageHeight = page.getHeight();
+                const yFromBottom = pageHeight - (qr.y * mmToPt) - height;
 
-            page.drawImage(qrImg, {
-                x: x,
-                y: yFromBottom,
-                width: width,
-                height: height,
-            });
+                page.drawImage(qrImg, {
+                    x: x,
+                    y: yFromBottom,
+                    width: width,
+                    height: height,
+                });
+            } catch (qrDocErr) {
+                console.error('Failed to embed document QR code:', qrDocErr.message);
+            }
         }
 
         const signedBytes = await pdfDoc.save();
         if (inputData.outPath) {
             fs.writeFileSync(inputData.outPath, signedBytes);
         } else {
-            process.stdout.write(signedBytes);
+            process.stdout.write(Buffer.from(signedBytes));
         }
         
     } catch (e) {

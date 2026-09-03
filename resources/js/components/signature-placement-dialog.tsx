@@ -94,7 +94,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         }
     }, [open, isEmbedded, dokumenId, fileUrl]);
 
-    // Synchronize positions if approval signature_method changes dynamically
+    // Synchronize positions if approval signature_method changes dynamically or enforce 1:1 ratio
     useEffect(() => {
         setPositions((prev) => {
             let changed = false;
@@ -102,20 +102,12 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             approvals.forEach((app) => {
                 if (next[app.id]) {
                     const currentPos = next[app.id];
-                    const isQr = app.signature_method === 'qr';
-                    if (isQr && currentPos.width !== currentPos.height) {
-                        const qrSize = 25;
+                    if (currentPos.width !== currentPos.height) {
+                        const squareSize = Math.max(currentPos.width, 25);
                         next[app.id] = {
                             ...currentPos,
-                            width: qrSize,
-                            height: qrSize,
-                        };
-                        changed = true;
-                    } else if (!isQr && currentPos.width === currentPos.height && currentPos.width === 25) {
-                        next[app.id] = {
-                            ...currentPos,
-                            width: 35,
-                            height: 13,
+                            width: squareSize,
+                            height: squareSize,
                         };
                         changed = true;
                     }
@@ -138,15 +130,14 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         if (existingPositions && existingPositions.length > 0) {
             existingPositions.forEach((pos: any) => {
                 const key = pos.dokumen_approval_id || 'qr_code';
-                const matchedApp = approvals.find((a) => a.id === key);
-                const isQr = key === 'qr_code' || matchedApp?.signature_method === 'qr';
-
                 let width = pos.width;
                 let height = pos.height;
-                if (isQr && width !== height) {
-                    const qrSize = 25;
-                    width = qrSize;
-                    height = qrSize;
+
+                // Ensure 1:1 square ratio for all signatures
+                if (width !== height) {
+                    const size = Math.max(width, height, 25);
+                    width = size;
+                    height = size;
                 }
 
                 newPositions[key] = {
@@ -163,14 +154,14 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         // Ensure all approvals have a position even if missing from existingPositions
         approvals.forEach((app, idx) => {
             if (!newPositions[app.id]) {
-                const isQr = app.signature_method === 'qr';
+                const defaultSquareSize = 25; // Standard 25x25 mm 1:1
                 newPositions[app.id] = {
                     dokumen_approval_id: app.id,
                     page: 1,
-                    x: 20 + idx * 40, // Default mm
+                    x: 20 + idx * 35, // Default mm
                     y: 220, // Default mm
-                    width: isQr ? 25 : 35, // Default mm
-                    height: isQr ? 25 : 13, // Default mm
+                    width: defaultSquareSize,
+                    height: defaultSquareSize,
                 };
             }
         });
@@ -315,29 +306,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             const dx = e.clientX - resizeStart.x;
             const dy = e.clientY - resizeStart.y;
 
-            let newWidth = initialSize.width + dx;
-            let newHeight = initialSize.height + dy;
-
-            const activeApp = approvals.find((a) => a.id === activeApprovalId);
-            const isQrActive = activeApprovalId === 'qr_code' || activeApp?.signature_method === 'qr';
-
-            if (isQrActive) {
-                const minQrSize = Math.max(20 * scale, 20);
-                const qrSize = Math.max(minQrSize, newWidth);
-                newWidth = qrSize;
-                newHeight = qrSize;
-            } else {
-                // Min sizes in px
-                newWidth = Math.max(40 * scale, newWidth);
-                newHeight = Math.max(15 * scale, newHeight);
-            }
+            // Maintain strict 1:1 square aspect ratio for all signatures
+            const minSize = Math.max(15 * scale, 15);
+            const delta = Math.max(dx, dy);
+            const newSize = Math.max(minSize, initialSize.width + delta);
 
             setPositions((prev) => ({
                 ...prev,
                 [activeApprovalId]: {
                     ...prev[activeApprovalId],
-                    width: pxToMm(newWidth),
-                    height: pxToMm(newHeight),
+                    width: pxToMm(newSize),
+                    height: pxToMm(newSize),
                 },
             }));
         }
@@ -587,11 +566,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                                     {pos && (
                                         <>
-                                            {isQr && (
-                                                <div className="mt-1 text-xs text-muted-foreground">
-                                                    Ukuran: {Math.round(pos.width)} x {Math.round(pos.height)} mm
-                                                </div>
-                                            )}
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                Ukuran: {Math.round(pos.width)} x {Math.round(pos.height)} mm
+                                            </div>
                                             <div className="mt-2 flex items-center justify-between">
                                                 <span
                                                     className={`rounded-full px-2 py-0.5 text-xs ${isCurrentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}

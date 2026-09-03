@@ -166,8 +166,8 @@ class PdfSignatureService
                     $yPosition = 220; // Starting Y position
                     $xPosition = 20; // Starting X position
                     $signaturesPerRow = 3;
-                    $signatureWidth = 35;
-                    $signatureHeight = 13;
+                    $signatureWidth = 25;
+                    $signatureHeight = 25;
                     $spacing = 60; // Horizontal spacing
 
                     foreach ($signatures as $index => $signature) {
@@ -182,7 +182,7 @@ class PdfSignatureService
                         $col = $index % $signaturesPerRow;
 
                         $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
+                        $y = $yPosition + ($row * 35); // 35mm vertical spacing
 
                         $options = array_merge([
                             'x' => $x,
@@ -233,11 +233,17 @@ class PdfSignatureService
      */
     public function generateSignedPdfStream(string $pdfPath, $approvals, $dokumen = null): string
     {
+        $tempConfigFile = null;
+        $tempOutputFile = null;
+
         try {
             $fullPdfPath = Storage::disk('local')->path($pdfPath);
 
             if (!file_exists($fullPdfPath)) {
-                throw new Exception("PDF file not found: {$fullPdfPath}");
+                $fullPdfPath = Storage::disk('public')->path($pdfPath);
+                if (!file_exists($fullPdfPath)) {
+                    throw new Exception("PDF file not found: {$pdfPath}");
+                }
             }
 
             $signaturesData = [];
@@ -269,7 +275,10 @@ class PdfSignatureService
                     if ($approval->signature_method !== 'qr') {
                         $fullSignaturePath = Storage::disk('local')->path($approval->signature_path);
                         if (!file_exists($fullSignaturePath)) {
-                            continue;
+                            $fullSignaturePath = Storage::disk('public')->path($approval->signature_path);
+                            if (!file_exists($fullSignaturePath)) {
+                                continue;
+                            }
                         }
                     }
 
@@ -282,20 +291,22 @@ class PdfSignatureService
                         $width = $pos->width;
                         $height = $pos->height;
                     } else {
-                        // Fallback positioning
+                        // Fallback positioning (25x25 mm square)
                         $row = floor($unpositionedIndex / $signaturesPerRow);
                         $col = $unpositionedIndex % $signaturesPerRow;
 
                         $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
+                        $y = $yPosition + ($row * 35); // 35mm vertical spacing
                         $page = $pageCount; // Last page
-                        $width = 35;
-                        $height = 13;
+                        $width = 25;
+                        $height = 25;
                         $unpositionedIndex++;
                     }
 
-                    if ($approval->signature_method === 'qr') {
-                        $width = $height;
+                    if ($approval->signature_method === 'qr' || $width !== $height) {
+                        $squareSize = min($width, $height);
+                        $width = $squareSize;
+                        $height = $squareSize;
                     }
 
                     $sigDetails = [
@@ -311,7 +322,8 @@ class PdfSignatureService
                     ];
 
                     if ($approval->signature_method === 'qr') {
-                        $sigDetails['qrText'] = url('/verify/signature/' . $approval->verification_token);
+                        $token = $approval->verification_token ?? \Illuminate\Support\Str::uuid()->toString();
+                        $sigDetails['qrText'] = url('/verify/signature/' . $token);
                     } else {
                         $sigDetails['imagePath'] = $fullSignaturePath;
                     }
@@ -345,14 +357,17 @@ class PdfSignatureService
                 }
             }
 
+            $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';
+            $tempOutputFile = tempnam(sys_get_temp_dir(), 'pdf_sig_out_') . '.pdf';
+
             // Write config to temp file
             $config = [
                 'pdfPath' => $fullPdfPath,
+                'outPath' => $tempOutputFile,
                 'signatures' => $signaturesData,
                 'qrCode' => $qrCodeData
             ];
             
-            $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';
             file_put_contents($tempConfigFile, json_encode($config));
 
             $nodeScriptPath = base_path('scripts/sign-pdf.cjs');
@@ -363,18 +378,25 @@ class PdfSignatureService
             $process->setTimeout(60); 
             $process->run();
 
-            // Cleanup config file
-            if (file_exists($tempConfigFile)) {
-                unlink($tempConfigFile);
-            }
-
             if (!$process->isSuccessful()) {
                 throw new \Symfony\Component\Process\Exception\ProcessFailedException($process);
             }
 
-            return $process->getOutput();
+            if (!file_exists($tempOutputFile) || filesize($tempOutputFile) === 0) {
+                throw new Exception("Signed PDF output was not generated");
+            }
+
+            return file_get_contents($tempOutputFile);
         } catch (Exception $e) {
             throw new Exception("Failed to generate signed PDF stream: " . $e->getMessage());
+        } finally {
+            // Cleanup temp files
+            if ($tempConfigFile && file_exists($tempConfigFile)) {
+                @unlink($tempConfigFile);
+            }
+            if ($tempOutputFile && file_exists($tempOutputFile)) {
+                @unlink($tempOutputFile);
+            }
         }
     }
 

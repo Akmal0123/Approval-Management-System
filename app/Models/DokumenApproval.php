@@ -217,7 +217,7 @@ class DokumenApproval extends Model
     /**
      * Approve this approval.
      */
-    public function approve(string $comment = null): bool
+    public function approve(?string $comment = null): bool
     {
         return $this->update([
             'approval_status' => 'approved',
@@ -229,7 +229,7 @@ class DokumenApproval extends Model
     /**
      * Reject this approval.
      */
-    public function reject(string $reason, string $comment = null): bool
+    public function reject(string $reason, ?string $comment = null): bool
     {
         return $this->update([
             'approval_status' => 'rejected',

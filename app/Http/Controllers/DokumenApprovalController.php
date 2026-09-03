@@ -167,7 +167,7 @@ class DokumenApprovalController extends Controller
 
             if ($signatureData && str_starts_with($signatureData, 'data:image')) {
                 // New manual signature - decode and save
-                $image = str_replace('data:image/png;base64,', '', $signatureData);
+                $image = preg_replace('/^data:image\/\w+;base64,/', '', $signatureData);
                 $image = str_replace(' ', '+', $image);
                 $imageData = base64_decode($image);
 
@@ -265,7 +265,8 @@ class DokumenApprovalController extends Controller
                 // Generate a PDF stream with just the current signature overlaid on the existing file
                 $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                     $version->file_url,
-                    collect([$approval->fresh()])
+                    collect([$approval->fresh()]),
+                    $approval->dokumen
                 );
 
                 // Overwrite original file

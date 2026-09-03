@@ -1352,11 +1352,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     <div className="space-y-3">
                                                         <Card>
                                                             <CardContent className="p-4">
-                                                                <div className="flex items-center justify-center rounded border bg-white p-4">
+                                                                <div className="flex aspect-square max-w-[200px] mx-auto items-center justify-center rounded border bg-white p-3">
                                                                     <img
                                                                         src={signatureData}
                                                                         alt="Signature"
-                                                                        className="max-h-24 max-w-full object-contain"
+                                                                        className="max-h-full max-w-full object-contain"
                                                                     />
                                                                 </div>
                                                             </CardContent>

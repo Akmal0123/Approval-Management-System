@@ -1134,7 +1134,8 @@ class DokumenController extends Controller
             try {
                 $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                     $version->file_url,
-                    $approvedSignatures
+                    $approvedSignatures,
+                    $dokumen
                 );
 
                 $signedFilename = pathinfo($version->nama_file, PATHINFO_FILENAME) . '_signed.pdf';
