@@ -105,6 +105,8 @@ interface Dokumen {
     id: number;
     nomor_dokumen: string;
     judul_dokumen: string;
+    tipe_dokumen?: string;
+    transaksi_id?: number;
     user_id: number;
     company_id?: number;
     aplikasi_id?: number;
@@ -116,6 +118,17 @@ interface Dokumen {
     status_current: string;
     user?: User;
     masterflow?: Masterflow;
+    transaksi?: {
+        id: number;
+        kode_transaksi: string;
+        nama_transaksi: string;
+        departemen: string;
+    };
+    aplikasi?: {
+        id: number;
+        name: string;
+        code?: string;
+    };
     versions?: DokumenVersion[];
     approvals?: DokumenApproval[];
     detailed_status?: DetailedStatus;
@@ -901,11 +914,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     <span>/</span>
                                     <span>Detail</span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                     <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">{dokumen?.judul_dokumen}</h1>
                                     {getStatusBadge(dokumen?.status || 'draft')}
+                                    {dokumen?.tipe_dokumen === 'transaksi' && (
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                            ⚡ Transaksi: {dokumen?.transaksi?.kode_transaksi || 'Terkait'}
+                                        </Badge>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-4 w-4" />
                                         <span className="font-mono">{dokumen?.nomor_dokumen || '-'}</span>
@@ -915,6 +933,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         <CalendarIcon className="h-4 w-4" />
                                         <span>{formatDate(dokumen?.tgl_pengajuan)}</span>
                                     </div>
+                                    {dokumen?.aplikasi && (
+                                        <>
+                                            <span>•</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <Badge variant="secondary" className="font-normal text-xs">
+                                                    📱 {dokumen.aplikasi.name}
+                                                </Badge>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -963,6 +991,20 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
+                                            {dokumen?.transaksi && (
+                                                <>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Jenis Transaksi</Label>
+                                                        <div className="font-medium">
+                                                            {dokumen.transaksi.nama_transaksi} ({dokumen.transaksi.kode_transaksi})
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Departemen</Label>
+                                                        <div className="font-medium">{dokumen.transaksi.departemen || '-'}</div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
 
                                         {dokumen.deskripsi && (

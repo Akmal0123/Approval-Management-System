@@ -7,9 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Aplikasi extends Model
+class Transaksi extends Model
 {
     use HasFactory;
+
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'transaksis';
 
     /**
      * The attributes that are mass assignable.
@@ -17,8 +24,12 @@ class Aplikasi extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
-        'company_id',
+        'aplikasi_id',
+        'kode_transaksi',
+        'nama_transaksi',
+        'departemen',
+        'deskripsi',
+        'is_active',
     ];
 
     /**
@@ -27,23 +38,24 @@ class Aplikasi extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'is_active' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
     /**
-     * Get the company that owns the aplikasi.
+     * Get the aplikasi that owns the transaksi.
      */
-    public function company(): BelongsTo
+    public function aplikasi(): BelongsTo
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Aplikasi::class);
     }
 
     /**
-     * Get the transaksis for the aplikasi.
+     * Get all documents associated with this transaksi.
      */
-    public function transaksis(): HasMany
+    public function dokumens(): HasMany
     {
-        return $this->hasMany(Transaksi::class);
+        return $this->hasMany(Dokumen::class, 'transaksi_id');
     }
 }

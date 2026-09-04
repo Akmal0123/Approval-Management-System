@@ -143,13 +143,14 @@ export default function SuperAdminTransaksiManagement() {
             if (editingTransaksi) {
                 const response = await api.put(`/transaksis/${editingTransaksi.id}`, formData);
                 showToast.success('Transaksi berhasil diperbarui');
+                const updated = response.data?.data || response.data?.transaksi;
                 setTransaksis((prev) =>
-                    prev.map((item) => (item.id === editingTransaksi.id ? response.data?.data || { ...item, ...formData } : item)),
+                    prev.map((item) => (item.id === editingTransaksi.id ? (updated || { ...item, ...formData }) : item)),
                 );
             } else {
                 const response = await api.post('/transaksis', formData);
                 showToast.success('Transaksi berhasil ditambahkan');
-                const newTransaksi = response.data?.data || {
+                const newTransaksi = response.data?.data || response.data?.transaksi || {
                     id: Date.now(),
                     ...formData,
                     aplikasi_id: Number(formData.aplikasi_id),
@@ -173,14 +174,14 @@ export default function SuperAdminTransaksiManagement() {
 
     const handleToggleStatus = async (transaksi: Transaksi) => {
         try {
-            await api.patch(`/transaksis/${transaksi.id}/toggle-status`);
+            const response = await api.patch(`/transaksis/${transaksi.id}/toggle-status`);
+            const updated = response.data?.data || response.data?.transaksi;
             setTransaksis((prev) =>
-                prev.map((item) => (item.id === transaksi.id ? { ...item, is_active: !item.is_active } : item)),
+                prev.map((item) => (item.id === transaksi.id ? (updated || { ...item, is_active: !item.is_active }) : item)),
             );
             showToast.success(`Transaksi berhasil ${transaksi.is_active ? 'dinonaktifkan' : 'diaktifkan'}`);
         } catch (error) {
             console.error('Error toggling status:', error);
-            // Optimistic update fallback for UI testing
             setTransaksis((prev) =>
                 prev.map((item) => (item.id === transaksi.id ? { ...item, is_active: !item.is_active } : item)),
             );

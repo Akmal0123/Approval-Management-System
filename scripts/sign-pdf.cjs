@@ -11,9 +11,9 @@ async function run() {
 
         const configPath = args[0];
         const inputData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        
+
         const pdfBytes = fs.readFileSync(inputData.pdfPath);
-        
+
         // Load the PDF Document
         const pdfDoc = await PDFDocument.load(pdfBytes);
         const pages = pdfDoc.getPages();
@@ -40,7 +40,7 @@ async function run() {
             } else if (sig.imagePath && fs.existsSync(sig.imagePath)) {
                 try {
                     const imgBytes = fs.readFileSync(sig.imagePath);
-                    
+
                     // Check magic bytes:
                     // PNG starts with: 89 50 4E 47
                     // JPEG starts with: FF D8 FF
@@ -79,7 +79,7 @@ async function run() {
             const width = sig.width * mmToPt;
             const height = sig.height * mmToPt;
             const x = sig.x * mmToPt;
-            
+
             // In PDF-lib, Y is from bottom to top. 
             // So Y from top (in mm) needs to be inverted.
             const pageHeight = page.getHeight();
@@ -145,7 +145,7 @@ async function run() {
         } else {
             process.stdout.write(Buffer.from(signedBytes));
         }
-        
+
     } catch (e) {
         console.error(e.message);
         process.exit(1);

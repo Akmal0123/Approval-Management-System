@@ -34,6 +34,8 @@ class Dokumen extends Model
         'user_id',
         'company_id',
         'aplikasi_id',
+        'transaksi_id',
+        'tipe_dokumen',
         'masterflow_id',
         'comment_id',
         'status',
@@ -83,6 +85,14 @@ class Dokumen extends Model
     public function aplikasi(): BelongsTo
     {
         return $this->belongsTo(Aplikasi::class);
+    }
+
+    /**
+     * Get the transaksi for this document.
+     */
+    public function transaksi(): BelongsTo
+    {
+        return $this->belongsTo(Transaksi::class, 'transaksi_id');
     }
 
     /**

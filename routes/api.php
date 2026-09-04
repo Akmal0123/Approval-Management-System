@@ -4,6 +4,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CompanyController;
 use App\Http\Controllers\API\JabatanController;
 use App\Http\Controllers\API\AplikasiController;
+use App\Http\Controllers\API\TransaksiController;
 use App\Http\Controllers\API\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDashboardController;
@@ -45,6 +46,10 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
 
     // Aplikasi Management
     Route::apiResource('aplikasis', AplikasiController::class);
+
+    // Transaksi Management
+    Route::apiResource('transaksis', TransaksiController::class);
+    Route::patch('transaksis/{transaksi}/toggle-status', [TransaksiController::class, 'toggleStatus']);
 
     // User Management
     Route::apiResource('users', UserController::class);

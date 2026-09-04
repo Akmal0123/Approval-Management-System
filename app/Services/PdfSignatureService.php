@@ -247,7 +247,7 @@ class PdfSignatureService
             }
 
             $signaturesData = [];
-            
+
             if ($approvals && $approvals->count() > 0) {
                 // Determine page count using FPDI for unpositioned signatures fallback
                 // (Note: FPDI might fail on compressed PDFs, so we wrap it)
@@ -270,7 +270,7 @@ class PdfSignatureService
                     if ($approval->signature_method !== 'qr' && !$approval->signature_path) {
                         continue;
                     }
-                    
+
                     $fullSignaturePath = null;
                     if ($approval->signature_method !== 'qr') {
                         $fullSignaturePath = Storage::disk('local')->path($approval->signature_path);
@@ -283,7 +283,7 @@ class PdfSignatureService
                     }
 
                     $pos = $approval->signaturePosition;
-                    
+
                     if ($pos) {
                         $x = $pos->x;
                         $y = $pos->y;
@@ -310,12 +310,12 @@ class PdfSignatureService
                     }
 
                     $sigDetails = [
-                        'page' => $page,
-                        'x' => $x,
-                        'y' => $y,
-                        'width' => $width,
-                        'height' => $height,
-                        'add_text' => true,
+                        'page' => (int)$page,
+                        'x' => (float)$x,
+                        'y' => (float)$y,
+                        'width' => (float)$width,
+                        'height' => (float)$height,
+                        'add_text' => false,
                         'text' => $approval->masterflowStep?->step_name ?? 'Approved',
                         'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
                         'name' => $approval->user?->name ?? null,
@@ -344,15 +344,15 @@ class PdfSignatureService
                 $qrPosition = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
                     ->whereNull('dokumen_approval_id')
                     ->first();
-                
+
                 if ($qrPosition) {
                     $qrCodeData = [
                         'text' => url('/api/dokumen/' . $dokumen->id),
-                        'page' => $qrPosition->page,
-                        'x' => $qrPosition->x,
-                        'y' => $qrPosition->y,
-                        'width' => $qrPosition->width,
-                        'height' => $qrPosition->height,
+                        'page' => (int)$qrPosition->page,
+                        'x' => (float)$qrPosition->x,
+                        'y' => (float)$qrPosition->y,
+                        'width' => (float)$qrPosition->width,
+                        'height' => (float)$qrPosition->height,
                     ];
                 }
             }
@@ -367,15 +367,15 @@ class PdfSignatureService
                 'signatures' => $signaturesData,
                 'qrCode' => $qrCodeData
             ];
-            
+
             file_put_contents($tempConfigFile, json_encode($config));
 
             $nodeScriptPath = base_path('scripts/sign-pdf.cjs');
-            
+
             // Execute node script
             $process = new \Symfony\Component\Process\Process(['node', $nodeScriptPath, $tempConfigFile]);
             // Increase timeout for large PDFs
-            $process->setTimeout(60); 
+            $process->setTimeout(60);
             $process->run();
 
             if (!$process->isSuccessful()) {

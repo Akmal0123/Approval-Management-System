@@ -93,16 +93,38 @@ interface DetailedStatus {
     approval_progress: number;
 }
 
+interface TransaksiItem {
+    id: number;
+    aplikasi_id: number;
+    kode_transaksi: string;
+    nama_transaksi: string;
+    departemen?: string | null;
+    deskripsi?: string | null;
+    is_active: boolean;
+    aplikasi?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface Dokumen {
     id: number;
+    nomor_dokumen?: string;
     judul_dokumen: string;
     user_id: number;
+    company_id?: number;
+    aplikasi_id?: number;
+    transaksi_id?: number | null;
+    tipe_dokumen?: string;
     masterflow_id: number;
     status: string;
     tgl_pengajuan: string;
+    tgl_deadline?: string;
     deskripsi?: string;
     status_current: string;
     user?: User;
+    aplikasi?: { id: number; name: string };
+    transaksi?: TransaksiItem;
     masterflow?: Masterflow;
     latest_version?: DokumenVersion;
     approvals?: DokumenApproval[];
@@ -158,11 +180,11 @@ const initialFormData: FormData = {
 };
 
 export default function UserDokumen() {
-    const { auth } = usePage().props as any;
+    const { auth, context } = usePage().props as any;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
     const [aplikasiList, setAplikasiList] = useState<any[]>([]);
+    const [transaksis, setTransaksis] = useState<TransaksiItem[]>([]);
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
-    const [transaksiTersedia, setTransaksiTersedia] = useState<string>('');
     const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -184,6 +206,27 @@ export default function UserDokumen() {
     const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
     const [pendingApprovalsForDialog, setPendingApprovalsForDialog] = useState<any[]>([]);
 
+    // Determine user profile & accessible aplikasis
+    const isSuperAdmin = Boolean(
+        context?.is_super_admin ||
+        auth.user?.userAuths?.some((ua: any) => ua.role?.role_name?.toLowerCase() === 'super admin') ||
+        auth.user?.user_auths?.some((ua: any) => ua.role?.role_name?.toLowerCase() === 'super admin')
+    );
+
+    const userAuthsList = auth.user?.userAuths || auth.user?.user_auths || [];
+    const userAplikasiIds = new Set<number>();
+    userAuthsList.forEach((ua: any) => {
+        if (ua.aplikasi_id) userAplikasiIds.add(Number(ua.aplikasi_id));
+        if (ua.aplikasi?.id) userAplikasiIds.add(Number(ua.aplikasi.id));
+    });
+    if (context?.current?.aplikasi?.id) {
+        userAplikasiIds.add(Number(context.current.aplikasi.id));
+    }
+
+    const accessibleAplikasiList = (isSuperAdmin || userAplikasiIds.size === 0)
+        ? aplikasiList
+        : aplikasiList.filter((app) => userAplikasiIds.has(Number(app.id)));
+
     // Fetch dokumen from backend
     const fetchDokumen = async () => {
         try {
@@ -200,16 +243,7 @@ export default function UserDokumen() {
             console.log('Dokumen fetched:', response.data);
             const newDokumen = response.data.data || response.data;
             console.log('📊 Total dokumen received:', newDokumen.length);
-            console.log(
-                '📊 Dokumen list:',
-                newDokumen.map((d: Dokumen) => ({
-                    id: d.id,
-                    judul: d.judul_dokumen,
-                    status: d.status,
-                })),
-            );
             setDokumen(newDokumen);
-            console.log('✅ State updated with new dokumen data');
         } catch (error) {
             console.error('Error fetching dokumen:', error);
             showToast.error('❌ Failed to load documents. Please try again.');
@@ -229,18 +263,27 @@ export default function UserDokumen() {
         }
     };
 
+    // Fetch transaksis from backend
+    const fetchTransaksis = async () => {
+        try {
+            console.log('Fetching transaksis...');
+            const response = await api.get('/transaksis', {
+                params: { is_active: true },
+            });
+            setTransaksis(response.data.transaksis || response.data.data || []);
+        } catch (error) {
+            console.error('Error fetching transaksis:', error);
+        }
+    };
+
     // Handle saat dropdown Aplikasi dipilih
     const handleAplikasiChange = (value: string) => {
         setSelectedAplikasiId(value);
-
-        // Cari aplikasi berdasarkan ID
-        const aplikasi = aplikasiList.find((app) => app.id.toString() === value);
-
-        if (aplikasi) {
-            setTransaksiTersedia(aplikasi.tipe_transaksi || aplikasi.name || '');
-        } else {
-            setTransaksiTersedia('');
-        }
+        setFormData((prev) => ({
+            ...prev,
+            aplikasi_id: value,
+            transaksi_id: '',
+        }));
     };
 
     // Fetch masterflows for dropdown
@@ -249,7 +292,6 @@ export default function UserDokumen() {
             console.log('Fetching masterflows...');
             const response = await api.get('/masterflows');
             console.log('Masterflows fetched:', response.data);
-            // API returns { masterflows: [...] }, not direct array
             setMasterflows(response.data.masterflows || []);
         } catch (error) {
             console.error('Error fetching masterflows:', error);
@@ -268,6 +310,7 @@ export default function UserDokumen() {
         fetchDokumen();
         fetchMasterflows();
         fetchAplikasi();
+        fetchTransaksis();
 
         // Real-time updates dengan Laravel Reverb untuk user-specific dokumen
         if (typeof window !== 'undefined' && window.Echo && auth.user?.id) {
@@ -739,20 +782,27 @@ export default function UserDokumen() {
             console.warn('Failed to refresh CSRF token:', error);
         }
 
+        const defaultAppId = context?.current?.aplikasi?.id
+            ? String(context.current.aplikasi.id)
+            : accessibleAplikasiList.length === 1
+                ? String(accessibleAplikasiList[0].id)
+                : '';
+
         // Generate new document number
         const newFormData: FormData = {
             ...initialFormData,
             nomor_dokumen: generateDocumentNumber(),
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
+            aplikasi_id: defaultAppId,
+            tipe_dokumen: 'manual',
         };
 
         setFormData(newFormData);
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         setStepModes({}); // Reset step modes
-        setSelectedAplikasiId('');
-        setTransaksiTersedia('');
+        setSelectedAplikasiId(defaultAppId);
         setDocTypeMode('manual');
         setErrors({});
         setIsCreateDialogOpen(true);
@@ -834,13 +884,14 @@ export default function UserDokumen() {
             submitData.append('tgl_deadline', formData.tgl_deadline);
             submitData.append('deskripsi', formData.deskripsi);
             submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
+            submitData.append('tipe_dokumen', docTypeMode);
 
             if (docTypeMode === 'transaksi') {
                 if (formData.aplikasi_id) submitData.append('aplikasi_id', formData.aplikasi_id.toString());
                 if (formData.transaksi_id) submitData.append('transaksi_id', formData.transaksi_id.toString());
             }
 
-            if (formData.file && docTypeMode === 'manual') {
+            if (formData.file) {
                 submitData.append('file', formData.file);
             }
 
@@ -1130,8 +1181,25 @@ export default function UserDokumen() {
                                                                 >
                                                                     <TableCell className="font-mono">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <span className="font-medium">{doc.judul_dokumen}</span>
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span className="font-medium text-foreground">{doc.judul_dokumen}</span>
+                                                                                {doc.nomor_dokumen && (
+                                                                                    <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                                                                                        {doc.nomor_dokumen}
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {doc.transaksi && (
+                                                                                    <Badge className="bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 text-[10px] font-mono">
+                                                                                        {doc.transaksi.kode_transaksi}
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {doc.aplikasi && (
+                                                                                    <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                                                                        {doc.aplikasi.name}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                             {doc.deskripsi && (
                                                                                 <span className="text-xs text-muted-foreground">
                                                                                     {doc.deskripsi.substring(0, 80)}
@@ -1241,8 +1309,7 @@ export default function UserDokumen() {
                                             setDocTypeMode('manual');
                                             setFormData((prev) => ({
                                                 ...prev,
-                                                aplikasi_id: '',
-                                                transaksi_id: '',
+                                                tipe_dokumen: 'manual',
                                             }));
                                         }}
                                     >
@@ -1255,7 +1322,24 @@ export default function UserDokumen() {
                                                 ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
                                                 : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
                                         }`}
-                                        onClick={() => setDocTypeMode('transaksi')}
+                                        onClick={() => {
+                                            setDocTypeMode('transaksi');
+                                            const defaultApp = formData.aplikasi_id
+                                                ? String(formData.aplikasi_id)
+                                                : context?.current?.aplikasi?.id
+                                                    ? String(context.current.aplikasi.id)
+                                                    : accessibleAplikasiList.length > 0
+                                                        ? String(accessibleAplikasiList[0].id)
+                                                        : '';
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                aplikasi_id: defaultApp,
+                                                tipe_dokumen: 'transaksi',
+                                            }));
+                                            if (defaultApp) {
+                                                setSelectedAplikasiId(defaultApp);
+                                            }
+                                        }}
                                     >
                                         Dokumen Transaksi
                                     </button>
@@ -1264,18 +1348,21 @@ export default function UserDokumen() {
                                 <div className="grid gap-4 py-2">
                                     {/* ===== FORM KHUSUS DOKUMEN TRANSAKSI ===== */}
                                     {docTypeMode === 'transaksi' && (
-                                        <div className="grid grid-cols-2 gap-4 p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3.5 bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl">
                                             <div className="grid gap-2">
-                                                <Label htmlFor="aplikasi_id" className="font-sans text-slate-700 dark:text-slate-300">
-                                                    Pilih Aplikasi <span className="text-red-500">*</span>
-                                                </Label>
+                                                <div className="flex items-center justify-between">
+                                                    <Label htmlFor="aplikasi_id" className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                                        Aplikasi Modul <span className="text-red-500">*</span>
+                                                    </Label>
+                                                    {!isSuperAdmin && (
+                                                        <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                                                            Sesuai Profil
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <Select
                                                     value={String(formData.aplikasi_id || selectedAplikasiId || '')}
                                                     onValueChange={(value) => {
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            aplikasi_id: value,
-                                                        }));
                                                         handleAplikasiChange(value);
                                                     }}
                                                 >
@@ -1283,15 +1370,15 @@ export default function UserDokumen() {
                                                         <SelectValue placeholder="-- Pilih Aplikasi --" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {aplikasiList && aplikasiList.length > 0 ? (
-                                                            aplikasiList.map((app) => (
+                                                        {accessibleAplikasiList && accessibleAplikasiList.length > 0 ? (
+                                                            accessibleAplikasiList.map((app) => (
                                                                 <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
                                                                     {app.name} {app.company ? `(${app.company.name})` : ''}
                                                                 </SelectItem>
                                                             ))
                                                         ) : (
                                                             <SelectItem value="empty" disabled className="font-sans">
-                                                                Memuat data aplikasi...
+                                                                {aplikasiList.length === 0 ? 'Memuat data aplikasi...' : 'Tidak ada aplikasi untuk profil Anda'}
                                                             </SelectItem>
                                                         )}
                                                     </SelectContent>
@@ -1299,33 +1386,58 @@ export default function UserDokumen() {
                                             </div>
 
                                             <div className="grid gap-2">
-                                                <Label htmlFor="transaksi_id" className="font-sans text-slate-700 dark:text-slate-300">
-                                                    Pilih Transaksi Manajemen <span className="text-red-500">*</span>
+                                                <Label htmlFor="transaksi_id" className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                                    Tipe Transaksi <span className="text-red-500">*</span>
                                                 </Label>
-                                                <Select
-                                                    value={transaksiTersedia || String(formData.transaksi_id || '')}
-                                                    onValueChange={(value) =>
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            transaksi_id: value,
-                                                        }))
-                                                    }
-                                                >
-                                                    <SelectTrigger id="transaksi_id" className="font-sans bg-white dark:bg-background border-emerald-300 dark:border-emerald-700">
-                                                        <SelectValue placeholder="-- Pilih Transaksi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {transaksiTersedia ? (
-                                                            <SelectItem value={transaksiTersedia} className="font-sans">
-                                                                {transaksiTersedia}
-                                                            </SelectItem>
-                                                        ) : (
-                                                            <SelectItem value="null" disabled className="font-sans">
-                                                                Pilih aplikasi terlebih dahulu
-                                                            </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                                {(() => {
+                                                    const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
+                                                    const currentAppTrans = transaksis.filter(
+                                                        (t) => String(t.aplikasi_id) === currentAppId && t.is_active
+                                                    );
+
+                                                    return (
+                                                        <Select
+                                                            value={String(formData.transaksi_id || '')}
+                                                            onValueChange={(value) => {
+                                                                const chosen = currentAppTrans.find((t) => String(t.id) === value);
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    transaksi_id: value,
+                                                                    judul_dokumen: !prev.judul_dokumen || prev.judul_dokumen === 'Jurnal Besar Keuangan'
+                                                                        ? (chosen ? chosen.nama_transaksi : prev.judul_dokumen)
+                                                                        : prev.judul_dokumen,
+                                                                    deskripsi: prev.deskripsi ? prev.deskripsi : (chosen?.deskripsi || prev.deskripsi),
+                                                                }));
+                                                            }}
+                                                            disabled={!currentAppId}
+                                                        >
+                                                            <SelectTrigger id="transaksi_id" className="font-sans bg-white dark:bg-background border-emerald-300 dark:border-emerald-700">
+                                                                <SelectValue placeholder={!currentAppId ? 'Pilih aplikasi terlebih dahulu' : '-- Pilih Transaksi --'} />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {currentAppTrans.length > 0 ? (
+                                                                    currentAppTrans.map((t) => (
+                                                                        <SelectItem key={t.id} value={t.id.toString()} className="font-sans">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-1.5 py-0.5 rounded">
+                                                                                    {t.kode_transaksi}
+                                                                                </span>
+                                                                                <span>{t.nama_transaksi}</span>
+                                                                                {t.departemen && (
+                                                                                    <span className="text-xs text-muted-foreground">({t.departemen})</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </SelectItem>
+                                                                    ))
+                                                                ) : (
+                                                                    <SelectItem value="empty" disabled className="font-sans">
+                                                                        {!currentAppId ? 'Pilih aplikasi terlebih dahulu' : 'Belum ada transaksi aktif untuk aplikasi ini'}
+                                                                    </SelectItem>
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     )}
