@@ -112,6 +112,20 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'sqlsrv_local' => [
+            'driver' => 'sqlsrv',
+            'host' => 'DESKTOP-Q69HJDO\SQLEXPRESS', // Sesuaikan nama server SQL Express mu
+            'port' => '1433',
+            'database' => 'IntacsDataUpgrade',
+            'username' => '', // Kosongkan jika pakai Windows Authentication
+            'password' => '', // Kosongkan jika pakai Windows Authentication
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'encrypt' => false,
+            'trust_server_certificate' => true,
+        ],
+
     ],
 
     /*
@@ -147,7 +161,7 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
+            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_') . '_database_'),
             'persistent' => env('REDIS_PERSISTENT', false),
         ],
 
