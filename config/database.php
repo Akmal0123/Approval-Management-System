@@ -112,6 +112,20 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'sqlsrv_local' => [
+            'driver' => 'sqlsrv',
+            'host' => 'DESKTOP-NB695E7\SQLEXPRESS',
+            'port' => '1433',
+            'database' => 'IntacsDataUpgrade',
+            'username' => '', 
+            'password' => '', 
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'encrypt' => 'no', // Diubah menjadi string 'no'
+            'trust_server_certificate' => 'true', // Diubah menjadi string 'true'
+        ],
+
     ],
 
     /*

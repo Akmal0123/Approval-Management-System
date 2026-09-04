@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Transaksi;
 use App\Models\Aplikasi;
 use App\Services\ContextService;
+use App\Models\PurReq;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -229,4 +230,18 @@ class TransaksiController extends Controller
 
         return response()->json($transaksi);
     }
+
+    public function searchPr(Request $request)
+{
+    $search = $request->input('q'); // Keyword pencarian dari user
+
+    $purReqs = PurReq::when($search, function ($query, $search) {
+            return $query->where('ReqNo', 'like', "%{$search}%")
+                         ->orWhere('Remark', 'like', "%{$search}%");
+        })
+        ->limit(10) // Batasi agar tidak terlalu berat
+        ->get();
+
+    return response()->json($purReqs);
+}
 }

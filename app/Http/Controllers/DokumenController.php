@@ -8,6 +8,7 @@ use App\Models\DokumenApproval;
 use App\Models\Masterflow;
 use App\Models\Comment;
 use App\Models\RevisionLog;
+use App\Models\PurReq;
 use App\Models\User;
 use App\Models\Aplikasi;
 use App\Events\ApprovalCreated;
