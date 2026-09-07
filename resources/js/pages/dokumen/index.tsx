@@ -1055,65 +1055,78 @@ export default function UserDokumen() {
                                         {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
-                                    {/* Tipe Dokumen & Nominal untuk Manual */}
-                                    {docTypeMode === 'manual' && (
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="tipe_dokumen" className="font-sans">
-                                                    Tipe Dokumen / Transaksi <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={formData.tipe_dokumen || ''}
-                                                    onValueChange={(value) =>
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            tipe_dokumen: value,
-                                                            ...(value.toLowerCase().includes('memo') ? { nominal_transaksi: '' } : {}),
-                                                        }))
-                                                    }
-                                                >
-                                                    <SelectTrigger className="font-sans">
-                                                        <SelectValue placeholder="Pilih tipe dokumen" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {tipeDokumens && tipeDokumens.map((tipe: any) => (
-                                                            <SelectItem key={tipe.id} value={tipe.nama_tipe}>
-                                                                📄 {tipe.nama_tipe}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+                                   {/* Nominal & Deadline (Tampil di Kedua Mode) */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="nominal_transaksi" className="font-sans">
+                                                Nominal Transaksi (Rp)
+                                            </Label>
+                                            <Input
+                                                id="nominal_transaksi"
+                                                name="nominal_transaksi"
+                                                type="number"
+                                                min="0"
+                                                value={formData.nominal_transaksi || ''}
+                                                onChange={handleInputChange}
+                                                readOnly={docTypeMode === 'transaksi'} // Kunci input jika mode transaksi
+                                                placeholder={
+                                                    formData.tipe_dokumen?.toLowerCase().includes('memo')
+                                                        ? 'Tidak memerlukan nominal'
+                                                        : 'Contoh: 4500000'
+                                                }
+                                                className={`font-sans ${
+                                                    docTypeMode === 'transaksi' || formData.tipe_dokumen?.toLowerCase().includes('memo')
+                                                        ? 'bg-gray-100 cursor-not-allowed opacity-80'
+                                                        : ''
+                                                }`}
+                                            />
+                                        </div>
 
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="nominal_transaksi" className="font-sans">Nominal Transaksi (Rp)</Label>
-                                                <Input
-                                                    id="nominal_transaksi"
-                                                    name="nominal_transaksi"
-                                                    type="number"
-                                                    min="0"
-                                                    value={formData.nominal_transaksi || ''}
-                                                    onChange={handleInputChange}
-                                                    placeholder="Contoh: 4500000"
-                                                />
-                                            </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tgl_deadline" className="font-sans">
+                                                Deadline <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tgl_deadline"
+                                                name="tgl_deadline"
+                                                type="date"
+                                                value={formData.tgl_deadline}
+                                                onChange={handleInputChange}
+                                                className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
+                                            />
+                                            {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline}</p>}
+                                        </div>
+                                    </div>
+
+                                    {/* Tipe Dokumen (Hanya Tampil di Mode Manual) */}
+                                    {docTypeMode === 'manual' && (
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="tipe_dokumen" className="font-sans">
+                                                Tipe Dokumen / Transaksi <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Select
+                                                value={formData.tipe_dokumen || ''}
+                                                onValueChange={(value) =>
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        tipe_dokumen: value,
+                                                        ...(value.toLowerCase().includes('memo') ? { nominal_transaksi: '' } : {}),
+                                                    }))
+                                                }
+                                            >
+                                                <SelectTrigger className="font-sans">
+                                                    <SelectValue placeholder="Pilih tipe dokumen" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {tipeDokumens && tipeDokumens.map((tipe: any) => (
+                                                        <SelectItem key={tipe.id} value={tipe.nama_tipe}>
+                                                            📄 {tipe.nama_tipe}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     )}
-
-                                    {/* Deadline */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="tgl_deadline" className="font-sans">
-                                            Deadline <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="tgl_deadline"
-                                            name="tgl_deadline"
-                                            type="date"
-                                            value={formData.tgl_deadline}
-                                            onChange={handleInputChange}
-                                            className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
-                                        />
-                                    </div>
 
                                     {/* Masterflow Selection */}
                                     <div className="grid gap-2">
