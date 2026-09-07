@@ -924,9 +924,28 @@ export default function UserDokumen() {
                                                 </Label>
                                                 <Select
                                                     value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                    onValueChange={(value) => {
-                                                        setFormData((prev) => ({ ...prev, aplikasi_id: value }));
-                                                        handleAplikasiChange(value);
+                                                    onValueChange={async (value) => {
+                                                        // 1. Update form data untuk aplikasi dan reset transaksi & masterflow
+                                                        setFormData((prev) => ({ 
+                                                            ...prev, 
+                                                            aplikasi_id: value, 
+                                                            transaksi_id: '', 
+                                                            masterflow_id: '' 
+                                                        }));
+                                                        
+                                                        // 2. Jalankan fungsi custom change jika ada
+                                                        if (typeof handleAplikasiChange === 'function') {
+                                                            handleAplikasiChange(value);
+                                                        }
+
+                                                        // 3. Ambil data transaksi berdasarkan aplikasi yang dipilih secara langsung
+                                                        try {
+                                                            const response = await axios.get(`/api/transaksi-by-aplikasi/${value}`);
+                                                            setTransaksiList(response.data.transaksis || response.data);
+                                                        } catch (error) {
+                                                            console.error("Gagal mengambil transaksi berdasarkan aplikasi", error);
+                                                            setTransaksiList([]);
+                                                        }
                                                     }}
                                                 >
                                                     <SelectTrigger id="aplikasi_id" className="font-sans bg-white border-emerald-300">
@@ -952,7 +971,18 @@ export default function UserDokumen() {
                                                 </Label>
                                                 <Select
                                                     value={String(formData.transaksi_id || '')}
-                                                    onValueChange={(value) => setFormData((prev) => ({ ...prev, transaksi_id: value }))}
+                                                    onValueChange={async (value) => {
+                                                        setFormData((prev) => ({ ...prev, transaksi_id: value, masterflow_id: '' }));
+                                                        
+                                                        // Otomatis filter masterflow berdasarkan transaksi yang dipilih
+                                                        try {
+                                                            const res = await axios.get(`/api/masterflows-by-transaksi/${value}`);
+                                                            setMasterflows(res.data.masterflows || []);
+                                                        } catch (error) {
+                                                            console.error("Gagal memfilter masterflow", error);
+                                                            setMasterflows([]);
+                                                        }
+                                                    }}
                                                     disabled={!formData.aplikasi_id || isLoadingTransaksi}
                                                 >
                                                     <SelectTrigger id="transaksi_id" className="font-sans bg-white border-emerald-300">
@@ -1129,29 +1159,37 @@ export default function UserDokumen() {
                                     )}
 
                                     {/* Masterflow Selection */}
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="masterflow_id" className="font-sans">
-                                            Masterflow <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Select
-                                            value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
-                                            onValueChange={handleMasterflowChange}
-                                        >
-                                            <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
-                                                <SelectValue placeholder="Pilih masterflow" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {docTypeMode !== 'manual' && masterflows.map((mf) => (
-                                                    <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
-                                                        {mf.name}
-                                                    </SelectItem>
-                                                ))}
-                                                <SelectItem value="custom" className="font-sans font-medium text-primary">
-                                                    ✨ Custom Approval
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+<div className="grid gap-2">
+    <Label htmlFor="masterflow_id" className="font-sans">
+        Masterflow <span className="text-red-500">*</span>
+    </Label>
+    <Select
+        value={formData.masterflow_id === '' ? '' : formData.masterflow_id.toString()}
+        onValueChange={handleMasterflowChange}
+    >
+        <SelectTrigger className={errors.masterflow_id ? 'border-red-500 font-sans' : 'font-sans'}>
+            <SelectValue placeholder="Pilih masterflow" />
+        </SelectTrigger>
+        <SelectContent>
+            {masterflows && masterflows.length > 0 ? (
+                masterflows.map((mf: any) => (
+                    <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
+                        {mf.name}
+                    </SelectItem>
+                ))
+            ) : (
+                <SelectItem value="empty-flow" disabled className="font-sans text-slate-400">
+                    {formData.transaksi_id ? 'Tidak ada masterflow untuk transaksi ini' : 'Pilih transaksi terlebih dahulu'}
+                </SelectItem>
+            )}
+            
+            <SelectItem value="custom" className="font-sans font-medium text-primary">
+                ✨ Custom Approval
+            </SelectItem>
+        </SelectContent>
+    </Select>
+    {errors.masterflow_id && <p className="font-sans text-sm text-red-600">{errors.masterflow_id}</p>}
+</div>
 
                                     {/* Approval Flow */}
                 {formData.masterflow_id !== '' &&

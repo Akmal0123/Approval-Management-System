@@ -77,7 +77,8 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // Masterflow API Routes (via UserDashboardController)
     Route::get('/masterflows', [UserDashboardController::class, 'getMasterflowsApi']);
     Route::get('/masterflows/{masterflow}/steps', [\App\Http\Controllers\Admin\MasterflowController::class, 'getSteps']);
-
+    Route::get('/masterflows-by-transaksi/{transaksi_id}', [\App\Http\Controllers\Admin\MasterflowController::class, 'getByTransaksi']);
+    
     // User API Routes for approval flow
     Route::get('/users-by-jabatan/{jabatan}', [UserController::class, 'getByJabatan']);
 });

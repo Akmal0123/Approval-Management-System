@@ -1,6 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { IconArrowLeft, IconBuilding, IconPlus, IconSettings, IconTrash } from '@tabler/icons-react';
 import { FormEvent, useState } from 'react';
+import { useEffect } from 'react';
+import axios from 'axios';
 
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
@@ -28,6 +30,7 @@ interface MasterflowStep {
     step_order: number;
     step_name: string;
     description: string;
+    transaksi_id?: string;
     is_required: boolean;
     jabatan_id: number;
 }
@@ -41,6 +44,7 @@ export default function Create({ jabatans, company }: Props) {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
+        transaksi_id: '',
         is_active: true,
         steps: [
             {
@@ -115,6 +119,22 @@ export default function Create({ jabatans, company }: Props) {
         });
     };
 
+   const [transaksiList, setTransaksiList] = useState<any[]>([]);
+
+    // Fetch saat komponen dimount
+    useEffect(() => {
+        const fetchTransaksi = async () => {
+            try {
+                // Gunakan axios dan panggil endpoint /api/transaksis
+                const response = await axios.get('/api/transaksis'); 
+                setTransaksiList(response.data.data || response.data);
+            } catch (error) {
+                console.error("Gagal mengambil transaksi", error);
+            }
+        };
+        fetchTransaksi();
+    }, []);
+
     return (
         <>
             <Head title="Tambah Masterflow" />
@@ -146,42 +166,69 @@ export default function Create({ jabatans, company }: Props) {
                                     </Link>
                                 </div>
 
-                                <form onSubmit={handleSubmit} className="space-y-6">
-                                    <Card className="border-border bg-card">
-                                        <CardHeader>
-                                            <CardTitle className="font-serif text-foreground">Informasi Masterflow</CardTitle>
-                                            <CardDescription className="font-sans">Isi informasi dasar untuk masterflow baru.</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="name" className="font-sans">
-                                                    Nama Masterflow *
-                                                </Label>
-                                                <Input
-                                                    id="name"
-                                                    value={formData.name}
-                                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                    placeholder="Contoh: Approval Surat Permohonan"
-                                                    className="font-sans"
-                                                />
-                                                {errors.name && <p className="font-sans text-sm text-red-600">{errors.name}</p>}
-                                            </div>
+                               <form onSubmit={handleSubmit} className="space-y-6">
+    <Card className="border-border bg-card">
+        <CardHeader>
+            <CardTitle className="font-serif text-foreground">Informasi Masterflow</CardTitle>
+            <CardDescription className="font-sans">Isi informasi dasar untuk masterflow baru.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+    {/* Input Nama Masterflow */}
+    <div className="space-y-2">
+        <Label htmlFor="name" className="font-sans">
+            Nama Masterflow *
+        </Label>
+        <Input
+            id="name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="Contoh: Approval Surat Permohonan"
+            className="font-sans"
+        />
+        {errors.name && <p className="font-sans text-sm text-red-600">{errors.name}</p>}
+    </div>
 
-                                            <div className="space-y-2">
-                                                <Label htmlFor="description" className="font-sans">
-                                                    Deskripsi
-                                                </Label>
-                                                <Textarea
-                                                    id="description"
-                                                    value={formData.description}
-                                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                                    placeholder="Deskripsi singkat tentang masterflow ini"
-                                                    rows={3}
-                                                    className="font-sans"
-                                                />
-                                                {errors.description && <p className="font-sans text-sm text-red-600">{errors.description}</p>}
-                                            </div>
-                                        </CardContent>
+    {/* Dropdown Jenis Transaksi (Cukup 1 saja) */}
+    <div className="space-y-2">
+        <Label htmlFor="transaksi_id" className="font-sans">
+            Pilih Jenis Transaksi
+        </Label>
+        <Select 
+            value={formData.transaksi_id?.toString() || ''} 
+            onValueChange={(val) => setFormData({ ...formData, transaksi_id: val })}
+        >
+            <SelectTrigger className="font-sans">
+                <SelectValue placeholder="-- Pilih Transaksi --" />
+            </SelectTrigger>
+            <SelectContent>
+                {transaksiList.map((trx: any) => (
+                    <SelectItem key={trx.id} value={trx.id.toString()}>
+                        {trx.kode_transaksi} - {trx.nama_transaksi}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+        <p className="font-sans text-xs text-slate-500">
+            Pilih transaksi jika masterflow ini khusus untuk transaksi tertentu.
+        </p>
+        {errors.transaksi_id && <p className="font-sans text-sm text-red-600">{errors.transaksi_id}</p>}
+    </div>
+
+    {/* Input Deskripsi */}
+    <div className="space-y-2">
+        <Label htmlFor="description" className="font-sans">
+            Deskripsi
+        </Label>
+        <Textarea
+            id="description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="Deskripsi singkat tentang masterflow ini"
+            className="font-sans"
+        />
+        {errors.description && <p className="font-sans text-sm text-red-600">{errors.description}</p>}
+    </div>
+</CardContent>
                                     </Card>
 
                                     <Card className="border-border bg-card">
