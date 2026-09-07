@@ -39,6 +39,7 @@ interface Transaksi {
     aplikasi?: Aplikasi;
     lookup_path_api?: string;
     get_pdf_path_api?: string;
+    path_dokumen?: string;
 }
 
 export default function TransaksiManagement() {
@@ -62,6 +63,7 @@ export default function TransaksiManagement() {
         is_active: true,
         lookup_path_api: '',
         get_pdf_path_api: '',
+        path_dokumen: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -110,6 +112,7 @@ export default function TransaksiManagement() {
             is_active: true,
             lookup_path_api: '',
             get_pdf_path_api: '',
+            path_dokumen: '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -126,6 +129,7 @@ export default function TransaksiManagement() {
             is_active: transaksi.is_active,
             lookup_path_api: transaksi.lookup_path_api || '',
             get_pdf_path_api: transaksi.get_pdf_path_api || '',
+            path_dokumen: transaksi.path_dokumen || '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -479,6 +483,19 @@ export default function TransaksiManagement() {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Input Path Dokumen */}
+<div className="space-y-2 col-span-2"> {/* Gunakan col-span-2 jika layoutnya grid dua kolom, atau sesuaikan */}
+    <Label htmlFor="path_dokumen">Path Dokumen (Opsional)</Label>
+    <Input
+        id="path_dokumen"
+        name="path_dokumen"
+        placeholder="Contoh: /path/dokumen..."
+        value={formData.path_dokumen || ''}
+        onChange={handleInputChange}
+    />
+    {errors.path_dokumen && <p className="text-xs text-red-500">{errors.path_dokumen}</p>}
+</div>
                                 {/* =================================================== */}
 
                                 <div className="flex items-center gap-2 pt-2">

@@ -91,6 +91,7 @@ class TransaksiController extends Controller
             'is_active' => 'nullable|boolean',
             'lookup_path_api' => 'nullable|string|max:255',
             'get_pdf_path_api' => 'nullable|string|max:255',
+            'path_dokumen' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -109,6 +110,7 @@ class TransaksiController extends Controller
             'is_active' => $request->is_active ?? true,
             'lookup_path_api' => $request->lookup_path_api,
             'get_pdf_path_api' => $request->get_pdf_path_api,
+            'path_dokumen' => $request->path_dokumen,
         ]);
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -147,6 +149,7 @@ class TransaksiController extends Controller
             'is_active' => 'nullable|boolean',
             'lookup_path_api' => 'nullable|string|max:255',
             'get_pdf_path_api' => 'nullable|string|max:255',
+            'path_dokumen' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -164,7 +167,8 @@ class TransaksiController extends Controller
             'deskripsi' => $request->deskripsi,
             'is_active' => $request->is_active ?? $transaksi->is_active,
             'lookup_path_api' => $request->lookup_path_api,
-             'get_pdf_path_api' => $request->get_pdf_path_api,
+            'get_pdf_path_api' => $request->get_pdf_path_api,
+            'path_dokumen' => $request->path_dokumen,
         ]);
 
         if ($request->expectsJson() || $request->wantsJson()) {
