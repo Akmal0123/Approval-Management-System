@@ -1447,23 +1447,21 @@ export default function UserDokumen() {
                                     {docTypeMode === 'transaksi' && (
                                         <div className="space-y-3">
                                             {/* TARIK DATA & FILE PDF EKSTERNAL */}
-                                            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3 shadow-sm">
-                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                                    <div className="flex items-center gap-2.5">
-                                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs flex-shrink-0">
-                                                            <IconDownload className="h-4 w-4" />
-                                                        </span>
-                                                        <div>
-                                                            <h4 className="font-sans text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                                                                Tarik Data & File PDF
-                                                                <span className="text-[10px] font-normal font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700">
-                                                                    Otomatis Template
-                                                                </span>
-                                                            </h4>
-                                                            <p className="font-sans text-[11px] text-slate-500 dark:text-slate-400">
-                                                                Masukkan kode transaksi untuk menarik data dan menyusun dokumen PDF secara otomatis
-                                                            </p>
-                                                        </div>
+                                            <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary flex-shrink-0">
+                                                        <IconDownload className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <Label className="font-sans font-semibold flex items-center gap-2">
+                                                            Tarik Data & File PDF
+                                                            <span className="text-[10px] font-normal font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                                Otomatis Template
+                                                            </span>
+                                                        </Label>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                                            Masukkan kode transaksi untuk menarik data dan menyusun dokumen PDF secara otomatis
+                                                        </p>
                                                     </div>
                                                 </div>
 
@@ -1479,13 +1477,13 @@ export default function UserDokumen() {
                                                                     handleFetchExternalData();
                                                                 }
                                                             }}
-                                                            className="font-mono text-xs uppercase bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 h-9 pr-8"
+                                                            className="font-mono text-xs uppercase h-9 pr-8"
                                                         />
                                                         {externalDocKeyword && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setExternalDocKeyword('')}
-                                                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
+                                                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
                                                             >
                                                                 ✕
                                                             </button>
@@ -1495,11 +1493,11 @@ export default function UserDokumen() {
                                                         type="button"
                                                         onClick={() => handleFetchExternalData()}
                                                         disabled={isFetchingExternal || !externalDocKeyword.trim()}
-                                                        className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-xs gap-1.5 shadow-sm"
+                                                        className="h-9 px-4 font-sans text-xs gap-1.5"
                                                     >
                                                         {isFetchingExternal ? (
                                                             <>
-                                                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                                                                 <span>Menarik...</span>
                                                             </>
                                                         ) : (
@@ -1512,12 +1510,12 @@ export default function UserDokumen() {
                                                 </div>
 
                                                 {/* Quick selection sample chips */}
-                                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">Contoh Dummy:</span>
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <span className="text-xs text-muted-foreground font-sans">Contoh:</span>
                                                     {[
-                                                        { code: 'RQE-22001434', label: 'RQE-22001434 (PR Kertas HVS)' },
-                                                        { code: 'POE-22005020', label: 'POE-22005020 (PO Basa Jawa)' },
-                                                        { code: 'CCA-00000002', label: 'CCA-00000002 (NPK Meja Jati)' },
+                                                        { code: 'RQE-22001434', label: 'RQE-22001434' },
+                                                        { code: 'POE-22005020', label: 'POE-22005020' },
+                                                        { code: 'CCA-00000002', label: 'CCA-00000002' },
                                                     ].map((sample) => (
                                                         <button
                                                             key={sample.code}
@@ -1527,7 +1525,7 @@ export default function UserDokumen() {
                                                                 handleFetchExternalData(sample.code);
                                                             }}
                                                             disabled={isFetchingExternal}
-                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-colors cursor-pointer"
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border border-border bg-background text-foreground hover:bg-muted transition-colors cursor-pointer"
                                                         >
                                                             <span>{sample.label}</span>
                                                         </button>
@@ -1536,33 +1534,33 @@ export default function UserDokumen() {
 
                                                 {/* Success Banner */}
                                                 {externalFetchSuccess && (
-                                                    <div className="mt-2 p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg space-y-2">
+                                                    <div className="rounded-md border border-border bg-background p-3 space-y-2">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-xs">
+                                                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 font-bold text-xs text-primary">
                                                                     ✓
-                                                                </span>
-                                                                <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-100 font-sans">
-                                                                    Template PDF Dokumen Berhasil Dibuat
+                                                                </div>
+                                                                <span className="text-sm font-semibold text-foreground font-sans">
+                                                                    Template PDF Berhasil Dibuat
                                                                 </span>
                                                             </div>
-                                                            <span className="font-mono text-[11px] font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">
+                                                            <span className="font-mono text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 rounded border border-border">
                                                                 Rp {Number(externalFetchSuccess.nominal).toLocaleString('id-ID')}
                                                             </span>
                                                         </div>
-                                                        <div className="text-[11px] text-slate-700 dark:text-slate-300 font-sans space-y-0.5">
-                                                            <p><strong className="text-slate-900 dark:text-slate-100">No. Dokumen:</strong> {externalFetchSuccess.nomor_dokumen}</p>
-                                                            <p><strong className="text-slate-900 dark:text-slate-100">Judul:</strong> {externalFetchSuccess.judul}</p>
-                                                            <p><strong className="text-slate-900 dark:text-slate-100">File Terlampir:</strong> {externalFetchSuccess.filename} ({externalFetchSuccess.items_count} item transaksi)</p>
+                                                        <div className="text-xs text-muted-foreground font-sans space-y-0.5">
+                                                            <p><strong className="text-foreground">No. Dokumen:</strong> {externalFetchSuccess.nomor_dokumen}</p>
+                                                            <p><strong className="text-foreground">Judul:</strong> {externalFetchSuccess.judul}</p>
+                                                            <p><strong className="text-foreground">File Terlampir:</strong> {externalFetchSuccess.filename} ({externalFetchSuccess.items_count} item transaksi)</p>
                                                         </div>
-                                                        <div className="flex items-center gap-2 pt-1 border-t border-dashed border-emerald-300 dark:border-emerald-700">
+                                                        <div className="flex items-center gap-2 pt-1 border-t border-border">
                                                             {localFileUrl && (
                                                                 <Button
                                                                     type="button"
                                                                     size="sm"
                                                                     variant="outline"
                                                                     onClick={() => window.open(localFileUrl, '_blank')}
-                                                                    className="h-7 text-xs font-sans border-emerald-400 dark:border-emerald-600 text-emerald-800 dark:text-emerald-200 bg-white dark:bg-emerald-950 hover:bg-emerald-50 dark:hover:bg-emerald-900 gap-1 cursor-pointer"
+                                                                    className="h-7 text-xs font-sans gap-1 cursor-pointer"
                                                                 >
                                                                     <IconEye className="h-3.5 w-3.5" />
                                                                     Pratinjau PDF
@@ -1573,7 +1571,7 @@ export default function UserDokumen() {
                                                                 size="sm"
                                                                 variant="secondary"
                                                                 onClick={openSignatureDialog}
-                                                                className="h-7 text-xs font-sans bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600 gap-1 cursor-pointer"
+                                                                className="h-7 text-xs font-sans gap-1 cursor-pointer"
                                                             >
                                                                 <IconEdit className="h-3.5 w-3.5" />
                                                                 Atur Posisi Tanda Tangan
@@ -1584,96 +1582,99 @@ export default function UserDokumen() {
                                             </div>
 
                                             {/* Aplikasi & Tipe Transaksi Grid */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
-                                                <div className="grid gap-2 min-w-0 overflow-hidden">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <Label htmlFor="aplikasi_id" className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
-                                                            Aplikasi Modul <span className="text-red-500">*</span>
-                                                        </Label>
-                                                        {!isSuperAdmin && (
-                                                            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shrink-0">
-                                                                Sesuai Profil
+                                            <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                                <Label className="font-sans font-semibold">Aplikasi & Tipe Transaksi</Label>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="grid gap-2 min-w-0 overflow-hidden">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Aplikasi Modul <span className="text-destructive">*</span>
                                                             </span>
-                                                        )}
-                                                    </div>
-                                                    <Select
-                                                        value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                        onValueChange={(value) => {
-                                                            handleAplikasiChange(value);
-                                                        }}
-                                                    >
-                                                        <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 truncate">
-                                                            <SelectValue placeholder="-- Pilih Aplikasi --" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {accessibleAplikasiList && accessibleAplikasiList.length > 0 ? (
-                                                                accessibleAplikasiList.map((app) => (
-                                                                    <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
-                                                                        {app.name} {app.company ? `(${app.company.name})` : ''}
-                                                                    </SelectItem>
-                                                                ))
-                                                            ) : (
-                                                                <SelectItem value="empty" disabled className="font-sans">
-                                                                    {aplikasiList.length === 0 ? 'Memuat data aplikasi...' : 'Tidak ada aplikasi untuk profil Anda'}
-                                                                </SelectItem>
+                                                            {!isSuperAdmin && (
+                                                                <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border shrink-0">
+                                                                    Sesuai Profil
+                                                                </span>
                                                             )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                <div className="grid gap-2 min-w-0 overflow-hidden">
-                                                    <Label htmlFor="transaksi_id" className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
-                                                        Tipe Transaksi <span className="text-red-500">*</span>
-                                                    </Label>
-                                                    {(() => {
-                                                        const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
-                                                        const currentAppTrans = transaksis.filter(
-                                                            (t) => String(t.aplikasi_id) === currentAppId && t.is_active
-                                                        );
-
-                                                        return (
-                                                            <Select
-                                                                value={String(formData.transaksi_id || '')}
-                                                                onValueChange={(value) => {
-                                                                    const chosen = currentAppTrans.find((t) => String(t.id) === value);
-                                                                    setFormData((prev) => ({
-                                                                        ...prev,
-                                                                        transaksi_id: value,
-                                                                        judul_dokumen: !prev.judul_dokumen || prev.judul_dokumen === 'Jurnal Besar Keuangan'
-                                                                            ? (chosen ? chosen.nama_transaksi : prev.judul_dokumen)
-                                                                            : prev.judul_dokumen,
-                                                                        deskripsi: prev.deskripsi ? prev.deskripsi : (chosen?.deskripsi || prev.deskripsi),
-                                                                    }));
-                                                                }}
-                                                                disabled={!currentAppId}
-                                                            >
-                                                                <SelectTrigger id="transaksi_id" className="w-full min-w-0 font-sans bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 truncate">
-                                                                    <SelectValue placeholder={!currentAppId ? 'Pilih aplikasi terlebih dahulu' : '-- Pilih Transaksi --'} />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {currentAppTrans.length > 0 ? (
-                                                                        currentAppTrans.map((t) => (
-                                                                            <SelectItem key={t.id} value={t.id.toString()} className="font-sans">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <span className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-700 shrink-0">
-                                                                                        {t.kode_transaksi}
-                                                                                    </span>
-                                                                                    <span>{t.nama_transaksi}</span>
-                                                                                    {t.departemen && (
-                                                                                        <span className="text-xs text-muted-foreground">({t.departemen})</span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        ))
-                                                                    ) : (
-                                                                        <SelectItem value="empty" disabled className="font-sans">
-                                                                            {!currentAppId ? 'Pilih aplikasi terlebih dahulu' : 'Belum ada transaksi aktif untuk aplikasi ini'}
+                                                        </div>
+                                                        <Select
+                                                            value={String(formData.aplikasi_id || selectedAplikasiId || '')}
+                                                            onValueChange={(value) => {
+                                                                handleAplikasiChange(value);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans truncate">
+                                                                <SelectValue placeholder="-- Pilih Aplikasi --" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {accessibleAplikasiList && accessibleAplikasiList.length > 0 ? (
+                                                                    accessibleAplikasiList.map((app) => (
+                                                                        <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
+                                                                            {app.name} {app.company ? `(${app.company.name})` : ''}
                                                                         </SelectItem>
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        );
-                                                    })()}
+                                                                    ))
+                                                                ) : (
+                                                                    <SelectItem value="empty" disabled className="font-sans">
+                                                                        {aplikasiList.length === 0 ? 'Memuat data aplikasi...' : 'Tidak ada aplikasi untuk profil Anda'}
+                                                                    </SelectItem>
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="grid gap-2 min-w-0 overflow-hidden">
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Tipe Transaksi <span className="text-destructive">*</span>
+                                                        </span>
+                                                        {(() => {
+                                                            const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
+                                                            const currentAppTrans = transaksis.filter(
+                                                                (t) => String(t.aplikasi_id) === currentAppId && t.is_active
+                                                            );
+
+                                                            return (
+                                                                <Select
+                                                                    value={String(formData.transaksi_id || '')}
+                                                                    onValueChange={(value) => {
+                                                                        const chosen = currentAppTrans.find((t) => String(t.id) === value);
+                                                                        setFormData((prev) => ({
+                                                                            ...prev,
+                                                                            transaksi_id: value,
+                                                                            judul_dokumen: !prev.judul_dokumen || prev.judul_dokumen === 'Jurnal Besar Keuangan'
+                                                                                ? (chosen ? chosen.nama_transaksi : prev.judul_dokumen)
+                                                                                : prev.judul_dokumen,
+                                                                            deskripsi: prev.deskripsi ? prev.deskripsi : (chosen?.deskripsi || prev.deskripsi),
+                                                                        }));
+                                                                    }}
+                                                                    disabled={!currentAppId}
+                                                                >
+                                                                    <SelectTrigger id="transaksi_id" className="w-full min-w-0 font-sans truncate">
+                                                                        <SelectValue placeholder={!currentAppId ? 'Pilih aplikasi terlebih dahulu' : '-- Pilih Transaksi --'} />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {currentAppTrans.length > 0 ? (
+                                                                            currentAppTrans.map((t) => (
+                                                                                <SelectItem key={t.id} value={t.id.toString()} className="font-sans">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className="font-mono text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                                                                                            {t.kode_transaksi}
+                                                                                        </span>
+                                                                                        <span>{t.nama_transaksi}</span>
+                                                                                        {t.departemen && (
+                                                                                            <span className="text-xs text-muted-foreground">({t.departemen})</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </SelectItem>
+                                                                            ))
+                                                                        ) : (
+                                                                            <SelectItem value="empty" disabled className="font-sans">
+                                                                                {!currentAppId ? 'Pilih aplikasi terlebih dahulu' : 'Belum ada transaksi aktif untuk aplikasi ini'}
+                                                                            </SelectItem>
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            );
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
