@@ -14,7 +14,7 @@ class AplikasiController extends Controller
     /**
      * Display a listing of the resource.
      */
-   public function index()
+    public function index()
     {
         $user = \Illuminate\Support\Facades\Auth::user();
 
@@ -43,7 +43,6 @@ class AplikasiController extends Controller
             'companies' => $companies // <-- TAMBAHKAN BARIS INI
         ]);
     }
-
     /**
      * Store a newly created resource in storage.
      */

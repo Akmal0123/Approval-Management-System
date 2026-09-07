@@ -360,7 +360,7 @@ export default function SuperAdminAplikasiManagement() {
                                         <Button type="button" variant="outline" onClick={closeModal} disabled={submitting} className="font-sans">
                                             Batal
                                         </Button>
-                                        <Button type="submit" disabled={submitting} className="bg-red-600 font-sans hover:bg-red-700">
+                                        <Button type="submit" disabled={submitting} className="font-sans">
                                             {submitting ? 'Menyimpan...' : editingAplikasi ? 'Perbarui' : 'Simpan'}
                                         </Button>
                                     </div>

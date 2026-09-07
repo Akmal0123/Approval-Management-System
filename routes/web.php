@@ -71,6 +71,15 @@ use Inertia\Inertia;
     }
 })();
 
+Route::get('/test-db', function () {
+    try {
+        \Illuminate\Support\Facades\DB::connection('sqlsrv_local')->getPdo();
+        return 'Koneksi ke sqlsrv_local berhasil! 🎉';
+    } catch (\Exception $e) {
+        return 'Koneksi gagal: ' . $e->getMessage();
+    }
+});
+
 Route::get('/', function () {
     if (Auth::check()) {
         return redirect('/dashboard');

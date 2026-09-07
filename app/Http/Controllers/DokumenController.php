@@ -1407,22 +1407,133 @@ public function lookupExternal(Request $request)
         'keyword' => 'required'
     ]);
 
-    // TODO: Nanti ganti bagian ini dengan HTTP Client (Http::get) ke API aslinya
-    // Dummy response sementara untuk testing (Ketik keyword: PO-991)
-    if ($request->keyword === 'PO-991') {
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'nomor_dokumen' => 'PO-2026-991',
-                'judul' => 'Pembelian Kertas A4 - Kebutuhan Kantor',
-                'nominal' => '4500000',
-                'tanggal' => '2026-09-01',
-                // Ini string Base64 dari file PDF kosong berisikan teks "Test PDF from API"
-                'pdf_base64' => 'JVBERi0xLjQKJcOkw7zDtsO5CjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL1Jlc291cmNlcyA0IDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XSAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNDQgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxMDAgNzAwIFRkCihUZXN0IFBERiBmcm9tIEFQSSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAKMDAwMDAwMDExNyAwMDAwMCBuIAowMDAwMDAwMjI0IDAwMDAwIG4gCjAwMDAwMDAwMjY4IDAwMDAwIG4gCjAwMDAwMDAzNjIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA3IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo0NTEKJSVFT0YK'
-            ]
-        ]);
+    $keyword = trim($request->keyword);
+
+    // Helper untuk mengambil file PDF template Tisera asli
+    $getPdfBase64 = function ($filename) {
+        $path = storage_path("app/dummy_templates/{$filename}.pdf");
+        if (file_exists($path)) {
+            return base64_encode(file_get_contents($path));
+        }
+        return 'JVBERi0xLjQKJcOkw7zDtsO5CjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL1Jlc291cmNlcyA0IDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XSAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNDQgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxMDAgNzAwIFRkCihUZXN0IFBERiBmcm9tIEFQSSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAKMDAwMDAwMDExNyAwMDAwMCBuIAowMDAwMDAwMjI0IDAwMDAwIG4gCjAwMDAwMDAwMjY4IDAwMDAwIG4gCjAwMDAwMDAzNjIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA3IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo0NTEKJSVFT0YK';
+    };
+
+    // 1. Cek Purchase Request (RQE-22001433, RQE-22001434, RQE-22001435)
+    if (stripos($keyword, 'RQE') !== false || stripos($keyword, '22001433') !== false || stripos($keyword, '22001434') !== false || stripos($keyword, '22001435') !== false) {
+        if (stripos($keyword, '22001434') !== false) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'RQE-22001434/100000',
+                    'judul' => 'Pengadaan Kertas HVS SiDU A4 Surat Jalan & Faktur - MDC Solo TD',
+                    'nominal' => '2500000',
+                    'tanggal' => '2026-08-01',
+                    'pdf_base64' => $getPdfBase64('RQE-22001434')
+                ]
+            ]);
+        } elseif (stripos($keyword, '22001435') !== false) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'RQE-22001435/100000',
+                    'judul' => 'Pengadaan Barcode Scanner Honeywell Wireless - Gudang TD Yogya',
+                    'nominal' => '4200000',
+                    'tanggal' => '2026-08-15',
+                    'pdf_base64' => $getPdfBase64('RQE-22001435')
+                ]
+            ]);
+        } else {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'RQE-22001433/100000',
+                    'judul' => 'Pengadaan Printer Epson L3250 Operasional BO Kediri - MDC Solo TD',
+                    'nominal' => '2850000',
+                    'tanggal' => '2026-07-07',
+                    'pdf_base64' => $getPdfBase64('RQE-22001433')
+                ]
+            ]);
+        }
     }
 
-    return response()->json(['status' => 'error', 'message' => 'Data transaksi tidak ditemukan'], 404);
+    // 2. Cek Purchase Order (POE-22005020, POE-22005021, POE-22005022)
+    if (stripos($keyword, 'POE') !== false || stripos($keyword, '22005020') !== false || stripos($keyword, '22005021') !== false || stripos($keyword, '22005022') !== false) {
+        if (stripos($keyword, '22005021') !== false) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'POE-22005021/100000',
+                    'judul' => 'PO Buku Siswa SMP Kurikulum Merdeka - PT Tiga Serangkai Pustaka Mandiri',
+                    'nominal' => '19425000',
+                    'tanggal' => '2026-08-12',
+                    'pdf_base64' => $getPdfBase64('POE-22005021')
+                ]
+            ]);
+        } elseif (stripos($keyword, '22005022') !== false) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'POE-22005022/100000',
+                    'judul' => 'PO Cetak Continuous Form Faktur & Surat Jalan 3-Ply - PT Wangsa Jatra Lestari',
+                    'nominal' => '12250000',
+                    'tanggal' => '2026-08-20',
+                    'pdf_base64' => $getPdfBase64('POE-22005022')
+                ]
+            ]);
+        } else {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'POE-22005020/100000',
+                    'judul' => 'PO GRENGSENG Basa Jawa SMP 7, 8, 9 - MEDIA KARYA PUTRA. CV',
+                    'nominal' => '9446640',
+                    'tanggal' => '2026-08-10',
+                    'pdf_base64' => $getPdfBase64('POE-22005020')
+                ]
+            ]);
+        }
+    }
+
+    // 3. Cek Calculation NPK (CCA-00000002, CCA-00000003, CCA-00000004)
+    if (stripos($keyword, 'CCA') !== false || stripos($keyword, '00000002') !== false || stripos($keyword, '00000003') !== false || stripos($keyword, '00000004') !== false) {
+        if (stripos($keyword, '00000003') !== false) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'CCA-00000003/110303',
+                    'judul' => 'Pengadaan Kursi Siswa SMPN 1 Enrekang - CV Meubel Jati Indah (Cab. Pare-Pare)',
+                    'nominal' => '10000000',
+                    'tanggal' => '2026-08-15',
+                    'pdf_base64' => $getPdfBase64('CCA-00000003')
+                ]
+            ]);
+        } elseif (stripos($keyword, '00000004') !== false) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'CCA-00000004/100000',
+                    'judul' => 'Paket Modul Muatan Lokal Budaya Solo - Dinas Pendidikan Kota Surakarta',
+                    'nominal' => '25000000',
+                    'tanggal' => '2026-08-25',
+                    'pdf_base64' => $getPdfBase64('CCA-00000004')
+                ]
+            ]);
+        } else {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'nomor_dokumen' => 'CCA-00000002/110303',
+                    'judul' => 'Meja Siswa Kayu Jati SD NEGERI 22 MURANTE - UD Kembang Jati (Cab. Pare-Pare)',
+                    'nominal' => '9000000',
+                    'tanggal' => '2026-08-08',
+                    'pdf_base64' => $getPdfBase64('CCA-00000002')
+                ]
+            ]);
+        }
+    }
+
+
+
+    return response()->json(['status' => 'error', 'message' => "Data transaksi dengan nomor '{$keyword}' tidak ditemukan."], 404);
 }
 }
