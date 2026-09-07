@@ -34,7 +34,9 @@ class TransaksiController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('nama_transaksi', 'like', "%{$search}%")
                   ->orWhere('kode_transaksi', 'like', "%{$search}%")
-                  ->orWhere('departemen', 'like', "%{$search}%");
+                  ->orWhere('departemen', 'like', "%{$search}%")
+                  ->orWhere('lookup_path_api', 'like', "%{$search}%")
+                  ->orWhere('get_pdf_path_api', 'like', "%{$search}%");
             });
         }
 
@@ -60,9 +62,13 @@ class TransaksiController extends Controller
                 'departemen' => 'nullable|string|max:255',
                 'deskripsi' => 'nullable|string',
                 'is_active' => 'nullable|boolean',
+                'lookup_path_api' => 'nullable|string|max:255',
+                'get_pdf_path_api' => 'nullable|string|max:255',
             ]);
 
             $validated['is_active'] = $request->boolean('is_active', true);
+            $validated['lookup_path_api'] = $request->input('lookup_path_api') ?: null;
+            $validated['get_pdf_path_api'] = $request->input('get_pdf_path_api') ?: null;
 
             $transaksi = Transaksi::create($validated);
             $transaksi->load('aplikasi.company');
@@ -119,10 +125,18 @@ class TransaksiController extends Controller
                 'departemen' => 'nullable|string|max:255',
                 'deskripsi' => 'nullable|string',
                 'is_active' => 'nullable|boolean',
+                'lookup_path_api' => 'nullable|string|max:255',
+                'get_pdf_path_api' => 'nullable|string|max:255',
             ]);
 
             if ($request->has('is_active')) {
                 $validated['is_active'] = $request->boolean('is_active');
+            }
+            if ($request->has('lookup_path_api')) {
+                $validated['lookup_path_api'] = $request->input('lookup_path_api') ?: null;
+            }
+            if ($request->has('get_pdf_path_api')) {
+                $validated['get_pdf_path_api'] = $request->input('get_pdf_path_api') ?: null;
             }
 
             $transaksi->update($validated);

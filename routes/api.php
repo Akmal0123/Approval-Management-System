@@ -65,6 +65,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
 
     // Dokumen API Routes
     Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
+    Route::post('/dokumen/lookup-external', [DokumenController::class, 'lookupExternal']);
     Route::post('/dokumen/{dokumen}/upload-revision', [DokumenController::class, 'uploadRevision']);
     Route::delete('/dokumen/{dokumen}', [DokumenController::class, 'destroy']);
     Route::get('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'index']);
