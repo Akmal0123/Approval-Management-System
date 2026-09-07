@@ -174,17 +174,23 @@ class DokumenController extends Controller
             $doc->detailed_status = $doc->getDetailedStatus();
         });
         
-        $aplikasis = Aplikasi::with('company')
+       $aplikasis = Aplikasi::with('company')
             ->orderBy('name')
             ->get();
 
         // Ambil data tipe dokumen dari database
         $tipeDokumens = \App\Models\TipeDokumen::all();
 
+        // Ambil data company berdasarkan otorisasi atau ambil semua jika Super Admin
+        $companies = $this->contextService->isSuperAdmin() 
+            ? \App\Models\Company::orderBy('name')->get() 
+            : \App\Models\Company::where('id', $this->contextService->getCurrentCompanyId())->get();
+
         return response()->json([
             'data' => $dokumen,
             'aplikasis' => $aplikasis,
-            'tipeDokumens' => $tipeDokumens, // <-- Ditambahkan di sini
+            'tipeDokumens' => $tipeDokumens,
+            'companies' => $companies, // <-- Tambahkan variabel companies di sini
         ]);
     }
 

@@ -130,18 +130,22 @@ class MasterflowController extends Controller
     }
 
     // Tambahkan fungsi baru ini tepat di bawah fungsi store di atas
-    public function getByTransaksi($transaksiId)
-    {
-        // Ambil masterflow yang sesuai transaksi_id dan statusnya aktif
-        $masterflows = Masterflow::with(['steps.jabatan'])
-            ->where('transaksi_id', $transaksiId)
-            ->where('is_active', true) 
-            ->get();
+   public function getByTransaksi($transaksiId)
+{
+    // Ambil company_id dari context/user yang sedang aktif
+    $companyId = $this->getCurrentUserCompanyId();
 
-        return response()->json([
-            'masterflows' => $masterflows
-        ]);
-    }
+    // Ambil masterflow yang sesuai transaksi_id, milik company yang sama, dan aktif
+    $masterflows = Masterflow::with(['steps.jabatan'])
+        ->where('transaksi_id', $transaksiId)
+        ->where('company_id', $companyId) // <-- Batasi hanya untuk company yang sedang aktif
+        ->where('is_active', true) 
+        ->get();
+
+    return response()->json([
+        'masterflows' => $masterflows
+    ]);
+}
 
     /**
      * Display the specified resource.

@@ -126,6 +126,7 @@ interface StepApprovers {
 interface FormData {
     nomor_dokumen: string;
     judul_dokumen: string;
+    company_id?: string | number;
     aplikasi_id?: string | number;    
     transaksi_id?: string | number;
     tipe_dokumen: string;
@@ -144,6 +145,7 @@ interface FormData {
 const initialFormData: FormData = {
     nomor_dokumen: '',
     judul_dokumen: '',
+    company_id: '',
     aplikasi_id: '',
     transaksi_id: '',
     tipe_dokumen: '',
@@ -162,6 +164,7 @@ const initialFormData: FormData = {
 export default function UserDokumen() {
     const [aplikasiList, setAplikasiList] = useState<any[]>([]);
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
+    const [companies, setCompanies] = useState<any[]>([]); //
     const [transaksiList, setTransaksiList] = useState<any[]>([]);
     const [tipeDokumens, setTipeDokumens] = useState<any[]>([]);
     const [isLoadingTransaksi, setIsLoadingTransaksi] = useState(false);
@@ -195,24 +198,29 @@ export default function UserDokumen() {
     const [pendingApprovalsForDialog, setPendingApprovalsForDialog] = useState<any[]>([]);
 
     const fetchDokumen = async () => {
-        try {
-            setIsLoading(true);
-            const response = await api.get('/dokumen', {
-                params: { my_documents: true },
-            });
-            const newDokumen = response.data.data || response.data;
-            setDokumen(newDokumen);
-            
-            if (response.data.tipeDokumens) {
-                setTipeDokumens(response.data.tipeDokumens);
-            }
-        } catch (error) {
-            console.error('Error fetching dokumen:', error);
-            showToast.error('❌ Failed to load documents. Please try again.');
-        } finally {
-            setIsLoading(false);
+    try {
+        setIsLoading(true);
+        const response = await api.get('/dokumen', {
+            params: { my_documents: true },
+        });
+        const newDokumen = response.data.data || response.data;
+        setDokumen(newDokumen);
+        
+        if (response.data.tipeDokumens) {
+            setTipeDokumens(response.data.tipeDokumens);
         }
-    };
+
+        // Tangkap data companies dari respons API backend
+        if (response.data.companies) {
+            setCompanies(response.data.companies);
+        }
+    } catch (error) {
+        console.error('Error fetching dokumen:', error);
+        showToast.error('❌ Failed to load documents. Please try again.');
+    } finally {
+        setIsLoading(false);
+    }
+};
 
     const fetchAplikasi = async () => {
         try {
@@ -916,132 +924,180 @@ export default function UserDokumen() {
                                 </div>
 
                                 <div className="grid gap-4 py-2">
-                                    {docTypeMode === 'transaksi' && (
-                                        <div className="grid grid-cols-2 gap-4 p-3 bg-emerald-50/60 border border-emerald-200 rounded-lg">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="aplikasi_id" className="font-sans text-slate-700">
-                                                    Pilih Aplikasi <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                    onValueChange={async (value) => {
-                                                        // 1. Update form data untuk aplikasi dan reset transaksi & masterflow
-                                                        setFormData((prev) => ({ 
-                                                            ...prev, 
-                                                            aplikasi_id: value, 
-                                                            transaksi_id: '', 
-                                                            masterflow_id: '' 
-                                                        }));
-                                                        
-                                                        // 2. Jalankan fungsi custom change jika ada
-                                                        if (typeof handleAplikasiChange === 'function') {
-                                                            handleAplikasiChange(value);
-                                                        }
+    {docTypeMode === 'transaksi' && (
+        <div className="space-y-4 p-3 bg-emerald-50/60 border border-emerald-200 rounded-lg">
+            {/* 1. Dropdown Pilih Company */}
+            <div className="grid gap-2">
+                <Label htmlFor="company_id" className="font-sans text-slate-700">
+                    Pilih Company <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                    value={String(formData.company_id || '')}
+                    onValueChange={async (value) => {
+                        setFormData((prev) => ({ 
+                            ...prev, 
+                            company_id: value, 
+                            aplikasi_id: '', 
+                            transaksi_id: '', 
+                            masterflow_id: '' 
+                        }));
 
-                                                        // 3. Ambil data transaksi berdasarkan aplikasi yang dipilih secara langsung
-                                                        try {
-                                                            const response = await axios.get(`/api/transaksi-by-aplikasi/${value}`);
-                                                            setTransaksiList(response.data.transaksis || response.data);
-                                                        } catch (error) {
-                                                            console.error("Gagal mengambil transaksi berdasarkan aplikasi", error);
-                                                            setTransaksiList([]);
-                                                        }
-                                                    }}
-                                                >
-                                                    <SelectTrigger id="aplikasi_id" className="font-sans bg-white border-emerald-300">
-                                                        <SelectValue placeholder="-- Pilih Aplikasi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {aplikasiList && aplikasiList.length > 0 ? (
-                                                            aplikasiList.map((app) => (
-                                                                <SelectItem key={app.id} value={app.id.toString()}>
-                                                                    {app.name} {app.company ? `(${app.company.name})` : ''}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : (
-                                                            <SelectItem value="empty" disabled>Memuat data aplikasi...</SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+                        try {
+                            const response = await axios.get(`/api/aplikasi-by-company/${value}`);
+                            setAplikasiList(response.data.aplikasis || response.data);
+                        } catch (error) {
+                            console.error("Gagal mengambil aplikasi berdasarkan company", error);
+                            setAplikasiList([]);
+                        }
+                        setTransaksiList([]);
+                        setMasterflows([]);
+                    }}
+                >
+                    <SelectTrigger id="company_id" className="font-sans bg-white border-emerald-300">
+                        <SelectValue placeholder="-- Pilih Company --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {companies && companies.length > 0 ? (
+                            companies.map((comp: any) => (
+                                <SelectItem key={comp.id} value={comp.id.toString()}>
+                                    {comp.name}
+                                </SelectItem>
+                            ))
+                        ) : (
+                            <SelectItem value="empty-comp" disabled>Tidak ada company tersedia</SelectItem>
+                        )}
+                    </SelectContent>
+                </Select>
+            </div>
 
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="transaksi_id" className="font-sans text-slate-700">
-                                                    Pilih Transaksi Manajemen <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={String(formData.transaksi_id || '')}
-                                                    onValueChange={async (value) => {
-                                                        setFormData((prev) => ({ ...prev, transaksi_id: value, masterflow_id: '' }));
-                                                        
-                                                        // Otomatis filter masterflow berdasarkan transaksi yang dipilih
-                                                        try {
-                                                            const res = await axios.get(`/api/masterflows-by-transaksi/${value}`);
-                                                            setMasterflows(res.data.masterflows || []);
-                                                        } catch (error) {
-                                                            console.error("Gagal memfilter masterflow", error);
-                                                            setMasterflows([]);
-                                                        }
-                                                    }}
-                                                    disabled={!formData.aplikasi_id || isLoadingTransaksi}
-                                                >
-                                                    <SelectTrigger id="transaksi_id" className="font-sans bg-white border-emerald-300">
-                                                        <SelectValue placeholder="-- Pilih Transaksi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {isLoadingTransaksi ? (
-                                                            <SelectItem value="loading" disabled>Memuat transaksi...</SelectItem>
-                                                        ) : transaksiList.length > 0 ? (
-                                                            transaksiList.map((trx) => (
-                                                                <SelectItem key={trx.id} value={trx.id.toString()}>
-                                                                    {trx.kode_transaksi} - {trx.nama_transaksi}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : formData.aplikasi_id ? (
-                                                            <SelectItem value="empty" disabled>Tidak ada transaksi untuk aplikasi ini</SelectItem>
-                                                        ) : (
-                                                            <SelectItem value="null" disabled>Pilih aplikasi terlebih dahulu</SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+            {/* 2. Grid Dropdown Aplikasi & Transaksi */}
+            <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="aplikasi_id" className="font-sans text-slate-700">
+                        Pilih Aplikasi <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                        value={String(formData.aplikasi_id || selectedAplikasiId || '')}
+                        disabled={!formData.company_id}
+                        onValueChange={async (value) => {
+                            setFormData((prev) => ({ 
+                                ...prev, 
+                                aplikasi_id: value, 
+                                transaksi_id: '', 
+                                masterflow_id: '' 
+                            }));
+                            
+                            if (typeof handleAplikasiChange === 'function') {
+                                handleAplikasiChange(value);
+                            }
 
-                                            {/* Form Lookup Keyword & Fetch Eksternal */}
-                                            {formData.aplikasi_id && formData.transaksi_id && (
-                                                <div className="col-span-2 mt-2 p-4 bg-emerald-100/50 border border-emerald-200 rounded-lg">
-                                                    <Label className="font-sans mb-2 block font-semibold text-slate-700">
-                                                        Tarik Data & File PDF dari Aplikasi (Lookup)
-                                                    </Label>
-                                                    <div className="flex gap-2 items-start">
-                                                        <div className="flex-1 flex flex-col gap-1">
-                                                            <Input
-                                                                type="text"
-                                                                placeholder="Masukkan Nomor Transaksi / Keyword..."
-                                                                className="w-full font-sans bg-white border-emerald-300 focus-visible:ring-emerald-500"
-                                                                value={lookupKeyword}
-                                                                onChange={(e) => setLookupKeyword(e.target.value)}
-                                                                disabled={isLookingUp}
-                                                            />
-                                                            {lookupError && <p className="text-sm text-red-500">{lookupError}</p>}
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            onClick={handleLookup}
-                                                            disabled={!lookupKeyword || isLookingUp}
-                                                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-sans"
-                                                        >
-                                                            {isLookingUp ? 'Mencari...' : '🔍 Cari Data'}
-                                                        </Button>
-                                                    </div>
-                                                    {formData.file && (
-                                                        <p className="text-sm font-medium text-emerald-700 mt-3 flex items-center bg-emerald-50 p-2 rounded border border-emerald-200">
-                                                            ✅ File PDF berhasil ditarik dan dilampirkan otomatis.
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                            try {
+                                const response = await axios.get(`/api/transaksi-by-aplikasi/${value}`);
+                                setTransaksiList(response.data.transaksis || response.data);
+                            } catch (error) {
+                                console.error("Gagal mengambil transaksi berdasarkan aplikasi", error);
+                                setTransaksiList([]);
+                            }
+                            setMasterflows([]);
+                        }}
+                    >
+                        <SelectTrigger id="aplikasi_id" className="font-sans bg-white border-emerald-300">
+                            <SelectValue placeholder="-- Pilih Aplikasi --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {aplikasiList && aplikasiList.length > 0 ? (
+                                aplikasiList.map((app) => (
+                                    <SelectItem key={app.id} value={app.id.toString()}>
+                                        {app.name} {app.company ? `(${app.company.name})` : ''}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <SelectItem value="empty" disabled>
+                                    {formData.company_id ? 'Tidak ada aplikasi di company ini' : 'Pilih company dahulu'}
+                                </SelectItem>
+                            )}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="transaksi_id" className="font-sans text-slate-700">
+                        Pilih Transaksi Manajemen <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                        value={String(formData.transaksi_id || '')}
+                        onValueChange={async (value) => {
+                            setFormData((prev) => ({ ...prev, transaksi_id: value, masterflow_id: '' }));
+                            
+                            try {
+                                const res = await axios.get(`/api/masterflows-by-transaksi/${value}`);
+                                setMasterflows(res.data.masterflows || []);
+                            } catch (error) {
+                                console.error("Gagal memfilter masterflow", error);
+                                setMasterflows([]);
+                            }
+                        }}
+                        disabled={!formData.aplikasi_id || isLoadingTransaksi}
+                    >
+                        <SelectTrigger id="transaksi_id" className="font-sans bg-white border-emerald-300">
+                            <SelectValue placeholder="-- Pilih Transaksi --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {isLoadingTransaksi ? (
+                                <SelectItem value="loading" disabled>Memuat transaksi...</SelectItem>
+                            ) : transaksiList.length > 0 ? (
+                                transaksiList.map((trx) => (
+                                    <SelectItem key={trx.id} value={trx.id.toString()}>
+                                        {trx.kode_transaksi} - {trx.nama_transaksi}
+                                    </SelectItem>
+                                ))
+                            ) : formData.aplikasi_id ? (
+                                <SelectItem value="empty" disabled>Tidak ada transaksi untuk aplikasi ini</SelectItem>
+                            ) : (
+                                <SelectItem value="null" disabled>Pilih aplikasi terlebih dahulu</SelectItem>
+                            )}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* Form Lookup Keyword & Fetch Eksternal */}
+            {formData.aplikasi_id && formData.transaksi_id && (
+                <div className="col-span-2 mt-2 p-4 bg-emerald-100/50 border border-emerald-200 rounded-lg">
+                    <Label className="font-sans mb-2 block font-semibold text-slate-700">
+                        Tarik Data & File PDF dari Aplikasi (Lookup)
+                    </Label>
+                    <div className="flex gap-2 items-start">
+                        <div className="flex-1 flex flex-col gap-1">
+                            <Input
+                                type="text"
+                                placeholder="Masukkan Nomor Transaksi / Keyword..."
+                                className="w-full font-sans bg-white border-emerald-300 focus-visible:ring-emerald-500"
+                                value={lookupKeyword}
+                                onChange={(e) => setLookupKeyword(e.target.value)}
+                                disabled={isLookingUp}
+                            />
+                            {lookupError && <p className="text-sm text-red-500">{lookupError}</p>}
+                        </div>
+                        <Button
+                            type="button"
+                            onClick={handleLookup}
+                            disabled={!lookupKeyword || isLookingUp}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-sans"
+                        >
+                            {isLookingUp ? 'Mencari...' : '🔍 Cari Data'}
+                        </Button>
+                    </div>
+                    {formData.file && (
+                        <p className="text-sm font-medium text-emerald-700 mt-3 flex items-center bg-emerald-50 p-2 rounded border border-emerald-200">
+                            ✅ File PDF berhasil ditarik dan dilampirkan otomatis.
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    )}
+</div>
 
                                     {/* Input Nomor & Tanggal */}
                                     <div className="grid grid-cols-2 gap-4">
@@ -1364,7 +1420,7 @@ export default function UserDokumen() {
                                             </p>
                                         </div>
                                     )}
-                                </div>
+                                
 
                                 <DialogFooter className="sm:justify-between">
                                     <div className="flex gap-2">

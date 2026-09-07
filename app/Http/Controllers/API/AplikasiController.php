@@ -144,4 +144,13 @@ class AplikasiController extends Controller
             ], 404);
         }
     }
+
+    public function getByCompany($companyId)
+{
+    $aplikasis = Aplikasi::where('company_id', $companyId)->get();
+
+    return response()->json([
+        'aplikasis' => $aplikasis
+    ]);
+}
 }

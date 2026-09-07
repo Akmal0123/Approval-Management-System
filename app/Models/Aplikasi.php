@@ -34,10 +34,10 @@ class Aplikasi extends Model
     /**
      * Get the company that owns the aplikasi.
      */
-    public function company(): BelongsTo
-    {
-        return $this->belongsTo(Company::class);
-    }
+    public function company()
+{
+    return $this->belongsTo(Company::class, 'company_id');
+}
 
     /**
      * Get the transaksis for this aplikasi.
