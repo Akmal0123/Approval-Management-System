@@ -74,16 +74,19 @@ async function run() {
 
             if (!img) continue;
 
-            // Convert mm to PDF points (1 mm = 2.83465 points)
-            const mmToPt = 2.83465;
+            // Convert mm to PDF points (Exact: 72 points / 25.4 mm)
+            const mmToPt = 72 / 25.4;
             const width = sig.width * mmToPt;
             const height = sig.height * mmToPt;
-            const x = sig.x * mmToPt;
 
             // In PDF-lib, Y is from bottom to top. 
-            // So Y from top (in mm) needs to be inverted.
+            // Also account for possible non-zero MediaBox origin (e.g. crop margins).
+            const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
+            const pageX = mediaBox ? mediaBox.x : 0;
+            const pageY = mediaBox ? mediaBox.y : 0;
             const pageHeight = page.getHeight();
-            const yFromBottom = pageHeight - (sig.y * mmToPt) - height;
+            const x = pageX + (sig.x * mmToPt);
+            const yFromBottom = pageY + pageHeight - (sig.y * mmToPt) - height;
 
             page.drawImage(img, {
                 x: x,
@@ -120,13 +123,16 @@ async function run() {
 
                 const qrImg = await pdfDoc.embedPng(qrPngBuffer);
 
-                const mmToPt = 2.83465;
+                const mmToPt = 72 / 25.4;
                 const width = qr.width * mmToPt;
                 const height = qr.height * mmToPt;
-                const x = qr.x * mmToPt;
 
+                const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
+                const pageX = mediaBox ? mediaBox.x : 0;
+                const pageY = mediaBox ? mediaBox.y : 0;
                 const pageHeight = page.getHeight();
-                const yFromBottom = pageHeight - (qr.y * mmToPt) - height;
+                const x = pageX + (qr.x * mmToPt);
+                const yFromBottom = pageY + pageHeight - (qr.y * mmToPt) - height;
 
                 page.drawImage(qrImg, {
                     x: x,

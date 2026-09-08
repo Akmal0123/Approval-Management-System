@@ -73,9 +73,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [initialPos, setInitialPos] = useState({ x: 0, y: 0 });
     const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 });
     const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
+    const [pageSizePt, setPageSizePt] = useState({ width: 595.28, height: 841.89 });
     const [pageDimensions, setPageDimensions] = useState({ width: 0, height: 0 });
 
-    const PDF_TO_MM = 0.352778; // 1 point = 0.352778 mm
+    const PDF_TO_MM = 25.4 / 72; // Exact: 1 point = 25.4 / 72 mm (~0.3527777777777778 mm)
 
     useEffect(() => {
         if (open || isEmbedded) {
@@ -217,11 +218,26 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     }
 
     const onPageLoadSuccess = (page: any) => {
+        const viewport = page.getViewport ? page.getViewport({ scale: 1 }) : null;
+        const widthPt = viewport ? viewport.width : (page.originalWidth || (page.width ? page.width / scale : 595.28));
+        const heightPt = viewport ? viewport.height : (page.originalHeight || (page.height ? page.height / scale : 841.89));
+
+        setPageSizePt({ width: widthPt, height: heightPt });
         setPageDimensions({
-            width: page.originalWidth * scale,
-            height: page.originalHeight * scale,
+            width: widthPt * scale,
+            height: heightPt * scale,
         });
     };
+
+    // Keep pageDimensions synchronized with zoom scale changes
+    useEffect(() => {
+        if (pageSizePt.width > 0 && pageSizePt.height > 0) {
+            setPageDimensions({
+                width: pageSizePt.width * scale,
+                height: pageSizePt.height * scale,
+            });
+        }
+    }, [scale, pageSizePt]);
 
     // Convert mm (PDF coordinate) to pixels (UI coordinate based on scale)
     const mmToPx = (mm: number) => {
@@ -278,6 +294,12 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!activeApprovalId || !containerRef.current) return;
 
+        const currentPos = positions[activeApprovalId];
+        if (!currentPos) return;
+
+        const containerWidth = pageDimensions.width > 0 ? pageDimensions.width : containerRef.current.clientWidth;
+        const containerHeight = pageDimensions.height > 0 ? pageDimensions.height : containerRef.current.clientHeight;
+
         if (isDragging) {
             const dx = e.clientX - dragStart.x;
             const dy = e.clientY - dragStart.y;
@@ -286,10 +308,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             let newY = initialPos.y + dy;
 
             // Boundaries using accurate page dimensions
-            const boxWidth = mmToPx(positions[activeApprovalId].width);
-            const boxHeight = mmToPx(positions[activeApprovalId].height);
-            const containerWidth = pageDimensions.width > 0 ? pageDimensions.width : containerRef.current.clientWidth;
-            const containerHeight = pageDimensions.height > 0 ? pageDimensions.height : containerRef.current.clientHeight;
+            const boxWidth = mmToPx(currentPos.width);
+            const boxHeight = mmToPx(currentPos.height);
 
             newX = Math.max(0, Math.min(newX, containerWidth - boxWidth));
             newY = Math.max(0, Math.min(newY, containerHeight - boxHeight));
@@ -309,7 +329,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             // Maintain strict 1:1 square aspect ratio for all signatures
             const minSize = Math.max(15 * scale, 15);
             const delta = Math.max(dx, dy);
-            const newSize = Math.max(minSize, initialSize.width + delta);
+            const currentBoxX = mmToPx(currentPos.x);
+            const currentBoxY = mmToPx(currentPos.y);
+            const maxSize = Math.max(minSize, Math.min(containerWidth - currentBoxX, containerHeight - currentBoxY));
+            const newSize = Math.min(maxSize, Math.max(minSize, initialSize.width + delta));
 
             setPositions((prev) => ({
                 ...prev,
@@ -762,7 +785,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 )}
 
                 {!error && (
-                    <div ref={containerRef} className={`relative shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}>
+                    <div ref={containerRef} className={`relative w-fit shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}>
                         <Document
                             file={fileUrl}
                             onLoadSuccess={onDocumentLoadSuccess}
@@ -775,12 +798,12 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                 scale={scale}
                                 renderTextLayer={false}
                                 renderAnnotationLayer={false}
-                                className="shadow-sm"
+                                className="relative block !m-0 !p-0 !max-w-none !shadow-none"
                                 onLoadSuccess={onPageLoadSuccess}
-                            />
+                            >
+                                {renderSignatureBoxes()}
+                            </Page>
                         </Document>
-
-                        {renderSignatureBoxes()}
                     </div>
                 )}
             </div>

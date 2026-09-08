@@ -150,17 +150,16 @@
 }
 
 .react-pdf__Page {
-    max-width: calc(100% - 2em);
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
-    margin: 1em;
+    position: relative;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+    margin: 0;
 }
 
 .react-pdf__Page canvas {
-    max-width: 100%;
-    height: auto !important;
+    display: block;
 }
 
 .react-pdf__message {
     padding: 20px;
-    color: white;
+    color: #4b5563;
 }
