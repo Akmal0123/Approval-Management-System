@@ -19,7 +19,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
                     <div className="h-6 w-px bg-border" />
                     <AppSidebarHeader breadcrumbs={breadcrumbs} />
                 </header>
-                <main className="flex flex-1 flex-col gap-6 bg-background p-6">{children}</main>
+                <main className="flex flex-1 flex-col gap-4 bg-background p-4 md:gap-6 md:p-6 lg:p-8">{children}</main>
             </SidebarInset>
         </SidebarProvider>
     );
