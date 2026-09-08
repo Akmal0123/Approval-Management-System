@@ -1461,10 +1461,18 @@ if (docTypeMode === 'transaksi') {
                                             placeholder="Masukkan Nomor Transaksi (Contoh: PO-991)..."
                                             className="w-full font-sans bg-white border-emerald-300 focus-visible:ring-emerald-500"
                                             value={lookupKeyword}
-                                            onChange={(e) => setLookupKeyword(e.target.value)}
+                                            onChange={(e) => {
+                                                setLookupKeyword(e.target.value);
+                                                if (lookupError) setLookupError('');
+                                            }}
                                             disabled={isLookingUp}
                                         />
-                                        {lookupError && <p className="text-sm text-red-500">{lookupError}</p>}
+                                        {lookupError && (
+                                            <p
+                                                className="text-sm text-red-500"
+                                                dangerouslySetInnerHTML={{ __html: lookupError }}
+                                            />
+                                        )}
                                     </div>
                                     <Button
                                         type="button"

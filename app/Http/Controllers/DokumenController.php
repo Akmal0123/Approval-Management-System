@@ -10,6 +10,7 @@ use App\Models\Comment;
 use App\Models\RevisionLog;
 use App\Models\User;
 use App\Models\Aplikasi;
+use App\Models\Transaksi;
 use App\Events\ApprovalCreated;
 use App\Events\BrowserNotificationEvent;
 use App\Jobs\SendApprovalNotification;
@@ -1402,11 +1403,52 @@ public function lookupExternal(Request $request)
 {
     $request->validate([
         'aplikasi_id' => 'required',
-        'transaksi_id' => 'required',
-        'keyword' => 'required'
+        'transaksi_id' => 'required|exists:transaksis,id',
+        'keyword' => 'required|string'
     ]);
 
     $keyword = trim($request->keyword);
+
+    // Ambil data transaksi yang dipilih dari DB
+    $transaksi = Transaksi::findOrFail($request->transaksi_id);
+    $kodeTransaksi = $transaksi->kode_transaksi; // misal: 'PO-ERP', 'PR-ERP', 'PV-ERP', dst.
+
+    // =====================================================================
+    // MAPPING: kode_transaksi => prefix dokumen yang diizinkan
+    // Jika suatu transaksi punya >1 prefix yang valid, tambahkan di array-nya
+    // =====================================================================
+    $prefixMap = [
+        'PR-ERP'  => ['RQE'],          // Purchase Request
+        'PO-ERP'  => ['POE'],          // Purchase Order
+        'PV-ERP'  => ['PVE', 'PV'],    // Payment Voucher
+        'CUTI-HR' => ['CCA', 'CUTI'],  // Pengajuan Cuti
+        'REIM-HR' => ['REIM'],         // Reimbursement
+    ];
+
+    // Cek apakah kode transaksi ini punya aturan prefix
+    if (array_key_exists($kodeTransaksi, $prefixMap)) {
+        $allowedPrefixes = $prefixMap[$kodeTransaksi];
+
+        // Cek apakah keyword diawali dengan salah satu prefix yang diizinkan
+        $keywordUpper = strtoupper($keyword);
+        $isValid = false;
+        foreach ($allowedPrefixes as $prefix) {
+            if (str_starts_with($keywordUpper, strtoupper($prefix))) {
+                $isValid = true;
+                break;
+            }
+        }
+
+        if (!$isValid) {
+            $namaTransaksi = $transaksi->nama_transaksi;
+            $contohPrefix = implode('- atau ', array_map(fn($p) => "<b>{$p}-XXXXX</b>", $allowedPrefixes));
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Kode yang Anda masukkan tidak sesuai dengan jenis transaksi \"<b>{$namaTransaksi}</b>\". "
+                           . "Gunakan kode dengan awalan: {$contohPrefix}."
+            ], 422);
+        }
+    }
 
     // Helper untuk mengambil file PDF template Tisera asli
     $getPdfBase64 = function ($filename) {
