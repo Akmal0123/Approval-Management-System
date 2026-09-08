@@ -22,6 +22,7 @@ class Transaksi extends Model
         'is_active',
         'lookup_path_api',  
         'get_pdf_path_api',
+        'path_dokumen',
     ];
 
     protected $casts = [

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Transaksi;
 use App\Models\Aplikasi;
 use App\Services\ContextService;
+use App\Models\PurReq;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -90,6 +91,7 @@ class TransaksiController extends Controller
             'is_active' => 'nullable|boolean',
             'lookup_path_api' => 'nullable|string|max:255',
             'get_pdf_path_api' => 'nullable|string|max:255',
+            'path_dokumen' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -108,6 +110,7 @@ class TransaksiController extends Controller
             'is_active' => $request->is_active ?? true,
             'lookup_path_api' => $request->lookup_path_api,
             'get_pdf_path_api' => $request->get_pdf_path_api,
+            'path_dokumen' => $request->path_dokumen,
         ]);
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -146,6 +149,7 @@ class TransaksiController extends Controller
             'is_active' => 'nullable|boolean',
             'lookup_path_api' => 'nullable|string|max:255',
             'get_pdf_path_api' => 'nullable|string|max:255',
+            'path_dokumen' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -163,7 +167,8 @@ class TransaksiController extends Controller
             'deskripsi' => $request->deskripsi,
             'is_active' => $request->is_active ?? $transaksi->is_active,
             'lookup_path_api' => $request->lookup_path_api,
-             'get_pdf_path_api' => $request->get_pdf_path_api,
+            'get_pdf_path_api' => $request->get_pdf_path_api,
+            'path_dokumen' => $request->path_dokumen,
         ]);
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -229,4 +234,18 @@ class TransaksiController extends Controller
 
         return response()->json($transaksi);
     }
+
+    public function searchPr(Request $request)
+{
+    $search = $request->input('q'); // Keyword pencarian dari user
+
+    $purReqs = PurReq::when($search, function ($query, $search) {
+            return $query->where('ReqNo', 'like', "%{$search}%")
+                         ->orWhere('Remark', 'like', "%{$search}%");
+        })
+        ->limit(10) // Batasi agar tidak terlalu berat
+        ->get();
+
+    return response()->json($purReqs);
+}
 }

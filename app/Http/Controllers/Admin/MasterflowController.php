@@ -86,6 +86,7 @@ class MasterflowController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'transaksi_id' => 'nullable|exists:transaksis,id', // <-- Tambahan validasi transaksi_id
             'steps' => 'required|array|min:1',
             'steps.*.jabatan_id' => 'required|exists:jabatans,id',
             'steps.*.step_name' => 'required|string|max:255',
@@ -101,6 +102,7 @@ class MasterflowController extends Controller
             // Create masterflow
             $masterflow = Masterflow::create([
                 'company_id' => $companyId,
+                'transaksi_id' => $request->transaksi_id, // <-- Simpan transaksi_id ke database
                 'name' => $request->name,
                 'description' => $request->description,
                 'is_active' => true,
@@ -126,6 +128,24 @@ class MasterflowController extends Controller
         return redirect()->route('admin.masterflows.index')
             ->with('success', 'Masterflow berhasil dibuat.');
     }
+
+    // Tambahkan fungsi baru ini tepat di bawah fungsi store di atas
+   public function getByTransaksi($transaksiId)
+{
+    // Ambil company_id dari context/user yang sedang aktif
+    $companyId = $this->getCurrentUserCompanyId();
+
+    // Ambil masterflow yang sesuai transaksi_id, milik company yang sama, dan aktif
+    $masterflows = Masterflow::with(['steps.jabatan'])
+        ->where('transaksi_id', $transaksiId)
+        ->where('company_id', $companyId) // <-- Batasi hanya untuk company yang sedang aktif
+        ->where('is_active', true) 
+        ->get();
+
+    return response()->json([
+        'masterflows' => $masterflows
+    ]);
+}
 
     /**
      * Display the specified resource.
@@ -162,8 +182,10 @@ class MasterflowController extends Controller
             ->findOrFail($id);
 
         $jabatans = Jabatan::orderBy('name')->get();
+        
+        // Ambil daftar transaksi agar dropdown jenis transaksi terisi di halaman edit
+        $transaksis = \App\Models\Transaksi::all();
 
-        $companyId = $this->getCurrentUserCompanyId();
         $company = Company::find($companyId);
 
         // Get user with full auth relationships for sidebar
@@ -173,6 +195,7 @@ class MasterflowController extends Controller
         return Inertia::render('admin/Masterflow/Edit', [
             'masterflow' => $masterflow,
             'jabatans' => $jabatans,
+            'transaksis' => $transaksis, // <-- Kirim data transaksi ke frontend
             'company' => $company,
             'auth' => [
                 'user' => $userWithAuth
@@ -192,6 +215,7 @@ class MasterflowController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'transaksi_id' => 'nullable|exists:transaksis,id', // <-- Tambahkan validasi transaksi_id
             'is_active' => 'boolean',
             'steps' => 'required|array|min:1',
             'steps.*.jabatan_id' => 'required|exists:jabatans,id',
@@ -205,10 +229,11 @@ class MasterflowController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $masterflow) {
-            // Update masterflow
+            // Update masterflow termasuk transaksi_id
             $masterflow->update([
                 'name' => $request->name,
                 'description' => $request->description,
+                'transaksi_id' => $request->transaksi_id, // <-- Simpan transaksi_id yang baru dipilih
                 'is_active' => $request->is_active ?? true,
                 'total_steps' => count($request->steps),
             ]);

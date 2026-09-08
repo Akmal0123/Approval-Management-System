@@ -8,6 +8,7 @@ use App\Models\DokumenApproval;
 use App\Models\Masterflow;
 use App\Models\Comment;
 use App\Models\RevisionLog;
+use App\Models\PurReq;
 use App\Models\User;
 use App\Models\Aplikasi;
 use App\Models\Transaksi;
@@ -174,17 +175,23 @@ class DokumenController extends Controller
             $doc->detailed_status = $doc->getDetailedStatus();
         });
         
-        $aplikasis = Aplikasi::with('company')
+       $aplikasis = Aplikasi::with('company')
             ->orderBy('name')
             ->get();
 
         // Ambil data tipe dokumen dari database
         $tipeDokumens = \App\Models\TipeDokumen::all();
 
+        // Ambil data company berdasarkan otorisasi atau ambil semua jika Super Admin
+        $companies = $this->contextService->isSuperAdmin() 
+            ? \App\Models\Company::orderBy('name')->get() 
+            : \App\Models\Company::where('id', $this->contextService->getCurrentCompanyId())->get();
+
         return response()->json([
             'data' => $dokumen,
             'aplikasis' => $aplikasis,
-            'tipeDokumens' => $tipeDokumens, // <-- Ditambahkan di sini
+            'tipeDokumens' => $tipeDokumens,
+            'companies' => $companies, // <-- Tambahkan variabel companies di sini
         ]);
     }
 
@@ -1399,6 +1406,8 @@ $dokumen->update([
     ]);
 }
 
+
+
 public function lookupExternal(Request $request)
 {
     $request->validate([
@@ -1409,27 +1418,32 @@ public function lookupExternal(Request $request)
 
     $keyword = trim($request->keyword);
 
-    // Ambil data transaksi yang dipilih dari DB
-    $transaksi = Transaksi::findOrFail($request->transaksi_id);
-    $kodeTransaksi = $transaksi->kode_transaksi; // misal: 'PO-ERP', 'PR-ERP', 'PV-ERP', dst.
+    // === 1. VALIDASI KODE TRANSAKSI DARI DATABASE ===
+    $transaksi = Transaksi::find($request->transaksi_id);
+    if ($transaksi) {
+        $kodeTransaksi = strtoupper(trim($transaksi->kode_transaksi));
+        // Ambil prefix dasar (contoh: "PO-ERP" -> "PO", "PR 01" -> "PR", "PO" -> "PO")
+        $basePrefix = strtoupper(explode('-', explode(' ', $kodeTransaksi)[0])[0]);
 
-    // =====================================================================
-    // MAPPING: kode_transaksi => prefix dokumen yang diizinkan
-    // Jika suatu transaksi punya >1 prefix yang valid, tambahkan di array-nya
-    // =====================================================================
-    $prefixMap = [
-        'PR-ERP'  => ['RQE'],          // Purchase Request
-        'PO-ERP'  => ['POE'],          // Purchase Order
-        'PV-ERP'  => ['PVE', 'PV'],    // Payment Voucher
-        'CUTI-HR' => ['CCA', 'CUTI'],  // Pengajuan Cuti
-        'REIM-HR' => ['REIM'],         // Reimbursement
-    ];
+        // Mapping toleransi awalan prefix yang diizinkan untuk setiap transaksi
+        $prefixMap = [
+            'PR-ERP'  => ['RQE', 'PR'],
+            'PO-ERP'  => ['POE', 'PO'],
+            'PV-ERP'  => ['PVE', 'PV'],
+            'CUTI-HR' => ['CCA', 'CUTI'],
+            'REIM-HR' => ['REIM'],
+        ];
 
-    // Cek apakah kode transaksi ini punya aturan prefix
-    if (array_key_exists($kodeTransaksi, $prefixMap)) {
-        $allowedPrefixes = $prefixMap[$kodeTransaksi];
+        if (array_key_exists($kodeTransaksi, $prefixMap)) {
+            $allowedPrefixes = $prefixMap[$kodeTransaksi];
+        } else {
+            $allowedPrefixes = [$basePrefix];
+            if ($basePrefix === 'PR') $allowedPrefixes[] = 'RQE';
+            if ($basePrefix === 'PO') $allowedPrefixes[] = 'POE';
+            if ($basePrefix === 'CUTI') $allowedPrefixes[] = 'CCA';
+            if ($basePrefix === 'PV') $allowedPrefixes[] = 'PVE';
+        }
 
-        // Cek apakah keyword diawali dengan salah satu prefix yang diizinkan
         $keywordUpper = strtoupper($keyword);
         $isValid = false;
         foreach ($allowedPrefixes as $prefix) {
@@ -1441,7 +1455,7 @@ public function lookupExternal(Request $request)
 
         if (!$isValid) {
             $namaTransaksi = $transaksi->nama_transaksi;
-            $contohPrefix = implode('- atau ', array_map(fn($p) => "<b>{$p}-XXXXX</b>", $allowedPrefixes));
+            $contohPrefix = implode(' atau ', array_map(fn($p) => "<b>{$p}-XXXXX</b>", $allowedPrefixes));
             return response()->json([
                 'status'  => 'error',
                 'message' => "Kode yang Anda masukkan tidak sesuai dengan jenis transaksi \"<b>{$namaTransaksi}</b>\". "
@@ -1449,6 +1463,7 @@ public function lookupExternal(Request $request)
             ], 422);
         }
     }
+    // ===============================================
 
     // Helper untuk mengambil file PDF template Tisera asli
     $getPdfBase64 = function ($filename) {
@@ -1459,7 +1474,7 @@ public function lookupExternal(Request $request)
         return 'JVBERi0xLjQKJcOkw7zDtsO5CjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL1Jlc291cmNlcyA0IDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XSAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNDQgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxMDAgNzAwIFRkCihUZXN0IFBERiBmcm9tIEFQSSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAKMDAwMDAwMDExNyAwMDAwMCBuIAowMDAwMDAwMjI0IDAwMDAwIG4gCjAwMDAwMDAwMjY4IDAwMDAwIG4gCjAwMDAwMDAzNjIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA3IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo0NTEKJSVFT0YK';
     };
 
-    // 1. Cek Purchase Request (RQE-22001433, RQE-22001434, RQE-22001435)
+    // 2. Cek Purchase Request (RQE-22001433, RQE-22001434, RQE-22001435)
     if (stripos($keyword, 'RQE') !== false || stripos($keyword, '22001433') !== false || stripos($keyword, '22001434') !== false || stripos($keyword, '22001435') !== false) {
         if (stripos($keyword, '22001434') !== false) {
             return response()->json([
@@ -1497,7 +1512,7 @@ public function lookupExternal(Request $request)
         }
     }
 
-    // 2. Cek Purchase Order (POE-22005020, POE-22005021, POE-22005022)
+    // 3. Cek Purchase Order (POE-22005020, POE-22005021, POE-22005022)
     if (stripos($keyword, 'POE') !== false || stripos($keyword, '22005020') !== false || stripos($keyword, '22005021') !== false || stripos($keyword, '22005022') !== false) {
         if (stripos($keyword, '22005021') !== false) {
             return response()->json([
@@ -1535,7 +1550,7 @@ public function lookupExternal(Request $request)
         }
     }
 
-    // 3. Cek Calculation NPK (CCA-00000002, CCA-00000003, CCA-00000004)
+    // 4. Cek Calculation NPK (CCA-00000002, CCA-00000003, CCA-00000004)
     if (stripos($keyword, 'CCA') !== false || stripos($keyword, '00000002') !== false || stripos($keyword, '00000003') !== false || stripos($keyword, '00000004') !== false) {
         if (stripos($keyword, '00000003') !== false) {
             return response()->json([
@@ -1571,20 +1586,6 @@ public function lookupExternal(Request $request)
                 ]
             ]);
         }
-    }
-
-    // Fallback lama jika user mengetik PO-991
-    if ($keyword === 'PO-991') {
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'nomor_dokumen' => 'PO-2026-991',
-                'judul' => 'Pembelian Kertas A4 - Kebutuhan Kantor',
-                'nominal' => '4500000',
-                'tanggal' => '2026-09-01',
-                'pdf_base64' => $defaultPdfBase64
-            ]
-        ]);
     }
 
     return response()->json(['status' => 'error', 'message' => "Data transaksi dengan nomor '{$keyword}' tidak ditemukan."], 404);

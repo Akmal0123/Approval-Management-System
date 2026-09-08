@@ -7,6 +7,7 @@ use App\Http\Controllers\DokumenController;
 use App\Http\Controllers\DokumenVersionController;
 use App\Http\Controllers\DokumenApprovalController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\API\TransaksiController;
 use App\Models\Masterflow;
 use App\Services\ContextService;
 use Illuminate\Support\Facades\Route;
@@ -295,6 +296,8 @@ Route::middleware(['auth'])->group(function () {
     })->name('masterflows.steps');
 });
 
+//Lookup Route
+Route::get('/api/lookup-pr', [TransaksiController::class, 'searchPr'])->name('api.lookup.pr');
 // Legacy SPA Routes (redirect to appropriate role dashboards)
 Route::get('/spa', function () {
     return redirect('/admin/dashboard');

@@ -39,6 +39,7 @@ interface Transaksi {
     aplikasi?: Aplikasi;
     lookup_path_api?: string;
     get_pdf_path_api?: string;
+    path_dokumen?: string;
 }
 
 export default function TransaksiManagement() {
@@ -62,6 +63,7 @@ export default function TransaksiManagement() {
         is_active: true,
         lookup_path_api: '',
         get_pdf_path_api: '',
+        path_dokumen: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -110,6 +112,7 @@ export default function TransaksiManagement() {
             is_active: true,
             lookup_path_api: '',
             get_pdf_path_api: '',
+            path_dokumen: '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -126,6 +129,7 @@ export default function TransaksiManagement() {
             is_active: transaksi.is_active,
             lookup_path_api: transaksi.lookup_path_api || '',
             get_pdf_path_api: transaksi.get_pdf_path_api || '',
+            path_dokumen: transaksi.path_dokumen || '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -299,7 +303,6 @@ export default function TransaksiManagement() {
                                                     <TableHead>Kode</TableHead>
                                                     <TableHead>Nama Transaksi</TableHead>
                                                     <TableHead>Aplikasi</TableHead>
-                                                    <TableHead>Departemen</TableHead>
                                                     <TableHead>Deskripsi</TableHead>
                                                     <TableHead>Status</TableHead>
                                                     <TableHead className="text-right">Aksi</TableHead>
@@ -385,90 +388,77 @@ export default function TransaksiManagement() {
                     </div>
 
                     {/* Create / Edit Modal */}
-                    <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                        <DialogContent className="sm:max-w-lg">
-                            <DialogHeader>
-                                <DialogTitle className="font-serif">
-                                    {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Konfigurasi tipe transaksi dan kaitkan dengan modul aplikasi & departemen.
-                                </DialogDescription>
-                            </DialogHeader>
+<Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+    <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+            <DialogTitle className="font-serif">
+                {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}
+            </DialogTitle>
+            <DialogDescription>
+                Konfigurasi tipe transaksi dan kaitkan dengan modul aplikasi.
+            </DialogDescription>
+        </DialogHeader>
 
-                            <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="aplikasi_id">Aplikasi <span className="text-red-500">*</span></Label>
-                                    <Select
-                                        value={formData.aplikasi_id}
-                                        onValueChange={val => setFormData(prev => ({ ...prev, aplikasi_id: val }))}
-                                    >
-                                        <SelectTrigger id="aplikasi_id">
-                                            <SelectValue placeholder="Pilih Aplikasi" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {aplikasis.map(app => (
-                                                <SelectItem key={app.id} value={String(app.id)}>
-                                                    {app.name} {app.company ? `(${app.company.name})` : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.aplikasi_id && <p className="text-xs text-red-500">{errors.aplikasi_id}</p>}
-                                </div>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+                <Label htmlFor="aplikasi_id">Aplikasi <span className="text-red-500">*</span></Label>
+                <Select
+                    value={formData.aplikasi_id}
+                    onValueChange={val => setFormData(prev => ({ ...prev, aplikasi_id: val }))}
+                >
+                    <SelectTrigger id="aplikasi_id">
+                        <SelectValue placeholder="Pilih Aplikasi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {aplikasis.map(app => (
+                            <SelectItem key={app.id} value={String(app.id)}>
+                                {app.name} {app.company ? `(${app.company.name})` : ''}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {errors.aplikasi_id && <p className="text-xs text-red-500">{errors.aplikasi_id}</p>}
+            </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="kode_transaksi">Kode Transaksi <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            id="kode_transaksi"
-                                            name="kode_transaksi"
-                                            placeholder="Misal: PR, PO, CUTI"
-                                            value={formData.kode_transaksi}
-                                            onChange={handleInputChange}
-                                            className="font-mono uppercase"
-                                            required
-                                        />
-                                        {errors.kode_transaksi && <p className="text-xs text-red-500">{errors.kode_transaksi}</p>}
-                                    </div>
+            {/* Bagian input Kode Transaksi sekarang menjadi satu baris penuh (full-width) karena input departemen dihapus */}
+            <div className="space-y-2">
+                <Label htmlFor="kode_transaksi">Kode Transaksi <span className="text-red-500">*</span></Label>
+                <Input
+                    id="kode_transaksi"
+                    name="kode_transaksi"
+                    placeholder="Misal: PR, PO, CUTI"
+                    value={formData.kode_transaksi}
+                    onChange={handleInputChange}
+                    className="font-mono uppercase"
+                    required
+                />
+                {errors.kode_transaksi && <p className="text-xs text-red-500">{errors.kode_transaksi}</p>}
+            </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="departemen">Departemen (Opsional)</Label>
-                                        <Input
-                                            id="departemen"
-                                            name="departemen"
-                                            placeholder="Misal: Finance, HRD, IT"
-                                            value={formData.departemen}
-                                            onChange={handleInputChange}
-                                        />
-                                        {errors.departemen && <p className="text-xs text-red-500">{errors.departemen}</p>}
-                                    </div>
-                                </div>
+            <div className="space-y-2">
+                <Label htmlFor="nama_transaksi">Nama Transaksi <span className="text-red-500">*</span></Label>
+                <Input
+                    id="nama_transaksi"
+                    name="nama_transaksi"
+                    placeholder="Misal: Purchase Request, Pengajuan Cuti Tahunan"
+                    value={formData.nama_transaksi}
+                    onChange={handleInputChange}
+                    required
+                />
+                {errors.nama_transaksi && <p className="text-xs text-red-500">{errors.nama_transaksi}</p>}
+            </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="nama_transaksi">Nama Transaksi <span className="text-red-500">*</span></Label>
-                                    <Input
-                                        id="nama_transaksi"
-                                        name="nama_transaksi"
-                                        placeholder="Misal: Purchase Request, Pengajuan Cuti Tahunan"
-                                        value={formData.nama_transaksi}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                    {errors.nama_transaksi && <p className="text-xs text-red-500">{errors.nama_transaksi}</p>}
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="deskripsi">Deskripsi (Opsional)</Label>
-                                    <Textarea
-                                        id="deskripsi"
-                                        name="deskripsi"
-                                        placeholder="Keterangan alur atau peruntukan transaksi..."
-                                        value={formData.deskripsi}
-                                        onChange={handleInputChange}
-                                        rows={3}
-                                    />
-                                </div>
+            <div className="space-y-2">
+                <Label htmlFor="deskripsi">Deskripsi (Opsional)</Label>
+                <Textarea
+                    id="deskripsi"
+                    name="deskripsi"
+                    placeholder="Keterangan alur atau peruntukan transaksi..."
+                    value={formData.deskripsi}
+                    onChange={handleInputChange}
+                    rows={3}
+                />
+            </div>
 
                                 {/* ===== TAMBAHAN LOOKUP & GET PDF PATH DI SINI ===== */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -493,6 +483,19 @@ export default function TransaksiManagement() {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Input Path Dokumen */}
+<div className="space-y-2 col-span-2"> {/* Gunakan col-span-2 jika layoutnya grid dua kolom, atau sesuaikan */}
+    <Label htmlFor="path_dokumen">Path Dokumen (Opsional)</Label>
+    <Input
+        id="path_dokumen"
+        name="path_dokumen"
+        placeholder="Contoh: /path/dokumen..."
+        value={formData.path_dokumen || ''}
+        onChange={handleInputChange}
+    />
+    {errors.path_dokumen && <p className="text-xs text-red-500">{errors.path_dokumen}</p>}
+</div>
                                 {/* =================================================== */}
 
                                 <div className="flex items-center gap-2 pt-2">

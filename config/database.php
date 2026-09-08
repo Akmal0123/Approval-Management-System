@@ -114,16 +114,16 @@ return [
 
         'sqlsrv_local' => [
             'driver' => 'sqlsrv',
-            'host' => 'DESKTOP-Q69HJDO\SQLEXPRESS', // Sesuaikan nama server SQL Express mu
+            'host' => 'DESKTOP-NB695E7\SQLEXPRESS',
             'port' => '1433',
             'database' => 'IntacsDataUpgrade',
-            'username' => '', // Kosongkan jika pakai Windows Authentication
-            'password' => '', // Kosongkan jika pakai Windows Authentication
+            'username' => '', 
+            'password' => '', 
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
-            'encrypt' => false,
-            'trust_server_certificate' => true,
+            'encrypt' => 'no', // Diubah menjadi string 'no'
+            'trust_server_certificate' => 'true', // Diubah menjadi string 'true'
         ],
 
     ],
