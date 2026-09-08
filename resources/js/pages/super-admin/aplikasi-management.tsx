@@ -110,6 +110,7 @@ export default function SuperAdminAplikasiManagement() {
             const payload = {
                 name: formData.name,
                 company_id: parseInt(formData.company_id),
+                base_url: formData.base_url,
             };
 
             if (editingAplikasi) {
@@ -339,21 +340,22 @@ export default function SuperAdminAplikasiManagement() {
                                     </div>
 
                                     {/* ===== INPUT BASE URL MASTER DITAMBAHKAN DI SINI ===== */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="base_url" className="font-sans">
-                                            Base URL Master API
-                                        </Label>
-                                        <Input
-                                            id="base_url"
-                                            value={formData.base_url || ''}
-                                            onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
-                                            placeholder="Contoh: https://api.tisera.com/v1"
-                                            className="font-sans"
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Alamat dasar endpoint API aplikasi luar untuk keperluan tarik data otomatis.
-                                        </p>
-                                    </div>
+                                   <div className="space-y-2">
+    <Label htmlFor="base_url" className="font-sans">
+        Base URL Master API
+    </Label>
+    <Input
+        id="base_url"
+        name="base_url" // <-- TAMBAHKAN BARIS INI
+        value={formData.base_url || ''}
+        onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
+        placeholder="Contoh: https://api.tisera.com/v1"
+        className="font-sans"
+    />
+    <p className="text-xs text-muted-foreground">
+        Alamat dasar endpoint API aplikasi luar untuk keperluan tarik data otomatis.
+    </p>
+</div>
                                     {/* =================================================== */}
 
                                     <div className="flex justify-end gap-2 pt-4">

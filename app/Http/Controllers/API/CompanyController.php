@@ -33,6 +33,7 @@ class CompanyController extends Controller
                 'name' => 'required|string|max:255|unique:companies,name',
                 'address' => 'nullable|string',
                 'phone_number' => 'nullable|string|max:20',
+                'base_url' => 'nullable|string|max:255',
             ]);
 
             $company = Company::create($validated);
@@ -84,6 +85,7 @@ class CompanyController extends Controller
                 'name' => 'required|string|max:255|unique:companies,name,' . $id,
                 'address' => 'nullable|string',
                 'phone_number' => 'nullable|string|max:20',
+                'base_url' => 'nullable|string|max:255',
             ]);
 
             $company->update($validated);

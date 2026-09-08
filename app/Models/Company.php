@@ -18,6 +18,7 @@ class Company extends Model
         'name',
         'address',
         'phone_number',
+        'base_url',
     ];
 
     /**

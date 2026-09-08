@@ -261,39 +261,55 @@ export default function UserDokumen() {
     };
 
     // Fungsi untuk melakuakn Lookup data & PDF dari sistem eksternal/SQL Server
-    const handleLookup = async () => {
-        if (!formData.aplikasi_id || !formData.transaksi_id || !lookupKeyword) return;
-        
-        setIsLookingUp(true);
-        setLookupError('');
+   const handleLookup = async () => {
+    if (!formData.aplikasi_id || !formData.transaksi_id || !lookupKeyword) return;
+    
+    // === TAMBAHAN VALIDASI KODE TRANSAKSI ===
+    // 1. Cari data transaksi yang sedang dipilih dari transaksiList
+   const selectedTrx = transaksiList.find((t) => String(t.id) === String(formData.transaksi_id));
+    if (selectedTrx) {
+        // 2. Ambil kata pertama dari kode_transaksi (Misal dari "PO 01" menjadi "PO")
+        const expectedPrefix = selectedTrx.kode_transaksi.split(' ')[0].toUpperCase();
+        const currentInput = lookupKeyword.toUpperCase();
 
-        try {
-            const response = await api.post('/dokumen/lookup-external', {
-                aplikasi_id: formData.aplikasi_id,
-                transaksi_id: formData.transaksi_id,
-                keyword: lookupKeyword
-            });
-
-            const data = response.data.data;
-            const pdfFile = base64ToFile(data.pdf_base64, `${data.nomor_dokumen}.pdf`);
-            const filePreviewUrl = URL.createObjectURL(pdfFile);
-            
-            setLocalFileUrl(filePreviewUrl);
-
-            setFormData(prev => ({
-                ...prev,
-                nomor_dokumen: data.nomor_dokumen,
-                judul_dokumen: data.judul,
-                nominal_transaksi: data.nominal,
-                tgl_pengajuan: data.tanggal,
-                file: pdfFile, 
-            }));
-        } catch (error: any) {
-            setLookupError(error.response?.data?.message || 'Gagal mengambil data dari aplikasi luar.');
-        } finally {
-            setIsLookingUp(false);
+        // 3. Cek apakah nomor yang diketik diawali dengan kode transaksi tersebut
+        if (!currentInput.startsWith(expectedPrefix)) {
+            setLookupError(`Gagal: Transaksi yang dipilih mensyaratkan dokumen dengan awalan "${expectedPrefix}", sedangkan Anda memasukkan "${currentInput.split('-')[0]}".`);
+            return; // Hentikan eksekusi API jika tidak cocok
         }
-    };
+    }
+    // ========================================
+
+    setIsLookingUp(true);
+    setLookupError('');
+
+    try {
+        const response = await api.post('/dokumen/lookup-external', {
+            aplikasi_id: formData.aplikasi_id,
+            transaksi_id: formData.transaksi_id,
+            keyword: lookupKeyword
+        });
+
+        const data = response.data.data;
+        const pdfFile = base64ToFile(data.pdf_base64, `${data.nomor_dokumen}.pdf`);
+        const filePreviewUrl = URL.createObjectURL(pdfFile);
+        
+        setLocalFileUrl(filePreviewUrl);
+
+        setFormData(prev => ({
+            ...prev,
+            nomor_dokumen: data.nomor_dokumen,
+            judul_dokumen: data.judul,
+            nominal_transaksi: data.nominal,
+            tgl_pengajuan: data.tanggal,
+            file: pdfFile, 
+        }));
+    } catch (error: any) {
+        setLookupError(error.response?.data?.message || 'Gagal mengambil data dari aplikasi luar.');
+    } finally {
+        setIsLookingUp(false);
+    }
+};
 
     const fetchMasterflows = async () => {
         try {

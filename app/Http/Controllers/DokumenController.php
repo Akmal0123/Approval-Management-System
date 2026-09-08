@@ -1405,6 +1405,8 @@ $dokumen->update([
     ]);
 }
 
+
+
 public function lookupExternal(Request $request)
 {
     $request->validate([
@@ -1415,6 +1417,34 @@ public function lookupExternal(Request $request)
 
     $keyword = trim($request->keyword);
 
+    // === 1. VALIDASI KODE TRANSAKSI DARI DATABASE ===
+    $transaksi = \App\Models\Transaksi::find($request->transaksi_id);
+    if ($transaksi) {
+        // Ambil kata pertama dari kode transaksi (Misal: "PO 01" -> "PO", "PR 01" -> "PR")
+        $expectedPrefix = strtoupper(explode(' ', $transaksi->kode_transaksi)[0]);
+
+        // Mapping toleransi awalan khusus untuk data dummy saat ini
+        $allowedPrefixes = [$expectedPrefix];
+        if ($expectedPrefix === 'PR') $allowedPrefixes[] = 'RQE'; // PR boleh ditarik pakai kode RQE
+        if ($expectedPrefix === 'PO') $allowedPrefixes[] = 'POE'; // PO boleh ditarik pakai kode POE
+
+        $isValid = false;
+        foreach ($allowedPrefixes as $prefix) {
+            if (str_starts_with(strtoupper($keyword), $prefix)) {
+                $isValid = true;
+                break;
+            }
+        }
+
+        if (!$isValid) {
+            $inputPrefix = explode('-', $keyword)[0];
+            return response()->json([
+                'message' => "Gagal: Transaksi ini mensyaratkan dokumen dengan awalan '{$expectedPrefix}', sedangkan kode yang dimasukkan '{$inputPrefix}'."
+            ], 400);
+        }
+    }
+    // ===============================================
+
     // Helper untuk mengambil file PDF template Tisera asli
     $getPdfBase64 = function ($filename) {
         $path = storage_path("app/dummy_templates/{$filename}.pdf");
@@ -1424,7 +1454,7 @@ public function lookupExternal(Request $request)
         return 'JVBERi0xLjQKJcOkw7zDtsO5CjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgL1BhZ2VzIDIgMCBSID4+CmVuZG9iagoyIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBbMyAwIFJdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL1Jlc291cmNlcyA0IDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUuMjggODQxLjg5XSAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0ZvbnQgPDwgL0YxIDYgMCBSID4+ID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNDQgPj4Kc3RyZWFtCkJUCi9GMSAxMiBUZgoxMDAgNzAwIFRkCihUZXN0IFBERiBmcm9tIEFQSSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAKMDAwMDAwMDExNyAwMDAwMCBuIAowMDAwMDAwMjI0IDAwMDAwIG4gCjAwMDAwMDAwMjY4IDAwMDAwIG4gCjAwMDAwMDAzNjIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA3IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo0NTEKJSVFT0YK';
     };
 
-    // 1. Cek Purchase Request (RQE-22001433, RQE-22001434, RQE-22001435)
+    // 2. Cek Purchase Request (RQE-22001433, RQE-22001434, RQE-22001435)
     if (stripos($keyword, 'RQE') !== false || stripos($keyword, '22001433') !== false || stripos($keyword, '22001434') !== false || stripos($keyword, '22001435') !== false) {
         if (stripos($keyword, '22001434') !== false) {
             return response()->json([
@@ -1462,7 +1492,7 @@ public function lookupExternal(Request $request)
         }
     }
 
-    // 2. Cek Purchase Order (POE-22005020, POE-22005021, POE-22005022)
+    // 3. Cek Purchase Order (POE-22005020, POE-22005021, POE-22005022)
     if (stripos($keyword, 'POE') !== false || stripos($keyword, '22005020') !== false || stripos($keyword, '22005021') !== false || stripos($keyword, '22005022') !== false) {
         if (stripos($keyword, '22005021') !== false) {
             return response()->json([
@@ -1500,7 +1530,7 @@ public function lookupExternal(Request $request)
         }
     }
 
-    // 3. Cek Calculation NPK (CCA-00000002, CCA-00000003, CCA-00000004)
+    // 4. Cek Calculation NPK (CCA-00000002, CCA-00000003, CCA-00000004)
     if (stripos($keyword, 'CCA') !== false || stripos($keyword, '00000002') !== false || stripos($keyword, '00000003') !== false || stripos($keyword, '00000004') !== false) {
         if (stripos($keyword, '00000003') !== false) {
             return response()->json([
@@ -1537,8 +1567,6 @@ public function lookupExternal(Request $request)
             ]);
         }
     }
-
-
 
     return response()->json(['status' => 'error', 'message' => "Data transaksi dengan nomor '{$keyword}' tidak ditemukan."], 404);
 }

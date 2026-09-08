@@ -52,6 +52,7 @@ class AplikasiController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'company_id' => 'required|exists:companies,id',
+                'base_url' => 'nullable|string|max:255',
             ]);
 
             $aplikasi = Aplikasi::create($validated);
@@ -103,6 +104,7 @@ class AplikasiController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'company_id' => 'required|exists:companies,id',
+                'base_url' => 'nullable|string|max:255',
             ]);
 
             $aplikasi->update($validated);

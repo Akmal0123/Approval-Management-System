@@ -21,6 +21,7 @@ interface Company {
     name: string;
     address: string | null;
     phone_number: string | null;
+    base_url?: string;
     created_at: string;
     updated_at: string;
 }
@@ -37,6 +38,7 @@ export default function SuperAdminCompanyManagement() {
         name: '',
         address: '',
         phone_number: '',
+        base_url: '',
     });
 
     // Fetch companies from API
@@ -118,6 +120,7 @@ export default function SuperAdminCompanyManagement() {
             name: company.name,
             address: company.address || '',
             phone_number: company.phone_number || '',
+            base_url: company.base_url || '',
         });
         setIsCreateModalOpen(true);
     };
@@ -140,14 +143,14 @@ export default function SuperAdminCompanyManagement() {
 
     const handleCreate = () => {
         setEditingCompany(null);
-        setFormData({ name: '', address: '', phone_number: '' });
+        setFormData({ name: '', address: '', phone_number: '', base_url: '' });
         setIsCreateModalOpen(true);
     };
 
     const closeModal = () => {
         setIsCreateModalOpen(false);
         setEditingCompany(null);
-        setFormData({ name: '', address: '', phone_number: '' });
+        setFormData({ name: '', address: '', phone_number: '', base_url: '' });
     };
 
     if (loading) {
@@ -285,58 +288,74 @@ export default function SuperAdminCompanyManagement() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={handleSubmit} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name" className="font-sans">
-                                            Nama Perusahaan <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="name"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                                            placeholder="Masukkan nama perusahaan"
-                                            className="font-sans"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="address" className="font-sans">
-                                            Alamat Perusahaan
-                                        </Label>
-                                        <textarea
-                                            id="address"
-                                            value={formData.address}
-                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                                                setFormData((prev) => ({ ...prev, address: e.target.value }))
-                                            }
-                                            placeholder="Masukkan alamat perusahaan"
-                                            className="flex min-h-[80px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 font-sans text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                                            rows={3}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="phone_number" className="font-sans">
-                                            Nomor Telepon
-                                        </Label>
-                                        <Input
-                                            id="phone_number"
-                                            value={formData.phone_number}
-                                            onChange={(e) => setFormData((prev) => ({ ...prev, phone_number: e.target.value }))}
-                                            placeholder="Masukkan nomor telepon"
-                                            className="font-sans"
-                                            maxLength={20}
-                                        />
-                                    </div>
-                                    <div className="flex justify-end gap-2 pt-4">
-                                        <Button type="button" variant="outline" onClick={closeModal} disabled={submitting} className="font-sans">
-                                            Batal
-                                        </Button>
-                                        <Button type="submit" disabled={submitting} className="font-sans">
-                                            {submitting ? 'Menyimpan...' : editingCompany ? 'Perbarui' : 'Simpan'}
-                                        </Button>
-                                    </div>
-                                </form>
-                            </CardContent>
+    <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+            <Label htmlFor="name" className="font-sans">
+                Nama Perusahaan <span className="text-red-500">*</span>
+            </Label>
+            <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Masukkan nama perusahaan"
+                className="font-sans"
+                required
+            />
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="address" className="font-sans">
+                Alamat Perusahaan
+            </Label>
+            <textarea
+                id="address"
+                value={formData.address}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setFormData((prev) => ({ ...prev, address: e.target.value }))
+                }
+                placeholder="Masukkan alamat perusahaan"
+                className="flex min-h-[80px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 font-sans text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                rows={3}
+            />
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="phone_number" className="font-sans">
+                Nomor Telepon
+            </Label>
+            <Input
+                id="phone_number"
+                value={formData.phone_number}
+                onChange={(e) => setFormData((prev) => ({ ...prev, phone_number: e.target.value }))}
+                placeholder="Masukkan nomor telepon"
+                className="font-sans"
+                maxLength={20}
+            />
+        </div>
+        
+        {/* Tambahan Kolom Base URL API */}
+        <div className="space-y-2">
+            <Label htmlFor="base_url" className="font-sans">
+                Base URL API (Opsional)
+            </Label>
+            <Input
+                id="base_url"
+                value={formData.base_url || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
+                placeholder="Contoh: https://api.tigaserangkai.com"
+                className="font-sans"
+            />
+        </div>
+        {/* Akhir Tambahan Kolom */}
+
+        <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={closeModal} disabled={submitting} className="font-sans">
+                Batal
+            </Button>
+            <Button type="submit" disabled={submitting} className="font-sans">
+                {submitting ? 'Menyimpan...' : editingCompany ? 'Perbarui' : 'Simpan'}
+            </Button>
+        </div>
+    </form>
+</CardContent>
                         </Card>
                     </div>
                 )}
