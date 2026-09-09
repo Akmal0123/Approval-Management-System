@@ -1463,9 +1463,35 @@ public function lookupExternal(Request $request)
             ], 422);
         }
     }
-    // ===============================================
+    // === 2. AMBIL DOKUMEN VIA EXTERNAL API (DENGAN JWT TOKEN & ID DOKUMEN) ===
+    try {
+        $externalService = app(\App\Services\ExternalDocumentService::class);
 
-    // Helper untuk mengambil file PDF template Tisera asli
+        // Tentukan Base URL: cek dari Transaksi/Aplikasi/Company di DB, atau fallback ke config .env
+        $customBaseUrl = $transaksi->aplikasi?->base_url
+            ?? $transaksi->aplikasi?->company?->base_url
+            ?? config('services.external_api.base_url');
+
+        $docData = $externalService->fetchDocumentByKeyword($keyword, $customBaseUrl);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $docData
+        ]);
+    } catch (\Throwable $e) {
+        // Jika error 404 dari external API (data tidak ditemukan), langsung kembalikan respon
+        if ($e->getCode() === 404) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage()
+            ], 404);
+        }
+
+        // Catat log jika terjadi kendala koneksi ke API eksternal, lalu fallback ke data lokal
+        Log::warning("Gagal fetch dari External API, menggunakan fallback lokal: " . $e->getMessage());
+    }
+
+    // Helper untuk mengambil file PDF template Tisera asli (Fallback Lokal)
     $getPdfBase64 = function ($filename) {
         $path = storage_path("app/dummy_templates/{$filename}.pdf");
         if (file_exists($path)) {

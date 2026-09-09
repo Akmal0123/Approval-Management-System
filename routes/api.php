@@ -83,3 +83,19 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // User API Routes for approval flow
     Route::get('/users-by-jabatan/{jabatan}', [UserController::class, 'getByJabatan']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Mock External ERP / Tisera API Routes (Simulasi Server Eksternal)
+|--------------------------------------------------------------------------
+| Endpoints ini mensimulasikan server luar yang diproteksi dengan API Key & JWT.
+| 1. POST /api/mock-external/oauth/token (Dapatkan JWT via API Key & Secret)
+| 2. GET  /api/mock-external/documents/lookup (Cari data & dapatkan ID, butuh JWT)
+| 3. GET  /api/mock-external/documents/{id}/detail (Tarik detail & PDF, butuh JWT)
+*/
+Route::prefix('mock-external')->group(function () {
+    Route::post('/oauth/token', [\App\Http\Controllers\MockExternalApiController::class, 'issueToken']);
+    Route::get('/documents/lookup', [\App\Http\Controllers\MockExternalApiController::class, 'lookup']);
+    Route::get('/documents/{id}/detail', [\App\Http\Controllers\MockExternalApiController::class, 'getDocumentDetail']);
+});
+
