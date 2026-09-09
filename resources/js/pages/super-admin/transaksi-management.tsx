@@ -37,6 +37,8 @@ interface Transaksi {
     is_active: boolean;
     created_at: string;
     aplikasi?: Aplikasi;
+    lookup_path_api?: string | null;
+    get_pdf_path_api?: string | null;
 }
 
 export default function SuperAdminTransaksiManagement() {
@@ -58,6 +60,8 @@ export default function SuperAdminTransaksiManagement() {
         departemen: '',
         deskripsi: '',
         is_active: true,
+        lookup_path_api: '',
+        get_pdf_path_api: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -115,6 +119,8 @@ export default function SuperAdminTransaksiManagement() {
             departemen: '',
             deskripsi: '',
             is_active: true,
+            lookup_path_api: '',
+            get_pdf_path_api: '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -129,6 +135,8 @@ export default function SuperAdminTransaksiManagement() {
             departemen: transaksi.departemen || '',
             deskripsi: transaksi.deskripsi || '',
             is_active: transaksi.is_active,
+            lookup_path_api: transaksi.lookup_path_api || '',
+            get_pdf_path_api: transaksi.get_pdf_path_api || '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -143,13 +151,14 @@ export default function SuperAdminTransaksiManagement() {
             if (editingTransaksi) {
                 const response = await api.put(`/transaksis/${editingTransaksi.id}`, formData);
                 showToast.success('Transaksi berhasil diperbarui');
+                const updated = response.data?.data || response.data?.transaksi;
                 setTransaksis((prev) =>
-                    prev.map((item) => (item.id === editingTransaksi.id ? response.data?.data || { ...item, ...formData } : item)),
+                    prev.map((item) => (item.id === editingTransaksi.id ? (updated || { ...item, ...formData }) : item)),
                 );
             } else {
                 const response = await api.post('/transaksis', formData);
                 showToast.success('Transaksi berhasil ditambahkan');
-                const newTransaksi = response.data?.data || {
+                const newTransaksi = response.data?.data || response.data?.transaksi || {
                     id: Date.now(),
                     ...formData,
                     aplikasi_id: Number(formData.aplikasi_id),
@@ -173,14 +182,14 @@ export default function SuperAdminTransaksiManagement() {
 
     const handleToggleStatus = async (transaksi: Transaksi) => {
         try {
-            await api.patch(`/transaksis/${transaksi.id}/toggle-status`);
+            const response = await api.patch(`/transaksis/${transaksi.id}/toggle-status`);
+            const updated = response.data?.data || response.data?.transaksi;
             setTransaksis((prev) =>
-                prev.map((item) => (item.id === transaksi.id ? { ...item, is_active: !item.is_active } : item)),
+                prev.map((item) => (item.id === transaksi.id ? (updated || { ...item, is_active: !item.is_active }) : item)),
             );
             showToast.success(`Transaksi berhasil ${transaksi.is_active ? 'dinonaktifkan' : 'diaktifkan'}`);
         } catch (error) {
             console.error('Error toggling status:', error);
-            // Optimistic update fallback for UI testing
             setTransaksis((prev) =>
                 prev.map((item) => (item.id === transaksi.id ? { ...item, is_active: !item.is_active } : item)),
             );
@@ -210,7 +219,9 @@ export default function SuperAdminTransaksiManagement() {
             t.nama_transaksi.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.kode_transaksi.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (t.departemen && t.departemen.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            (t.aplikasi?.name && t.aplikasi.name.toLowerCase().includes(searchQuery.toLowerCase()));
+            (t.aplikasi?.name && t.aplikasi.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (t.lookup_path_api && t.lookup_path_api.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (t.get_pdf_path_api && t.get_pdf_path_api.toLowerCase().includes(searchQuery.toLowerCase()));
 
         const matchesAplikasi =
             selectedAplikasiFilter === 'all' || String(t.aplikasi_id) === selectedAplikasiFilter;
@@ -523,6 +534,38 @@ export default function SuperAdminTransaksiManagement() {
                                         className="font-sans"
                                         rows={3}
                                     />
+                                </div>
+
+                                {/* Path API (Lookup & Get PDF) */}
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lookup_path_api" className="font-sans">
+                                            Lookup Path API (Opsional)
+                                        </Label>
+                                        <Input
+                                            id="lookup_path_api"
+                                            name="lookup_path_api"
+                                            placeholder="Contoh: /po/search"
+                                            value={formData.lookup_path_api || ''}
+                                            onChange={handleInputChange}
+                                            className="font-sans"
+                                        />
+                                        {errors.lookup_path_api && <p className="text-xs text-red-500">{errors.lookup_path_api}</p>}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="get_pdf_path_api" className="font-sans">
+                                            Get PDF Path API (Opsional)
+                                        </Label>
+                                        <Input
+                                            id="get_pdf_path_api"
+                                            name="get_pdf_path_api"
+                                            placeholder="Contoh: /po/download"
+                                            value={formData.get_pdf_path_api || ''}
+                                            onChange={handleInputChange}
+                                            className="font-sans"
+                                        />
+                                        {errors.get_pdf_path_api && <p className="text-xs text-red-500">{errors.get_pdf_path_api}</p>}
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-2">

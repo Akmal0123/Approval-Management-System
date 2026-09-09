@@ -139,3 +139,43 @@ export function getApprovalDuration(
     const diffMs = endTime.getTime() - startTime.getTime();
     return formatDuration(diffMs);
 }
+
+/**
+ * Calculate the cumulative approval duration from when the document was uploaded/submitted
+ * until this approval step was completed (or current time if pending).
+ * Returns formatted string or null if not applicable.
+ */
+export function getDurationFromUpload(
+    approval: ApprovalForSLA,
+    documentUploadTime?: string | null,
+): string | null {
+    // Only show duration for approved, rejected, or pending status
+    if (!['approved', 'rejected', 'pending'].includes(approval.approval_status)) {
+        return null;
+    }
+
+    if (!documentUploadTime) {
+        return null;
+    }
+
+    const startTime = new Date(documentUploadTime);
+    if (isNaN(startTime.getTime())) {
+        return null;
+    }
+
+    let endTime: Date;
+    if (approval.approval_status === 'pending') {
+        endTime = new Date();
+    } else if (approval.tgl_approve) {
+        endTime = new Date(approval.tgl_approve);
+    } else {
+        return null;
+    }
+
+    if (isNaN(endTime.getTime())) {
+        return null;
+    }
+
+    const diffMs = endTime.getTime() - startTime.getTime();
+    return formatDuration(diffMs);
+}

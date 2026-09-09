@@ -1,7 +1,6 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
-import RevisionHistory from '@/components/revision-history';
 import SignaturePad from '@/components/signature-pad';
 import SignaturePlacementDialog, { SignaturePosition } from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
@@ -17,7 +16,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { showToast } from '@/lib/toast';
 import { Head, router, useForm } from '@inertiajs/react';
-import { getApprovalDuration } from '@/lib/approval-sla';
+import { ApprovalTimeline } from '@/components/approval-timeline';
 import {
     IconAlertCircle,
     IconAlertTriangle,
@@ -28,7 +27,6 @@ import {
     IconEye,
     IconFileText,
     IconPencil,
-    IconRefresh,
     IconUsers,
     IconX,
 } from '@tabler/icons-react';
@@ -73,8 +71,6 @@ interface MasterflowStep {
 
 interface Dokumen {
     id: number;
-    id_dokumen?: string;
-    tipe_dokumen?: string;
     nomor_dokumen: string;
     judul_dokumen: string;
     status: string;
@@ -263,34 +259,23 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             onSuccess: () => {
                 showToast.success('✅ Dokumen berhasil ditolak!');
                 setIsRejectDialogOpen(false);
-                rejectForm.reset();
             },
-            onError: (errors: any) => {
-                console.error('Reject error:', errors);
-                const errorMessage = errors.error || errors.alasan_reject || errors.message || 'Gagal menolak dokumen';
-                showToast.error(`❌ ${errorMessage}`);
+            onError: () => {
+                showToast.error('❌ Gagal menolak dokumen.');
             },
         });
     };
 
     // Handle request revision
     const handleRequestRevision = () => {
-        if (!revisionForm.data.revision_notes.trim()) {
-            showToast.error('❌ Harap isi catatan revisi terlebih dahulu.');
-            return;
-        }
-
         revisionForm.post(route('approvals.request-revision', approval.id), {
             preserveScroll: true,
             onSuccess: () => {
-                showToast.success('✅ Permintaan revisi berhasil dikirim ke pengaju!');
+                showToast.success('✅ Permintaan revisi berhasil dikirim!');
                 setIsRevisionDialogOpen(false);
-                revisionForm.reset();
             },
-            onError: (errors: any) => {
-                console.error('Revision error:', errors);
-                const errorMessage = errors.error || errors.revision_notes || errors.message || 'Gagal mengirim permintaan revisi.';
-                showToast.error(`❌ ${errorMessage}`);
+            onError: () => {
+                showToast.error('❌ Gagal mengirim permintaan revisi.');
             },
         });
     };
@@ -312,7 +297,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
             setPdfViewerFileUrl(url);
             setPdfViewerFileName(targetVersion.nama_file);
-            setPreviewVersionId(targetVersion.id);
             setIsPDFViewerOpen(true);
         } else {
             showToast.error('❌ Preview hanya tersedia untuk file PDF.');
@@ -326,6 +310,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
         const fileType = targetVersion.tipe_file.toLowerCase();
         if (fileType === 'pdf' || fileType === 'application/pdf') {
+            // Use streaming endpoint for on-demand signature rendering
             const url = `/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`;
             setPreviewFileUrl(url);
             setPreviewFileName(targetVersion.nama_file);
@@ -416,6 +401,9 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     // Check if overdue
     const isOverdue = approval.tgl_deadline && new Date(approval.tgl_deadline) < new Date();
 
+    // Use signed PDF if available, otherwise use original
+    // const fileUrl = approval.dokumen_version ? `/storage/${approval.dokumen_version.signed_file_url || approval.dokumen_version.file_url}` : '';
+
     // Sort approvals by step order
     const sortedApprovals = [...(allApprovals || [])].sort((a, b) => {
         if (a.masterflow_step && b.masterflow_step) {
@@ -435,86 +423,19 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             approval_status: a.approval_status,
             signature_method: a.id === approval.id ? approveForm.data.signature_method : a.signature_method,
         }));
-
-    // Group approvals logic - handles non-consecutive group members
-    type TimelineItem =
-        | { type: 'single'; data: DokumenApproval }
-        | { type: 'group'; data: DokumenApproval[]; groupIndex: string; groupType: string; firstStepOrder: number };
-
-    const groupedApprovalsMap: Record<string, { approvals: DokumenApproval[]; firstStepOrder: number; groupType: string }> = {};
-    const singleApprovals: { approval: DokumenApproval; stepOrder: number }[] = [];
-
-    sortedApprovals.forEach((app) => {
-        const stepOrder = app.masterflow_step?.step_order ?? 0;
-
-        if (app.group_index) {
-            if (!groupedApprovalsMap[app.group_index]) {
-                groupedApprovalsMap[app.group_index] = {
-                    approvals: [],
-                    firstStepOrder: stepOrder,
-                    groupType: app.jenis_group || 'parallel',
-                };
-            }
-            groupedApprovalsMap[app.group_index].approvals.push(app);
-            if (stepOrder < groupedApprovalsMap[app.group_index].firstStepOrder) {
-                groupedApprovalsMap[app.group_index].firstStepOrder = stepOrder;
-            }
-        } else {
-            singleApprovals.push({ approval: app, stepOrder });
-        }
-    });
-
-    // Build timeline items
-    const allItems: { item: TimelineItem; stepOrder: number }[] = [];
-
-    Object.entries(groupedApprovalsMap).forEach(([groupIndex, groupData]) => {
-        allItems.push({
-            item: {
-                type: 'group',
-                data: groupData.approvals,
-                groupIndex,
-                groupType: groupData.groupType,
-                firstStepOrder: groupData.firstStepOrder,
-            },
-            stepOrder: groupData.firstStepOrder,
-        });
-    });
-
-    singleApprovals.forEach(({ approval: app, stepOrder }) => {
-        allItems.push({
-            item: { type: 'single', data: app },
-            stepOrder,
-        });
-    });
-
-    allItems.sort((a, b) => a.stepOrder - b.stepOrder);
-    const timelineItems: TimelineItem[] = allItems.map(({ item }) => item);
-
-    const getGroupRequirementText = (type: string) => {
-        switch (type) {
-            case 'any_one':
-                return 'Salah Satu Setuju';
-            case 'all_required':
-                return 'Semua Harus Setuju';
-            case 'majority':
-                return 'Mayoritas Setuju';
-            default:
-                return 'Harus Setuju';
-        }
-    };
-
     return (
         <>
             <Head title={`Approval - ${approval.dokumen.judul_dokumen}`} />
             <SidebarProvider>
                 <NotificationListener />
                 <AppSidebar variant="inset" />
-                <SidebarInset>
+                <SidebarInset className="max-w-full overflow-x-hidden">
                     <SiteHeader />
 
-                    <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
-                        {/* Header Section */}
-                        <div className="flex flex-col gap-3">
+                    {/* Kontainer utama halaman detail */}
+                    <div className="w-full max-w-full px-4 py-4 mx-auto box-border">
+                        <div className="flex flex-col gap-6 w-full max-w-full box-border">
+                            {/* Header, Alert, dan Grid utama */}
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
                                     <Button
@@ -534,12 +455,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     <div className="shrink-0">{getStatusBadge(approval.approval_status)}</div>
                                 </div>
                                 <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
-                                    {approval.dokumen.id_dokumen && (
-                                        <>
-                                            <span className="font-mono">ID: {approval.dokumen.id_dokumen}</span>
-                                            <span>•</span>
-                                        </>
-                                    )}
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
                                         <span className="truncate font-mono">{approval.dokumen.nomor_dokumen}</span>
@@ -555,7 +470,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                         {/* Deadline Alert */}
                         {isOverdue && approval.approval_status === 'pending' && (
-                            <Card className="border-red-200 bg-red-50">
+                            <Card className="border-red-200 bg-red-50 mt-4 mb-4">
                                 <CardContent className="flex items-center gap-3 p-4">
                                     <IconAlertCircle className="h-5 w-5 text-red-600" />
                                     <div>
@@ -568,7 +483,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             </Card>
                         )}
 
-                        <div className="grid gap-6 lg:grid-cols-3">
+                        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 w-full">
                             {/* LEFT COLUMN - Main Content */}
                             <div className="space-y-6 lg:col-span-2">
                                 {/* Document Info */}
@@ -592,16 +507,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     <p className="pl-8 text-xs text-muted-foreground">{approval.dokumen.user.profile.jabatan}</p>
                                                 )}
                                             </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                                                    Tipe Dokumen
-                                                </Label>
-                                                <div className="font-medium">
-                                                    {approval.dokumen.tipe_dokumen || '-'}
-                                                </div>
-                                            </div>
-
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Deadline Approval
@@ -697,337 +602,101 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         <CardContent>
                                             <div className="divide-y rounded-md border">
                                                 {approval.dokumen.versions
-                                                    .sort((a: any, b: any) => new Date(b.tgl_upload).getTime() - new Date(a.tgl_upload).getTime())
-                                                    .map((version: any, index: number) => {
-                                                        const isLatest = index === 0;
-                                                        const rejectionLog = approval.dokumen.revision_logs?.find(
-                                                            (l: any) => l.dokumen_version_id === version.id && l.action === 'rejected',
-                                                        );
+                                                .sort((a: any, b: any) => new Date(b.tgl_upload).getTime() - new Date(a.tgl_upload).getTime())
+                                                .map((version: any, index: number) => {
+                                                    const isLatest = index === 0;
+                                                    const rejectionLog = approval.dokumen.revision_logs?.find(
+                                                        (l: any) => l.dokumen_version_id === version.id && l.action === 'rejected',
+                                                    );
 
-                                                        return (
-                                                            <div
-                                                                key={version.id}
-                                                                className={`flex flex-col gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
-                                                            >
-                                                                <div className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-4">
-                                                                        <div
-                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
-                                                                                ? 'border-blue-200 bg-blue-100 text-blue-700'
-                                                                                : rejectionLog
-                                                                                    ? 'border-red-200 bg-red-100 text-red-700'
-                                                                                    : 'bg-background text-muted-foreground'
-                                                                                }`}
-                                                                        >
-                                                                            <IconFileText className="h-5 w-5" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="font-medium">Versi {version.version}</span>
-                                                                                {isLatest && (
-                                                                                    <Badge
-                                                                                        variant="secondary"
-                                                                                        className="bg-blue-100 text-blue-700 hover:bg-blue-100"
-                                                                                    >
-                                                                                        Latest
-                                                                                    </Badge>
-                                                                                )}
-                                                                                {rejectionLog && (
-                                                                                    <Badge
-                                                                                        variant="destructive"
-                                                                                        className="border-red-200 bg-red-100 text-red-700 hover:bg-red-200"
-                                                                                    >
-                                                                                        Rejected
-                                                                                    </Badge>
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                                <span>{version.nama_file}</span>
-                                                                                <span>•</span>
-                                                                                <span>{formatFileSize(version.size_file)}</span>
-                                                                                <span>•</span>
-                                                                                <span>{formatDate(version.tgl_upload)}</span>
-                                                                            </div>
-                                                                        </div>
+                                                    return (
+                                                        <div
+                                                            key={version.id}
+                                                            className={`flex flex-col gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="flex min-w-0 flex-1 items-start gap-4">
+                                                                    <div
+                                                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border mt-0.5 ${isLatest
+                                                                            ? 'border-blue-200 bg-blue-100 text-blue-700'
+                                                                            : rejectionLog
+                                                                                ? 'border-red-200 bg-red-100 text-red-700'
+                                                                                : 'bg-background text-muted-foreground'
+                                                                            }`}
+                                                                    >
+                                                                        <IconFileText className="h-5 w-5" />
                                                                     </div>
-                                                                    <div className="flex gap-2">
-                                                                        {(version.tipe_file.toLowerCase() === 'pdf' ||
-                                                                            version.tipe_file.toLowerCase() === 'application/pdf') && (
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    onClick={() => handlePDFViewerPreview(version)}
-                                                                                    title="Lihat"
-                                                                                >
-                                                                                    <IconEye className="h-4 w-4" />
-                                                                                </Button>
+                                                                    <div className="min-w-0 flex-1 overflow-hidden">
+                                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                                            <span className="font-medium">Versi {version.version}</span>
+                                                                            {isLatest && (
+                                                                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                                                                                    Latest
+                                                                                </Badge>
                                                                             )}
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() =>
-                                                                                (window.location.href = `/api/dokumen/${approval.dokumen.id}/download/${version.id}`)
-                                                                            }
-                                                                        >
-                                                                            <IconDownload className="h-4 w-4" />
-                                                                        </Button>
+                                                                            {rejectionLog && (
+                                                                                <Badge variant="destructive" className="border-red-200 bg-red-100 text-red-700 hover:bg-red-200">
+                                                                                    Rejected
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 w-full flex-wrap">
+                                                                            <span className="truncate min-w-0 max-w-[220px] sm:max-w-[320px]">{version.nama_file}</span>
+                                                                            <span className="shrink-0 text-muted-foreground/60">•</span>
+                                                                            <span className="shrink-0">{formatFileSize(version.size_file)}</span>
+                                                                            <span className="shrink-0 text-muted-foreground/60">•</span>
+                                                                            <span className="shrink-0">{formatDate(version.tgl_upload)}</span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-
-                                                                {/* Rejection Reason */}
-                                                                {rejectionLog && (
-                                                                    <div className="ml-14 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
-                                                                        <div className="mb-1 flex items-center gap-1.5 font-semibold text-red-900">
-                                                                            <XCircleIcon className="h-3.5 w-3.5" />
-                                                                            <span>Ditolak oleh {rejectionLog.user?.name || 'Unknown'}</span>
-                                                                        </div>
-                                                                        <p className="leading-relaxed">{rejectionLog.notes}</p>
-                                                                    </div>
-                                                                )}
+                                                                <div className="flex shrink-0 gap-2">
+                                                                    {(version.tipe_file.toLowerCase() === 'pdf' ||
+                                                                        version.tipe_file.toLowerCase() === 'application/pdf') && (
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => handlePDFViewerPreview(version)}
+                                                                                title="Lihat"
+                                                                            >
+                                                                                <IconEye className="h-4 w-4" />
+                                                                            </Button>
+                                                                        )}
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() =>
+                                                                            (window.location.href = `/dokumen/${approval.dokumen.id}/download/${version.id}`)
+                                                                        }
+                                                                    >
+                                                                        <IconDownload className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
                                                             </div>
-                                                        );
-                                                    })}
+
+                                                            {/* Rejection Reason */}
+                                                            {rejectionLog && (
+                                                                <div className="ml-14 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
+                                                                    <div className="mb-1 flex items-center gap-1.5 font-semibold text-red-900">
+                                                                        <XCircleIcon className="h-3.5 w-3.5" />
+                                                                        <span>Ditolak oleh {rejectionLog.user?.name || 'Unknown'}</span>
+                                                                    </div>
+                                                                    <p className="leading-relaxed">{rejectionLog.notes}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </CardContent>
                                     </Card>
                                 )}
 
-                                {/* Revision History */}
-                                <RevisionHistory dokumenId={approval.dokumen.id} />
-
                                 {/* Approval Timeline */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="font-serif text-lg">Timeline Persetujuan</CardTitle>
-                                        <CardDescription>Proses approval untuk dokumen ini</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="relative space-y-0 pl-2">
-                                            {timelineItems.map((item, index) => {
-                                                const isLast = index === timelineItems.length - 1;
-
-                                                if (item.type === 'single') {
-                                                    const app = item.data;
-                                                    const isCompleted = app.approval_status === 'approved' || app.approval_status === 'skipped';
-                                                    const isRejected = app.approval_status === 'rejected';
-                                                    const isPending = app.approval_status === 'pending';
-
-                                                    return (
-                                                        <div key={app.id} className="relative flex gap-4 pb-8 last:pb-0">
-                                                            {!isLast && (
-                                                                <div className="absolute top-8 bottom-0 left-[15px] -ml-px w-0.5 bg-border" />
-                                                            )}
-
-                                                            <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
-                                                                    ? 'border-green-600 text-green-600'
-                                                                    : isRejected
-                                                                        ? 'border-red-600 text-red-600'
-                                                                        : isPending
-                                                                            ? 'border-yellow-500 text-yellow-500'
-                                                                            : 'border-muted text-muted-foreground'
-                                                                    }`}
-                                                            >
-                                                                {isCompleted ? (
-                                                                    <CheckCircle2Icon className="h-4 w-4" />
-                                                                ) : isRejected ? (
-                                                                    <XCircleIcon className="h-4 w-4" />
-                                                                ) : (
-                                                                    <span className="text-xs font-bold">{index + 1}</span>
-                                                                )}
-                                                            </div>
-
-                                                            <div className="min-w-0 flex-1 space-y-1.5 pt-1">
-                                                                <div className="flex min-w-0 items-start justify-between gap-2">
-                                                                    <div className="min-w-0">
-                                                                        <div className="truncate font-sans text-sm font-semibold sm:text-base">
-                                                                            {app.masterflow_step?.step_name || 'Custom Approver'}
-                                                                        </div>
-                                                                        <div className="truncate text-xs font-medium text-foreground sm:text-sm">
-                                                                            {app.user?.name || app.user?.email || '-'}
-                                                                        </div>
-                                                                        {app.masterflow_step?.jabatan && (
-                                                                            <div className="text-[10px] text-muted-foreground sm:text-xs">
-                                                                                {app.masterflow_step.jabatan.name}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="shrink-0">{getStatusBadge(app.approval_status)}</div>
-                                                                </div>
-
-                                                                {app.tgl_approve && (
-                                                                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
-                                                                        <IconClock className="h-3 w-3 shrink-0" />
-                                                                        <span>
-                                                                            {isCompleted ? 'Disetujui' : 'Ditolak'} pada{' '}
-                                                                            {formatDateTime(app.tgl_approve)}
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Approval Duration (SLA) */}
-                                                                {(() => {
-                                                                    const duration = getApprovalDuration(
-                                                                        app,
-                                                                        allApprovals,
-                                                                        approval.dokumen?.tgl_pengajuan,
-                                                                    );
-                                                                    if (!duration) return null;
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
-                                                                            <Timer className="h-3 w-3 shrink-0" />
-                                                                            <span>Durasi approval: {duration}</span>
-                                                                        </div>
-                                                                    );
-                                                                })()}
-
-                                                                {(app.comment || app.alasan_reject) && (
-                                                                    <div
-                                                                        className={`mt-2 rounded-md border p-3 text-sm ${isRejected ? 'border-red-200 bg-red-50 text-red-900' : 'border-border bg-muted/30'}`}
-                                                                    >
-                                                                        {app.alasan_reject && (
-                                                                            <div className="mb-1">
-                                                                                <span className="font-semibold text-red-700">Alasan Penolakan:</span>{' '}
-                                                                                {app.alasan_reject}
-                                                                            </div>
-                                                                        )}
-                                                                        {app.comment && (
-                                                                            <div>
-                                                                                <span className="font-medium">Komentar:</span> {app.comment}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-
-                                                                {app.id === approval.id && (
-                                                                    <div className="mt-2">
-                                                                        <Badge variant="outline" className="border-primary text-[10px] text-primary">
-                                                                            Posisi Anda
-                                                                        </Badge>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                } else {
-                                                    // GROUP RENDERING
-                                                    const group = item;
-                                                    const allApproved = group.data.every(
-                                                        (a) => a.approval_status === 'approved' || a.approval_status === 'skipped',
-                                                    );
-                                                    const anyRejected = group.data.some((a) => a.approval_status === 'rejected');
-                                                    const oneApproved = group.data.some((a) => a.approval_status === 'approved');
-                                                    const isGroupApproved = group.groupType === 'any_one' ? oneApproved : allApproved;
-
-                                                    const statusColor = isGroupApproved
-                                                        ? 'border-green-600 text-green-600'
-                                                        : anyRejected
-                                                            ? 'border-red-600 text-red-600'
-                                                            : 'border-yellow-500 text-yellow-500';
-
-                                                    return (
-                                                        <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
-                                                            {!isLast && (
-                                                                <div className="absolute top-8 bottom-0 left-[15px] -ml-px w-0.5 bg-border" />
-                                                            )}
-
-                                                            <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${statusColor}`}
-                                                            >
-                                                                <IconUsers className="h-4 w-4" />
-                                                            </div>
-
-                                                            <div className="flex-1 pt-1">
-                                                                <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-sm">
-                                                                    <div className="flex items-center justify-between border-b bg-muted/20 p-3">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-sm font-semibold">
-                                                                                {group.data[0]?.masterflow_step?.step_name || 'Group Approval'}
-                                                                            </span>
-                                                                            <Badge
-                                                                                variant="outline"
-                                                                                className="h-5 px-1.5 text-[10px] tracking-wide uppercase"
-                                                                            >
-                                                                                {getGroupRequirementText(group.groupType)}
-                                                                            </Badge>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="divide-y p-0">
-                                                                        {group.data.map((app) => {
-                                                                            const isAnyOneGroup = group.groupType === 'any_one';
-                                                                            const someoneElseApproved = group.data.some(
-                                                                                (a) => a.id !== app.id && a.approval_status === 'approved',
-                                                                            );
-                                                                            const isAutoSkipped =
-                                                                                isAnyOneGroup &&
-                                                                                someoneElseApproved &&
-                                                                                app.approval_status === 'pending';
-
-                                                                            const isSkipped = app.approval_status === 'skipped' || isAutoSkipped;
-
-                                                                            return (
-                                                                                <div
-                                                                                    key={app.id}
-                                                                                    className="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between"
-                                                                                >
-                                                                                    <div className="space-y-1">
-                                                                                        <div className="text-sm font-medium">
-                                                                                            {app.user?.name ||
-                                                                                                app.masterflow_step?.jabatan?.name ||
-                                                                                                'Unknown'}
-                                                                                        </div>
-                                                                                        <div className="text-xs text-muted-foreground">
-                                                                                            {app.masterflow_step?.jabatan?.name}
-                                                                                        </div>
-                                                                                        {isSkipped && (
-                                                                                            <div className="text-[10px] text-muted-foreground italic">
-                                                                                                *Otomatis di-skip karena grup sudah menyelesaikan approval.
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div className="flex flex-col items-end gap-1">
-                                                                                        {getStatusBadge(app.approval_status)}
-                                                                                        {app.tgl_approve && (
-                                                                                            <span className="text-[10px] text-muted-foreground">
-                                                                                                {formatDateTime(app.tgl_approve)}
-                                                                                            </span>
-                                                                                        )}
-                                                                                        {(() => {
-                                                                                            const duration = getApprovalDuration(
-                                                                                                app,
-                                                                                                allApprovals,
-                                                                                                approval.dokumen?.tgl_pengajuan,
-                                                                                            );
-                                                                                            if (!duration) return null;
-                                                                                            return (
-                                                                                                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                                                                                    <Timer className="h-2.5 w-2.5 shrink-0" />
-                                                                                                    <span>Durasi: {duration}</span>
-                                                                                                </span>
-                                                                                            );
-                                                                                        })()}
-                                                                                        {app.id === approval.id && (
-                                                                                            <Badge
-                                                                                                variant="outline"
-                                                                                                className="border-primary text-[10px] text-primary"
-                                                                                            >
-                                                                                                Posisi Anda
-                                                                                            </Badge>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-                                            })}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                <ApprovalTimeline
+                                    approvals={allApprovals}
+                                    dokumen={approval.dokumen}
+                                    currentApprovalId={approval.id}
+                                />
                             </div>
 
                             {/* RIGHT COLUMN - Sidebar Actions */}
@@ -1043,20 +712,20 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                             <CardDescription className="text-xs sm:text-sm">Dokumen ini menunggu persetujuan Anda.</CardDescription>
                                         </CardHeader>
                                         <CardContent className="space-y-3 pt-6">
-                                            <Button onClick={() => handlePreview()} className="w-full bg-primary hover:bg-primary/90 font-sans">
+                                            <Button onClick={() => handlePreview()} className="w-full bg-primary hover:bg-primary/90">
                                                 <IconCheck className="mr-2 h-4 w-4" />
                                                 Setujui Dokumen
                                             </Button>
                                             <Button
                                                 onClick={() => setIsRevisionDialogOpen(true)}
-                                                className="w-full bg-orange-500 text-white hover:bg-orange-600 font-sans"
+                                                className="w-full bg-orange-500 text-white hover:bg-orange-600"
                                             >
                                                 <IconAlertTriangle className="mr-2 h-4 w-4" />
                                                 Minta Revisi
                                             </Button>
                                             <Button
                                                 onClick={() => setIsRejectDialogOpen(true)}
-                                                className="w-full bg-red-600 text-white hover:bg-red-700 font-sans"
+                                                className="w-full bg-red-600 text-white hover:bg-red-700"
                                             >
                                                 <IconX className="mr-2 h-4 w-4" />
                                                 Tolak Dokumen
@@ -1163,7 +832,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     </Label>
                                     <Textarea
                                         id="revision_notes"
-                                        placeholder="Jelaskan bagian mana saja yang perlu diperbaiki atau dilengkapi..."
+                                        placeholder="Jelaskan bagian yang perlu diperbaiki atau direvisi..."
                                         value={revisionForm.data.revision_notes}
                                         onChange={(e) => revisionForm.setData('revision_notes', e.target.value)}
                                         className="font-sans"
@@ -1275,6 +944,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     <DialogDescription className="font-sans">
                                         {previewFileName || approval.dokumen_version?.nama_file}
                                     </DialogDescription>
+                                    {/* Show status info */}
                                     {approval.approval_status !== 'pending' && (
                                         <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
                                             Dokumen ini sudah {approval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
@@ -1288,7 +958,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                 </div>
                             </DialogHeader>
 
-                            <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 lg:flex-row">
+                            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 w-full max-w-full overflow-x-hidden">
                                 {/* PDF Preview - Left Side */}
                                 {previewFileUrl && (
                                     <SignaturePlacementDialog
@@ -1311,7 +981,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     />
                                 )}
 
-                                {/* Signature Panel - Right Side */}
+                                {/* Signature Panel - Right Side - Only show for pending approvals that user can approve AND viewing current version */}
                                 {canApprove &&
                                     approval.approval_status === 'pending' &&
                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId) && (
@@ -1378,11 +1048,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     <div className="space-y-3">
                                                         <Card>
                                                             <CardContent className="p-4">
-                                                                <div className="flex items-center justify-center rounded border bg-white p-4">
+                                                                <div className="flex aspect-square max-w-[200px] mx-auto items-center justify-center rounded border bg-white p-3">
                                                                     <img
                                                                         src={signatureData}
                                                                         alt="Signature"
-                                                                        className="max-h-24 max-w-full object-contain"
+                                                                        className="max-h-full max-w-full object-contain"
                                                                     />
                                                                 </div>
                                                             </CardContent>
@@ -1442,7 +1112,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                             </div>
                                                             <p className="mt-4 font-serif text-base font-semibold">Tanda Tangan QR Code Terpilih</p>
                                                             <p className="mt-1 max-w-[280px] font-sans text-xs text-muted-foreground">
-                                                                Sistem akan menyematkan QR Code unik pada dokumen untuk verifikasi keaslian tanda tangan.
+                                                                Sistem akan menyematkan QR Code unik pada dokumen untuk verifikasi keaslian tanda
+                                                                tangan.
                                                             </p>
                                                         </CardContent>
                                                     </Card>

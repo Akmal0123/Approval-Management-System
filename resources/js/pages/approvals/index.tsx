@@ -372,10 +372,10 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
             <SidebarProvider>
                 <NotificationListener />
                 <AppSidebar variant="inset" />
-                <SidebarInset>
+                <SidebarInset className="max-w-full overflow-x-hidden">
                     <SiteHeader />
-                    <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-6 p-6">
+                    <div className="flex flex-1 flex-col w-full max-w-full overflow-x-hidden">
+                        <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 w-full max-w-full overflow-x-hidden">
                             {/* Header */}
                             <div className="space-y-2">
                                 <h1 className="font-serif text-3xl font-bold">Approval Dokumen</h1>
@@ -458,18 +458,18 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                     </form>
 
                                     {/* Tabs */}
-                                    <Tabs value={selectedTab} onValueChange={handleTabChange}>
-                                        <TabsList>
-                                            <TabsTrigger value="all" className="font-sans">
+                                    <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full max-w-full">
+                                        <TabsList className="w-full justify-start overflow-x-auto h-auto p-1 flex-nowrap sm:flex-wrap">
+                                            <TabsTrigger value="all" className="font-sans shrink-0 text-xs sm:text-sm">
                                                 Semua
                                             </TabsTrigger>
-                                            <TabsTrigger value="pending" className="font-sans">
+                                            <TabsTrigger value="pending" className="font-sans shrink-0 text-xs sm:text-sm">
                                                 Menunggu ({statsData.pending})
                                             </TabsTrigger>
-                                            <TabsTrigger value="approved" className="font-sans">
+                                            <TabsTrigger value="approved" className="font-sans shrink-0 text-xs sm:text-sm">
                                                 Disetujui ({statsData.approved})
                                             </TabsTrigger>
-                                            <TabsTrigger value="rejected" className="font-sans">
+                                            <TabsTrigger value="rejected" className="font-sans shrink-0 text-xs sm:text-sm">
                                                 Ditolak ({statsData.rejected})
                                             </TabsTrigger>
                                         </TabsList>
@@ -494,96 +494,124 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                                                     : ''
                                                             }`}
                                                         >
-                                                            <CardContent className="p-4">
-                                                                <div className="flex items-start justify-between gap-4">
-                                                                    <div className="flex-1 space-y-2">
-                                                                        <div className="flex items-start gap-3">
-                                                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                                                                <IconFileText className="h-5 w-5 text-primary" />
-                                                                            </div>
-                                                                            <div className="flex-1 space-y-1">
-                                                                                <h3 className="font-serif font-semibold">
-                                                                                    {approval.dokumen.judul_dokumen}
-                                                                                </h3>
-                                                                                {approval.dokumen.tipe_dokumen && (
-                                                                                    <Badge variant="outline" className="font-sans text-xs">
-                                                                                        {approval.dokumen.tipe_dokumen}
-                                                                                    </Badge>
-                                                                                )}
-                                                                            </div>
+                                                            <CardContent className="p-4 sm:p-6">
+    {/* ==========================================
+        1. TAMPILAN KHUSUS HP / MOBILE
+       ========================================== */}
+    <div className="block md:hidden space-y-3 w-full max-w-full">
+        <div className="flex items-start justify-between gap-2 w-full">
+            <div className="flex items-start gap-2 min-w-0 flex-1">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <IconFileText className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                    <h3 className="font-serif font-semibold text-xs sm:text-sm truncate">
+                        {approval.dokumen.judul_dokumen}
+                    </h3>
+                    {approval.dokumen.tipe_dokumen && (
+                        <Badge variant="outline" className="font-sans text-[10px]">
+                            {approval.dokumen.tipe_dokumen}
+                        </Badge>
+                    )}
+                </div>
+            </div>
+            <div className="shrink-0">{getStatusBadge(approval.approval_status)}</div>
+        </div>
 
-                                                                            <div className="flex flex-col items-end gap-1">
-                                                                                {approval.dokumen.id_dokumen && (
-                                                                                    <p className="font-mono text-sm text-muted-foreground">
-                                                                                        ID: {approval.dokumen.id_dokumen}
-                                                                                    </p>
-                                                                                )}
+        <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border w-full">
+            {approval.dokumen.id_dokumen && <p className="font-mono truncate">ID: {approval.dokumen.id_dokumen}</p>}
+            {approval.dokumen.nomor_dokumen && <p className="font-mono truncate">{approval.dokumen.nomor_dokumen}</p>}
+            <p className="font-sans truncate">Pengaju: {approval.dokumen.user?.name || '-'}</p>
+            <p className="font-sans">Tanggal: {formatDate(approval.dokumen.tgl_pengajuan)}</p>
+            {approval.tgl_deadline && (
+                <p className={isOverdue(approval.tgl_deadline) ? 'text-red-600 font-medium' : ''}>
+                    Deadline: {formatDate(approval.tgl_deadline)}
+                </p>
+            )}
+        </div>
 
-                                                                                <p className="font-mono text-sm text-muted-foreground">
-                                                                                    {approval.dokumen.nomor_dokumen}
-                                                                                </p>
+        <div className="pt-1 w-full">
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleViewDetail(approval.id)}
+                className="font-sans w-full text-xs h-8"
+            >
+                <IconEye className="mr-1.5 h-3.5 w-3.5" />
+                Lihat Detail
+            </Button>
+        </div>
+    </div>
 
-                                                                                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                                                                    <div className="flex items-center gap-1">
-                                                                                        <IconUser className="h-4 w-4" />
-                                                                                        <span className="font-sans">
-                                                                                            {approval.dokumen.user?.name || '-'}
-                                                                                        </span>
-                                                                                    </div>
+    {/* ==========================================
+        2. TAMPILAN KHUSUS DESKTOP / LAPTOP
+       ========================================== */}
+    <div className="hidden md:flex items-start justify-between gap-4 w-full">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <IconFileText className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 space-y-1 min-w-0">
+                <h3 className="font-serif font-semibold text-base truncate">
+                    {approval.dokumen.judul_dokumen}
+                </h3>
+                {approval.dokumen.tipe_dokumen && (
+                    <Badge variant="outline" className="font-sans text-xs">
+                        {approval.dokumen.tipe_dokumen}
+                    </Badge>
+                )}
 
-                                                                                    <div className="flex items-center gap-1">
-                                                                                        <IconCalendar className="h-4 w-4" />
-                                                                                        <span className="font-sans">
-                                                                                            {formatDate(approval.dokumen.tgl_pengajuan)}
-                                                                                        </span>
-                                                                                    </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-sm text-muted-foreground">
+                    {approval.dokumen.id_dokumen && (
+                        <span className="font-mono">ID: {approval.dokumen.id_dokumen}</span>
+                    )}
+                    {approval.dokumen.nomor_dokumen && (
+                        <span className="font-mono">{approval.dokumen.nomor_dokumen}</span>
+                    )}
+                    <div className="flex items-center gap-1">
+                        <IconUser className="h-3.5 w-3.5" />
+                        <span className="font-sans">{approval.dokumen.user?.name || '-'}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <IconCalendar className="h-3.5 w-3.5" />
+                        <span className="font-sans">{formatDate(approval.dokumen.tgl_pengajuan)}</span>
+                    </div>
+                </div>
 
-                                                                                    {approval.masterflow_step && (
-                                                                                        <Badge variant="outline" className="font-sans">
-                                                                                            Step {approval.masterflow_step.step_order}:{' '}
-                                                                                            {approval.masterflow_step.step_name}
-                                                                                        </Badge>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
+                {approval.tgl_deadline && (
+                    <div
+                        className={`flex items-center gap-1.5 font-sans text-sm pt-1 ${
+                            isOverdue(approval.tgl_deadline)
+                                ? 'text-red-600 font-medium'
+                                : 'text-muted-foreground'
+                        }`}
+                    >
+                        <IconClock className="h-4 w-4 shrink-0" />
+                        <span>Deadline: {formatDate(approval.tgl_deadline)}</span>
+                        {isOverdue(approval.tgl_deadline) && (
+                            <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700 text-[10px] ml-1">
+                                Terlambat
+                            </Badge>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
 
-                                                                        {approval.tgl_deadline && (
-                                                                            <div
-                                                                                className={`flex items-center gap-1 font-sans text-sm ${
-                                                                                    isOverdue(approval.tgl_deadline)
-                                                                                        ? 'text-red-600'
-                                                                                        : 'text-muted-foreground'
-                                                                                }`}
-                                                                            >
-                                                                                <IconClock className="h-4 w-4" />
-                                                                                <span>Deadline: {formatDate(approval.tgl_deadline)}</span>
-                                                                                {isOverdue(approval.tgl_deadline) && (
-                                                                                    <Badge
-                                                                                        variant="outline"
-                                                                                        className="border-red-300 bg-red-50 text-red-700"
-                                                                                    >
-                                                                                        Terlambat
-                                                                                    </Badge>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="flex shrink-0 flex-col items-end gap-3">
-                                                                        {getStatusBadge(approval.approval_status)}
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => handleViewDetail(approval.id)}
-                                                                            className="font-sans"
-                                                                        >
-                                                                            <IconEye className="mr-2 h-4 w-4" />
-                                                                            Lihat Detail
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            </CardContent>
+        <div className="flex flex-col items-end gap-3 shrink-0">
+            {getStatusBadge(approval.approval_status)}
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleViewDetail(approval.id)}
+                className="font-sans"
+            >
+                <IconEye className="mr-2 h-4 w-4" />
+                Lihat Detail
+            </Button>
+        </div>
+    </div>
+</CardContent>
                                                         </Card>
                                                     ))}
                                                 </div>
@@ -591,18 +619,20 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
 
                                             {/* Pagination */}
                                             {approvals.last_page > 1 && (
-                                                <div className="flex items-center justify-center gap-2 pt-4">
-                                                    {approvals.links.map((link, index) => (
-                                                        <Button
-                                                            key={index}
-                                                            variant={link.active ? 'default' : 'outline'}
-                                                            size="sm"
-                                                            disabled={!link.url}
-                                                            onClick={() => link.url && router.visit(link.url)}
-                                                            className="font-sans"
-                                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                                        />
-                                                    ))}
+                                                <div className="flex items-center justify-center pt-4 w-full max-w-full overflow-x-auto pb-2">
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        {approvals.links.map((link, index) => (
+                                                            <Button
+                                                                key={index}
+                                                                variant={link.active ? 'default' : 'outline'}
+                                                                size="sm"
+                                                                disabled={!link.url}
+                                                                onClick={() => link.url && router.visit(link.url)}
+                                                                className="font-sans text-xs h-7 px-2 min-w-[32px] shrink-0"
+                                                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                                            />
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                         </TabsContent>

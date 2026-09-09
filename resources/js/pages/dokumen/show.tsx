@@ -17,7 +17,7 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import RevisionHistory from '@/components/revision-history';
 import { Head, router, usePage } from '@inertiajs/react';
-import { getApprovalDuration } from '@/lib/approval-sla';
+import { ApprovalTimeline } from '@/components/approval-timeline';
 import { IconDownload, IconEdit, IconEye, IconFileText, IconPrinter, IconSend, IconTrash, IconUsers } from '@tabler/icons-react';
 import { AlertCircleIcon, CalendarIcon, CheckCircle2, CheckCircle2Icon, ClockIcon, FileTextIcon, Timer, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -108,8 +108,9 @@ interface Dokumen {
     id: number;
     id_dokumen?: string;
     nomor_dokumen: string;
-    tipe_dokumen?: string;
     judul_dokumen: string;
+    tipe_dokumen?: string;
+    transaksi_id?: number;
     user_id: number;
     company_id?: number;
     aplikasi_id?: number;
@@ -121,6 +122,17 @@ interface Dokumen {
     status_current: string;
     user?: User;
     masterflow?: Masterflow;
+    transaksi?: {
+        id: number;
+        kode_transaksi: string;
+        nama_transaksi: string;
+        departemen: string;
+    };
+    aplikasi?: {
+        id: number;
+        name: string;
+        code?: string;
+    };
     versions?: DokumenVersion[];
     approvals?: DokumenApproval[];
     detailed_status?: DetailedStatus;
@@ -713,70 +725,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         return 0;
     });
 
-    type TimelineItem =
-        | { type: 'single'; data: DokumenApproval }
-        | { type: 'group'; data: DokumenApproval[]; groupIndex: string; groupType: string; firstStepOrder: number };
-
-    const groupedApprovalsMap: Record<string, { approvals: DokumenApproval[]; firstStepOrder: number; groupType: string }> = {};
-    const singleApprovals: { approval: DokumenApproval; stepOrder: number }[] = [];
-
-    sortedApprovals.forEach((approval) => {
-        const stepOrder = approval.masterflow_step?.step_order ?? approval.approval_order ?? 0;
-        if (approval.group_index) {
-            if (!groupedApprovalsMap[approval.group_index]) {
-                groupedApprovalsMap[approval.group_index] = {
-                    approvals: [],
-                    firstStepOrder: stepOrder,
-                    groupType: approval.jenis_group || 'parallel',
-                };
-            }
-            groupedApprovalsMap[approval.group_index].approvals.push(approval);
-            if (stepOrder < groupedApprovalsMap[approval.group_index].firstStepOrder) {
-                groupedApprovalsMap[approval.group_index].firstStepOrder = stepOrder;
-            }
-        } else {
-            singleApprovals.push({ approval, stepOrder });
-        }
-    });
-
-    const timelineItems: TimelineItem[] = [];
-    const allItems: { item: TimelineItem; stepOrder: number }[] = [];
-
-    Object.entries(groupedApprovalsMap).forEach(([groupIndex, groupData]) => {
-        allItems.push({
-            item: {
-                type: 'group',
-                data: groupData.approvals,
-                groupIndex,
-                groupType: groupData.groupType,
-                firstStepOrder: groupData.firstStepOrder,
-            },
-            stepOrder: groupData.firstStepOrder,
-        });
-    });
-
-    singleApprovals.forEach(({ approval, stepOrder }) => {
-        allItems.push({
-            item: { type: 'single', data: approval },
-            stepOrder,
-        });
-    });
-
-    allItems.sort((a, b) => a.stepOrder - b.stepOrder);
-    allItems.forEach(({ item }) => timelineItems.push(item));
-
-    const getGroupRequirementText = (type: string) => {
-        switch (type) {
-            case 'any_one':
-                return 'Salah Satu Setuju';
-            case 'all_required':
-                return 'Semua Harus Setuju';
-            case 'majority':
-                return 'Mayoritas Setuju';
-            default:
-                return 'Harus Setuju';
-        }
-    };
+    // Approval timeline is handled by ApprovalTimeline component
 
     return (
         <>
@@ -799,20 +748,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     <span>/</span>
                                     <span>Detail</span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                     <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">{dokumen?.judul_dokumen}</h1>
                                     {getStatusBadge(dokumen?.status || 'draft')}
-                                </div>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    {dokumen?.id_dokumen && (
-                                        <>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="font-mono text-xs text-muted-foreground">ID:</span>
-                                                <span className="font-mono">{dokumen.id_dokumen}</span>
-                                            </div>
-                                            <span>•</span>
-                                        </>
+                                    {dokumen?.tipe_dokumen === 'transaksi' && (
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                            ⚡ Transaksi: {dokumen?.transaksi?.kode_transaksi || 'Terkait'}
+                                        </Badge>
                                     )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-4 w-4" />
                                         <span className="font-mono">{dokumen?.nomor_dokumen || '-'}</span>
@@ -822,6 +767,16 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         <CalendarIcon className="h-4 w-4" />
                                         <span>{formatDate(dokumen?.tgl_pengajuan)}</span>
                                     </div>
+                                    {dokumen?.aplikasi && (
+                                        <>
+                                            <span>•</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <Badge variant="secondary" className="font-normal text-xs">
+                                                    📱 {dokumen.aplikasi.name}
+                                                </Badge>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -870,6 +825,20 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Deadline Dokumen</Label>
                                                 <div className="font-medium">{dokumen.tgl_deadline ? formatDate(dokumen.tgl_deadline) : '-'}</div>
                                             </div>
+                                            {dokumen?.transaksi && (
+                                                <>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Jenis Transaksi</Label>
+                                                        <div className="font-medium">
+                                                            {dokumen.transaksi.nama_transaksi} ({dokumen.transaksi.kode_transaksi})
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Departemen</Label>
+                                                        <div className="font-medium">{dokumen.transaksi.departemen || '-'}</div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
 
                                         {dokumen.deskripsi && (
@@ -885,253 +854,11 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                     </CardContent>
                                 </Card>
 
-                                {/* Approval Timeline with SLA & Creator Info */}
-                                <Card>
-                                    <CardHeader>
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                            <div>
-                                                <CardTitle className="font-serif text-lg">Timeline Persetujuan</CardTitle>
-                                                <CardDescription>Alur dan riwayat persetujuan dokumen</CardDescription>
-                                            </div>
-                                            {/* Info Pembuat & Waktu */}
-                                            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-2 text-xs">
-                                                <Avatar className="h-7 w-7 border">
-                                                    <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                                                        {dokumen.user?.name ? dokumen.user.name.substring(0, 2).toUpperCase() : 'US'}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-foreground">
-                                                        Dibuat oleh: {dokumen.user?.name || 'Pemohon'}
-                                                    </span>
-                                                    <span className="text-[11px] text-muted-foreground">
-                                                        {formatDate(dokumen.created_at || dokumen.tgl_pengajuan)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="relative space-y-0 pl-2">
-                                            <div className="absolute top-2 bottom-6 left-6 w-0.5 bg-border" />
-
-                                            {/* Step 0: Creation Node */}
-                                            <div className="relative flex gap-4 pb-8">
-                                                <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-blue-600 bg-background text-blue-600 shadow-xs">
-                                                    <FileTextIcon className="h-4 w-4" />
-                                                </div>
-                                                <div className="flex-1 pt-1">
-                                                    <div className="flex items-center justify-between gap-4">
-                                                        <div>
-                                                            <div className="text-sm font-medium">Dokumen Diajukan</div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                Oleh {dokumen.user?.name || 'Pemohon'} ({dokumen.user?.email || '-'})
-                                                            </div>
-                                                        </div>
-                                                        <Badge variant="outline" className="border-blue-300 bg-blue-50 text-[11px] text-blue-800">
-                                                            Created
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Approval Steps */}
-                                            {timelineItems.map((item, index) => {
-                                                if (item.type === 'single') {
-                                                    const approval = item.data;
-                                                    const isCompleted =
-                                                        approval.approval_status === 'approved' || approval.approval_status === 'skipped';
-                                                    const isRejected = approval.approval_status === 'rejected';
-                                                    const isPending = approval.approval_status === 'pending';
-
-                                                    return (
-                                                        <div key={approval.id} className="relative flex gap-4 pb-8 last:pb-0">
-                                                            <div
-                                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
-                                                                        ? 'border-green-600 text-green-600'
-                                                                        : isRejected
-                                                                            ? 'border-red-600 text-red-600'
-                                                                            : isPending
-                                                                                ? 'border-yellow-500 text-yellow-500'
-                                                                                : 'border-muted text-muted-foreground'
-                                                                    }`}
-                                                            >
-                                                                {isCompleted ? (
-                                                                    <CheckCircle2Icon className="h-4 w-4" />
-                                                                ) : isRejected ? (
-                                                                    <XCircleIcon className="h-4 w-4" />
-                                                                ) : (
-                                                                    <span className="text-xs font-bold">{index + 1}</span>
-                                                                )}
-                                                            </div>
-
-                                                            <div className="flex-1 space-y-1.5 pt-1">
-                                                                <div className="flex items-start justify-between gap-4">
-                                                                    <div>
-                                                                        <div className="font-medium text-sm">
-                                                                            {isCustomApproval
-                                                                                ? approval.approver_email || 'Unknown User'
-                                                                                : approval.user?.name ||
-                                                                                approval.masterflow_step?.jabatan?.name ||
-                                                                                'Unknown Position'}
-                                                                        </div>
-                                                                        <div className="text-xs text-muted-foreground">
-                                                                            {isCustomApproval
-                                                                                ? `Urutan Approval ke-${approval.approval_order}`
-                                                                                : approval.masterflow_step?.step_name || 'Approval Step'}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex flex-col items-end gap-1.5">
-                                                                        {getApprovalStatusBadge(approval.approval_status)}
-                                                                        {getSlaBadge(approval, dokumen.tgl_deadline)}
-                                                                    </div>
-                                                                </div>
-
-                                                                {(approval.comment || approval.alasan_reject) && (
-                                                                    <div className="mt-2 rounded-md bg-muted/40 p-2.5 text-xs">
-                                                                        {approval.alasan_reject && (
-                                                                            <div className="mb-1 font-medium text-red-600">
-                                                                                Alasan: {approval.alasan_reject}
-                                                                            </div>
-                                                                        )}
-                                                                        {approval.comment && (
-                                                                            <div className="text-muted-foreground italic">"{approval.comment}"</div>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Approval Date */}
-                                                                {approval.tgl_approve && (
-                                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                        <ClockIcon className="h-3 w-3" />
-                                                                        {formatDate(approval.tgl_approve)}
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Approval Duration (SLA) */}
-                                                                {(() => {
-                                                                    const duration = getApprovalDuration(
-                                                                        approval,
-                                                                        dokumen.approvals,
-                                                                        dokumen.tgl_pengajuan || dokumen.created_at,
-                                                                    );
-                                                                    if (!duration) return null;
-                                                                    return (
-                                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                            <Timer className="h-3 w-3" />
-                                                                            <span>Durasi approval: {duration}</span>
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                } else {
-                                                    const group = item;
-                                                    const allApproved = group.data.every(
-                                                        (a) => a.approval_status === 'approved' || a.approval_status === 'skipped',
-                                                    );
-                                                    const anyRejected = group.data.some((a) => a.approval_status === 'rejected');
-                                                    const oneApproved = group.data.some((a) => a.approval_status === 'approved');
-                                                    const isGroupApproved = group.groupType === 'any_one' ? oneApproved : allApproved;
-
-                                                    const statusColor = isGroupApproved
-                                                        ? 'border-green-600 text-green-600'
-                                                        : anyRejected // If any rejected and type is all_required -> rejected.
-                                                            ? 'border-red-600 text-red-600'
-                                                            : 'border-yellow-500 text-yellow-500'; // Pending default
-
-                                                    return (
-                                                        <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
-                                                            <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${statusColor}`}>
-                                                                <IconUsers className="h-4 w-4" />
-                                                            </div>
-
-                                                            <div className="flex-1 pt-1">
-                                                                <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-xs">
-                                                                    <div className="flex items-center justify-between border-b bg-muted/20 p-3">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-sm font-semibold">
-                                                                                {group.data[0]?.masterflow_step?.step_name || 'Group Approval'}
-                                                                            </span>
-                                                                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] tracking-wide uppercase">
-                                                                                {getGroupRequirementText(group.groupType)}
-                                                                            </Badge>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="divide-y p-0">
-                                                                        {group.data.map((approval) => {
-                                                                            const isSkipped = approval.approval_status === 'skipped';
-                                                                            return (
-                                                                                <div key={approval.id} className="p-3">
-                                                                                    <div className="flex items-start justify-between gap-4">
-                                                                                        <div className="space-y-1">
-                                                                                            <div className="text-sm font-medium">
-                                                                                                {approval.user?.name || approval.masterflow_step?.jabatan?.name || 'Unknown'}
-                                                                                            </div>
-                                                                                            <div className="text-xs text-muted-foreground">
-                                                                                                {approval.masterflow_step?.jabatan?.name}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                        <div className="flex flex-col items-end gap-1">
-                                                                                            {getApprovalStatusBadge(approval.approval_status)}
-                                                                                            {getSlaBadge(approval, dokumen.tgl_deadline)}
-                                                                                            {approval.tgl_approve && (
-                                                                                                <span className="text-[10px] text-muted-foreground">
-                                                                                                    {formatDate(approval.tgl_approve)}
-                                                                                                </span>
-                                                                                            )}
-                                                                                            {/* Approval Duration (SLA) */}
-                                                                                            {(() => {
-                                                                                                const duration = getApprovalDuration(
-                                                                                                    approval,
-                                                                                                    dokumen.approvals,
-                                                                                                    dokumen.tgl_pengajuan || dokumen.created_at,
-                                                                                                );
-                                                                                                if (!duration) return null;
-                                                                                                return (
-                                                                                                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                                                                                        <Timer className="h-2.5 w-2.5" />
-                                                                                                        <span>Durasi: {duration}</span>
-                                                                                                    </span>
-                                                                                                );
-                                                                                            })()}
-                                                                                        </div>
-                                                                                    </div>
-
-                                                                                    {isSkipped && (
-                                                                                        <div className="mt-1 text-[10px] text-muted-foreground italic">
-                                                                                            *Otomatis di-skip karena grup sudah memenuhi syarat approval.
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {(approval.comment || approval.alasan_reject) && (
-                                                                                        <div className="mt-2 rounded bg-muted/40 p-2 text-xs">
-                                                                                            {approval.alasan_reject && (
-                                                                                                <div className="font-medium text-red-600">
-                                                                                                    Alasan Penolakan: {approval.alasan_reject}
-                                                                                                </div>
-                                                                                            )}
-                                                                                            {approval.comment && (
-                                                                                                <div className="text-muted-foreground">
-                                                                                                    Komentar: "{approval.comment}"
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-                                            })}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                {/* Approval Timeline */}
+                                <ApprovalTimeline
+                                    approvals={dokumen.approvals}
+                                    dokumen={dokumen}
+                                />
 
                                 {/* Version History */}
                                 {dokumen.versions && dokumen.versions.length > 0 && (

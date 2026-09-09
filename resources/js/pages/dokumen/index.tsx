@@ -15,8 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconEdit, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
-import { CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
+import { IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
+import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 interface User {
@@ -114,16 +114,38 @@ interface DetailedStatus {
     approval_progress: number;
 }
 
+interface TransaksiItem {
+    id: number;
+    aplikasi_id: number;
+    kode_transaksi: string;
+    nama_transaksi: string;
+    departemen?: string | null;
+    deskripsi?: string | null;
+    is_active: boolean;
+    aplikasi?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface Dokumen {
     id: number;
+    nomor_dokumen?: string;
     judul_dokumen: string;
     user_id: number;
-    masterflow_id: number | null;
+    company_id?: number;
+    aplikasi_id?: number;
+    transaksi_id?: number | null;
+    tipe_dokumen?: string;
+    masterflow_id: number;
     status: string;
     tgl_pengajuan: string;
+    tgl_deadline?: string;
     deskripsi?: string;
     status_current: string;
     user?: User;
+    aplikasi?: { id: number; name: string };
+    transaksi?: TransaksiItem;
     masterflow?: Masterflow;
     latest_version?: DokumenVersion;
     approvals?: DokumenApproval[];
@@ -189,11 +211,11 @@ const initialFormData: FormData = {
 };
 
 export default function UserDokumen() {
-    const { auth } = usePage().props as any;
+    const { auth, context } = usePage().props as any;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
-    const [aplikasiList, setAplikasiList] = useState<Aplikasi[]>([]);
+    const [aplikasiList, setAplikasiList] = useState<any[]>([]);
+    const [transaksis, setTransaksis] = useState<TransaksiItem[]>([]);
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
-    const [transaksiTersedia, setTransaksiTersedia] = useState<string>('');
     const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
     const [masterTransaksis, setMasterTransaksis] = useState<MasterTransaksiItem[]>([]);
@@ -216,7 +238,39 @@ export default function UserDokumen() {
     const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
     const [pendingApprovalsForDialog, setPendingApprovalsForDialog] = useState<any[]>([]);
 
-    // Fetch dokumen
+    // State for Tarik Data & File PDF Eksternal
+    const [externalDocKeyword, setExternalDocKeyword] = useState('');
+    const [isFetchingExternal, setIsFetchingExternal] = useState(false);
+    const [externalFetchSuccess, setExternalFetchSuccess] = useState<{
+        nomor_dokumen: string;
+        judul: string;
+        nominal: number;
+        items_count: number;
+        filename: string;
+    } | null>(null);
+
+    // Determine user profile & accessible aplikasis
+    const isSuperAdmin = Boolean(
+        context?.is_super_admin ||
+        auth.user?.userAuths?.some((ua: any) => ua.role?.role_name?.toLowerCase() === 'super admin') ||
+        auth.user?.user_auths?.some((ua: any) => ua.role?.role_name?.toLowerCase() === 'super admin')
+    );
+
+    const userAuthsList = auth.user?.userAuths || auth.user?.user_auths || [];
+    const userAplikasiIds = new Set<number>();
+    userAuthsList.forEach((ua: any) => {
+        if (ua.aplikasi_id) userAplikasiIds.add(Number(ua.aplikasi_id));
+        if (ua.aplikasi?.id) userAplikasiIds.add(Number(ua.aplikasi.id));
+    });
+    if (context?.current?.aplikasi?.id) {
+        userAplikasiIds.add(Number(context.current.aplikasi.id));
+    }
+
+    const accessibleAplikasiList = (isSuperAdmin || userAplikasiIds.size === 0)
+        ? aplikasiList
+        : aplikasiList.filter((app) => userAplikasiIds.has(Number(app.id)));
+
+    // Fetch dokumen from backend
     const fetchDokumen = async () => {
         try {
             setIsLoading(true);
@@ -224,6 +278,7 @@ export default function UserDokumen() {
                 params: { my_documents: true },
             });
             const newDokumen = response.data.data || response.data;
+            console.log('📊 Total dokumen received:', newDokumen.length);
             setDokumen(newDokumen);
         } catch (error) {
             console.error('Error fetching dokumen:', error);
@@ -243,14 +298,110 @@ export default function UserDokumen() {
         }
     };
 
+    // Fetch transaksis from backend
+    const fetchTransaksis = async () => {
+        try {
+            console.log('Fetching transaksis...');
+            const response = await api.get('/transaksis', {
+                params: { is_active: true },
+            });
+            setTransaksis(response.data.transaksis || response.data.data || []);
+        } catch (error) {
+            console.error('Error fetching transaksis:', error);
+        }
+    };
+
     // Handle saat dropdown Aplikasi dipilih
     const handleAplikasiChange = (value: string) => {
         setSelectedAplikasiId(value);
-        const aplikasi = aplikasiList.find((app) => app.id.toString() === value);
-        if (aplikasi) {
-            setTransaksiTersedia(aplikasi.tipe_transaksi || aplikasi.nama_aplikasi || aplikasi.name || '');
-        } else {
-            setTransaksiTersedia('');
+        setFormData((prev) => ({
+            ...prev,
+            aplikasi_id: value,
+            transaksi_id: '',
+        }));
+    };
+
+    // Handle Tarik Data & File PDF Eksternal via kode dokumen
+    const handleFetchExternalData = async (keywordToUse?: string) => {
+        const query = (keywordToUse || externalDocKeyword).trim();
+        if (!query) {
+            showToast.error('Masukkan kode dokumen transaksi terlebih dahulu (misal: RQE-22001434)');
+            return;
+        }
+
+        setIsFetchingExternal(true);
+        try {
+            const response = await api.post('/dokumen/lookup-external', {
+                keyword: query,
+                aplikasi_id: formData.aplikasi_id || selectedAplikasiId || null,
+                transaksi_id: formData.transaksi_id || null,
+            });
+
+            if (response.data.status === 'success') {
+                const data = response.data.data;
+                showToast.success('✓ Data & Template PDF berhasil ditarik!');
+
+                // Convert base64 PDF to File object
+                const byteCharacters = atob(data.pdf_base64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                const file = new File([blob], data.filename || `${query}.pdf`, { type: 'application/pdf' });
+
+                // Update local preview URL
+                if (localFileUrl) {
+                    URL.revokeObjectURL(localFileUrl);
+                }
+                const newFileUrl = URL.createObjectURL(file);
+                setLocalFileUrl(newFileUrl);
+
+                // Try to find matching transaksi_id if not selected yet
+                let matchedTransaksiId = formData.transaksi_id;
+                if (!matchedTransaksiId && transaksis.length > 0) {
+                    const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
+                    const appTrans = transaksis.filter((t) => !currentAppId || String(t.aplikasi_id) === currentAppId);
+                    const found = appTrans.find((t) => {
+                        const tk = t.kode_transaksi.toUpperCase();
+                        const dtype = (data.tipe || '').toUpperCase();
+                        return (
+                            tk === dtype ||
+                            (dtype === 'PR' && (tk.includes('PR') || tk.includes('RQE'))) ||
+                            (dtype === 'PO' && (tk.includes('PO') || tk.includes('POE'))) ||
+                            (dtype === 'CCA' && (tk.includes('CCA') || tk.includes('NPK')))
+                        );
+                    });
+                    if (found) {
+                        matchedTransaksiId = String(found.id);
+                    }
+                }
+
+                setFormData((prev) => ({
+                    ...prev,
+                    nomor_dokumen: data.nomor_dokumen || prev.nomor_dokumen,
+                    judul_dokumen: data.judul || prev.judul_dokumen,
+                    tgl_pengajuan: data.tanggal || prev.tgl_pengajuan,
+                    deskripsi: data.deskripsi ? data.deskripsi : prev.deskripsi,
+                    transaksi_id: matchedTransaksiId || prev.transaksi_id,
+                    file: file,
+                }));
+
+                setExternalFetchSuccess({
+                    nomor_dokumen: data.nomor_dokumen,
+                    judul: data.judul,
+                    nominal: data.nominal,
+                    items_count: data.items_count,
+                    filename: data.filename,
+                });
+            }
+        } catch (error: any) {
+            console.error('Error fetching external transaction data:', error);
+            const msg = error.response?.data?.message || 'Data transaksi tidak ditemukan.';
+            showToast.error(`❌ ${msg}`);
+        } finally {
+            setIsFetchingExternal(false);
         }
     };
 
@@ -258,6 +409,7 @@ export default function UserDokumen() {
     const fetchMasterflows = async () => {
         try {
             const response = await api.get('/masterflows');
+            console.log('Masterflows fetched:', response.data);
             setMasterflows(response.data.masterflows || []);
         } catch (error) {
             console.error('Error fetching masterflows:', error);
@@ -275,6 +427,7 @@ export default function UserDokumen() {
         fetchDokumen();
         fetchMasterflows();
         fetchAplikasi();
+        fetchTransaksis();
 
         // Real-time updates dengan Laravel Reverb
         if (typeof window !== 'undefined' && window.Echo && auth.user?.id) {
@@ -517,6 +670,13 @@ export default function UserDokumen() {
             // ignore
         }
 
+        const defaultAppId = context?.current?.aplikasi?.id
+            ? String(context.current.aplikasi.id)
+            : accessibleAplikasiList.length === 1
+                ? String(accessibleAplikasiList[0].id)
+                : '';
+
+        // Generate new document number
         const newFormData: FormData = {
             ...initialFormData,
             id_dokumen: generateDocumentNumber(),
@@ -524,13 +684,16 @@ export default function UserDokumen() {
             tipe_dokumen: '',
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
+            aplikasi_id: defaultAppId,
+            tipe_dokumen: 'manual',
         };
         setSelectedMasterflow(null);
         setAvailableApprovers({});
-        setStepModes({});
-        setSelectedAplikasiId('');
-        setTransaksiTersedia('');
+        setStepModes({}); // Reset step modes
+        setSelectedAplikasiId(defaultAppId);
         setDocTypeMode('manual');
+        setExternalDocKeyword('');
+        setExternalFetchSuccess(null);
         setErrors({});
         setFormData(newFormData);
         setIsCreateDialogOpen(true);
@@ -644,15 +807,16 @@ export default function UserDokumen() {
             submitData.append('judul_dokumen', formData.judul_dokumen);
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
-            submitData.append('deskripsi', formData.deskripsi || '');
-            submitData.append('submit_type', type);
+            submitData.append('deskripsi', formData.deskripsi);
+            submitData.append('submit_type', type); // Add submit type: 'draft' or 'submit'
+            submitData.append('tipe_dokumen', docTypeMode);
 
             if (docTypeMode === 'transaksi') {
                 if (formData.aplikasi_id) submitData.append('aplikasi_id', formData.aplikasi_id.toString());
                 if (formData.transaksi_id) submitData.append('transaksi_id', formData.transaksi_id.toString());
             }
 
-            if (formData.file && docTypeMode === 'manual') {
+            if (formData.file) {
                 submitData.append('file', formData.file);
             }
 
@@ -785,8 +949,8 @@ export default function UserDokumen() {
                 <AppSidebar variant="inset" />
                 <SidebarInset>
                     <SiteHeader />
-                    <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-2 p-6">
+                    <div className="flex flex-1 flex-col w-full max-w-full overflow-x-hidden">
+                        <div className="@container/main flex flex-1 flex-col gap-2 p-3 sm:p-6 w-full max-w-full overflow-x-hidden">
                             <div className="space-y-8">
                                 {/* Header Section */}
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -913,8 +1077,25 @@ export default function UserDokumen() {
                                                                 >
                                                                     <TableCell className="font-mono">{index + 1}</TableCell>
                                                                     <TableCell className="font-sans">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <span className="font-medium">{doc.judul_dokumen}</span>
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span className="font-medium text-foreground">{doc.judul_dokumen}</span>
+                                                                                {doc.nomor_dokumen && (
+                                                                                    <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                                                                                        {doc.nomor_dokumen}
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {doc.transaksi && (
+                                                                                    <Badge className="bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 text-[10px] font-mono">
+                                                                                        {doc.transaksi.kode_transaksi}
+                                                                                    </Badge>
+                                                                                )}
+                                                                                {doc.aplikasi && (
+                                                                                    <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                                                                        {doc.aplikasi.name}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                             {doc.deskripsi && (
                                                                                 <span className="text-xs text-muted-foreground">
                                                                                     {doc.deskripsi.substring(0, 80)}
@@ -987,8 +1168,8 @@ export default function UserDokumen() {
 
                     {/* Create Document Dialog */}
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
-                            <form onSubmit={(e) => e.preventDefault()}>
+                        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] max-w-[500px] p-4 sm:p-6 mx-auto rounded-xl box-border overflow-x-hidden">
+                            <form onSubmit={(e) => e.preventDefault()} className="w-full space-y-4">
                                 <DialogHeader>
                                     <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
                                     <DialogDescription className="font-sans">
@@ -1009,11 +1190,7 @@ export default function UserDokumen() {
                                             setDocTypeMode('manual');
                                             setFormData((prev) => ({
                                                 ...prev,
-                                                kategori_dokumen: 'manual',
-                                                metode_dokumen: 'upload_manual',
-                                                aplikasi_id: '',
-                                                transaksi_id: '',
-                                                master_transaksi_id: '',
+                                                tipe_dokumen: 'manual',
                                             }));
                                         }}
                                     >
@@ -1028,12 +1205,21 @@ export default function UserDokumen() {
                                         }`}
                                         onClick={() => {
                                             setDocTypeMode('transaksi');
+                                            const defaultApp = formData.aplikasi_id
+                                                ? String(formData.aplikasi_id)
+                                                : context?.current?.aplikasi?.id
+                                                    ? String(context.current.aplikasi.id)
+                                                    : accessibleAplikasiList.length > 0
+                                                        ? String(accessibleAplikasiList[0].id)
+                                                        : '';
                                             setFormData((prev) => ({
                                                 ...prev,
-                                                kategori_dokumen: 'transaksi',
-                                                metode_dokumen: 'template',
-                                                file: null,
+                                                aplikasi_id: defaultApp,
+                                                tipe_dokumen: 'transaksi',
                                             }));
+                                            if (defaultApp) {
+                                                setSelectedAplikasiId(defaultApp);
+                                            }
                                         }}
                                     >
                                         Dokumen Transaksi
@@ -1043,103 +1229,256 @@ export default function UserDokumen() {
                                 <div className="grid gap-4 py-2">
                                     {/* FORM KHUSUS DOKUMEN TRANSAKSI */}
                                     {docTypeMode === 'transaksi' && (
-                                        <div className="grid grid-cols-2 gap-4 p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="aplikasi_id" className="font-sans text-slate-700 dark:text-slate-300">
-                                                    Pilih Aplikasi <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                    onValueChange={(value) => {
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            aplikasi_id: value,
-                                                            master_transaksi_id: '',
-                                                            tipe_dokumen: '',
-                                                        }));
-                                                        handleAplikasiChange(value);
-                                                    }}
-                                                >
-                                                    <SelectTrigger id="aplikasi_id" className="font-sans bg-white dark:bg-background border-emerald-300 dark:border-emerald-700">
-                                                        <SelectValue placeholder="-- Pilih Aplikasi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {aplikasiList && aplikasiList.length > 0 ? (
-                                                            aplikasiList.map((app) => (
-                                                                <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
-                                                                    {app.nama_aplikasi || app.name} {app.company ? `(${app.company.name})` : ''}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : (
-                                                            <SelectItem value="empty" disabled className="font-sans">
-                                                                Memuat data aplikasi...
-                                                            </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                        <div className="space-y-3">
+                                            {/* TARIK DATA & FILE PDF EKSTERNAL */}
+<div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 w-full max-w-full overflow-hidden box-border">
+    <div className="flex items-start gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0 mt-0.5">
+            <IconDownload className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+            <Label className="font-sans font-semibold text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                <span>Tarik Data & File PDF</span>
+                <span className="text-[9px] font-normal font-mono px-1 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                    Otomatis
+                </span>
+            </Label>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                Masukkan kode transaksi untuk menarik data dan menyusun dokumen PDF secara otomatis
+            </p>
+        </div>
+    </div>
+
+    {/* Input & Tombol Tarik (Dipaksa Sejajar tapi Aman) */}
+    <div className="flex items-center gap-1.5 w-full">
+        <div className="relative flex-1 min-w-0">
+            <Input
+                placeholder="Ketik kode (cth: RQE-22001434)"
+                value={externalDocKeyword}
+                onChange={(e) => setExternalDocKeyword(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleFetchExternalData();
+                    }
+                }}
+                className="font-mono text-[11px] uppercase h-8 px-2 pr-6 w-full min-w-0 truncate"
+            />
+            {externalDocKeyword && (
+                <button
+                    type="button"
+                    onClick={() => setExternalDocKeyword('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                    ✕
+                </button>
+            )}
+        </div>
+        <Button
+            type="button"
+            onClick={() => handleFetchExternalData()}
+            disabled={isFetchingExternal || !externalDocKeyword.trim()}
+            className="h-8 px-2.5 font-sans text-xs gap-1 shrink-0"
+        >
+            <IconDownload className="h-3 w-3" />
+            <span>Tarik</span>
+        </Button>
+    </div>
+
+                                                {/* Quick selection sample chips */}
+                                                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                                                    <span className="text-[10px] text-muted-foreground font-sans">Contoh:</span>
+                                                    {[
+                                                        { code: 'RQE-22001434', label: 'RQE-22001434' },
+                                                        { code: 'POE-22005020', label: 'POE-22005020' },
+                                                        { code: 'CCA-00000002', label: 'CCA-00000002' },
+                                                    ].map((sample) => (
+                                                        <button
+                                                            key={sample.code}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setExternalDocKeyword(sample.code);
+                                                                handleFetchExternalData(sample.code);
+                                                            }}
+                                                            disabled={isFetchingExternal}
+                                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono border border-border bg-background text-foreground hover:bg-muted"
+                                                        >
+                                                            <span>{sample.label}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {/* Success Banner */}
+                                                {externalFetchSuccess && (
+                                                    <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 font-bold text-xs text-primary">
+                                                                    ✓
+                                                                </div>
+                                                                <span className="text-sm font-semibold text-foreground font-sans">
+                                                                    Template PDF Berhasil Dibuat
+                                                                </span>
+                                                            </div>
+                                                            <span className="font-mono text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 rounded border border-border">
+                                                                Rp {Number(externalFetchSuccess.nominal).toLocaleString('id-ID')}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground font-sans space-y-0.5">
+                                                            <p><strong className="text-foreground">No. Dokumen:</strong> {externalFetchSuccess.nomor_dokumen}</p>
+                                                            <p><strong className="text-foreground">Judul:</strong> {externalFetchSuccess.judul}</p>
+                                                            <p><strong className="text-foreground">File Terlampir:</strong> {externalFetchSuccess.filename} ({externalFetchSuccess.items_count} item transaksi)</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 pt-1 border-t border-border">
+                                                            {localFileUrl && (
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => window.open(localFileUrl, '_blank')}
+                                                                    className="h-7 text-xs font-sans gap-1 cursor-pointer"
+                                                                >
+                                                                    <IconEye className="h-3.5 w-3.5" />
+                                                                    Pratinjau PDF
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="secondary"
+                                                                onClick={openSignatureDialog}
+                                                                className="h-7 text-xs font-sans gap-1 cursor-pointer"
+                                                            >
+                                                                <IconEdit className="h-3.5 w-3.5" />
+                                                                Atur Posisi Tanda Tangan
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="transaksi_id" className="font-sans text-slate-700 dark:text-slate-300">
-                                                    Pilih Transaksi Manajemen <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={transaksiTersedia || String(formData.transaksi_id || '')}
-                                                    disabled={!formData.aplikasi_id}
-                                                    onValueChange={(value) =>
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            transaksi_id: value,
-                                                        }))
-                                                    }
-                                                >
-                                                    <SelectTrigger id="transaksi_id" className="font-sans bg-white dark:bg-background border-emerald-300 dark:border-emerald-700">
-                                                        <SelectValue placeholder="-- Pilih Transaksi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {transaksiTersedia ? (
-                                                            <SelectItem value={transaksiTersedia} className="font-sans">
-                                                                {transaksiTersedia}
-                                                            </SelectItem>
-                                                        ) : (
-                                                            <SelectItem value="null" disabled className="font-sans">
-                                                                Pilih aplikasi terlebih dahulu
-                                                            </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                            {/* Aplikasi & Tipe Transaksi Grid */}
+                                            <div className="grid gap-4 rounded-lg border border-border bg-muted/30 30 p-3 sm:p-4 w-full max-w-full overflow-hidden">
+                                                <Label className="font-sans font-semibold">Aplikasi & Tipe Transaksi</Label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="grid gap-2 min-w-0 overflow-hidden">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Aplikasi Modul <span className="text-destructive">*</span>
+                                                            </span>
+                                                            {!isSuperAdmin && (
+                                                                <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border shrink-0">
+                                                                    Sesuai Profil
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <Select
+                                                            value={String(formData.aplikasi_id || selectedAplikasiId || '')}
+                                                            onValueChange={(value) => {
+                                                                handleAplikasiChange(value);
+                                                            }}
+                                                        >
+                                                            <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans truncate">
+                                                                <SelectValue placeholder="-- Pilih Aplikasi --" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {accessibleAplikasiList && accessibleAplikasiList.length > 0 ? (
+                                                                    accessibleAplikasiList.map((app) => (
+                                                                        <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
+                                                                            {app.name} {app.company ? `(${app.company.name})` : ''}
+                                                                        </SelectItem>
+                                                                    ))
+                                                                ) : (
+                                                                    <SelectItem value="empty" disabled className="font-sans">
+                                                                        {aplikasiList.length === 0 ? 'Memuat data aplikasi...' : 'Tidak ada aplikasi untuk profil Anda'}
+                                                                    </SelectItem>
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="grid gap-2 min-w-0 overflow-hidden">
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Tipe Transaksi <span className="text-destructive">*</span>
+                                                        </span>
+                                                        {(() => {
+                                                            const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
+                                                            const currentAppTrans = transaksis.filter(
+                                                                (t) => String(t.aplikasi_id) === currentAppId && t.is_active
+                                                            );
+
+                                                            return (
+                                                                <Select
+                                                                    value={String(formData.transaksi_id || '')}
+                                                                    onValueChange={(value) => {
+                                                                        const chosen = currentAppTrans.find((t) => String(t.id) === value);
+                                                                        setFormData((prev) => ({
+                                                                            ...prev,
+                                                                            transaksi_id: value,
+                                                                            judul_dokumen: !prev.judul_dokumen || prev.judul_dokumen === 'Jurnal Besar Keuangan'
+                                                                                ? (chosen ? chosen.nama_transaksi : prev.judul_dokumen)
+                                                                                : prev.judul_dokumen,
+                                                                            deskripsi: prev.deskripsi ? prev.deskripsi : (chosen?.deskripsi || prev.deskripsi),
+                                                                        }));
+                                                                    }}
+                                                                    disabled={!currentAppId}
+                                                                >
+                                                                    <SelectTrigger id="transaksi_id" className="w-full min-w-0 font-sans truncate">
+                                                                        <SelectValue placeholder={!currentAppId ? 'Pilih aplikasi terlebih dahulu' : '-- Pilih Transaksi --'} />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {currentAppTrans.length > 0 ? (
+                                                                            currentAppTrans.map((t) => (
+                                                                                <SelectItem key={t.id} value={t.id.toString()} className="font-sans">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className="font-mono text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                                                                                            {t.kode_transaksi}
+                                                                                        </span>
+                                                                                        <span>{t.nama_transaksi}</span>
+                                                                                        {t.departemen && (
+                                                                                            <span className="text-xs text-muted-foreground">({t.departemen})</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </SelectItem>
+                                                                            ))
+                                                                        ) : (
+                                                                            <SelectItem value="empty" disabled className="font-sans">
+                                                                                {!currentAppId ? 'Pilih aplikasi terlebih dahulu' : 'Belum ada transaksi aktif untuk aplikasi ini'}
+                                                                            </SelectItem>
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
 
                                     {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="id_dokumen" className="font-sans">ID Dokumen</Label>
+                                    <div className="grid grid-cols-2 gap-2 sm:gap-4 w-full min-w-0">
+                                        <div className="grid gap-1.5 min-w-0">
+                                            <Label htmlFor="id_dokumen" className="font-sans text-xs sm:text-sm">ID Dokumen</Label>
                                             <Input
                                                 id="id_dokumen"
-                                                name="id_dokumen"
                                                 value={formData.id_dokumen}
-                                                onChange={handleInputChange}
-                                                className="font-mono bg-muted/40"
-                                                placeholder="Auto-generated"
                                                 readOnly
+                                                className="font-mono bg-muted/40 text-xs sm:text-sm w-full min-w-0 truncate"
                                             />
                                         </div>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="nomor_dokumen" className="font-sans">
-                                                {formData.kategori_dokumen === 'transaksi' ? 'Nomor Transaksi / Ref ID' : 'Nomor Dokumen'} <span className="text-red-500">*</span>
+                                        <div className="grid gap-1.5 min-w-0">
+                                            <Label htmlFor="nomor_dokumen" className="font-sans text-xs sm:text-sm">
+                                                Nomor Dokumen <span className="text-red-500">*</span>
                                             </Label>
                                             <Input
                                                 id="nomor_dokumen"
-                                                name="nomor_dokumen"
                                                 value={formData.nomor_dokumen}
                                                 onChange={handleInputChange}
-                                                className={errors.nomor_dokumen ? 'border-red-500 font-sans' : 'font-sans'}
-                                                placeholder={formData.kategori_dokumen === 'transaksi' ? 'Contoh: PR-2026-08-001' : 'Contoh: 001/SK/DIR/VIII/2026'}
+                                                placeholder="Contoh: 001/SK..."
+                                                className="font-sans text-xs sm:text-sm w-full min-w-0 truncate"
                                             />
-                                            {errors.nomor_dokumen && <p className="text-sm text-red-500">{renderError(errors.nomor_dokumen)}</p>}
                                         </div>
                                     </div>
 
@@ -1167,36 +1506,34 @@ export default function UserDokumen() {
                                     )}
 
                                     {/* Tanggal Pengajuan & Deadline */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="tgl_pengajuan" className="font-sans">
-                                                Tanggal Pengajuan <span className="text-red-500">*</span>
-                                            </Label>
-                                            <Input
-                                                id="tgl_pengajuan"
-                                                name="tgl_pengajuan"
-                                                type="date"
-                                                value={formData.tgl_pengajuan}
-                                                onChange={handleInputChange}
-                                                className="font-sans"
-                                            />
-                                        </div>
+                                    <div className="grid grid-cols-2 gap-2 sm:gap-4 w-full min-w-0">
+    <div className="grid gap-1.5 min-w-0">
+        <Label htmlFor="tgl_pengajuan" className="font-sans text-xs sm:text-sm">
+            Tgl Pengajuan <span className="text-red-500">*</span>
+        </Label>
+        <Input
+            id="tgl_pengajuan"
+            type="date"
+            value={formData.tgl_pengajuan}
+            onChange={handleInputChange}
+            className="font-sans text-xs sm:text-sm w-full min-w-0"
+        />
+    </div>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="tgl_deadline" className="font-sans">
-                                                Deadline <span className="text-red-500">*</span>
-                                            </Label>
-                                            <Input
-                                                id="tgl_deadline"
-                                                name="tgl_deadline"
-                                                type="date"
-                                                value={formData.tgl_deadline}
-                                                onChange={handleInputChange}
-                                                className={errors.tgl_deadline ? 'border-red-500 font-sans' : 'font-sans'}
-                                            />
-                                            {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline}</p>}
-                                        </div>
-                                    </div>
+    <div className="grid gap-1.5 min-w-0">
+        <Label htmlFor="tgl_deadline" className="font-sans text-xs sm:text-sm">
+            Deadline <span className="text-red-500">*</span>
+        </Label>
+        <Input
+            id="tgl_deadline"
+            type="date"
+            value={formData.tgl_deadline}
+            onChange={handleInputChange}
+            className="font-sans text-xs sm:text-sm w-full min-w-0"
+        />
+         {errors.tgl_deadline && <p className="text-sm text-red-500">{errors.tgl_deadline}</p>}
+    </div>
+</div>
 
                                     {/* Judul Dokumen */}
                                     <div className="grid gap-2">
@@ -1242,7 +1579,7 @@ export default function UserDokumen() {
 
                                     {/* Masterflow Steps Selection */}
                                     {formData.masterflow_id !== '' && formData.masterflow_id !== 'custom' && selectedMasterflow?.steps && selectedMasterflow.steps.length > 0 && (
-                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 30 p-3 sm:p-4 w-full max-w-full overflow-hidden">
                                             <div className="flex items-center justify-between">
                                                 <Label className="font-sans font-semibold">Alur Persetujuan</Label>
                                                 <span className="text-xs text-muted-foreground">{selectedMasterflow.steps.length} tahap persetujuan</span>
@@ -1449,7 +1786,7 @@ export default function UserDokumen() {
                                         >
                                             Batal
                                         </Button>
-                                        {docTypeMode === 'manual' && (
+                                        {(docTypeMode === 'manual' || (docTypeMode === 'transaksi' && formData.file)) && (
                                             <Button
                                                 type="button"
                                                 variant="secondary"
@@ -1512,13 +1849,25 @@ export default function UserDokumen() {
                                     Apakah Anda yakin ingin menghapus dokumen "<strong>{selectedDokumen?.judul_dokumen}</strong>"? Tindakan ini tidak dapat dibatalkan.
                                 </DialogDescription>
                             </DialogHeader>
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
-                                    Batal
-                                </Button>
-                                <Button type="button" variant="destructive" onClick={confirmDelete} className="font-sans">
-                                    Hapus
-                                </Button>
+                            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSubmitting} className="font-sans w-full sm:w-auto">
+                                        Batal
+                                    </Button>
+                                    {(docTypeMode === 'manual' || (docTypeMode === 'transaksi' && formData.file)) && (
+                                        <Button type="button" variant="secondary" onClick={openSignatureDialog} disabled={isSubmitting || !formData.file} className="font-sans text-blue-600 bg-blue-50 border-blue-200 w-full sm:w-auto">
+                                            <IconEdit className="mr-2 h-4 w-4" /> Atur Posisi Tanda Tangan
+                                        </Button>
+                                    )}
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                    <Button type="button" variant="outline" onClick={(e) => handleSubmit(e, 'draft')} disabled={isSubmitting} className="font-sans w-full sm:w-auto">
+                                        {isSubmitting && submitType === 'draft' ? 'Menyimpan...' : 'Simpan sebagai Draft'}
+                                    </Button>
+                                    <Button type="button" onClick={(e) => handleSubmit(e, 'submit')} disabled={isSubmitting} className="bg-green-600 font-sans hover:bg-green-700 w-full sm:w-auto">
+                                        {isSubmitting && submitType === 'submit' ? 'Mengirim...' : 'Submit untuk Approval'}
+                                    </Button>
+                                </div>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
