@@ -113,7 +113,7 @@ export default function ContextSwitcher() {
                     <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-72" align="start">
+            <DropdownMenuContent className="w-[calc(100vw-2rem)] max-w-72 sm:w-72" align="start">
                 <DropdownMenuLabel className="flex items-center gap-2">
                     <Shield className="h-4 w-4" />
                     Switch Context

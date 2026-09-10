@@ -281,7 +281,7 @@ export function ApprovalTimeline({
                                 );
 
                                 return (
-                                    <div key={app.id} className="relative flex gap-4 pb-8 last:pb-0">
+                                    <div key={app.id} className="relative flex gap-3 sm:gap-4 pb-8 last:pb-0">
                                         {!isLast && (
                                             <div className="absolute top-8 bottom-0 left-[15px] -ml-px w-0.5 bg-border" />
                                         )}
@@ -420,7 +420,7 @@ export function ApprovalTimeline({
                                     : 'border-yellow-500 text-yellow-500';
 
                                 return (
-                                    <div key={`group-${group.groupIndex}`} className="relative flex gap-4 pb-8 last:pb-0">
+                                    <div key={`group-${group.groupIndex}`} className="relative flex gap-3 sm:gap-4 pb-8 last:pb-0">
                                         {!isLast && (
                                             <div className="absolute top-8 bottom-0 left-[15px] -ml-px w-0.5 bg-border" />
                                         )}
@@ -514,7 +514,7 @@ export function ApprovalTimeline({
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                                <div className="flex flex-col items-end gap-1">
+                                                                <div className="flex flex-col items-start sm:items-end gap-1 shrink-0">
                                                                     {getStatusBadge(isSkipped ? 'skipped' : app.approval_status)}
                                                                     {app.tgl_approve && (
                                                                         <span className="text-[10px] text-muted-foreground">

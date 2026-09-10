@@ -67,29 +67,30 @@ export default function SuperAdminDashboard() {
                 <SidebarInset>
                     <SiteHeader />
                     <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-2 p-6">
-                            <div className="space-y-8">
+                        <div className="@container/main flex flex-1 flex-col gap-2 px-4 py-4 md:px-6 md:py-6 lg:px-8">
+                            <div className="space-y-6 md:space-y-8">
                                 {/* Header Section */}
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="space-y-2">
-                                        <h1 className="flex items-center gap-3 font-sans text-3xl font-bold tracking-tight text-foreground">
-                                            <IconShield className="h-8 w-8 text-primary" />
-                                            Super Admin Dashboard
+                                    <div className="space-y-1 sm:space-y-2">
+                                        <h1 className="flex items-center gap-2 sm:gap-3 font-sans text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                                            <IconShield className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
+                                            <span>Super Admin Dashboard</span>
                                         </h1>
-                                        <p className="font-sans text-base text-muted-foreground">
+                                        <p className="font-sans text-xs sm:text-sm md:text-base text-muted-foreground">
                                             Kelola sistem secara menyeluruh dengan kontrol administrasi penuh.
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                                         <Badge
                                             variant="outline"
-                                            className="border-primary/30 bg-primary/10 font-sans text-sm font-medium text-primary"
+                                            className="border-primary/30 bg-primary/10 font-sans text-xs sm:text-sm font-medium text-primary"
                                         >
                                             Super Admin Access
                                         </Badge>
-                                        <Button size="sm" className="hidden font-sans font-medium sm:flex">
-                                            <IconSettings className="mr-2 h-4 w-4" />
-                                            System Settings
+                                        <Button size="sm" className="flex font-sans font-medium">
+                                            <IconSettings className="h-4 w-4 sm:mr-2" />
+                                            <span className="hidden sm:inline">System Settings</span>
+                                            <span className="sm:hidden">Settings</span>
                                         </Button>
                                     </div>
                                 </div>
@@ -97,64 +98,64 @@ export default function SuperAdminDashboard() {
                                 {/* Stats Cards */}
                                 <div>
                                     {isLoading ? (
-                                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                             {[...Array(3)].map((_, i) => (
                                                 <Card key={i} className="border-border bg-card">
-                                                    <CardContent className="p-6">
+                                                    <CardContent className="p-4 sm:p-6">
                                                         <div className="flex items-center justify-between">
                                                             <div className="space-y-2">
                                                                 <div className="h-4 w-24 animate-pulse rounded bg-muted"></div>
                                                                 <div className="h-8 w-16 animate-pulse rounded bg-muted"></div>
                                                             </div>
-                                                            <div className="h-12 w-12 animate-pulse rounded-full bg-muted"></div>
+                                                            <div className="h-10 w-10 sm:h-12 sm:w-12 animate-pulse rounded-full bg-muted"></div>
                                                         </div>
                                                     </CardContent>
                                                 </Card>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                             <Card className="border-border bg-card transition-shadow hover:shadow-md">
-                                                <CardContent className="p-6">
+                                                <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-1 sm:space-y-2">
                                                             <p className="font-sans text-sm font-medium text-muted-foreground">Total Users</p>
-                                                            <p className="font-sans text-3xl font-bold text-foreground">
+                                                            <p className="font-sans text-2xl sm:text-3xl font-bold text-foreground">
                                                                 {dashboardData?.stats.total_users ?? 0}
                                                             </p>
                                                         </div>
-                                                        <div className="rounded-full bg-primary/10 p-3">
-                                                            <IconUsers className="h-6 w-6 text-primary" />
+                                                        <div className="rounded-full bg-primary/10 p-2.5 sm:p-3">
+                                                            <IconUsers className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                                         </div>
                                                     </div>
                                                 </CardContent>
                                             </Card>
                                             <Card className="border-border bg-card transition-shadow hover:shadow-md">
-                                                <CardContent className="p-6">
+                                                <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-1 sm:space-y-2">
                                                             <p className="font-sans text-sm font-medium text-muted-foreground">All Documents</p>
-                                                            <p className="font-sans text-3xl font-bold text-foreground">
+                                                            <p className="font-sans text-2xl sm:text-3xl font-bold text-foreground">
                                                                 {dashboardData?.stats.total_documents ?? 0}
                                                             </p>
                                                         </div>
-                                                        <div className="rounded-full bg-accent/20 p-3">
-                                                            <IconFileText className="h-6 w-6 text-accent-foreground" />
+                                                        <div className="rounded-full bg-accent/20 p-2.5 sm:p-3">
+                                                            <IconFileText className="h-5 w-5 sm:h-6 sm:w-6 text-accent-foreground" />
                                                         </div>
                                                     </div>
                                                 </CardContent>
                                             </Card>
                                             <Card className="border-border bg-card transition-shadow hover:shadow-md">
-                                                <CardContent className="p-6">
+                                                <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-1 sm:space-y-2">
                                                             <p className="font-sans text-sm font-medium text-muted-foreground">Pending Reviews</p>
-                                                            <p className="font-sans text-3xl font-bold text-foreground">
+                                                            <p className="font-sans text-2xl sm:text-3xl font-bold text-foreground">
                                                                 {dashboardData?.stats.pending_approvals ?? 0}
                                                             </p>
                                                         </div>
-                                                        <div className="rounded-full bg-destructive/10 p-3">
-                                                            <Clock className="h-6 w-6 text-destructive" />
+                                                        <div className="rounded-full bg-destructive/10 p-2.5 sm:p-3">
+                                                            <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
                                                         </div>
                                                     </div>
                                                 </CardContent>
@@ -164,32 +165,32 @@ export default function SuperAdminDashboard() {
                                 </div>
 
                                 {/* Management Modules - Full Width */}
-                                <div className="space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="font-sans text-2xl font-bold text-foreground">Management Modules</h2>
-                                        <p className="font-sans text-sm text-muted-foreground">Kelola semua komponen sistem</p>
+                                <div className="space-y-4 sm:space-y-6">
+                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                        <h2 className="font-sans text-xl sm:text-2xl font-bold text-foreground">Management Modules</h2>
+                                        <p className="font-sans text-xs sm:text-sm text-muted-foreground">Kelola semua komponen sistem</p>
                                     </div>
-                                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                         {/* User Roles Management */}
                                         <Link href="/super-admin/role-management">
                                             <Card className="group h-full cursor-pointer border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg">
-                                                <CardContent className="p-6">
-                                                    <div className="space-y-4">
+                                                <CardContent className="p-4 sm:p-6">
+                                                    <div className="space-y-3 sm:space-y-4">
                                                         <div className="flex items-center justify-between">
-                                                            <div className="rounded-lg bg-primary/10 p-3 transition-colors group-hover:bg-primary/20">
-                                                                <IconShield className="h-6 w-6 text-primary" />
+                                                            <div className="rounded-lg bg-primary/10 p-2.5 sm:p-3 transition-colors group-hover:bg-primary/20">
+                                                                <IconShield className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                                             </div>
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-3xl font-bold text-primary">
+                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-primary">
                                                                     {dashboardData?.stats.total_roles ?? 0}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <div className="space-y-1">
                                                             <h3 className="font-sans text-base font-semibold text-foreground">User Roles</h3>
-                                                            <p className="font-sans text-sm leading-relaxed text-muted-foreground">
+                                                            <p className="font-sans text-xs sm:text-sm leading-relaxed text-muted-foreground">
                                                                 Kelola roles dan permissions pengguna
                                                             </p>
                                                         </div>
@@ -201,23 +202,23 @@ export default function SuperAdminDashboard() {
                                         {/* Company Management */}
                                         <Link href="/super-admin/company-management">
                                             <Card className="group h-full cursor-pointer border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg">
-                                                <CardContent className="p-6">
-                                                    <div className="space-y-4">
+                                                <CardContent className="p-4 sm:p-6">
+                                                    <div className="space-y-3 sm:space-y-4">
                                                         <div className="flex items-center justify-between">
-                                                            <div className="rounded-lg bg-blue-500/10 p-3 transition-colors group-hover:bg-blue-500/20">
-                                                                <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                                            <div className="rounded-lg bg-blue-500/10 p-2.5 sm:p-3 transition-colors group-hover:bg-blue-500/20">
+                                                                <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
                                                             </div>
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
                                                                     {dashboardData?.stats.total_companies ?? 0}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <div className="space-y-1">
                                                             <h3 className="font-sans text-base font-semibold text-foreground">Companies</h3>
-                                                            <p className="font-sans text-sm leading-relaxed text-muted-foreground">
+                                                            <p className="font-sans text-xs sm:text-sm leading-relaxed text-muted-foreground">
                                                                 Kelola perusahaan terdaftar
                                                             </p>
                                                         </div>
@@ -229,23 +230,23 @@ export default function SuperAdminDashboard() {
                                         {/* Jabatan Management */}
                                         <Link href="/super-admin/jabatan-management">
                                             <Card className="group h-full cursor-pointer border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg">
-                                                <CardContent className="p-6">
-                                                    <div className="space-y-4">
+                                                <CardContent className="p-4 sm:p-6">
+                                                    <div className="space-y-3 sm:space-y-4">
                                                         <div className="flex items-center justify-between">
-                                                            <div className="rounded-lg bg-purple-500/10 p-3 transition-colors group-hover:bg-purple-500/20">
-                                                                <Briefcase className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                                                            <div className="rounded-lg bg-purple-500/10 p-2.5 sm:p-3 transition-colors group-hover:bg-purple-500/20">
+                                                                <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
                                                             </div>
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
                                                                     {dashboardData?.stats.total_jabatans ?? 0}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <div className="space-y-1">
                                                             <h3 className="font-sans text-base font-semibold text-foreground">Jabatan</h3>
-                                                            <p className="font-sans text-sm leading-relaxed text-muted-foreground">
+                                                            <p className="font-sans text-xs sm:text-sm leading-relaxed text-muted-foreground">
                                                                 Kelola jabatan organisasi
                                                             </p>
                                                         </div>
@@ -257,23 +258,23 @@ export default function SuperAdminDashboard() {
                                         {/* Aplikasi Management */}
                                         <Link href="/super-admin/aplikasi-management">
                                             <Card className="group h-full cursor-pointer border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg">
-                                                <CardContent className="p-6">
-                                                    <div className="space-y-4">
+                                                <CardContent className="p-4 sm:p-6">
+                                                    <div className="space-y-3 sm:space-y-4">
                                                         <div className="flex items-center justify-between">
-                                                            <div className="rounded-lg bg-green-500/10 p-3 transition-colors group-hover:bg-green-500/20">
-                                                                <Smartphone className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                                            <div className="rounded-lg bg-green-500/10 p-2.5 sm:p-3 transition-colors group-hover:bg-green-500/20">
+                                                                <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
                                                             </div>
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-3xl font-bold text-green-600 dark:text-green-400">
+                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
                                                                     {dashboardData?.stats.total_aplikasis ?? 0}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <div className="space-y-1">
                                                             <h3 className="font-sans text-base font-semibold text-foreground">Aplikasi</h3>
-                                                            <p className="font-sans text-sm leading-relaxed text-muted-foreground">
+                                                            <p className="font-sans text-xs sm:text-sm leading-relaxed text-muted-foreground">
                                                                 Kelola aplikasi terintegrasi
                                                             </p>
                                                         </div>

@@ -81,18 +81,18 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                 <SidebarInset>
                     <SiteHeader />
                     <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-2 p-6">
-                            <div className="space-y-8">
+                        <div className="@container/main flex flex-1 flex-col gap-2 px-4 py-4 md:px-6 md:py-6 lg:px-8">
+                            <div className="space-y-6 md:space-y-8">
                                 {/* Header Section */}
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="space-y-1">
-                                        <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-foreground">
-                                            <IconUser className="h-6 w-6 text-primary" />
-                                            Welcome back, {user?.name}
+                                        <h1 className="flex items-center gap-2 font-serif text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                                            <IconUser className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+                                            <span>Welcome back, {user?.name}</span>
                                         </h1>
                                         <div className="space-y-1">
-                                            <p className="text-sm text-muted-foreground">Track and manage your document submissions.</p>
-                                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                            <p className="text-xs sm:text-sm text-muted-foreground">Track and manage your document submissions.</p>
+                                            <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
                                                 <span className="flex items-center gap-1">
                                                     <strong>Company:</strong> {user?.company || 'No Company Assigned'}
                                                 </span>
@@ -103,7 +103,7 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Badge variant="outline" className="text-xs">
                                             {user?.role} Access
                                         </Badge>
@@ -119,16 +119,16 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                 {/* Approver Stats - Show if user has approval duties */}
                                 {((statistics.pending_approvals ?? 0) > 0 || (statistics.processed_approvals ?? 0) > 0) && (
                                     <>
-                                        <h2 className="mb-2 font-serif text-lg font-semibold text-foreground">My Approval Tasks</h2>
-                                        <div className="mb-8 grid gap-4 md:grid-cols-2">
+                                        <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Approval Tasks</h2>
+                                        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             <Card className="border-orange-200 bg-orange-50/50">
-                                                <CardContent className="p-6">
+                                                <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1">
                                                             <p className="text-sm font-medium text-orange-900">Pending Approvals</p>
-                                                            <p className="text-3xl font-bold text-orange-700">{statistics.pending_approvals || 0}</p>
+                                                            <p className="text-2xl sm:text-3xl font-bold text-orange-700">{statistics.pending_approvals || 0}</p>
                                                         </div>
-                                                        <IconFileText className="h-8 w-8 text-orange-500" />
+                                                        <IconFileText className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
                                                     </div>
                                                     <div className="mt-4">
                                                         <Link href="/approvals">
@@ -140,13 +140,13 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                                 </CardContent>
                                             </Card>
                                             <Card className="border-blue-200 bg-blue-50/50">
-                                                <CardContent className="p-6">
+                                                <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1">
                                                             <p className="text-sm font-medium text-blue-900">Processed Approvals</p>
-                                                            <p className="text-3xl font-bold text-blue-700">{statistics.processed_approvals || 0}</p>
+                                                            <p className="text-2xl sm:text-3xl font-bold text-blue-700">{statistics.processed_approvals || 0}</p>
                                                         </div>
-                                                        <CheckCircle2 className="h-8 w-8 text-blue-500" />
+                                                        <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500" />
                                                     </div>
                                                     <div className="mt-4">
                                                         <Link href="/approvals?status=approved">
@@ -164,50 +164,50 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                     </>
                                 )}
 
-                                <h2 className="mb-2 font-serif text-lg font-semibold text-foreground">My Documents</h2>
+                                <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Documents</h2>
                                 {/* Stats Cards */}
-                                <div className="grid gap-4 md:grid-cols-4">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="text-sm font-medium text-muted-foreground">My Pending Documents</p>
-                                                    <p className="text-2xl font-bold text-foreground">{statistics?.pending_documents || 0}</p>
+                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.pending_documents || 0}</p>
                                                 </div>
-                                                <Clock className="h-8 w-8 text-orange-500" />
+                                                <Clock className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="text-sm font-medium text-muted-foreground">Approved Documents</p>
-                                                    <p className="text-2xl font-bold text-foreground">{statistics?.approved_documents || 0}</p>
+                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.approved_documents || 0}</p>
                                                 </div>
-                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                                <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-green-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="text-sm font-medium text-muted-foreground">Rejected Documents</p>
-                                                    <p className="text-2xl font-bold text-foreground">{statistics?.rejected_documents || 0}</p>
+                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.rejected_documents || 0}</p>
                                                 </div>
-                                                <XCircle className="h-8 w-8 text-red-500" />
+                                                <XCircle className="h-7 w-7 sm:h-8 sm:w-8 text-red-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="text-sm font-medium text-muted-foreground">Total Submitted</p>
-                                                    <p className="text-2xl font-bold text-foreground">{statistics?.total_submitted || 0}</p>
+                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.total_submitted || 0}</p>
                                                 </div>
-                                                <FileText className="h-8 w-8 text-blue-500" />
+                                                <FileText className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500" />
                                             </div>
                                         </CardContent>
                                     </Card>

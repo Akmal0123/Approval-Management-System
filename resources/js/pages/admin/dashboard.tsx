@@ -132,75 +132,76 @@ export default function AdminDashboard({ stats, recent_documents, recent_activit
                 <SidebarInset>
                     <SiteHeader />
                     <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-2 p-6">
-                            <div className="space-y-8">
+                        <div className="@container/main flex flex-1 flex-col gap-2 px-4 py-4 md:px-6 md:py-6 lg:px-8">
+                            <div className="space-y-6 md:space-y-8">
                                 {/* Header Section */}
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="space-y-1">
-                                        <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-foreground">
-                                            <IconSparkles className="h-6 w-6 text-primary" />
-                                            Admin Dashboard
+                                        <h1 className="flex items-center gap-2 font-serif text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                                            <IconSparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+                                            <span>Admin Dashboard</span>
                                         </h1>
-                                        <p className="font-sans text-sm text-muted-foreground">
+                                        <p className="font-sans text-xs sm:text-sm text-muted-foreground">
                                             {current_context?.company} - {current_context?.aplikasi}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Badge variant="outline" className="font-sans text-xs">
                                             {current_context?.role}
                                         </Badge>
                                         <Link href="/dokumen">
-                                            <Button size="sm" className="hidden font-sans sm:flex">
-                                                <IconFileText className="mr-2 h-4 w-4" />
-                                                New Document
+                                            <Button size="sm" className="flex font-sans">
+                                                <IconFileText className="h-4 w-4 sm:mr-2" />
+                                                <span className="hidden sm:inline">New Document</span>
+                                                <span className="sm:hidden">New</span>
                                             </Button>
                                         </Link>
                                     </div>
                                 </div>
 
                                 {/* Stats Cards */}
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Pending Reviews</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.pending_reviews ?? 0}</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.pending_reviews ?? 0}</p>
                                                 </div>
-                                                <Clock className="h-8 w-8 text-orange-500" />
+                                                <Clock className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Approved Today</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.approved_today ?? 0}</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.approved_today ?? 0}</p>
                                                 </div>
-                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                                <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-green-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Total Documents</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.total_documents ?? 0}</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.total_documents ?? 0}</p>
                                                 </div>
-                                                <FileText className="h-8 w-8 text-blue-500" />
+                                                <FileText className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Active Users</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.active_users ?? 0}</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.active_users ?? 0}</p>
                                                 </div>
-                                                <IconUsers className="h-8 w-8 text-purple-500" />
+                                                <IconUsers className="h-7 w-7 sm:h-8 sm:w-8 text-purple-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -211,7 +212,7 @@ export default function AdminDashboard({ stats, recent_documents, recent_activit
                                     <div className="lg:col-span-2">
                                         <div className="space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <h2 className="font-serif text-lg font-semibold text-foreground">Recent Documents</h2>
+                                                <h2 className="font-serif text-base sm:text-lg font-semibold text-foreground">Recent Documents</h2>
                                                 <Link href="/dokumen">
                                                     <Button variant="outline" size="sm" className="font-sans">
                                                         View All
@@ -222,12 +223,12 @@ export default function AdminDashboard({ stats, recent_documents, recent_activit
                                                 <div className="space-y-2">
                                                     {recent_documents.slice(0, 5).map((doc) => (
                                                         <div key={doc.id} className="flex items-center justify-between rounded-lg border p-3">
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="font-medium">{doc.judul_dokumen}</p>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <p className="font-medium truncate">{doc.judul_dokumen}</p>
                                                                     {getStatusBadge(doc.status)}
                                                                 </div>
-                                                                <p className="text-sm text-muted-foreground">
+                                                                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                                                                     {doc.nomor_dokumen} • {doc.user_name} • {doc.created_at}
                                                                 </p>
                                                             </div>
