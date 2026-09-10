@@ -334,7 +334,7 @@ export default function UserDokumen() {
             return;
         }
         fetchDokumen();
-        fetchMasterflows();
+        //fetchMasterflows();
         fetchAplikasi();
     }, [auth.user]);
 
@@ -506,27 +506,30 @@ export default function UserDokumen() {
         });
     };
 
-    const handleCreate = async () => {
-        try {
-            await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
-        } catch (error) {
-            console.warn('Failed to refresh CSRF token:', error);
-        }
-
-        const newFormData = {
-            ...initialFormData,
-            nomor_dokumen: '',
-            tgl_pengajuan: new Date().toISOString().split('T')[0],
-            custom_approvers: [{ email: '', order: 1 }],
-        };
-
-        setFormData(newFormData);
-        setSelectedMasterflow(null);
-        setAvailableApprovers({});
-        setStepModes({});
-        setErrors({});
-        setIsCreateDialogOpen(true);
+    const handleCreate = () => {
+    // 1. Reset Form Data ke kondisi awal
+    const newFormData = {
+        ...initialFormData,
+        nomor_dokumen: '',
+        tgl_pengajuan: new Date().toISOString().split('T')[0],
+        custom_approvers: [{ email: '', order: 1 }],
     };
+
+    setFormData(newFormData);
+    
+    // 2. RESET SEMUA STATE PENDUKUNG (INI YANG PALING PENTING!)
+    setSelectedMasterflow(null);
+    setAvailableApprovers({});
+    setStepModes({});
+    setErrors({});
+    
+    // TAMBAHKAN BARIS INI: Kosongkan list dropdown agar tidak membekas
+    setMasterflows([]); 
+    setTransaksiList([]); // Opsional: Kosongkan juga list transaksi jika perlu
+    
+    // 3. Buka Modal
+    setIsCreateDialogOpen(true);
+};
 
     const openSignatureDialog = () => {
         if (!formData.file || !localFileUrl) {
@@ -1253,21 +1256,31 @@ export default function UserDokumen() {
             <SelectValue placeholder="Pilih masterflow" />
         </SelectTrigger>
         <SelectContent>
-            {masterflows && masterflows.length > 0 ? (
-                masterflows.map((mf: any) => (
-                    <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
-                        {mf.name}
-                    </SelectItem>
-                ))
-            ) : (
-                <SelectItem value="empty-flow" disabled className="font-sans text-slate-400">
-                    {formData.transaksi_id ? 'Tidak ada masterflow untuk transaksi ini' : 'Pilih transaksi terlebih dahulu'}
+            {docTypeMode === 'manual' ? (
+                /* JIKA MODE MANUAL: HANYA TAMPILKAN CUSTOM APPROVAL */
+                <SelectItem value="custom" className="font-sans font-medium text-primary">
+                    ✨ Custom Approval
                 </SelectItem>
+            ) : (
+                /* JIKA MODE TRANSAKSI: TAMPILKAN MASTERFLOW DARI DATABASE + CUSTOM APPROVAL */
+                <>
+                    {masterflows && masterflows.length > 0 ? (
+                        masterflows.map((mf: any) => (
+                            <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
+                                {mf.name}
+                            </SelectItem>
+                        ))
+                    ) : (
+                        <SelectItem value="empty-flow" disabled className="font-sans text-slate-400">
+                            {formData.transaksi_id ? 'Tidak ada masterflow untuk transaksi ini' : 'Pilih transaksi terlebih dahulu'}
+                        </SelectItem>
+                    )}
+                    
+                    <SelectItem value="custom" className="font-sans font-medium text-primary">
+                        ✨ Custom Approval
+                    </SelectItem>
+                </>
             )}
-            
-            <SelectItem value="custom" className="font-sans font-medium text-primary">
-                ✨ Custom Approval
-            </SelectItem>
         </SelectContent>
     </Select>
     {errors.masterflow_id && <p className="font-sans text-sm text-red-600">{errors.masterflow_id}</p>}
