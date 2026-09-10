@@ -453,7 +453,7 @@ class DokumenController extends Controller
                     foreach ($positions as $pos) {
                         $frontendId = $pos['dokumen_approval_id'];
 
-                        if ($frontendId === 'qr_code' || empty($frontendId)) {
+                        if ($frontendId === 'qr_code' || str_starts_with((string)$frontendId, 'qr_code') || empty($frontendId)) {
                             $positionsData[] = [
                                 'dokumen_id' => $dokumen->id,
                                 'dokumen_approval_id' => null,

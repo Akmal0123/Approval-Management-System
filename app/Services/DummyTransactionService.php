@@ -13,7 +13,7 @@ class DummyTransactionService
     {
         return [
             // =========================================================================
-            // PURCHASE REQUEST (PR)
+            // PURCHASE REQUEST (PR / RQE)
             // =========================================================================
             'RQE-22001433' => [
                 'kode' => 'RQE-22001433',
@@ -96,8 +96,327 @@ class DummyTransactionService
                 'app_date' => '8/16/2026'
             ],
 
+            'RQE-22001436' => [
+                'kode' => 'RQE-22001436',
+                'nomor_dokumen' => 'RQE-22001436/100000',
+                'judul' => 'Pengadaan Perangkat Jaringan Access Point & Switch Hub - Cabang Surabaya',
+                'nominal' => 6750000,
+                'tanggal' => '2026-08-18',
+                'print_date' => '8/18/2026 11:20:10 AM',
+                'tipe' => 'PR',
+                'no_ref' => '055/TD-IT SBY/VIII/2026',
+                'gudang' => 'WH-SURABAYA',
+                'entity' => 'Cab. Surabaya',
+                'del_date' => '8/23/2026 9:00:00 AM',
+                'deskripsi' => 'Upgrade infrastruktur jaringan LAN dan Wi-Fi kantor perwakilan cabang Surabaya untuk mendukung sistem ERP online.',
+                'items' => [
+                    [
+                        'kode' => '2810.0012',
+                        'nama' => 'Access Point Ruijie Reyee RG-RAP2200(E) AC1300 Dual Band Gigabit',
+                        'satuan' => 'Unit',
+                        'qty' => 2,
+                        'keterangan' => 'Penggantian AP Lantai 1 dan Gudang Surabaya'
+                    ],
+                    [
+                        'kode' => '2810.0019',
+                        'nama' => 'Switch Gigabit TP-Link TL-SG1024D 24-Port Rackmount',
+                        'satuan' => 'Unit',
+                        'qty' => 1,
+                        'keterangan' => 'Sentral Switch Ruang Server SBY'
+                    ],
+                    [
+                        'kode' => '2810.0045',
+                        'nama' => 'Kabel UTP Cat6 Belden Original 305 Meter Grey',
+                        'satuan' => 'Roll',
+                        'qty' => 1,
+                        'keterangan' => 'Kabel tarikan baru workstation sales'
+                    ]
+                ],
+                'approver1' => 'IT-MGR',
+                'approver2' => 'GM-OPS',
+                'app_date' => '8/19/2026'
+            ],
+
+            'RQE-22001437' => [
+                'kode' => 'RQE-22001437',
+                'nomor_dokumen' => 'RQE-22001437/100000',
+                'judul' => 'Pengadaan Pallet Kayu Standar Ekspor & Hand Pallet 3 Ton - MDC Solo TD',
+                'nominal' => 18500000,
+                'tanggal' => '2026-08-22',
+                'print_date' => '8/22/2026 1:45:00 PM',
+                'tipe' => 'PR',
+                'no_ref' => '178/TD-LOG SLO/VIII/2026',
+                'gudang' => 'MDC SOLO TD',
+                'entity' => 'Head Office',
+                'del_date' => '8/27/2026 10:00:00 AM',
+                'deskripsi' => 'Penambahan pallet kayu ISPM-15 dan unit hand pallet truck hidrolik untuk bongkar muat buku kurikulum baru.',
+                'items' => [
+                    [
+                        'kode' => '3210.0008',
+                        'nama' => 'Pallet Kayu Kering Oven 120 x 100 x 15 cm Standar Fumigasi ISPM-15',
+                        'satuan' => 'Pcs',
+                        'qty' => 100,
+                        'keterangan' => 'Penambahan Racking Area Blok C MDC Solo'
+                    ],
+                    [
+                        'kode' => '3210.0025',
+                        'nama' => 'Hand Pallet Truck Hydraulic Krisbow Kapasitas 3.0 Ton Nylon Wheel',
+                        'satuan' => 'Unit',
+                        'qty' => 2,
+                        'keterangan' => 'Armada bongkar muat kontainer ekspedisi'
+                    ]
+                ],
+                'approver1' => 'LOG-MGR',
+                'approver2' => 'DIR-OPS',
+                'app_date' => '8/23/2026'
+            ],
+
+            'RQE-22001438' => [
+                'kode' => 'RQE-22001438',
+                'nomor_dokumen' => 'RQE-22001438/100000',
+                'judul' => 'Pengadaan Tinta & Toner Mesin Cetak Digital Printing - Head Office Solo',
+                'nominal' => 14300000,
+                'tanggal' => '2026-08-25',
+                'print_date' => '8/25/2026 10:10:22 AM',
+                'tipe' => 'PR',
+                'no_ref' => '205/TD-PROD/VIII/2026',
+                'gudang' => 'MDC SOLO TD',
+                'entity' => 'Head Office',
+                'del_date' => '8/29/2026 2:00:00 PM',
+                'deskripsi' => 'Pengadaan persediaan consumable toner CMYK untuk mesin cetak digital proofing Konica Minolta AccurioPress.',
+                'items' => [
+                    [
+                        'kode' => '2410.0111',
+                        'nama' => 'Toner Cartridge Konica Minolta TN-619K Black Original',
+                        'satuan' => 'Pcs',
+                        'qty' => 4,
+                        'keterangan' => 'Stok Produksi Cetak Sample & Bukti Acc'
+                    ],
+                    [
+                        'kode' => '2410.0112',
+                        'nama' => 'Toner Cartridge Konica Minolta TN-619C Cyan Original',
+                        'satuan' => 'Pcs',
+                        'qty' => 2,
+                        'keterangan' => 'Stok Produksi Cetak Sample & Bukti Acc'
+                    ],
+                    [
+                        'kode' => '2410.0113',
+                        'nama' => 'Toner Cartridge Konica Minolta TN-619M Magenta Original',
+                        'satuan' => 'Pcs',
+                        'qty' => 2,
+                        'keterangan' => 'Stok Produksi Cetak Sample & Bukti Acc'
+                    ],
+                    [
+                        'kode' => '2410.0114',
+                        'nama' => 'Toner Cartridge Konica Minolta TN-619Y Yellow Original',
+                        'satuan' => 'Pcs',
+                        'qty' => 2,
+                        'keterangan' => 'Stok Produksi Cetak Sample & Bukti Acc'
+                    ]
+                ],
+                'approver1' => 'PROD-MGR',
+                'approver2' => 'FIN-MGR',
+                'app_date' => '8/26/2026'
+            ],
+
+            'RQE-22001439' => [
+                'kode' => 'RQE-22001439',
+                'nomor_dokumen' => 'RQE-22001439/100000',
+                'judul' => 'Pengadaan Seragam Kerja Lapangan & Sepatu Safety Staff Gudang - MDC Solo TD',
+                'nominal' => 9600000,
+                'tanggal' => '2026-08-28',
+                'print_date' => '8/28/2026 3:25:00 PM',
+                'tipe' => 'PR',
+                'no_ref' => '071/TD-HRD/VIII/2026',
+                'gudang' => 'MDC SOLO TD',
+                'entity' => 'Head Office',
+                'del_date' => '9/5/2026 9:00:00 AM',
+                'deskripsi' => 'Pengadaan perlengkapan K3 dan seragam kerja tahunan bagi 30 personil gudang dan logistik pusat.',
+                'items' => [
+                    [
+                        'kode' => '4100.0015',
+                        'nama' => 'Polo Shirt Seragam Tisera Logistik Katun Pique Warna Navy (Bordir Logo)',
+                        'satuan' => 'Pcs',
+                        'qty' => 60,
+                        'keterangan' => 'Alokasi 2 Pcs per staff gudang (30 org)'
+                    ],
+                    [
+                        'kode' => '4100.0032',
+                        'nama' => 'Sepatu Safety Cheetah 7001H Steel Toe Cap Standar SNI',
+                        'satuan' => 'Pasang',
+                        'qty' => 15,
+                        'keterangan' => 'Penggantian APD Safety Operator Forklift & Loader'
+                    ],
+                    [
+                        'kode' => '4100.0055',
+                        'nama' => 'Rompi Safety Jaring Hijau Stabilo Reflective Scotlight',
+                        'satuan' => 'Pcs',
+                        'qty' => 30,
+                        'keterangan' => 'Perlengkapan K3 wajib area bongkar muat'
+                    ]
+                ],
+                'approver1' => 'HR-MGR',
+                'approver2' => 'OPS-DIR',
+                'app_date' => '8/29/2026'
+            ],
+
+            'RQE-22001440' => [
+                'kode' => 'RQE-22001440',
+                'nomor_dokumen' => 'RQE-22001440/100000',
+                'judul' => 'Pengadaan Laptop ASUS Vivobook Core i5 Sales Representative - Cab. Bandung',
+                'nominal' => 17800000,
+                'tanggal' => '2026-09-01',
+                'print_date' => '9/1/2026 10:00:00 AM',
+                'tipe' => 'PR',
+                'no_ref' => '042/TD-BDO/IX/2026',
+                'gudang' => 'WH-BANDUNG',
+                'entity' => 'Cab. Bandung',
+                'del_date' => '9/6/2026 11:00:00 AM',
+                'deskripsi' => 'Pengadaan 2 unit laptop untuk tim sales representative cabang Bandung guna presentasi produk buku ke sekolah binaan.',
+                'items' => [
+                    [
+                        'kode' => '2810.0105',
+                        'nama' => 'Laptop ASUS Vivobook 14 A1404VA Core i5-1335U/16GB/512GB SSD/Win 11',
+                        'satuan' => 'Unit',
+                        'qty' => 2,
+                        'keterangan' => 'Perangkat Kerja Sales Marketing BDO'
+                    ],
+                    [
+                        'kode' => '2810.0118',
+                        'nama' => 'Logitech Wireless Mouse M185 Silent Grey',
+                        'satuan' => 'Unit',
+                        'qty' => 2,
+                        'keterangan' => 'Paket pendukung laptop sales'
+                    ]
+                ],
+                'approver1' => 'KACAB',
+                'approver2' => 'DIR-MKT',
+                'app_date' => '9/2/2026'
+            ],
+
+            'RQE-22001441' => [
+                'kode' => 'RQE-22001441',
+                'nomor_dokumen' => 'RQE-22001441/100000',
+                'judul' => 'Pemeliharaan & Penggantian Sparepart Armada Truk Box Isuzu - Cab. Semarang',
+                'nominal' => 8450000,
+                'tanggal' => '2026-09-03',
+                'print_date' => '9/3/2026 8:40:00 AM',
+                'tipe' => 'PR',
+                'no_ref' => '067/TD-SMG/IX/2026',
+                'gudang' => 'WH-SEMARANG',
+                'entity' => 'Cab. Semarang',
+                'del_date' => '9/5/2026 1:00:00 PM',
+                'deskripsi' => 'Penggantian ban dan servis berkala armada truk box Isuzu Elf (H-1824-FA) pengiriman buku wilayah Pantura.',
+                'items' => [
+                    [
+                        'kode' => '5210.0010',
+                        'nama' => 'Ban Luar Truk Bridgestone R156 7.50-16 14PR Heavy Duty',
+                        'satuan' => 'Pcs',
+                        'qty' => 4,
+                        'keterangan' => 'Penggantian ban belakang gundul armada Isuzu'
+                    ],
+                    [
+                        'kode' => '5210.0022',
+                        'nama' => 'Oli Mesin Meditran SX 15W-40 Galon 5 Liter Diesel',
+                        'satuan' => 'Galon',
+                        'qty' => 2,
+                        'keterangan' => 'Ganti oli berkala 10.000 KM'
+                    ],
+                    [
+                        'kode' => '5210.0035',
+                        'nama' => 'Filter Oli & Filter Solar Isuzu Giga/Elf Original Astra',
+                        'satuan' => 'Set',
+                        'qty' => 1,
+                        'keterangan' => 'Penggantian filter rutin servis mesin'
+                    ]
+                ],
+                'approver1' => 'KACAB',
+                'approver2' => 'LOG-DIR',
+                'app_date' => '9/3/2026'
+            ],
+
+            'RQE-22001442' => [
+                'kode' => 'RQE-22001442',
+                'nomor_dokumen' => 'RQE-22001442/100000',
+                'judul' => 'Pengadaan Perlengkapan Sanitasi & APD Kebersihan Gedung - Cab. Makassar',
+                'nominal' => 3750000,
+                'tanggal' => '2026-09-05',
+                'print_date' => '9/5/2026 11:15:00 AM',
+                'tipe' => 'PR',
+                'no_ref' => '038/TD-MKS/IX/2026',
+                'gudang' => 'WH-MAKASSAR',
+                'entity' => 'Cab. Makassar',
+                'del_date' => '9/9/2026 10:00:00 AM',
+                'deskripsi' => 'Pengadaan perlengkapan kebersihan dan sanitasi rutin triwulan III gedung kantor perwakilan Makassar.',
+                'items' => [
+                    [
+                        'kode' => '4200.0011',
+                        'nama' => 'Cairan Pembersih Lantai Wipol Karbol Wangi Pine Jerigen 5 Liter',
+                        'satuan' => 'Jerigen',
+                        'qty' => 6,
+                        'keterangan' => 'Stok kebersihan kantor 3 bulan'
+                    ],
+                    [
+                        'kode' => '4200.0025',
+                        'nama' => 'Hand Soap Anti Bakteri Dettol Pouch Isi Ulang 400ml',
+                        'satuan' => 'Pouch',
+                        'qty' => 24,
+                        'keterangan' => 'Wastafel toilet kantor & gudang'
+                    ],
+                    [
+                        'kode' => '4200.0040',
+                        'nama' => 'Tempat Sampah Injak Pedal Dustbin 20 Liter Bio Plastik',
+                        'satuan' => 'Unit',
+                        'qty' => 4,
+                        'keterangan' => 'Penempatan area koridor kantor'
+                    ],
+                    [
+                        'kode' => '4200.0058',
+                        'nama' => 'Kain Pel Mop Microfiber Twist Handle Stainless',
+                        'satuan' => 'Set',
+                        'qty' => 4,
+                        'keterangan' => 'Peremajaan alat kebersihan office'
+                    ]
+                ],
+                'approver1' => 'KACAB',
+                'approver2' => 'GA-MGR',
+                'app_date' => '9/6/2026'
+            ],
+
+            'RQE-22001443' => [
+                'kode' => 'RQE-22001443',
+                'nomor_dokumen' => 'RQE-22001443/100000',
+                'judul' => 'Pengadaan Paket ATK Lengkap Awal Tahun Ajaran Baru - MDC Solo TD',
+                'nominal' => 21850000,
+                'tanggal' => '2026-09-08',
+                'print_date' => '9/8/2026 9:00:00 AM',
+                'tipe' => 'PR',
+                'no_ref' => '289/TD-OPS SB/IX/2026',
+                'gudang' => 'MDC SOLO TD',
+                'entity' => 'Head Office',
+                'del_date' => '9/14/2026 8:30:00 AM',
+                'deskripsi' => 'Pengadaan paket perlengkapan ATK terintegrasi untuk seluruh divisi operasional, editorial, dan logistik kantor pusat menjelang peak season distribusi buku tahun ajaran baru (Multi-Page Test Document).',
+                'items' => [
+                    ['kode' => '2100.0001', 'nama' => 'Kertas HVS SiDU A4 70 GSM Putih (500 Lembar/Rim)', 'satuan' => 'Rim', 'qty' => 120, 'keterangan' => 'Kebutuhan cetak invoice & SPK operasional'],
+                    ['kode' => '2100.0002', 'nama' => 'Kertas HVS SiDU F4 / Folio 70 GSM Putih', 'satuan' => 'Rim', 'qty' => 80, 'keterangan' => 'Kebutuhan cetak kontrak dan dokumen legal'],
+                    ['kode' => '2100.0015', 'nama' => 'Ballpoint Standard AE7 0.5 mm Black (Box isi 12 pcs)', 'satuan' => 'Box', 'qty' => 25, 'keterangan' => 'Distribusi ATK rutin staf kantor'],
+                    ['kode' => '2100.0016', 'nama' => 'Ballpoint Standard AE7 0.5 mm Blue (Box isi 12 pcs)', 'satuan' => 'Box', 'qty' => 15, 'keterangan' => 'Distribusi ATK rutin staf kantor'],
+                    ['kode' => '2100.0028', 'nama' => 'Map Snellhecter Plastik Transparan A4 Warna Biru', 'satuan' => 'Lusin', 'qty' => 20, 'keterangan' => 'Arsip berkas tagihan keuangan'],
+                    ['kode' => '2100.0034', 'nama' => 'Binder Clip Joyko No. 260 Ukuran 51 mm', 'satuan' => 'Box', 'qty' => 30, 'keterangan' => 'Penjepit naskah naskah tebal editorial'],
+                    ['kode' => '2100.0035', 'nama' => 'Binder Clip Joyko No. 155 Ukuran 32 mm', 'satuan' => 'Box', 'qty' => 40, 'keterangan' => 'Penjepit dokumen distribusi'],
+                    ['kode' => '2100.0049', 'nama' => 'Stapler Heavy Duty Kangaro HD-23S17 (Kapasitas 160 Lembar)', 'satuan' => 'Unit', 'qty' => 5, 'keterangan' => 'Alat jilid dokumen SPK & faktur pajak'],
+                    ['kode' => '2100.0050', 'nama' => 'Isi Staples Kangaro 23/17 Heavy Duty', 'satuan' => 'Box', 'qty' => 20, 'keterangan' => 'Refill stapler heavy duty'],
+                    ['kode' => '2100.0062', 'nama' => 'Lakban Bening Daimaru 2 Inch x 100 Yard (Dus isi 72 Roll)', 'satuan' => 'Dus', 'qty' => 10, 'keterangan' => 'Packing paket buku kiriman ekspedisi'],
+                    ['kode' => '2100.0078', 'nama' => 'Spidol Permanent Marker Snowman Jumbo Hitam', 'satuan' => 'Lusin', 'qty' => 15, 'keterangan' => 'Penandaan koli karton di gudang'],
+                    ['kode' => '2100.0090', 'nama' => 'Cutter Joyko L-500 Blade Metal Auto Lock', 'satuan' => 'Pcs', 'qty' => 20, 'keterangan' => 'Pisau pembuka kardus area packing']
+                ],
+                'approver1' => 'AGM',
+                'approver2' => 'M.M',
+                'app_date' => '9/9/2026'
+            ],
+
             // =========================================================================
-            // PURCHASE ORDER (PO)
+            // PURCHASE ORDER (PO / POE)
             // =========================================================================
             'POE-22005020' => [
                 'kode' => 'POE-22005020',
@@ -188,6 +507,254 @@ class DummyTransactionService
                 ],
                 'approvers' => ['NNR', 'P.A.M.'],
                 'app_date' => '8/20/2026'
+            ],
+
+            'POE-22005023' => [
+                'kode' => 'POE-22005023',
+                'nomor_dokumen' => 'POE-22005023/100000',
+                'judul' => 'PO Buku Teks Tematik SD/MI Kelas 1-6 Lengkap - PT Tiga Serangkai Pustaka Mandiri',
+                'nominal' => 45600000,
+                'tanggal' => '2026-08-24',
+                'print_date' => '8/24/2026 9:20:00 AM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001462/100000',
+                'vendor' => 'PT TIGA SERANGKAI PUSTAKA MANDIRI',
+                'phone' => '0271 - 714344',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Pengadaan stok reguler buku tematik SD/MI wilayah distribusi Jawa Tengah & DIY',
+                'deskripsi' => 'PO buku teks tematik terpadu SD/MI kelas 1 sampai dengan kelas 6 edisi revisi terbaru.',
+                'items' => [
+                    ['delDate' => '08/30/2026', 'name' => 'Buku Tematik Terpadu SD Kelas 1 Tema 1 Diriku ( 2691.0301 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 19000, 'amount' => 7600000],
+                    ['delDate' => '08/30/2026', 'name' => 'Buku Tematik Terpadu SD Kelas 2 Tema 1 Hidup Rukun ( 2691.0302 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 19000, 'amount' => 7600000],
+                    ['delDate' => '08/30/2026', 'name' => 'Buku Tematik Terpadu SD Kelas 3 Tema 1 Perkembangbiakan ( 2691.0303 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 19000, 'amount' => 7600000],
+                    ['delDate' => '08/30/2026', 'name' => 'Buku Tematik Terpadu SD Kelas 4 Tema 1 Indahnya Kebersamaan ( 2691.0304 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 19000, 'amount' => 7600000],
+                    ['delDate' => '08/30/2026', 'name' => 'Buku Tematik Terpadu SD Kelas 5 Tema 1 Organ Gerak Hewan & Manusia ( 2691.0305 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 19000, 'amount' => 7600000],
+                    ['delDate' => '08/30/2026', 'name' => 'Buku Tematik Terpadu SD Kelas 6 Tema 1 Selamatkan Makhluk Hidup ( 2691.0306 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 19000, 'amount' => 7600000],
+                ],
+                'totals' => [
+                    'subtotal' => 45600000,
+                    'discount' => 0,
+                    'dppLainnya' => 41040000,
+                    'ppn' => 0,
+                    'transport' => 0,
+                    'total' => 45600000
+                ],
+                'approvers' => ['NNR', 'P.A.M.'],
+                'app_date' => '8/25/2026'
+            ],
+
+            'POE-22005024' => [
+                'kode' => 'POE-22005024',
+                'nomor_dokumen' => 'POE-22005024/100000',
+                'judul' => 'PO Cetak Buku Cerita Anak Seri Fabel Nusantara - CV Surya Grafika Solo',
+                'nominal' => 16800000,
+                'tanggal' => '2026-08-27',
+                'print_date' => '8/27/2026 11:30:15 AM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001465/100000',
+                'vendor' => 'CV SURYA GRAFIKA SOLO',
+                'phone' => '0271 - 652311',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Spesifikasi: Cover Art Cartoon 260gr Lam. Glossy, Isi HVS 80gr Full Color Softcover',
+                'deskripsi' => 'Pengadaan cetak 4 judul buku seri cerita fabel nusantara untuk program literasi sekolah dasar.',
+                'items' => [
+                    ['delDate' => '09/05/2026', 'name' => 'Seri Fabel Nusantara: Kancil & Buaya Cerdik (Full Color 32 Hal)', 'unit' => 'EXP', 'qty' => 300, 'price' => 14000, 'amount' => 4200000],
+                    ['delDate' => '09/05/2026', 'name' => 'Seri Fabel Nusantara: Merak yang Rendah Hati (Full Color 32 Hal)', 'unit' => 'EXP', 'qty' => 300, 'price' => 14000, 'amount' => 4200000],
+                    ['delDate' => '09/05/2026', 'name' => 'Seri Fabel Nusantara: Semut & Belalang Pemalas (Full Color 32 Hal)', 'unit' => 'EXP', 'qty' => 300, 'price' => 14000, 'amount' => 4200000],
+                    ['delDate' => '09/05/2026', 'name' => 'Seri Fabel Nusantara: Kerbau & Burung Jalak Sahabat (Full Color 32 Hal)', 'unit' => 'EXP', 'qty' => 300, 'price' => 14000, 'amount' => 4200000],
+                ],
+                'totals' => [
+                    'subtotal' => 16800000,
+                    'discount' => 0,
+                    'dppLainnya' => 15135135,
+                    'ppn' => 1664865,
+                    'transport' => 0,
+                    'total' => 16800000
+                ],
+                'approvers' => ['M.M', 'P.A.M.'],
+                'app_date' => '8/28/2026'
+            ],
+
+            'POE-22005025' => [
+                'kode' => 'POE-22005025',
+                'nomor_dokumen' => 'POE-22005025/100000',
+                'judul' => 'PO Pengadaan Rak Gudang Heavy Duty Pallet Racking - PT Sentosa Racking Indonesia',
+                'nominal' => 38500000,
+                'tanggal' => '2026-08-30',
+                'print_date' => '8/30/2026 3:00:00 PM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001467/100000',
+                'vendor' => 'PT SENTOSA RACKING INDONESIA',
+                'phone' => '021 - 89842100',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Termasuk jasa instalasi dan anchoring bolt di lantai gudang blok D MDC Solo',
+                'deskripsi' => 'Pengadaan sistem rak heavy duty 3 tier beam kapasitas beban 2.000 kg per level untuk perluasan gudang utama.',
+                'items' => [
+                    ['delDate' => '09/10/2026', 'name' => 'Heavy Duty Upright Frame 4500 x 1000 mm Blue Epoxy Powder Coating', 'unit' => 'SET', 'qty' => 10, 'price' => 1450000, 'amount' => 14500000],
+                    ['delDate' => '09/10/2026', 'name' => 'Box Beam 2700 mm Orange Epoxy (Kapasitas 2000 kg/Level)', 'unit' => 'BATANG', 'qty' => 40, 'price' => 480000, 'amount' => 19200000],
+                    ['delDate' => '09/10/2026', 'name' => 'Row Spacer, Base Plate, Shims & Anchor Dynabolt M12x100', 'unit' => 'LOT', 'qty' => 1, 'price' => 4800000, 'amount' => 4800000],
+                ],
+                'totals' => [
+                    'subtotal' => 38500000,
+                    'discount' => 0,
+                    'dppLainnya' => 34684684,
+                    'ppn' => 3815316,
+                    'transport' => 0,
+                    'total' => 38500000
+                ],
+                'approvers' => ['LOG-MGR', 'FIN-DIR'],
+                'app_date' => '8/31/2026'
+            ],
+
+            'POE-22005026' => [
+                'kode' => 'POE-22005026',
+                'nomor_dokumen' => 'POE-22005026/100000',
+                'judul' => 'PO Peremajaan Komputer All-in-One Lenovo ThinkCentre - PT Metrodata Electronics',
+                'nominal' => 29400000,
+                'tanggal' => '2026-09-02',
+                'print_date' => '9/2/2026 10:45:00 AM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001470/100000',
+                'vendor' => 'PT METRODATA ELECTRONICS TBK',
+                'phone' => '021 - 29345800',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Garansi Resmi Lenovo Indonesia 3 Tahun Onsite Next Business Day Service',
+                'deskripsi' => 'Pengadaan 3 unit PC All-in-One Lenovo ThinkCentre Neo 30a 24 Gen 4 untuk divisi keuangan dan pajak.',
+                'items' => [
+                    ['delDate' => '09/08/2026', 'name' => 'Lenovo ThinkCentre Neo 30a 24 Gen 4 (Core i5-13420H/16GB/512GB SSD/Win11Pro)', 'unit' => 'UNIT', 'qty' => 3, 'price' => 9800000, 'amount' => 29400000],
+                ],
+                'totals' => [
+                    'subtotal' => 29400000,
+                    'discount' => 0,
+                    'dppLainnya' => 26486486,
+                    'ppn' => 2913514,
+                    'transport' => 0,
+                    'total' => 29400000
+                ],
+                'approvers' => ['IT-MGR', 'FIN-DIR'],
+                'app_date' => '9/3/2026'
+            ],
+
+            'POE-22005027' => [
+                'kode' => 'POE-22005027',
+                'nomor_dokumen' => 'POE-22005027/100000',
+                'judul' => 'PO Lakban Bening & Stretch Film Packing Buku - CV Bintang Plastik Surakarta',
+                'nominal' => 8850000,
+                'tanggal' => '2026-09-04',
+                'print_date' => '9/4/2026 2:15:00 PM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001473/100000',
+                'vendor' => 'CV BINTANG PLASTIK SURAKARTA',
+                'phone' => '0271 - 741289',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Pengiriman Franco Gudang MDC Solo, pembayaran tempo 30 hari',
+                'deskripsi' => 'Pengadaan material packaging karton buku untuk packing ekspedisi kiriman antar pulau.',
+                'items' => [
+                    ['delDate' => '09/09/2026', 'name' => 'Lakban Bening Daimaru 48 mm x 100 Yard Tebal 45 Micron (Dus isi 72 Roll)', 'unit' => 'DUS', 'qty' => 10, 'price' => 540000, 'amount' => 5400000],
+                    ['delDate' => '09/09/2026', 'name' => 'Stretch Film Wrapping Bening 50 cm x 300 Meter Tebal 17 Micron', 'unit' => 'ROLL', 'qty' => 30, 'price' => 85000, 'amount' => 2550000],
+                    ['delDate' => '09/09/2026', 'name' => 'Tali Strapping Band Plastik Polypropylene 15 mm Warna Kuning', 'unit' => 'ROLL', 'qty' => 3, 'price' => 300000, 'amount' => 900000],
+                ],
+                'totals' => [
+                    'subtotal' => 8850000,
+                    'discount' => 0,
+                    'dppLainnya' => 7972973,
+                    'ppn' => 877027,
+                    'transport' => 0,
+                    'total' => 8850000
+                ],
+                'approvers' => ['NNR', 'P.A.M.'],
+                'app_date' => '9/5/2026'
+            ],
+
+            'POE-22005028' => [
+                'kode' => 'POE-22005028',
+                'nomor_dokumen' => 'POE-22005028/100000',
+                'judul' => 'PO Buku Pendidikan Agama Islam SMA Kurikulum Merdeka - PT Pustaka Mulia Indah',
+                'nominal' => 31200000,
+                'tanggal' => '2026-09-06',
+                'print_date' => '9/6/2026 8:50:00 AM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001476/100000',
+                'vendor' => 'PT PUSTAKA MULIA INDAH',
+                'phone' => '0271 - 725400',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Pesanan Buku PAI Siswa SMA/SMK Kelas X, XI, XII Kemendikbudristek',
+                'deskripsi' => 'Pengadaan buku teks pelajaran agama Islam siswa jenjang SMA/SMK sederajat kurikulum merdeka.',
+                'items' => [
+                    ['delDate' => '09/15/2026', 'name' => 'Buku Siswa PAI & Budi Pekerti SMA/SMK Kelas X Merdeka ( 2697.0110 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 26000, 'amount' => 10400000],
+                    ['delDate' => '09/15/2026', 'name' => 'Buku Siswa PAI & Budi Pekerti SMA/SMK Kelas XI Merdeka ( 2697.0111 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 26000, 'amount' => 10400000],
+                    ['delDate' => '09/15/2026', 'name' => 'Buku Siswa PAI & Budi Pekerti SMA/SMK Kelas XII Merdeka ( 2697.0112 )', 'unit' => 'EXP', 'qty' => 400, 'price' => 26000, 'amount' => 10400000],
+                ],
+                'totals' => [
+                    'subtotal' => 31200000,
+                    'discount' => 0,
+                    'dppLainnya' => 28080000,
+                    'ppn' => 0,
+                    'transport' => 0,
+                    'total' => 31200000
+                ],
+                'approvers' => ['NNR', 'P.A.M.'],
+                'app_date' => '9/7/2026'
+            ],
+
+            'POE-22005029' => [
+                'kode' => 'POE-22005029',
+                'nomor_dokumen' => 'POE-22005029/100000',
+                'judul' => 'PO Sewa Forklift Diesel 3.5 Ton Operasional Gudang - PT Berkah Forklift Nusantara',
+                'nominal' => 15000000,
+                'tanggal' => '2026-09-08',
+                'print_date' => '9/8/2026 10:15:00 AM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001479/100000',
+                'vendor' => 'PT BERKAH FORKLIFT NUSANTARA',
+                'phone' => '024 - 7619800',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Sewa unit forklift Toyota 3.5 Ton periode September 2026 include maintenance berkala',
+                'deskripsi' => 'Sewa armada forklift diesel kapasitas 3.5 ton selama 1 bulan penuh untuk antisipasi lonjakan bongkar muat kontainer.',
+                'items' => [
+                    ['delDate' => '09/10/2026', 'name' => 'Sewa Unit Forklift Diesel Toyota 62-8FD30 Kapasitas 3.5 Ton (Bulan September 2026)', 'unit' => 'BULAN', 'qty' => 1, 'price' => 15000000, 'amount' => 15000000],
+                ],
+                'totals' => [
+                    'subtotal' => 15000000,
+                    'discount' => 0,
+                    'dppLainnya' => 13513513,
+                    'ppn' => 1486487,
+                    'transport' => 0,
+                    'total' => 15000000
+                ],
+                'approvers' => ['LOG-MGR', 'FIN-DIR'],
+                'app_date' => '9/9/2026'
+            ],
+
+            'POE-22005030' => [
+                'kode' => 'POE-22005030',
+                'nomor_dokumen' => 'POE-22005030/100000',
+                'judul' => 'PO Cetak Brosur Katalog Produk & Kalender Kerja 2027 - PT Wangsa Jatra Lestari',
+                'nominal' => 24500000,
+                'tanggal' => '2026-09-10',
+                'print_date' => '9/10/2026 1:40:00 PM',
+                'tipe' => 'PO',
+                'ref_no' => 'RQE-22001482/100000',
+                'vendor' => 'PT WANGSA JATRA LESTARI',
+                'phone' => '0271 - 781200',
+                'deliver_to' => 'MDC SOLO TD',
+                'notes' => 'Bahan promosi marketing nasional semester genap dan persiapan materi promosi tahun 2027',
+                'deskripsi' => 'Pengadaan materi promosi marketing berupa buku katalog produk edisi 2026/2027 dan kalender dinding promosi sekolah.',
+                'items' => [
+                    ['delDate' => '09/25/2026', 'name' => 'Katalog Produk Tisera 2026/2027 Full Color 64 Hal Art Paper 150 GSM', 'unit' => 'EKS', 'qty' => 1000, 'price' => 14500, 'amount' => 14500000],
+                    ['delDate' => '09/25/2026', 'name' => 'Flyer Promosi Buku Digital Tisera Interactive A4 Art Paper 120 GSM', 'unit' => 'RIM', 'qty' => 10, 'price' => 450000, 'amount' => 4500000],
+                    ['delDate' => '09/25/2026', 'name' => 'Poster Edukasi Pahlawan Nasional & Profil Pelajar Pancasila Ukuran A2', 'unit' => 'LEMBAR', 'qty' => 1100, 'price' => 5000, 'amount' => 5500000],
+                ],
+                'totals' => [
+                    'subtotal' => 24500000,
+                    'discount' => 0,
+                    'dppLainnya' => 22072072,
+                    'ppn' => 2427928,
+                    'transport' => 0,
+                    'total' => 24500000
+                ],
+                'approvers' => ['MKT-MGR', 'P.A.M.'],
+                'app_date' => '9/10/2026'
             ],
 
             // =========================================================================
@@ -294,6 +861,285 @@ class DummyTransactionService
                     'Akt' => 'Dokumen anggaran dan verifikasi pajak rekanan telah lengkap'
                 ]
             ],
+
+            'CCA-00000005' => [
+                'kode' => 'CCA-00000005',
+                'nomor_dokumen' => 'CCA-00000005/110201',
+                'judul' => 'Pengadaan Smart Interactive Board 75 Inch - SMAN 1 Sleman (Cab. Yogyakarta)',
+                'nominal' => 48500000,
+                'tanggal' => '2026-08-28',
+                'date_formatted' => '28 August 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Yogyakarta',
+                'customer' => 'SMA NEGERI 1 SLEMAN',
+                'supplier' => 'PT TECHNO MULTI SOLUSINDO',
+                'deskripsi' => 'Pengadaan papan interaktif digital cerdas 75 Inch 4K UHD untuk kelas digital unggulan SMAN 1 Sleman.',
+                'items' => [
+                    ['name' => 'Smart Board Interactive Flat Panel 75 Inch 4K UHD Android/Windows Dual OS', 'unit' => 1, 'kulak' => 38000000, 'jual' => 48500000, 'disc' => 0.00, 'total' => 48500000]
+                ],
+                'calc' => [
+                    'bruto' => 48500000.00,
+                    'dpp' => 43693693.69,
+                    'dppLainnya' => 40049549.55,
+                    'ppn' => 4806306.31,
+                    'pph' => 655405.41,
+                    'disc' => 0.00,
+                    'netto' => 46560000.00,
+                    'cogs' => 38000000.00,
+                    'gp' => 8560000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengajuan pesanan sarana kelas digital SMAN 1 Sleman via DAK Fisik Pendidikan',
+                    'AM' => '# Approved # Margin gross profit 18,38% di atas batas minimum cabang Yogya #',
+                    'NSM' => 'Disetujui, pastikan instalasi dan pelatihan guru dilakukan setelah barang tiba',
+                    'Akt' => 'Dokumen e-katalog, NPWP rekanan, dan rekening giro terverifikasi valid'
+                ]
+            ],
+
+            'CCA-00000006' => [
+                'kode' => 'CCA-00000006',
+                'nomor_dokumen' => 'CCA-00000006/110305',
+                'judul' => 'Pengadaan Lab Bahasa Digital 40 Client - SMKN 2 Surabaya (Cab. Surabaya)',
+                'nominal' => 95000000,
+                'tanggal' => '2026-08-31',
+                'date_formatted' => '31 August 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Surabaya',
+                'customer' => 'SMK NEGERI 2 SURABAYA',
+                'supplier' => 'CV MEDIA EDUKASI NUSANTARA',
+                'deskripsi' => 'Pengadaan 1 set sistem laboratorium bahasa komputer multimedia 40 client siswa + 1 server master guru.',
+                'items' => [
+                    ['name' => 'Master Console Controller Guru + Software Lab Bahasa Interaktif', 'unit' => 1, 'kulak' => 18000000, 'jual' => 25000000, 'disc' => 0.00, 'total' => 25000000],
+                    ['name' => 'Student Audio Panel Digital Client + Headset Noise Cancelling (40 Set)', 'unit' => 40, 'kulak' => 1350000, 'jual' => 1750000, 'disc' => 0.00, 'total' => 70000000]
+                ],
+                'calc' => [
+                    'bruto' => 95000000.00,
+                    'dpp' => 85585585.59,
+                    'dppLainnya' => 78445945.95,
+                    'ppn' => 9414414.41,
+                    'pph' => 1283783.78,
+                    'disc' => 0.00,
+                    'netto' => 91200000.00,
+                    'cogs' => 72000000.00,
+                    'gp' => 19200000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pesanan renovasi total laboratorium bahasa SMKN 2 Surabaya tahun anggaran 2026',
+                    'AM' => '# Pengajuan disetujui # GP 21,05% # Nilai proyek besar, pembayaran termin 3 tahap #',
+                    'NSM' => 'Disetujui. Kontrak kerja sama dan jaminan garansi 2 tahun wajib dilampirkan',
+                    'Akt' => 'Approved, jaminan garansi bank dan kelengkapan faktur pajak clear'
+                ]
+            ],
+
+            'CCA-00000007' => [
+                'kode' => 'CCA-00000007',
+                'nomor_dokumen' => 'CCA-00000007/110204',
+                'judul' => 'Paket Alat Peraga Edukatif (APE) TK & PAUD - Disdik Kab. Banyumas',
+                'nominal' => 36000000,
+                'tanggal' => '2026-09-02',
+                'date_formatted' => '02 September 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Semarang',
+                'customer' => 'DINAS PENDIDIKAN KAB. BANYUMAS',
+                'supplier' => 'UD MAINAN EDUKASI KREATIF',
+                'deskripsi' => 'Pengadaan paket APE indoor & outdoor ramah anak untuk 20 lembaga PAUD dan TK negeri binaan Disdik Banyumas.',
+                'items' => [
+                    ['name' => 'Paket APE Indoor: Puzzle Kayu Huruf, Balok Susun & Sentra Balok', 'unit' => 20, 'kulak' => 850000, 'jual' => 1100000, 'disc' => 0.00, 'total' => 22000000],
+                    ['name' => 'Paket APE Outdoor: Perosotan Mini & Ayunan Ganda Cat Non-Toxic', 'unit' => 20, 'kulak' => 500000, 'jual' => 700000, 'disc' => 0.00, 'total' => 14000000]
+                ],
+                'calc' => [
+                    'bruto' => 36000000.00,
+                    'dpp' => 32432432.43,
+                    'dppLainnya' => 29729729.73,
+                    'ppn' => 3567567.57,
+                    'pph' => 486486.49,
+                    'disc' => 0.00,
+                    'netto' => 34560000.00,
+                    'cogs' => 27000000.00,
+                    'gp' => 7560000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengadaan bantuan sarana APE PAUD Disdik Banyumas APBD-P 2026',
+                    'AM' => '# Disetujui # GP : 21,88% # Produk bersertifikat SNI ramah anak #',
+                    'NSM' => 'Disetujui. Pastikan sertifikat uji material non-toxic disertakan saat serah terima',
+                    'Akt' => 'Faktur pajak dan bukti setor PPN rekanan UD Mainan Edukasi telah dicek aman'
+                ]
+            ],
+
+            'CCA-00000008' => [
+                'kode' => 'CCA-00000008',
+                'nomor_dokumen' => 'CCA-00000008/110102',
+                'judul' => 'Pengadaan Buku Ensiklopedia Sains & Perpustakaan - SMPN 3 Bandung (Cab. Bandung)',
+                'nominal' => 18000000,
+                'tanggal' => '2026-09-04',
+                'date_formatted' => '04 September 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Bandung',
+                'customer' => 'SMP NEGERI 3 BANDUNG',
+                'supplier' => 'PT TIGA SERANGKAI PUSTAKA MANDIRI',
+                'deskripsi' => 'Pengadaan paket buku ensiklopedia sains berilmu dan perpustakaan digital SMPN 3 Bandung.',
+                'items' => [
+                    ['name' => 'Ensiklopedia Sains Junior Edisi Hardcover Lux 10 Jilid', 'unit' => 6, 'kulak' => 1600000, 'jual' => 2100000, 'disc' => 0.00, 'total' => 12600000],
+                    ['name' => 'Paket Buku Referensi Sejarah Nasional & Budaya Nusantara 8 Judul', 'unit' => 6, 'kulak' => 650000, 'jual' => 900000, 'disc' => 0.00, 'total' => 5400000]
+                ],
+                'calc' => [
+                    'bruto' => 18000000.00,
+                    'dpp' => 16216216.22,
+                    'dppLainnya' => 14864864.86,
+                    'ppn' => 1783783.78,
+                    'pph' => 243243.24,
+                    'disc' => 0.00,
+                    'netto' => 17280000.00,
+                    'cogs' => 13500000.00,
+                    'gp' => 3780000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengadaan literasi perpustakaan SMPN 3 Bandung dari dana BOS Kinerja',
+                    'AM' => '# Pengajuan disetujui # GP : 21,88% # Buku ready stock di gudang Bandung #',
+                    'NSM' => 'Disetujui. Proses pengiriman setelah SPK ditandatangani kepala sekolah',
+                    'Akt' => 'Buku teks bebas PPN sesuai PMK, administrasi perpajakan valid'
+                ]
+            ],
+
+            'CCA-00000009' => [
+                'kode' => 'CCA-00000009',
+                'nomor_dokumen' => 'CCA-00000009/110201',
+                'judul' => 'Meja & Kursi Laboratorium Komputer Ergonomis - SMAN 5 Semarang',
+                'nominal' => 32000000,
+                'tanggal' => '2026-09-06',
+                'date_formatted' => '06 September 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Semarang',
+                'customer' => 'SMA NEGERI 5 SEMARANG',
+                'supplier' => 'CV ANUGERAH MEBEL JAYA',
+                'deskripsi' => 'Pengadaan 40 set meja komputer bersekat dan kursi hidrolik ergonomis untuk laboratorium Asesmen Nasional (ANBK).',
+                'items' => [
+                    ['name' => 'Meja Komputer Partisi Sekat HPL Minimalis 80 x 60 x 75 cm', 'unit' => 40, 'kulak' => 420000, 'jual' => 550000, 'disc' => 0.00, 'total' => 22000000],
+                    ['name' => 'Kursi Kerja Staff Hidrolik Putar Jaring Breathable Mesh', 'unit' => 40, 'kulak' => 185000, 'jual' => 250000, 'disc' => 0.00, 'total' => 10000000]
+                ],
+                'calc' => [
+                    'bruto' => 32000000.00,
+                    'dpp' => 28828828.83,
+                    'dppLainnya' => 26426426.43,
+                    'ppn' => 3171171.17,
+                    'pph' => 432432.43,
+                    'disc' => 0.00,
+                    'netto' => 30720000.00,
+                    'cogs' => 24200000.00,
+                    'gp' => 6520000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengadaan sarana penunjang ANBK SMAN 5 Semarang tahun 2026',
+                    'AM' => '# Approved # Margin gross profit 21,22% memenuhi target divisi sarpras #',
+                    'NSM' => 'Disetujui. Pastikan instalasi kabel jalur rapi dan selesai H-7 pelaksanaan simulasi ANBK',
+                    'Akt' => 'Dokumen rekanan terdaftar LPSE dan rekening bank valid'
+                ]
+            ],
+
+            'CCA-00000010' => [
+                'kode' => 'CCA-00000010',
+                'nomor_dokumen' => 'CCA-00000010/110302',
+                'judul' => 'Pengadaan Paket Peta Dinding Indonesia & Globe Relief 3D - Disdik Kab. Sidoarjo',
+                'nominal' => 14400000,
+                'tanggal' => '2026-09-08',
+                'date_formatted' => '08 September 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Surabaya',
+                'customer' => 'DINAS PENDIDIKAN KAB. SIDOARJO',
+                'supplier' => 'CV MEDIA KARYA PUTRA',
+                'deskripsi' => 'Pengadaan media pembelajaran geografi berupa peta dinding NKRI dan globe relief bola dunia untuk 30 SD binaan Disdik Sidoarjo.',
+                'items' => [
+                    ['name' => 'Peta Dinding NKRI Tematik Skala Besar 150 x 100 cm Lapis Plastik Mika', 'unit' => 30, 'kulak' => 175000, 'jual' => 250000, 'disc' => 0.00, 'total' => 7500000],
+                    ['name' => 'Globe Relief Bola Dunia Diameter 30 cm Skala 1:42.000.000 Stand Besi', 'unit' => 30, 'kulak' => 160000, 'jual' => 230000, 'disc' => 0.00, 'total' => 6900000]
+                ],
+                'calc' => [
+                    'bruto' => 14400000.00,
+                    'dpp' => 12972972.97,
+                    'dppLainnya' => 11891891.89,
+                    'ppn' => 1427027.03,
+                    'pph' => 194594.59,
+                    'disc' => 0.00,
+                    'netto' => 13824000.00,
+                    'cogs' => 10050000.00,
+                    'gp' => 3774000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengadaan sarana peraga IPS SD Disdik Kab. Sidoarjo APBD Murni',
+                    'AM' => '# Approved # Margin gross profit 27,30% # Barang ready stock di distributor Solo #',
+                    'NSM' => 'Disetujui. Kirim langsung ke kantor Disdik Sidoarjo untuk verifikasi tim penerima',
+                    'Akt' => 'Dokumen faktur pajak dan konfirmasi keabsahan supplier verified'
+                ]
+            ],
+
+            'CCA-00000011' => [
+                'kode' => 'CCA-00000011',
+                'nomor_dokumen' => 'CCA-00000011/110501',
+                'judul' => 'Pengadaan Alat Praktikum Fisika & Biologi SMA - SMAN 1 Makassar',
+                'nominal' => 52000000,
+                'tanggal' => '2026-09-09',
+                'date_formatted' => '09 September 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Makassar',
+                'customer' => 'SMA NEGERI 1 MAKASSAR',
+                'supplier' => 'PT PRISMA LAB NUSANTARA',
+                'deskripsi' => 'Pengadaan kit praktikum optika fisika dan mikroskop biologi elektrik siswa SMAN 1 Makassar.',
+                'items' => [
+                    ['name' => 'Mikroskop Biologi Monokuler XSZ-107BN Lampu LED 1600x Pembesaran', 'unit' => 10, 'kulak' => 2400000, 'jual' => 3200000, 'disc' => 0.00, 'total' => 32000000],
+                    ['name' => 'Kit Praktikum Optik & Mekanika Fisika SMA Standar Laboratorium Nasional', 'unit' => 10, 'kulak' => 1450000, 'jual' => 2000000, 'disc' => 0.00, 'total' => 20000000]
+                ],
+                'calc' => [
+                    'bruto' => 52000000.00,
+                    'dpp' => 46846846.85,
+                    'dppLainnya' => 42939639.64,
+                    'ppn' => 5153153.15,
+                    'pph' => 702702.70,
+                    'disc' => 0.00,
+                    'netto' => 49920000.00,
+                    'cogs' => 38500000.00,
+                    'gp' => 11420000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengajuan pengadaan sarana lab IPA SMAN 1 Makassar bantuan DAK 2026',
+                    'AM' => '# Pengajuan disetujui # GP : 22,88% # Supplier bersedia uji fungsi dan garansi 1 tahun #',
+                    'NSM' => 'Disetujui. Pastikan packing kayu saat pengiriman kargo laut ke Makassar',
+                    'Akt' => 'Rekanan PKP aktif, bukti potong PPh 22 dan faktur pajak terkonfirmasi'
+                ]
+            ],
+
+            'CCA-00000012' => [
+                'kode' => 'CCA-00000012',
+                'nomor_dokumen' => 'CCA-00000012/110401',
+                'judul' => 'Pengadaan Mebeler Perpustakaan Modern & Lemari Buku - SDN 1 Denpasar',
+                'nominal' => 22500000,
+                'tanggal' => '2026-09-10',
+                'date_formatted' => '10 September 2026',
+                'tipe' => 'CCA',
+                'entity' => 'Cab. Denpasar',
+                'customer' => 'SD NEGERI 1 DENPASAR',
+                'supplier' => 'UD MEBEL DEWATA INDAH',
+                'deskripsi' => 'Pengadaan rak display buku bertingkat dan meja baca lesehan perpustakaan ramah anak SDN 1 Denpasar.',
+                'items' => [
+                    ['name' => 'Rak Display Buku Perpustakaan 2 Muka 4 Tingkat Kayu Mahoni Finishing Melamin', 'unit' => 6, 'kulak' => 1850000, 'jual' => 2500000, 'disc' => 0.00, 'total' => 15000000],
+                    ['name' => 'Meja Baca Lesehan Bulat 100 cm Bentuk Bunga + 4 Bantal Duduk Puff', 'unit' => 5, 'kulak' => 1050000, 'jual' => 1500000, 'disc' => 0.00, 'total' => 7500000]
+                ],
+                'calc' => [
+                    'bruto' => 22500000.00,
+                    'dpp' => 20270270.27,
+                    'dppLainnya' => 18581081.08,
+                    'ppn' => 2229729.73,
+                    'pph' => 304054.05,
+                    'disc' => 0.00,
+                    'netto' => 21600000.00,
+                    'cogs' => 16350000.00,
+                    'gp' => 5250000.00
+                ],
+                'remarks' => [
+                    'BO' => 'Pengadaan revitalisasi perpustakaan sekolah SDN 1 Denpasar tahun 2026',
+                    'AM' => '# Approved # Margin gross profit 24,31% # Spek kayu oven bebas rayap #',
+                    'NSM' => 'Disetujui. Pastikan pengiriman tepat waktu sebelum kunjungan akreditasi perpustakaan',
+                    'Akt' => 'Dokumen verifikasi supplier UD Mebel Dewata Indah lengkap dan valid'
+                ]
+            ],
         ];
     }
 
@@ -347,12 +1193,18 @@ class DummyTransactionService
     public static function getSamples(): array
     {
         return [
-            ['code' => 'RQE-22001434', 'label' => 'RQE-22001434 (PR Kertas HVS)', 'type' => 'PR'],
-            ['code' => 'RQE-22001433', 'label' => 'RQE-22001433 (PR Printer Epson)', 'type' => 'PR'],
-            ['code' => 'POE-22005020', 'label' => 'POE-22005020 (PO Basa Jawa)', 'type' => 'PO'],
-            ['code' => 'POE-22005021', 'label' => 'POE-22005021 (PO Buku Merdeka)', 'type' => 'PO'],
-            ['code' => 'CCA-00000002', 'label' => 'CCA-00000002 (NPK Meja Jati)', 'type' => 'CCA'],
-            ['code' => 'CCA-00000003', 'label' => 'CCA-00000003 (NPK Kursi Enrekang)', 'type' => 'CCA'],
+            ['code' => 'RQE-22001434', 'label' => 'RQE-22001434 (PR Kertas HVS Solo)', 'type' => 'PR'],
+            ['code' => 'RQE-22001436', 'label' => 'RQE-22001436 (PR IT Switch Surabaya)', 'type' => 'PR'],
+            ['code' => 'RQE-22001437', 'label' => 'RQE-22001437 (PR Hand Pallet Solo)', 'type' => 'PR'],
+            ['code' => 'RQE-22001443', 'label' => 'RQE-22001443 (PR Paket ATK 12-Item)', 'type' => 'PR'],
+            ['code' => 'POE-22005020', 'label' => 'POE-22005020 (PO Basa Jawa SMP)', 'type' => 'PO'],
+            ['code' => 'POE-22005021', 'label' => 'POE-22005021 (PO Buku Merdeka SMP)', 'type' => 'PO'],
+            ['code' => 'POE-22005023', 'label' => 'POE-22005023 (PO Tematik SD 1-6)', 'type' => 'PO'],
+            ['code' => 'POE-22005025', 'label' => 'POE-22005025 (PO Rak Heavy Duty)', 'type' => 'PO'],
+            ['code' => 'CCA-00000002', 'label' => 'CCA-00000002 (NPK Meja Murante)', 'type' => 'CCA'],
+            ['code' => 'CCA-00000005', 'label' => 'CCA-00000005 (NPK Smart Board Sleman)', 'type' => 'CCA'],
+            ['code' => 'CCA-00000006', 'label' => 'CCA-00000006 (NPK Lab Bahasa Surabaya)', 'type' => 'CCA'],
+            ['code' => 'CCA-00000011', 'label' => 'CCA-00000011 (NPK Lab IPA Makassar)', 'type' => 'CCA'],
         ];
     }
 }

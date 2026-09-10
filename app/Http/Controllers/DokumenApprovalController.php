@@ -196,7 +196,7 @@ class DokumenApprovalController extends Controller
                 \App\Models\DocumentSignaturePosition::where('dokumen_id', $approval->dokumen_id)->delete();
                 $positionsData = array_map(function ($pos) use ($approval) {
                     $approvalId = $pos['dokumen_approval_id'] ?? null;
-                    if ($approvalId === 'qr_code' || empty($approvalId)) {
+                    if ($approvalId === 'qr_code' || str_starts_with((string)$approvalId, 'qr_code') || empty($approvalId)) {
                         $approvalId = null;
                     }
                     return [

@@ -6,6 +6,7 @@ use App\Http\Controllers\API\JabatanController;
 use App\Http\Controllers\API\AplikasiController;
 use App\Http\Controllers\API\TransaksiController;
 use App\Http\Controllers\API\RoleController;
+use App\Http\Controllers\API\JwtAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\DashboardController;
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Public routes
+// Public routes (Sanctum — untuk web SPA)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
@@ -78,3 +79,32 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // User API Routes for approval flow
     Route::get('/users-by-jabatan/{jabatan}', [UserController::class, 'getByJabatan']);
 });
+
+// =============================================================================
+// JWT Auth Routes — untuk integrasi ekosistem eksternal (bukan web SPA)
+// =============================================================================
+
+// Public JWT endpoints (login tidak butuh auth)
+Route::prefix('auth/jwt')->group(function () {
+    Route::post('/login', [JwtAuthController::class, 'login']);
+
+    // Protected JWT endpoints (butuh Bearer JWT token)
+    Route::middleware('auth.jwt')->group(function () {
+        Route::post('/logout', [JwtAuthController::class, 'logout']);
+        Route::post('/refresh', [JwtAuthController::class, 'refresh']);
+        Route::get('/me', [JwtAuthController::class, 'me']);
+    });
+});
+
+// Protected API v1 — endpoint yang dibuka untuk ekosistem eksternal via JWT
+// Tambahkan endpoint sesuai kebutuhan integrasi dengan sistem lain di perusahaan.
+Route::middleware('auth.jwt')->prefix('v1')->group(function () {
+    // Dokumen: baca daftar dokumen (read-only untuk ekosistem eksternal)
+    Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
+    Route::get('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'index']);
+
+    // User info & statistics
+    Route::get('/user/statistics', [UserDashboardController::class, 'getStatisticsApi']);
+    Route::get('/user/recent-documents', [UserDashboardController::class, 'getRecentDocumentsApi']);
+});
+

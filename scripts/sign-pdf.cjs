@@ -107,39 +107,49 @@ async function run() {
             }
         }
 
-        // Draw Document QR Code if provided in configuration
-        if (inputData.qrCode) {
+        // Draw Document QR Codes if provided in configuration
+        const qrList = Array.isArray(inputData.qrCodes) && inputData.qrCodes.length > 0
+            ? inputData.qrCodes
+            : (inputData.qrCode ? [inputData.qrCode] : []);
+
+        if (qrList.length > 0) {
             try {
-                const qr = inputData.qrCode;
-                const pageIndex = Math.min(Math.max(qr.page - 1, 0), pages.length - 1);
-                const page = pages[pageIndex];
-
                 const QRCode = require('qrcode');
-                const qrPngBuffer = await QRCode.toBuffer(qr.text, {
-                    type: 'png',
-                    margin: 1,
-                    width: 300 // sufficiently high resolution
-                });
+                const qrImageCache = {};
 
-                const qrImg = await pdfDoc.embedPng(qrPngBuffer);
+                for (const qr of qrList) {
+                    const pageIndex = Math.min(Math.max(qr.page - 1, 0), pages.length - 1);
+                    const page = pages[pageIndex];
 
-                const mmToPt = 72 / 25.4;
-                const width = qr.width * mmToPt;
-                const height = qr.height * mmToPt;
+                    let qrImg = qrImageCache[qr.text];
+                    if (!qrImg) {
+                        const qrPngBuffer = await QRCode.toBuffer(qr.text, {
+                            type: 'png',
+                            margin: 1,
+                            width: 300 // sufficiently high resolution
+                        });
+                        qrImg = await pdfDoc.embedPng(qrPngBuffer);
+                        qrImageCache[qr.text] = qrImg;
+                    }
 
-                const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
-                const pageX = mediaBox ? mediaBox.x : 0;
-                const pageY = mediaBox ? mediaBox.y : 0;
-                const pageHeight = page.getHeight();
-                const x = pageX + (qr.x * mmToPt);
-                const yFromBottom = pageY + pageHeight - (qr.y * mmToPt) - height;
+                    const mmToPt = 72 / 25.4;
+                    const width = qr.width * mmToPt;
+                    const height = qr.height * mmToPt;
 
-                page.drawImage(qrImg, {
-                    x: x,
-                    y: yFromBottom,
-                    width: width,
-                    height: height,
-                });
+                    const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
+                    const pageX = mediaBox ? mediaBox.x : 0;
+                    const pageY = mediaBox ? mediaBox.y : 0;
+                    const pageHeight = page.getHeight();
+                    const x = pageX + (qr.x * mmToPt);
+                    const yFromBottom = pageY + pageHeight - (qr.y * mmToPt) - height;
+
+                    page.drawImage(qrImg, {
+                        x: x,
+                        y: yFromBottom,
+                        width: width,
+                        height: height,
+                    });
+                }
             } catch (qrDocErr) {
                 console.error('Failed to embed document QR code:', qrDocErr.message);
             }

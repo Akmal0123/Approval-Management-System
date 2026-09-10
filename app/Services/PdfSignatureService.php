@@ -339,14 +339,15 @@ class PdfSignatureService
                 }
             }
 
-            $qrCodeData = null;
+            $qrCodesData = [];
             if ($dokumen) {
-                $qrPosition = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
+                $qrPositions = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
                     ->whereNull('dokumen_approval_id')
-                    ->first();
+                    ->orderBy('page')
+                    ->get();
 
-                if ($qrPosition) {
-                    $qrCodeData = [
+                foreach ($qrPositions as $qrPosition) {
+                    $qrCodesData[] = [
                         'text' => url('/api/dokumen/' . $dokumen->id),
                         'page' => (int)$qrPosition->page,
                         'x' => (float)$qrPosition->x,
@@ -365,7 +366,8 @@ class PdfSignatureService
                 'pdfPath' => $fullPdfPath,
                 'outPath' => $tempOutputFile,
                 'signatures' => $signaturesData,
-                'qrCode' => $qrCodeData
+                'qrCode' => $qrCodesData[0] ?? null,
+                'qrCodes' => $qrCodesData
             ];
 
             file_put_contents($tempConfigFile, json_encode($config));

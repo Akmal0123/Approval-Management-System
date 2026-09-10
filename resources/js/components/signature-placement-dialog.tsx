@@ -2,11 +2,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { GripHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Copy, GripHorizontal, QrCode, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+export const isQrCodeId = (id: string | number | null | undefined): boolean =>
+    typeof id === 'string' && id.startsWith('qr_code');
 
 interface Approval {
     id: number | string;
@@ -129,8 +132,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         const newPositions: Record<string | number, SignaturePosition> = {};
 
         if (existingPositions && existingPositions.length > 0) {
-            existingPositions.forEach((pos: any) => {
-                const key = pos.dokumen_approval_id || 'qr_code';
+            existingPositions.forEach((pos: any, idx: number) => {
+                const isQr = !pos.dokumen_approval_id || isQrCodeId(pos.dokumen_approval_id);
+                const key = isQr ? `qr_code_page_${pos.page || idx + 1}` : pos.dokumen_approval_id;
                 let width = pos.width;
                 let height = pos.height;
 
@@ -253,7 +257,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         if (readOnly) return;
 
         // Prevent editing already approved signatures
-        if (approvalId !== 'qr_code') {
+        if (!isQrCodeId(approvalId)) {
             const app = approvals.find((a) => a.id === approvalId);
             if (app && app.approval_status === 'approved') {
                 return;
@@ -267,14 +271,16 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         setDragStart({ x: e.clientX, y: e.clientY });
 
         const pos = positions[approvalId];
-        setInitialPos({ x: mmToPx(pos.x), y: mmToPx(pos.y) });
+        if (pos) {
+            setInitialPos({ x: mmToPx(pos.x), y: mmToPx(pos.y) });
+        }
     };
 
     const handleResizeMouseDown = (e: React.MouseEvent, approvalId: number | string) => {
         if (readOnly) return;
 
         // Prevent editing already approved signatures
-        if (approvalId !== 'qr_code') {
+        if (!isQrCodeId(approvalId)) {
             const app = approvals.find((a) => a.id === approvalId);
             if (app && app.approval_status === 'approved') {
                 return;
@@ -288,7 +294,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         setResizeStart({ x: e.clientX, y: e.clientY });
 
         const pos = positions[approvalId];
-        setInitialSize({ width: mmToPx(pos.width), height: mmToPx(pos.height) });
+        if (pos) {
+            setInitialSize({ width: mmToPx(pos.width), height: mmToPx(pos.height) });
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -351,6 +359,27 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     };
 
     const moveToPage = (approvalId: number | string, targetPage: number) => {
+        if (isQrCodeId(approvalId)) {
+            const oldKey = String(approvalId);
+            const newKey = `qr_code_page_${targetPage}`;
+            setPositions((prev) => {
+                const next = { ...prev };
+                const currentPos = next[oldKey];
+                if (currentPos) {
+                    delete next[oldKey];
+                    next[newKey] = {
+                        ...currentPos,
+                        dokumen_approval_id: newKey,
+                        page: targetPage,
+                    };
+                }
+                return next;
+            });
+            setActiveApprovalId(newKey);
+            setCurrentPage(targetPage);
+            return;
+        }
+
         setPositions((prev) => ({
             ...prev,
             [approvalId]: {
@@ -359,6 +388,114 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             },
         }));
         setCurrentPage(targetPage);
+    };
+
+    // Active QR code helpers
+    const activeQrPositions = Object.entries(positions)
+        .filter(([id]) => isQrCodeId(id))
+        .map(([id, pos]) => ({ id, ...pos }))
+        .sort((a, b) => a.page - b.page);
+
+    const activeQrPages = new Set(activeQrPositions.map((p) => p.page));
+    const isQrActive = activeQrPositions.length > 0;
+
+    const maxPages = numPages > 0 ? numPages : Math.max(currentPage, ...Object.values(positions).map((p) => p.page || 1), 1);
+    const availablePages = Array.from({ length: maxPages }, (_, i) => i + 1);
+
+    const toggleQrForPage = (pageNum: number) => {
+        if (readOnly) return;
+        const key = `qr_code_page_${pageNum}`;
+
+        setPositions((prev) => {
+            const next = { ...prev };
+            if (next[key]) {
+                delete next[key];
+                if (activeApprovalId === key) {
+                    setActiveApprovalId(approvals.length > 0 ? approvals[0].id : null);
+                }
+            } else {
+                const existingQr = Object.values(prev).find((p) => isQrCodeId(p.dokumen_approval_id));
+                const coords = existingQr
+                    ? { x: existingQr.x, y: existingQr.y, width: existingQr.width, height: existingQr.height }
+                    : { x: 175, y: 20, width: 25, height: 25 };
+
+                next[key] = {
+                    dokumen_approval_id: key,
+                    page: pageNum,
+                    ...coords,
+                };
+                setActiveApprovalId(key);
+            }
+            return next;
+        });
+
+        if (currentPage !== pageNum) {
+            setCurrentPage(pageNum);
+        }
+    };
+
+    const enableAllPages = () => {
+        if (readOnly) return;
+        const total = numPages > 0 ? numPages : 1;
+        const existingQr = Object.values(positions).find((p) => isQrCodeId(p.dokumen_approval_id));
+        const coords = existingQr
+            ? { x: existingQr.x, y: existingQr.y, width: existingQr.width, height: existingQr.height }
+            : { x: 175, y: 20, width: 25, height: 25 };
+
+        setPositions((prev) => {
+            const next = { ...prev };
+            for (let p = 1; p <= total; p++) {
+                const key = `qr_code_page_${p}`;
+                if (!next[key]) {
+                    next[key] = {
+                        dokumen_approval_id: key,
+                        page: p,
+                        ...coords,
+                    };
+                }
+            }
+            return next;
+        });
+        showToast.success(`QR Code diaktifkan untuk semua (${total}) halaman.`);
+    };
+
+    const removeAllQrCodes = () => {
+        if (readOnly) return;
+        setPositions((prev) => {
+            const next = { ...prev };
+            Object.keys(next).forEach((key) => {
+                if (isQrCodeId(key)) {
+                    delete next[key];
+                }
+            });
+            return next;
+        });
+        if (isQrCodeId(activeApprovalId)) {
+            setActiveApprovalId(approvals.length > 0 ? approvals[0].id : null);
+        }
+    };
+
+    const syncPositionToAllQrPages = (sourceKey: string) => {
+        if (readOnly) return;
+        const sourcePos = positions[sourceKey];
+        if (!sourcePos) return;
+
+        setPositions((prev) => {
+            const next = { ...prev };
+            Object.keys(next).forEach((key) => {
+                if (isQrCodeId(key) && key !== sourceKey) {
+                    next[key] = {
+                        ...next[key],
+                        x: sourcePos.x,
+                        y: sourcePos.y,
+                        width: sourcePos.width,
+                        height: sourcePos.height,
+                    };
+                }
+            });
+            return next;
+        });
+        showToast.success('Posisi & ukuran QR code diterapkan ke seluruh halaman QR.');
     };
 
     const renderSignatureBoxes = () => {
@@ -482,14 +619,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             })
             .filter(Boolean) as React.ReactNode[];
 
-        const qrPos = positions['qr_code'];
-        if (qrPos && qrPos.page === currentPage) {
-            const isActive = activeApprovalId === 'qr_code';
+        // Render QR codes configured for currentPage
+        const qrEntries = Object.entries(positions).filter(
+            ([id, pos]) => isQrCodeId(id) && pos.page === currentPage
+        );
+
+        qrEntries.forEach(([qrId, qrPos]) => {
+            const isActive = activeApprovalId === qrId;
             const isQrEditable = !readOnly;
             boxes.push(
                 <div
-                    key="qr_code"
-                    className={`absolute flex flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${isActive ? 'z-10 border-amber-600 bg-amber-500/20' : 'z-0 border-amber-500 bg-amber-100/50'}`}
+                    key={qrId}
+                    className={`absolute flex flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${isActive ? 'z-10 border-amber-600 bg-amber-500/20 ring-2 ring-amber-400' : 'z-0 border-amber-500 bg-amber-100/50 hover:border-amber-600'}`}
                     style={{
                         left: `${mmToPx(qrPos.x)}px`,
                         top: `${mmToPx(qrPos.y)}px`,
@@ -497,22 +638,24 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         height: `${mmToPx(qrPos.height)}px`,
                         cursor: isQrEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                     }}
-                    onMouseDown={isQrEditable ? (e) => handleMouseDown(e, 'qr_code') : undefined}
+                    onMouseDown={isQrEditable ? (e) => handleMouseDown(e, qrId) : undefined}
                 >
-                    <div className="pointer-events-none flex flex-col items-center gap-1 p-2 text-amber-700">
-                        <span className="text-center text-[8px] font-bold tracking-wider uppercase sm:text-[10px]">QR Code</span>
+                    <div className="pointer-events-none flex flex-col items-center gap-1 p-1.5 text-amber-700">
+                        <span className="text-center text-[8px] font-bold tracking-wider uppercase sm:text-[9px]">
+                            QR Code (Hal. {qrPos.page})
+                        </span>
                         <div className="rounded border border-amber-300 bg-white p-1">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="20"
-                                height="20"
+                                width="18"
+                                height="18"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                className="h-4 w-4"
+                                className="h-3.5 w-3.5"
                             >
                                 <rect width="5" height="5" x="3" y="3" rx="1" />
                                 <rect width="5" height="5" x="16" y="3" rx="1" />
@@ -531,12 +674,12 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     {isActive && isQrEditable && (
                         <div
                             className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize rounded-tl-sm rounded-br-sm bg-amber-600"
-                            onMouseDown={(e) => handleResizeMouseDown(e, 'qr_code')}
+                            onMouseDown={(e) => handleResizeMouseDown(e, qrId)}
                         />
                     )}
                 </div>,
             );
-        }
+        });
 
         return boxes;
     };
@@ -544,7 +687,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const innerContent = (
         <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-background">
             {/* Sidebar Configuration */}
-            <div className="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-muted/20 p-4">
+            <div className="flex w-80 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-muted/20 p-4">
                 <div>
                     <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
                     <div className="space-y-3">
@@ -623,88 +766,224 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                 {/* QR Code Section */}
                 <div className="border-t pt-4">
-                    <h3 className="mb-3 text-sm font-semibold">QR Code Dokumen</h3>
+                    <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-sm font-semibold">
+                            <QrCode className="h-4 w-4 text-amber-600" />
+                            <span>QR Code Dokumen</span>
+                        </div>
+                        {activeQrPositions.length > 0 && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                                {activeQrPositions.length} Hal.
+                            </span>
+                        )}
+                    </div>
+
                     <div className="flex flex-col gap-3">
+                        {/* Master Toggle */}
                         <label className="flex cursor-pointer items-center gap-2 text-sm font-medium select-none">
                             <input
                                 type="checkbox"
                                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
-                                checked={!!positions['qr_code']}
+                                checked={isQrActive}
                                 disabled={readOnly}
                                 onChange={(e) => {
                                     if (readOnly) return;
-                                    const checked = e.target.checked;
-                                    if (checked) {
-                                        setPositions((prev) => ({
-                                            ...prev,
-                                            qr_code: {
-                                                dokumen_approval_id: 'qr_code',
-                                                page: currentPage,
-                                                x: 175,
-                                                y: 20,
-                                                width: 25,
-                                                height: 25,
-                                            },
-                                        }));
-                                        setActiveApprovalId('qr_code');
+                                    if (e.target.checked) {
+                                        toggleQrForPage(currentPage);
                                     } else {
-                                        setPositions((prev) => {
-                                            const next = { ...prev };
-                                            delete next['qr_code'];
-                                            return next;
-                                        });
-                                        if (activeApprovalId === 'qr_code') {
-                                            setActiveApprovalId(approvals.length > 0 ? approvals[0].id : null);
-                                        }
+                                        removeAllQrCodes();
                                     }
                                 }}
                             />
-                            Aktifkan QR Code
+                            <span>Aktifkan QR Code Dokumen</span>
                         </label>
 
-                        {positions['qr_code'] && (
-                            <div
-                                className={`cursor-pointer rounded-lg border p-3 text-sm transition-colors ${activeApprovalId === 'qr_code' ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted/50'}`}
-                                onClick={() => {
-                                    setActiveApprovalId('qr_code');
-                                    const qrPos = positions['qr_code'];
-                                    if (qrPos.page !== currentPage) {
-                                        setCurrentPage(qrPos.page);
-                                    }
-                                }}
-                            >
-                                <div className="flex items-center gap-1.5 font-medium">
-                                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                                    Posisi QR Code
-                                </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                    Ukuran: {Math.round(positions['qr_code'].width)} x {Math.round(positions['qr_code'].height)} mm
-                                </div>
-                                <div className="mt-2 flex items-center justify-between">
-                                    <span
-                                        className={`rounded-full px-2 py-0.5 text-xs ${positions['qr_code'].page === currentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
-                                    >
-                                        Hal. {positions['qr_code'].page}
-                                    </span>
-                                    {positions['qr_code'].page !== currentPage && !readOnly && (
+                        {isQrActive && (
+                            <div className="space-y-3 rounded-lg border bg-background p-3 text-xs">
+                                {/* Quick Selection Presets */}
+                                <div>
+                                    <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                                        <span>Pilih Cepat:</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1">
                                         <Button
-                                            variant="ghost"
+                                            type="button"
+                                            variant="outline"
                                             size="sm"
-                                            className="h-6 px-2 text-xs"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setPositions((prev) => ({
-                                                    ...prev,
-                                                    qr_code: {
-                                                        ...prev['qr_code'],
-                                                        page: currentPage,
-                                                    },
-                                                }));
-                                            }}
+                                            disabled={readOnly}
+                                            className="h-6 px-1 text-[11px]"
+                                            onClick={enableAllPages}
+                                            title="Beri QR code di semua halaman"
                                         >
-                                            Pindah ke sini
+                                            Semua Hal.
                                         </Button>
-                                    )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={readOnly}
+                                            className="h-6 px-1 text-[11px]"
+                                            onClick={() => {
+                                                if (readOnly) return;
+                                                removeAllQrCodes();
+                                                toggleQrForPage(1);
+                                            }}
+                                            title="Hanya halaman 1"
+                                        >
+                                            Hal. 1 Saja
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={readOnly}
+                                            className="h-6 px-1 text-[11px]"
+                                            onClick={() => {
+                                                if (readOnly) return;
+                                                const lastPage = numPages > 0 ? numPages : 1;
+                                                removeAllQrCodes();
+                                                toggleQrForPage(lastPage);
+                                            }}
+                                            title="Hanya halaman terakhir"
+                                        >
+                                            Hal. Akhir
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Custom Pages Selection Chips */}
+                                <div>
+                                    <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                                        <span>Pilih Halaman QR:</span>
+                                        <span className="font-semibold text-amber-600">
+                                            {activeQrPositions.length} terpilih
+                                        </span>
+                                    </div>
+                                    <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-md border bg-muted/20 p-1.5">
+                                        {availablePages.map((p) => {
+                                            const isSelected = activeQrPages.has(p);
+                                            const isCurrent = p === currentPage;
+                                            return (
+                                                <button
+                                                    key={p}
+                                                    type="button"
+                                                    disabled={readOnly}
+                                                    onClick={() => toggleQrForPage(p)}
+                                                    className={`relative flex h-7 min-w-[32px] items-center justify-center rounded px-1.5 text-xs font-semibold transition-all ${
+                                                        isSelected
+                                                            ? 'bg-amber-500 text-white shadow-xs hover:bg-amber-600'
+                                                            : 'border border-gray-200 bg-white text-gray-700 hover:bg-amber-50'
+                                                    } ${isCurrent ? 'ring-2 ring-primary ring-offset-1 font-bold' : ''}`}
+                                                    title={`Halaman ${p}${isSelected ? ' (QR Aktif - klik untuk menghapus)' : ' (Klik untuk menambahkan QR)'}`}
+                                                >
+                                                    {p}
+                                                    {isSelected && <Check className="ml-0.5 h-3 w-3" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Sync Position Tool */}
+                                {activeQrPositions.length > 1 && !readOnly && (
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-7 w-full gap-1.5 bg-amber-100/80 text-[11px] font-medium text-amber-900 hover:bg-amber-200/80"
+                                        onClick={() => {
+                                            const sourceId = isQrCodeId(activeApprovalId)
+                                                ? String(activeApprovalId)
+                                                : activeQrPositions[0].id;
+                                            syncPositionToAllQrPages(sourceId);
+                                        }}
+                                        title="Samakan posisi X, Y, dan ukuran QR dari halaman yang aktif ke semua halaman QR lainnya"
+                                    >
+                                        <Copy className="h-3.5 w-3.5" />
+                                        <span>Samakan Posisi ke Semua Hal.</span>
+                                    </Button>
+                                )}
+
+                                {/* List of active QR code items */}
+                                <div className="space-y-1.5">
+                                    <div className="text-[11px] font-medium text-muted-foreground">
+                                        Daftar Posisi ({activeQrPositions.length}):
+                                    </div>
+                                    <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                                        {activeQrPositions.map((qr) => {
+                                            const isCurrent = qr.page === currentPage;
+                                            const isActive = activeApprovalId === qr.id;
+                                            return (
+                                                <div
+                                                    key={qr.id}
+                                                    className={`cursor-pointer rounded-md border p-2 text-xs transition-colors ${
+                                                        isActive
+                                                            ? 'border-amber-500 bg-amber-500/10'
+                                                            : 'bg-background hover:bg-muted/50'
+                                                    }`}
+                                                    onClick={() => {
+                                                        setActiveApprovalId(qr.id);
+                                                        if (qr.page !== currentPage) {
+                                                            setCurrentPage(qr.page);
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="flex items-center justify-between font-medium">
+                                                        <div className="flex items-center gap-1.5 truncate">
+                                                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                                                            <span className="font-semibold text-amber-950">
+                                                                QR Code - Hal. {qr.page}
+                                                            </span>
+                                                        </div>
+                                                        {!readOnly && (
+                                                            <button
+                                                                type="button"
+                                                                className="rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleQrForPage(qr.page);
+                                                                }}
+                                                                title={`Hapus QR Code di halaman ${qr.page}`}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-1 text-[11px] text-muted-foreground">
+                                                        Ukuran: {Math.round(qr.width)} x {Math.round(qr.height)} mm
+                                                    </div>
+
+                                                    <div className="mt-1.5 flex items-center justify-between">
+                                                        <span
+                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                                                isCurrent
+                                                                    ? 'bg-green-100 text-green-700'
+                                                                    : 'bg-gray-100 text-gray-700'
+                                                            }`}
+                                                        >
+                                                            {isCurrent ? 'Halaman Ini' : `Hal. ${qr.page}`}
+                                                        </span>
+
+                                                        {!isCurrent && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-5 px-1.5 text-[10px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setCurrentPage(qr.page);
+                                                                    setActiveApprovalId(qr.id);
+                                                                }}
+                                                            >
+                                                                Lihat Halaman
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         )}
