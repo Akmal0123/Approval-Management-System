@@ -1252,185 +1252,202 @@ const fetchDokumen = async () => {
                             </div>
 
                             <div className="grid gap-4 py-2">
-                                {docTypeMode === 'transaksi' && (
-                                    <div className="space-y-4 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
-                                        {/* 1. Dropdown Pilih Company */}
+                                {/* Pilihan Company, Aplikasi, dan Transaksi untuk KEDUA Mode (Manual & Transaksi) */}
+                                <div className="space-y-4 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                                    {/* 1. Dropdown Pilih Company */}
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="company_id" className="font-sans text-slate-700">
+                                            Pilih Company <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Select
+                                            value={String(formData.company_id || '')}
+                                            onValueChange={async (value) => {
+                                                setFormData((prev) => ({ 
+                                                    ...prev, 
+                                                    company_id: value, 
+                                                    aplikasi_id: '', 
+                                                    transaksi_id: '', 
+                                                    masterflow_id: '' 
+                                                }));
+
+                                                try {
+                                                    const response = await axios.get(`/api/aplikasi-by-company/${value}`);
+                                                    setAplikasiList(response.data.aplikasis || response.data);
+                                                } catch (error) {
+                                                    console.error("Gagal mengambil aplikasi berdasarkan company", error);
+                                                    setAplikasiList([]);
+                                                }
+                                                setTransaksiList([]);
+                                                setMasterflows([]);
+                                            }}
+                                        >
+                                            <SelectTrigger id="company_id" className="border-emerald-300 bg-white font-sans">
+                                                <SelectValue placeholder="-- Pilih Company --" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {companies && companies.length > 0 ? (
+                                                    companies.map((comp: any) => (
+                                                        <SelectItem key={comp.id} value={comp.id.toString()}>
+                                                            {comp.name}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="empty-comp" disabled>Tidak ada company tersedia</SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* 2. Grid Dropdown Aplikasi & Transaksi */}
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="company_id" className="font-sans text-slate-700">
-                                                Pilih Company <span className="text-red-500">*</span>
+                                            <Label htmlFor="aplikasi_id" className="font-sans text-slate-700">
+                                                Pilih Aplikasi <span className="text-red-500">*</span>
                                             </Label>
                                             <Select
-                                                value={String(formData.company_id || '')}
+                                                value={String(formData.aplikasi_id || selectedAplikasiId || '')}
+                                                disabled={!formData.company_id}
                                                 onValueChange={async (value) => {
                                                     setFormData((prev) => ({ 
                                                         ...prev, 
-                                                        company_id: value, 
-                                                        aplikasi_id: '', 
+                                                        aplikasi_id: value, 
                                                         transaksi_id: '', 
                                                         masterflow_id: '' 
                                                     }));
+                                                    
+                                                    if (typeof handleAplikasiChange === 'function') {
+                                                        handleAplikasiChange(value);
+                                                    }
 
                                                     try {
-                                                        const response = await axios.get(`/api/aplikasi-by-company/${value}`);
-                                                        setAplikasiList(response.data.aplikasis || response.data);
+                                                        const response = await axios.get(`/api/transaksi-by-aplikasi/${value}`);
+                                                        setTransaksiList(response.data.transaksis || response.data);
                                                     } catch (error) {
-                                                        console.error("Gagal mengambil aplikasi berdasarkan company", error);
-                                                        setAplikasiList([]);
+                                                        console.error("Gagal mengambil transaksi berdasarkan aplikasi", error);
+                                                        setTransaksiList([]);
                                                     }
-                                                    setTransaksiList([]);
                                                     setMasterflows([]);
                                                 }}
                                             >
-                                                <SelectTrigger id="company_id" className="border-emerald-300 bg-white font-sans">
-                                                    <SelectValue placeholder="-- Pilih Company --" />
+                                                <SelectTrigger id="aplikasi_id" className="border-emerald-300 bg-white font-sans">
+                                                    <SelectValue placeholder="-- Pilih Aplikasi --" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {companies && companies.length > 0 ? (
-                                                        companies.map((comp: any) => (
-                                                            <SelectItem key={comp.id} value={comp.id.toString()}>
-                                                                {comp.name}
+                                                    {aplikasiList && aplikasiList.length > 0 ? (
+                                                        aplikasiList.map((app) => (
+                                                            <SelectItem key={app.id} value={app.id.toString()}>
+                                                                {app.name} {app.company ? `(${app.company.name})` : ''}
                                                             </SelectItem>
                                                         ))
                                                     ) : (
-                                                        <SelectItem value="empty-comp" disabled>Tidak ada company tersedia</SelectItem>
+                                                        <SelectItem value="empty" disabled>
+                                                            {formData.company_id ? 'Tidak ada aplikasi di company ini' : 'Pilih company dahulu'}
+                                                        </SelectItem>
                                                     )}
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
-                                        {/* 2. Grid Dropdown Aplikasi & Transaksi */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="aplikasi_id" className="font-sans text-slate-700">
-                                                    Pilih Aplikasi <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                    disabled={!formData.company_id}
-                                                    onValueChange={async (value) => {
-                                                        setFormData((prev) => ({ 
-                                                            ...prev, 
-                                                            aplikasi_id: value, 
-                                                            transaksi_id: '', 
-                                                            masterflow_id: '' 
-                                                        }));
-                                                        
-                                                        if (typeof handleAplikasiChange === 'function') {
-                                                            handleAplikasiChange(value);
-                                                        }
-
-                                                        try {
-                                                            const response = await axios.get(`/api/transaksi-by-aplikasi/${value}`);
-                                                            setTransaksiList(response.data.transaksis || response.data);
-                                                        } catch (error) {
-                                                            console.error("Gagal mengambil transaksi berdasarkan aplikasi", error);
-                                                            setTransaksiList([]);
-                                                        }
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="transaksi_id" className="font-sans text-slate-700">
+                                                Pilih Transaksi Manajemen <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Select
+                                                value={String(formData.transaksi_id || '')}
+                                                onValueChange={async (value) => {
+                                                    setFormData((prev) => ({ ...prev, transaksi_id: value, masterflow_id: '' }));
+                                                    
+                                                    try {
+                                                        const res = await axios.get(`/api/masterflows-by-transaksi/${value}`);
+                                                        setMasterflows(res.data.masterflows || []);
+                                                    } catch (error) {
+                                                        console.error("Gagal memfilter masterflow", error);
                                                         setMasterflows([]);
-                                                    }}
-                                                >
-                                                    <SelectTrigger id="aplikasi_id" className="border-emerald-300 bg-white font-sans">
-                                                        <SelectValue placeholder="-- Pilih Aplikasi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {aplikasiList && aplikasiList.length > 0 ? (
-                                                            aplikasiList.map((app) => (
-                                                                <SelectItem key={app.id} value={app.id.toString()}>
-                                                                    {app.name} {app.company ? `(${app.company.name})` : ''}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : (
-                                                            <SelectItem value="empty" disabled>
-                                                                {formData.company_id ? 'Tidak ada aplikasi di company ini' : 'Pilih company dahulu'}
+                                                    }
+                                                }}
+                                                disabled={!formData.aplikasi_id || isLoadingTransaksi}
+                                            >
+                                                <SelectTrigger id="transaksi_id" className="border-emerald-300 bg-white font-sans">
+                                                    <SelectValue placeholder="-- Pilih Transaksi --" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {isLoadingTransaksi ? (
+                                                        <SelectItem value="loading" disabled>Memuat transaksi...</SelectItem>
+                                                    ) : transaksiList.length > 0 ? (
+                                                        transaksiList.map((trx) => (
+                                                            <SelectItem key={trx.id} value={trx.id.toString()}>
+                                                                {trx.kode_transaksi} - {trx.nama_transaksi}
                                                             </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="transaksi_id" className="font-sans text-slate-700">
-                                                    Pilih Transaksi Manajemen <span className="text-red-500">*</span>
-                                                </Label>
-                                                <Select
-                                                    value={String(formData.transaksi_id || '')}
-                                                    onValueChange={async (value) => {
-                                                        setFormData((prev) => ({ ...prev, transaksi_id: value, masterflow_id: '' }));
-                                                        
-                                                        try {
-                                                            const res = await axios.get(`/api/masterflows-by-transaksi/${value}`);
-                                                            setMasterflows(res.data.masterflows || []);
-                                                        } catch (error) {
-                                                            console.error("Gagal memfilter masterflow", error);
-                                                            setMasterflows([]);
-                                                        }
-                                                    }}
-                                                    disabled={!formData.aplikasi_id || isLoadingTransaksi}
-                                                >
-                                                    <SelectTrigger id="transaksi_id" className="border-emerald-300 bg-white font-sans">
-                                                        <SelectValue placeholder="-- Pilih Transaksi --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {isLoadingTransaksi ? (
-                                                            <SelectItem value="loading" disabled>Memuat transaksi...</SelectItem>
-                                                        ) : transaksiList.length > 0 ? (
-                                                            transaksiList.map((trx) => (
-                                                                <SelectItem key={trx.id} value={trx.id.toString()}>
-                                                                    {trx.kode_transaksi} - {trx.nama_transaksi}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : formData.aplikasi_id ? (
-                                                            <SelectItem value="empty" disabled>Tidak ada transaksi untuk aplikasi ini</SelectItem>
-                                                        ) : (
-                                                            <SelectItem value="null" disabled>Pilih aplikasi terlebih dahulu</SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+                                                        ))
+                                                    ) : formData.aplikasi_id ? (
+                                                        <SelectItem value="empty" disabled>Tidak ada transaksi untuk aplikasi ini</SelectItem>
+                                                    ) : (
+                                                        <SelectItem value="null" disabled>Pilih aplikasi terlebih dahulu</SelectItem>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-
-                                        {/* Form Lookup Keyword & Fetch Eksternal */}
-                                        {formData.aplikasi_id && formData.transaksi_id && (
-                                            <div className="col-span-2 mt-2 rounded-lg border border-emerald-200 bg-emerald-100/50 p-4">
-                                                <Label className="mb-2 block font-sans font-semibold text-slate-700">
-                                                    Tarik Data & File PDF dari Aplikasi (Lookup)
-                                                </Label>
-                                                <div className="flex items-start gap-2">
-                                                    <div className="flex flex-1 flex-col gap-1">
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Masukkan Nomor Transaksi / Keyword..."
-                                                            className="w-full border-emerald-300 bg-white font-sans focus-visible:ring-emerald-500"
-                                                            value={lookupKeyword}
-                                                            onChange={(e) => setLookupKeyword(e.target.value)}
-                                                            disabled={isLookingUp}
-                                                        />
-                                                        {lookupError && (
-                                                            <p
-                                                                className="text-sm text-red-500"
-                                                                dangerouslySetInnerHTML={{ __html: lookupError }}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                    <Button
-                                                        type="button"
-                                                        onClick={handleLookup}
-                                                        disabled={!lookupKeyword || isLookingUp}
-                                                        className="bg-emerald-600 font-sans text-white hover:bg-emerald-700"
-                                                    >
-                                                        {isLookingUp ? 'Mencari...' : '🔍 Cari Data'}
-                                                    </Button>
-                                                </div>
-                                                {formData.file && (
-                                                    <p className="mt-3 flex items-center rounded border border-emerald-200 bg-emerald-50 p-2 text-sm font-medium text-emerald-700">
-                                                        ✅ File PDF berhasil ditarik dan dilampirkan otomatis.
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
-                                )}
+
+                                    {/* Form Lookup Keyword & Fetch Eksternal (Hanya untuk Transaksi) */}
+                                    {docTypeMode === 'transaksi' && formData.aplikasi_id && formData.transaksi_id && (
+                                        <div className="col-span-2 mt-2 rounded-lg border border-emerald-200 bg-emerald-100/50 p-4">
+                                            <Label className="mb-2 block font-sans font-semibold text-slate-700">
+                                                Tarik Data & File PDF dari Aplikasi (Lookup)
+                                            </Label>
+                                            <div className="flex items-start gap-2">
+                                                <div className="flex flex-1 flex-col gap-1">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Masukkan Nomor Transaksi / Keyword..."
+                                                        className="w-full border-emerald-300 bg-white font-sans focus-visible:ring-emerald-500"
+                                                        value={lookupKeyword}
+                                                        onChange={(e) => setLookupKeyword(e.target.value)}
+                                                        disabled={isLookingUp}
+                                                    />
+                                                    {lookupError && (
+                                                        <p
+                                                            className="text-sm text-red-500"
+                                                            dangerouslySetInnerHTML={{ __html: lookupError }}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleLookup}
+                                                    disabled={!lookupKeyword || isLookingUp}
+                                                    className="bg-emerald-600 font-sans text-white hover:bg-emerald-700"
+                                                >
+                                                    {isLookingUp ? 'Mencari...' : '🔍 Cari Data'}
+                                                </Button>
+                                            </div>
+                                            {formData.file && (
+                                                <p className="mt-3 flex items-center rounded border border-emerald-200 bg-emerald-50 p-2 text-sm font-medium text-emerald-700">
+                                                    ✅ File PDF berhasil ditarik dan dilampirkan otomatis.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
+                            {/* Upload File Manual (Dinaikkan ke atas tepat di bawah pilihan Company/Aplikasi/Transaksi untuk mode manual) */}
+                            {docTypeMode === 'manual' && (
+                                <div className="grid gap-2 my-4">
+                                    <Label htmlFor="file" className="font-sans">
+                                        Upload File <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="file"
+                                        name="file"
+                                        type="file"
+                                        onChange={handleFileChange}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        📄 <strong>Hanya file PDF yang diterima.</strong> (Max 10MB)
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Input Nomor & Tanggal */}
                             <div className="grid grid-cols-2 gap-4">
@@ -1743,24 +1760,6 @@ const fetchDokumen = async () => {
                                     rows={4}
                                 />
                             </div>
-
-                            {/* Upload File Manual */}
-                            {docTypeMode === 'manual' && (
-                                <div className="grid gap-2">
-                                    <Label htmlFor="file" className="font-sans">
-                                        Upload File <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="file"
-                                        name="file"
-                                        type="file"
-                                        onChange={handleFileChange}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        📄 <strong>Hanya file PDF yang diterima.</strong> (Max 10MB)
-                                    </p>
-                                </div>
-                            )}
 
                             <DialogFooter className="sm:justify-between">
                                 <div className="flex gap-2">

@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 interface Company {
     id: number;
     name: string;
+    base_url?: string;
 }
 
 interface Aplikasi {
@@ -289,7 +290,7 @@ export default function SuperAdminAplikasiManagement() {
                     </div>
                 </SidebarInset>
 
-                {/* Create/Edit Modal */}
+               {/* Create/Edit Modal */}
                 {isCreateModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                         <Card className="mx-4 w-full max-w-lg">
@@ -339,23 +340,30 @@ export default function SuperAdminAplikasiManagement() {
                                         </Select>
                                     </div>
 
-                                    {/* ===== INPUT BASE URL MASTER DITAMBAHKAN DI SINI ===== */}
-                                   <div className="space-y-2">
-    <Label htmlFor="base_url" className="font-sans">
-        Base URL Master API
-    </Label>
-    <Input
-        id="base_url"
-        name="base_url" // <-- TAMBAHKAN BARIS INI
-        value={formData.base_url || ''}
-        onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
-        placeholder="Contoh: https://api.tisera.com/v1"
-        className="font-sans"
-    />
-    <p className="text-xs text-muted-foreground">
-        Alamat dasar endpoint API aplikasi luar untuk keperluan tarik data otomatis.
-    </p>
-</div>
+                                    {/* ===== INPUT API PATH TERINTEGRASI DENGAN BASE URL COMPANY ===== */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="base_url" className="font-sans">
+                                            API Path / Endpoint <span className="text-red-500">*</span>
+                                        </Label>
+                                        <div className="flex rounded-md shadow-sm">
+                                            {/* Menampilkan Base URL Perusahaan secara otomatis di sebelah kiri */}
+                                           <span className="inline-flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground font-mono">
+    {companies?.find(c => Number(c.id) === Number(formData.company_id))?.base_url || 'Pilih Perusahaan'}
+</span>
+                                            <Input
+                                                id="base_url"
+                                                name="base_url"
+                                                value={formData.base_url || ''}
+                                                onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
+                                                placeholder="/v1 atau /api"
+                                                className="rounded-l-none font-sans font-mono text-sm"
+                                                required
+                                            />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Path endpoint spesifik aplikasi yang otomatis digabungkan dengan base URL perusahaan.
+                                        </p>
+                                    </div>
                                     {/* =================================================== */}
 
                                     <div className="flex justify-end gap-2 pt-4">
