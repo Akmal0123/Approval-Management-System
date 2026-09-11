@@ -143,40 +143,31 @@ class DokumenApprovalController extends Controller
 
         $validated = $request->validate([
             'comment' => 'nullable|string|max:1000',
-            'signature' => 'nullable|string',
-            'signature_type' => 'nullable|string|in:signature,qr_code',
-            'show_signature' => 'nullable|boolean',
-            'show_date' => 'nullable|boolean',
-            'show_jabatan' => 'nullable|boolean',
+            'signature_method' => 'nullable|string|in:original,qr',
+            'signature' => 'required_if:signature_method,original|nullable|string',
             'signature_position' => 'nullable|string|in:bottom_right,bottom_left,bottom_center',
+            'signature_positions' => 'nullable|array',
+            'signature_positions.*.dokumen_approval_id' => 'nullable',
+            'signature_positions.*.page' => 'required_with:signature_positions|integer|min:1',
+            'signature_positions.*.x' => 'required_with:signature_positions|numeric',
+            'signature_positions.*.y' => 'required_with:signature_positions|numeric',
+            'signature_positions.*.width' => 'required_with:signature_positions|numeric',
+            'signature_positions.*.height' => 'required_with:signature_positions|numeric',
         ]);
 
-        $signatureType = $validated['signature_type'] ?? 'signature';
-        $showSignature = $validated['show_signature'] ?? true;
-        $showDate = $validated['show_date'] ?? true;
-        $showJabatan = $validated['show_jabatan'] ?? true;
-
-        // Auto-detect approver jabatan
-        $user = Auth::user();
-        $context = $this->contextService->getContext();
-        $approverJabatan = $approval->masterflowStep?->jabatan?->name
-            ?? ($context && $context->jabatan ? $context->jabatan->name : null)
-            ?? $user->userAuths?->first()?->jabatan?->name
-            ?? 'Pejabat Berwenang';
-
-        // Handle signature storage
+        // Handle signature storage (moved outside transaction)
+        $signatureMethod = $validated['signature_method'] ?? 'original';
         $signaturePath = null;
-        $signatureData = $validated['signature'] ?? null;
+        $verificationToken = null;
 
-        if ($signatureType === 'qr_code') {
-            // Generate QR Code for document verification stamp
-            $qrService = app(\App\Services\QrCodeService::class);
-            $verificationUrl = $approval->dokumen->getVerificationUrl();
-            $signaturePath = $qrService->generateDocumentQrCode($approval->dokumen->nomor_dokumen, $verificationUrl);
-        } elseif ($signatureData) {
-            if (str_starts_with($signatureData, 'data:image')) {
+        if ($signatureMethod === 'qr') {
+            $verificationToken = \Illuminate\Support\Str::uuid()->toString();
+        } else {
+            $signatureData = $validated['signature'];
+
+            if ($signatureData && str_starts_with($signatureData, 'data:image')) {
                 // New manual signature - decode and save
-                $image = str_replace('data:image/png;base64,', '', $signatureData);
+                $image = preg_replace('/^data:image\/\w+;base64,/', '', $signatureData);
                 $image = str_replace(' ', '+', $image);
                 $imageData = base64_decode($image);
 
@@ -185,14 +176,14 @@ class DokumenApprovalController extends Controller
 
                 \Illuminate\Support\Facades\Storage::disk('local')->put($path, $imageData);
                 $signaturePath = $path;
-            } elseif (preg_match('/\/signatures\/(\d+)\/file/', $signatureData, $matches)) {
+            } elseif ($signatureData && preg_match('/\/signatures\/(\d+)\/file/', $signatureData, $matches)) {
                 // New signature URL format - extract ID and get path from DB
                 $signatureId = $matches[1];
                 $signature = \App\Models\Signature::find($signatureId);
                 if ($signature) {
                     $signaturePath = $signature->signature_path;
                 }
-            } elseif (str_starts_with($signatureData, 'http') || str_starts_with($signatureData, '/storage')) {
+            } elseif ($signatureData && (str_starts_with($signatureData, 'http') || str_starts_with($signatureData, '/storage'))) {
                 // Existing signature URL - extract path (legacy)
                 $signaturePath = str_replace('/storage/', '', parse_url($signatureData, PHP_URL_PATH));
             }
@@ -200,17 +191,41 @@ class DokumenApprovalController extends Controller
 
         DB::beginTransaction();
         try {
-            // Approve this approval with signature & options
+            // Update signature positions if provided by approver
+            if (!empty($validated['signature_positions'])) {
+                \App\Models\DocumentSignaturePosition::where('dokumen_id', $approval->dokumen_id)->delete();
+                $positionsData = array_map(function ($pos) use ($approval) {
+                    $approvalId = $pos['dokumen_approval_id'] ?? null;
+                    if ($approvalId === 'qr_code' || str_starts_with((string)$approvalId, 'qr_code') || empty($approvalId)) {
+                        $approvalId = null;
+                    } elseif (is_string($approvalId) && str_starts_with($approvalId, 'approval_')) {
+                        $approvalId = (int) str_replace('approval_', '', $approvalId);
+                    } elseif (is_numeric($approvalId)) {
+                        $approvalId = (int) $approvalId;
+                    }
+                    return [
+                        'dokumen_id' => $approval->dokumen_id,
+                        'dokumen_approval_id' => $approvalId,
+                        'page' => $pos['page'],
+                        'x' => $pos['x'],
+                        'y' => $pos['y'],
+                        'width' => $pos['width'],
+                        'height' => $pos['height'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }, $validated['signature_positions']);
+                \App\Models\DocumentSignaturePosition::insert($positionsData);
+            }
+
+            // Approve this approval with signature
             $approval->update([
                 'approval_status' => 'approved',
                 'tgl_approve' => now(),
                 'comment' => $validated['comment'] ?? null,
                 'signature_path' => $signaturePath,
-                'signature_type' => $signatureType,
-                'show_signature' => $showSignature,
-                'show_date' => $showDate,
-                'show_jabatan' => $showJabatan,
-                'approver_jabatan' => $approverJabatan,
+                'signature_method' => $signatureMethod,
+                'verification_token' => $verificationToken,
             ]);
 
             // Add comment if provided
@@ -248,18 +263,21 @@ class DokumenApprovalController extends Controller
         try {
             // Embed signature into the physical file immediately if PDF
             $version = $approval->dokumen->latestVersion;
-            
-            if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && $signaturePath) {
+
+            if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && ($signaturePath || $signatureMethod === 'qr')) {
+                // Generate a PDF stream with just the current signature overlaid on the existing file
                 $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                     $version->file_url,
-                    collect([$approval]),
+                    collect([$approval->fresh()]),
                     $approval->dokumen
                 );
-                
+
+                // Overwrite original file
                 \Illuminate\Support\Facades\Storage::disk('local')->put($version->file_url, $pdfContent);
-                
+
                 Log::info('Approval completed - signature embedded into physical file', [
                     'signature_path' => $signaturePath,
+                    'signature_method' => $signatureMethod,
                     'approval_id' => $approval->id,
                     'dokumen_id' => $approval->dokumen_id,
                 ]);
@@ -430,8 +448,8 @@ class DokumenApprovalController extends Controller
                 })
                 ->update([
                     'approval_status' => 'cancelled',
-                    'tgl_approve'     => now(),
-                    'comment'         => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
+                    'tgl_approve' => now(),
+                    'comment' => 'Auto-cancelled: Document rejected at step ' . $currentStepNumber,
                 ]);
 
             // Update document status to rejected
@@ -592,7 +610,7 @@ class DokumenApprovalController extends Controller
                 'user_id' => Auth::id(),
                 'created_at_custom' => now(),
             ]);
-            
+
             // Dispatch email notification to the new delegate
             \App\Jobs\SendApprovalNotification::dispatch($approval->fresh());
 
@@ -808,7 +826,7 @@ class DokumenApprovalController extends Controller
 
             foreach ($approvalsToActivate as $approval) {
                 $approval->update(['approval_status' => 'pending']);
-                
+
                 // Broadcast new approval event
                 broadcast(new \App\Events\ApprovalCreated($approval))->toOthers();
 
@@ -905,6 +923,79 @@ class DokumenApprovalController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return back()->withErrors(['error' => 'Gagal mengirim request revisi: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Verify a signature via public token.
+     */
+    public function verifySignature(string $token)
+    {
+        $approval = DokumenApproval::where('verification_token', $token)
+            ->where('approval_status', 'approved')
+            ->with(['dokumen.user', 'dokumenVersion', 'user.profile', 'masterflowStep.jabatan'])
+            ->first();
+
+        if (!$approval) {
+            return Inertia::render('verify/show', [
+                'isValid' => false,
+                'approval' => null,
+            ]);
+        }
+
+        return Inertia::render('verify/show', [
+            'isValid' => true,
+            'approval' => [
+                'nomor_dokumen' => $approval->dokumen->nomor_dokumen,
+                'judul_dokumen' => $approval->dokumen->judul_dokumen,
+                'approver_name' => $approval->user->name,
+                'approver_jabatan' => $approval->user->profile->jabatan ?? $approval->masterflowStep?->jabatan?->name ?? 'Approver',
+                'signed_at' => $approval->tgl_approve->toIso8601String(),
+                'signature_method' => $approval->signature_method,
+                'download_url' => route('verify.signature.download', $token),
+            ],
+        ]);
+    }
+
+    /**
+     * Download the signed document for a public verification token.
+     */
+    public function downloadSignedDocument(string $token)
+    {
+        $approval = DokumenApproval::where('verification_token', $token)
+            ->where('approval_status', 'approved')
+            ->with(['dokumen', 'dokumenVersion'])
+            ->firstOrFail();
+
+        $dokumen = $approval->dokumen;
+        $version = $approval->dokumenVersion;
+
+        // Check if file exists
+        if (!$version || !\Illuminate\Support\Facades\Storage::disk('local')->exists($version->file_url)) {
+            abort(404, 'File tidak ditemukan.');
+        }
+
+        // Use PdfSignatureService to stream/render on-demand
+        $pdfSignatureService = app(\App\Services\PdfSignatureService::class);
+
+        // Get all approvals for this document that are approved
+        $approvals = DokumenApproval::where('dokumen_id', $dokumen->id)
+            ->where('approval_status', 'approved')
+            ->get();
+
+        try {
+            $pdfStream = $pdfSignatureService->generateSignedPdfStream($version->file_url, $approvals, $dokumen);
+
+            return response($pdfStream, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Public PDF streaming failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+           return response()->download(storage_path('app/' . $version->file_url), $version->nama_file);
         }
     }
 }

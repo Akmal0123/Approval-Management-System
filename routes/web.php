@@ -296,8 +296,12 @@ Route::middleware(['auth'])->group(function () {
     })->name('masterflows.steps');
 });
 
-//Lookup Route
+// Lookup Route
 Route::get('/api/lookup-pr', [TransaksiController::class, 'searchPr'])->name('api.lookup.pr');
+
+// Public Signature Verification Routes
+Route::get('/verify/signature/{token}', [\App\Http\Controllers\DokumenApprovalController::class, 'verifySignature'])->name('verify.signature');
+Route::get('/verify/signature/{token}/download', [\App\Http\Controllers\DokumenApprovalController::class, 'downloadSignedDocument'])->name('verify.signature.download');
 // Legacy SPA Routes (redirect to appropriate role dashboards)
 Route::get('/spa', function () {
     return redirect('/admin/dashboard');

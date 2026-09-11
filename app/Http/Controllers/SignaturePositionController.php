@@ -46,7 +46,12 @@ class SignaturePositionController extends Controller
             'positions.*.dokumen_approval_id' => [
                 'nullable',
                 function ($attribute, $value, $fail) {
-                    if ($value !== 'qr_code' && !empty($value) && !\App\Models\DokumenApproval::where('id', $value)->exists()) {
+                    if (
+                        $value !== 'qr_code' &&
+                        !str_starts_with((string)$value, 'qr_code') &&
+                        !empty($value) &&
+                        !\App\Models\DokumenApproval::where('id', $value)->exists()
+                    ) {
                         $fail("The selected {$attribute} is invalid.");
                     }
                 }
@@ -69,9 +74,13 @@ class SignaturePositionController extends Controller
 
             // Insert new positions
             $positionsData = array_map(function($pos) use ($dokumen) {
-                $approvalId = $pos['dokumen_approval_id'];
-                if ($approvalId === 'qr_code' || empty($approvalId)) {
+                $approvalId = $pos['dokumen_approval_id'] ?? null;
+                if ($approvalId === 'qr_code' || str_starts_with((string)$approvalId, 'qr_code') || empty($approvalId)) {
                     $approvalId = null;
+                } elseif (is_string($approvalId) && str_starts_with($approvalId, 'approval_')) {
+                    $approvalId = (int) str_replace('approval_', '', $approvalId);
+                } elseif (is_numeric($approvalId)) {
+                    $approvalId = (int) $approvalId;
                 }
                 return [
                     'dokumen_id' => $dokumen->id,

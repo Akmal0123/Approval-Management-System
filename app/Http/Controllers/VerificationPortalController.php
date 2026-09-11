@@ -26,7 +26,7 @@ class VerificationPortalController extends Controller
             'latestVersion',
             'approvals' => function ($query) {
                 $query->with(['user', 'masterflowStep.jabatan'])
-                    ->orderBy('created_at', 'asc');
+                    ->orderBy('approval_order', 'asc');
             },
         ])
         ->where('verification_hash', $hash)

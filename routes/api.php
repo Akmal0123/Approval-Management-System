@@ -4,7 +4,9 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CompanyController;
 use App\Http\Controllers\API\JabatanController;
 use App\Http\Controllers\API\AplikasiController;
+use App\Http\Controllers\API\TransaksiController;
 use App\Http\Controllers\API\RoleController;
+use App\Http\Controllers\API\JwtAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\DashboardController;
@@ -23,7 +25,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Public routes
+// Public routes (Sanctum — untuk web SPA)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
@@ -52,6 +54,10 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::patch('transaksis/{transaksi}/toggle-status', [\App\Http\Controllers\API\TransaksiController::class, 'toggleStatus']);
     Route::get('/transaksi-by-aplikasi/{aplikasi_id}', [\App\Http\Controllers\API\TransaksiController::class, 'getByAplikasi']);
 
+    // Transaksi Management
+    Route::apiResource('transaksis', TransaksiController::class);
+    Route::patch('transaksis/{transaksi}/toggle-status', [TransaksiController::class, 'toggleStatus']);
+
     // User Management
     Route::apiResource('users', UserController::class);
 
@@ -67,6 +73,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
 
     // Dokumen API Routes
     Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
+    Route::post('/dokumen/lookup-external', [DokumenController::class, 'lookupExternal']);
     Route::post('/dokumen/{dokumen}/upload-revision', [DokumenController::class, 'uploadRevision']);
     Route::delete('/dokumen/{dokumen}', [DokumenController::class, 'destroy']);
     Route::get('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'index']);
@@ -97,5 +104,32 @@ Route::prefix('mock-external')->group(function () {
     Route::post('/oauth/token', [\App\Http\Controllers\MockExternalApiController::class, 'issueToken']);
     Route::get('/documents/lookup', [\App\Http\Controllers\MockExternalApiController::class, 'lookup']);
     Route::get('/documents/{id}/detail', [\App\Http\Controllers\MockExternalApiController::class, 'getDocumentDetail']);
+});
+
+// =============================================================================
+// JWT Auth Routes — untuk integrasi ekosistem eksternal (bukan web SPA)
+// =============================================================================
+
+// Public JWT endpoints (login tidak butuh auth)
+Route::prefix('auth/jwt')->group(function () {
+    Route::post('/login', [JwtAuthController::class, 'login']);
+
+    // Protected JWT endpoints (butuh Bearer JWT token)
+    Route::middleware('auth.jwt')->group(function () {
+        Route::post('/logout', [JwtAuthController::class, 'logout']);
+        Route::post('/refresh', [JwtAuthController::class, 'refresh']);
+        Route::get('/me', [JwtAuthController::class, 'me']);
+    });
+});
+
+// Protected API v1 — endpoint yang dibuka untuk ekosistem eksternal via JWT
+Route::middleware('auth.jwt')->prefix('v1')->group(function () {
+    // Dokumen: baca daftar dokumen (read-only untuk ekosistem eksternal)
+    Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
+    Route::get('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'index']);
+
+    // User info & statistics
+    Route::get('/user/statistics', [UserDashboardController::class, 'getStatisticsApi']);
+    Route::get('/user/recent-documents', [UserDashboardController::class, 'getRecentDocumentsApi']);
 });
 
