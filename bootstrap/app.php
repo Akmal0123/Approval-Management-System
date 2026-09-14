@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'check.role' => \App\Http\Middleware\CheckUserRole::class,
+            'auth.jwt'   => \App\Http\Middleware\JwtAuthenticate::class,
         ]);
 
         $middleware->api(prepend: [

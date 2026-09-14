@@ -43,12 +43,20 @@ class SignatureController extends Controller
             // Check if it's a base64 string or file upload
             if (str_starts_with($signatureData, 'data:image')) {
                 // Extract base64 data
-                $image = str_replace('data:image/png;base64,', '', $signatureData);
+                $image = preg_replace('/^data:image\/\w+;base64,/', '', $signatureData);
                 $image = str_replace(' ', '+', $image);
                 $imageData = base64_decode($image);
             } else {
                 return response()->json([
                     'message' => 'Invalid signature format',
+                ], 422);
+            }
+
+            // Validate image dimensions (must be 400x400 px, 1:1 ratio)
+            $imageInfo = @getimagesizefromstring($imageData);
+            if (!$imageInfo || $imageInfo[0] !== 400 || $imageInfo[1] !== 400) {
+                return response()->json([
+                    'message' => 'Signature harus berukuran 400 × 400 px (rasio 1:1).',
                 ], 422);
             }
 
@@ -96,8 +104,20 @@ class SignatureController extends Controller
         try {
             $file = $request->file('signature_file');
 
+            // Validate image dimensions (must be 400x400 px, 1:1 ratio)
+            $imageInfo = @getimagesize($file->getRealPath());
+            if (!$imageInfo || $imageInfo[0] !== 400 || $imageInfo[1] !== 400) {
+                return response()->json([
+                    'message' => 'Signature harus berukuran 400 × 400 px (rasio 1:1).',
+                ], 422);
+            }
+
+            // Determine extension from mime type
+            $mime = $imageInfo['mime'] ?? $file->getMimeType();
+            $ext = ($mime === 'image/jpeg') ? 'jpg' : 'png';
+
             // Generate filename
-            $filename = 'uploaded_' . time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+            $filename = 'uploaded_' . time() . '_' . Str::random(10) . '.' . $ext;
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the file

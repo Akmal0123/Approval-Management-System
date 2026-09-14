@@ -12,7 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled', 'revision_requested', 'waiting') DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled', 'revision_requested', 'waiting') DEFAULT 'pending'");
+        }
     }
 
     /**
@@ -20,7 +22,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Reverting this might cause issues if there are rows with 'waiting' status
-        DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled', 'revision_requested') DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            // Reverting this might cause issues if there are rows with 'waiting' status
+            DB::statement("ALTER TABLE dokumen_approval MODIFY COLUMN approval_status ENUM('pending', 'approved', 'rejected', 'skipped', 'cancelled', 'revision_requested') DEFAULT 'pending'");
+        }
     }
 };

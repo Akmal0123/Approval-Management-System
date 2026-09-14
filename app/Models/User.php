@@ -7,8 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
@@ -133,5 +134,37 @@ class User extends Authenticatable
     public function lastContext()
     {
         return $this->belongsTo(UsersAuth::class, 'last_context_id');
+    }
+
+    // =========================================================================
+    // JWT Subject Interface Implementation
+    // =========================================================================
+
+    /**
+     * Get the identifier that will be stored in the subject claim of the JWT.
+     */
+    public function getJWTIdentifier(): mixed
+    {
+        return $this->getKey();
+    }
+
+    /**
+     * Return a key value array, containing any custom claims to be added to the JWT.
+     * Aplikasi eksternal dapat membaca role & context langsung dari token
+     * tanpa perlu panggil API tambahan ke AMS.
+     */
+    public function getJWTCustomClaims(): array
+    {
+        // Ambil context aktif user (last_context_id)
+        $context = $this->lastContext()->with(['role', 'company'])->first();
+
+        return [
+            'name'       => $this->name,
+            'email'      => $this->email,
+            'role'       => $context?->role?->role_name ?? null,
+            'company_id' => $context?->company_id ?? null,
+            'company'    => $context?->company?->name ?? null,
+            'context_id' => $this->last_context_id,
+        ];
     }
 }

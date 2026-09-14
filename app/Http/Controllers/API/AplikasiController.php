@@ -35,12 +35,12 @@ class AplikasiController extends Controller
         }
 
         // AMBIL DATA SELURUH PERUSAHAAN UNTUK DROPDOWN DI MODAL TAMBAH/EDIT
-        $companies = \App\Models\Company::select('id', 'name')->orderBy('name')->get();
+        $companies = \App\Models\Company::select('id', 'name', 'base_url')->orderBy('name')->get();
 
         return response()->json([
             'status' => 'success',
             'aplikasis' => $aplikasi,
-            'companies' => $companies // <-- TAMBAHKAN BARIS INI
+            'companies' => $companies
         ]);
     }
     /**

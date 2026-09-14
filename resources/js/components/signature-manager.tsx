@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createSignatureFile, PixelCrop } from '@/lib/signature-crop';
 import { showToast } from '@/lib/toast';
 import axios from 'axios';
-import { CheckCircle2, FileSignature, PenTool, Trash2, Upload, X } from 'lucide-react';
+import { CheckCircle2, Crop, FileSignature, PenTool, RotateCcw, Trash2, Upload, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import Cropper from 'react-easy-crop';
 
 interface Signature {
     id: number;
@@ -37,16 +39,25 @@ export default function SignatureManager() {
     const [signatures, setSignatures] = useState<Signature[]>([]);
     const [initialLoading, setInitialLoading] = useState(true);
     const [loading, setLoading] = useState(false);
-    const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [signatureToDelete, setSignatureToDelete] = useState<number | null>(null);
+
+    // Image Upload & Cropper States
+    const [uploadImageSrc, setUploadImageSrc] = useState<string | null>(null);
+    const [originalFileName, setOriginalFileName] = useState<string>('');
+    const [cropModalOpen, setCropModalOpen] = useState(false);
+    const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
+    const [croppedPreviewUrl, setCroppedPreviewUrl] = useState<string | null>(null);
+    const [processedFile, setProcessedFile] = useState<File | null>(null);
 
     // Fetch signatures on mount
     useEffect(() => {
         fetchSignatures();
     }, []);
 
-    // Initialize canvas
+    // Initialize canvas with 400x400 standard dimensions and white background
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -54,9 +65,12 @@ export default function SignatureManager() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
+        canvas.width = 400;
+        canvas.height = 400;
+
         // Set canvas drawing style
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -81,13 +95,13 @@ export default function SignatureManager() {
         }
     };
 
-    // Get canvas coordinates accounting for scale
+    // Get canvas coordinates accounting for scale difference
     const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
         const rect = canvas.getBoundingClientRect();
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-        // Calculate scale between canvas internal size and display size
+        // Calculate scale between canvas internal size (400x400) and display size
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
 
@@ -108,9 +122,8 @@ export default function SignatureManager() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Ensure canvas is properly initialized
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -159,8 +172,29 @@ export default function SignatureManager() {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
+        // Check if canvas is blank
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+        let isBlank = true;
+
+        for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i] !== 255 || pixels[i + 1] !== 255 || pixels[i + 2] !== 255) {
+                isBlank = false;
+                break;
+            }
+        }
+
+        if (isBlank) {
+            showToast.error('❌ Silakan gambar tanda tangan terlebih dahulu');
+            return;
+        }
+
         setLoading(true);
         try {
+            // Generates 400x400 PNG data URL
             const dataUrl = canvas.toDataURL('image/png');
 
             const response = await axios.post(
@@ -206,17 +240,50 @@ export default function SignatureManager() {
                 return;
             }
 
-            setUploadFile(file);
+            setOriginalFileName(file.name);
+            const reader = new FileReader();
+            reader.onload = () => {
+                setUploadImageSrc(reader.result as string);
+                setCrop({ x: 0, y: 0 });
+                setZoom(1);
+                setCropModalOpen(true);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const onCropComplete = (_croppedArea: any, currentCroppedAreaPixels: PixelCrop) => {
+        setCroppedAreaPixels(currentCroppedAreaPixels);
+    };
+
+    const handleApplyCrop = async () => {
+        if (!uploadImageSrc || !croppedAreaPixels) {
+            showToast.error('❌ Terjadi kesalahan saat memproses gambar');
+            return;
+        }
+
+        try {
+            const file = await createSignatureFile(uploadImageSrc, croppedAreaPixels, originalFileName || 'signature.png');
+            setProcessedFile(file);
+            setCroppedPreviewUrl(URL.createObjectURL(file));
+            setCropModalOpen(false);
+            showToast.success('✅ Area tanda tangan 1:1 berhasil dipilih');
+        } catch (error: any) {
+            console.error('Failed to crop signature image:', error);
+            showToast.error('❌ Gagal memotong gambar tanda tangan');
         }
     };
 
     const uploadSignature = async () => {
-        if (!uploadFile) return;
+        if (!processedFile) {
+            showToast.error('❌ Silakan pilih dan potong gambar tanda tangan terlebih dahulu');
+            return;
+        }
 
         setLoading(true);
         try {
             const formData = new FormData();
-            formData.append('signature_file', uploadFile);
+            formData.append('signature_file', processedFile);
             formData.append('signature_type', 'uploaded');
             formData.append('is_default', signatures.length === 0 ? '1' : '0');
 
@@ -230,7 +297,9 @@ export default function SignatureManager() {
             });
 
             showToast.success('✅ Tanda tangan berhasil diupload!');
-            setUploadFile(null);
+            setProcessedFile(null);
+            setCroppedPreviewUrl(null);
+            setUploadImageSrc(null);
             // Reset file input
             const fileInput = document.getElementById('signature-file') as HTMLInputElement;
             if (fileInput) fileInput.value = '';
@@ -241,6 +310,14 @@ export default function SignatureManager() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const resetUpload = () => {
+        setProcessedFile(null);
+        setCroppedPreviewUrl(null);
+        setUploadImageSrc(null);
+        const fileInput = document.getElementById('signature-file') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
     };
 
     const setAsDefault = async (signatureId: number) => {
@@ -307,7 +384,7 @@ export default function SignatureManager() {
             <Card>
                 <CardHeader>
                     <CardTitle>Digital Signature Management</CardTitle>
-                    <CardDescription>Buat dan kelola tanda tangan digital Anda untuk proses approval dokumen</CardDescription>
+                    <CardDescription>Buat dan kelola tanda tangan digital Anda dengan format standar persegi 1:1 (400 × 400 px)</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="draw" className="w-full">
@@ -324,22 +401,27 @@ export default function SignatureManager() {
 
                         <TabsContent value="draw" className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Gambar tanda tangan Anda di bawah ini</Label>
-                                <canvas
-                                    ref={canvasRef}
-                                    width={600}
-                                    height={200}
-                                    className="w-full cursor-crosshair touch-none rounded-md border-2 border-dashed border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-950"
-                                    onMouseDown={startDrawing}
-                                    onMouseMove={draw}
-                                    onMouseUp={stopDrawing}
-                                    onMouseLeave={stopDrawing}
-                                    onTouchStart={startDrawing}
-                                    onTouchMove={draw}
-                                    onTouchEnd={stopDrawing}
-                                />
+                                <Label>Gambar tanda tangan Anda di dalam area persegi (1:1) di bawah ini</Label>
+                                <div className="flex justify-center">
+                                    <div className="w-full max-w-[360px]">
+                                        <canvas
+                                            ref={canvasRef}
+                                            width={400}
+                                            height={400}
+                                            className="aspect-square w-full cursor-crosshair touch-none rounded-md border-2 border-dashed border-neutral-300 bg-white shadow-xs dark:border-neutral-700 dark:bg-neutral-950"
+                                            onMouseDown={startDrawing}
+                                            onMouseMove={draw}
+                                            onMouseUp={stopDrawing}
+                                            onMouseLeave={stopDrawing}
+                                            onTouchStart={startDrawing}
+                                            onTouchMove={draw}
+                                            onTouchEnd={stopDrawing}
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-center text-xs text-muted-foreground">Area tanda tangan berukuran 1:1 persegi (output: 400 × 400 px PNG)</p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex justify-center gap-2 sm:justify-end">
                                 <Button type="button" variant="outline" onClick={clearCanvas}>
                                     <X className="mr-2 h-4 w-4" />
                                     Hapus
@@ -354,28 +436,147 @@ export default function SignatureManager() {
                             <div className="space-y-2">
                                 <Label htmlFor="signature-file">Upload gambar tanda tangan</Label>
                                 <Input id="signature-file" type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileChange} />
-                                <p className="text-sm text-muted-foreground">Format yang didukung: PNG, JPG, JPEG. Maksimal 2MB</p>
+                                <p className="text-sm text-muted-foreground">Format: PNG, JPG, JPEG (Maks. 2MB). Gambar akan dipotong menjadi rasio persegi 1:1.</p>
                             </div>
-                            {uploadFile && (
-                                <div className="rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
-                                    <p className="text-sm font-medium">File dipilih: {uploadFile.name}</p>
-                                    <p className="text-sm text-muted-foreground">Ukuran: {(uploadFile.size / 1024).toFixed(2)} KB</p>
+
+                            {croppedPreviewUrl && processedFile && (
+                                <div className="space-y-3 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium">Hasil Crop Tanda Tangan (1:1)</p>
+                                            <p className="text-xs text-muted-foreground">Standar Output: 400 × 400 px PNG</p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCropModalOpen(true)}
+                                            className="h-8 text-xs"
+                                        >
+                                            <Crop className="mr-1.5 h-3.5 w-3.5" />
+                                            Ubah Crop
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex justify-center">
+                                        <div className="flex aspect-square h-48 w-48 items-center justify-center rounded border bg-white p-2 shadow-xs">
+                                            <img
+                                                src={croppedPreviewUrl}
+                                                alt="Cropped Preview"
+                                                className="max-h-full max-w-full object-contain"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-2">
+                                        <Button type="button" variant="ghost" size="sm" onClick={resetUpload} className="text-xs text-muted-foreground">
+                                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                                            Pilih File Lain
+                                        </Button>
+                                        <Button type="button" onClick={uploadSignature} disabled={loading}>
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            {loading ? 'Mengupload...' : 'Upload Tanda Tangan'}
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
-                            <Button type="button" onClick={uploadSignature} disabled={!uploadFile || loading}>
-                                <Upload className="mr-2 h-4 w-4" />
-                                {loading ? 'Mengupload...' : 'Upload Tanda Tangan'}
-                            </Button>
+
+                            {!croppedPreviewUrl && (
+                                <div className="rounded-md border border-dashed border-neutral-300 p-8 text-center text-muted-foreground dark:border-neutral-700">
+                                    <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
+                                    <p className="text-sm">Pilih gambar tanda tangan untuk membuka pemotong gambar 1:1</p>
+                                </div>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
 
+            {/* Cropper Dialog */}
+            <Dialog open={cropModalOpen} onOpenChange={setCropModalOpen}>
+                <DialogContent className="max-w-md sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="font-serif">Sesuaikan Area Tanda Tangan (1:1)</DialogTitle>
+                        <DialogDescription className="font-sans">
+                            Geser dan perbesar gambar agar tanda tangan berada di tengah area persegi. Output akan disimpan dalam ukuran 400 × 400 px.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="relative h-[280px] w-full overflow-hidden rounded-lg bg-neutral-900 sm:h-[320px]">
+                            {uploadImageSrc && (
+                                <Cropper
+                                    image={uploadImageSrc}
+                                    crop={crop}
+                                    zoom={zoom}
+                                    aspect={1}
+                                    onCropChange={setCrop}
+                                    onZoomChange={setZoom}
+                                    onCropComplete={onCropComplete}
+                                />
+                            )}
+                        </div>
+
+                        {/* Zoom control slider */}
+                        <div className="flex items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 shrink-0"
+                                onClick={() => setZoom((z) => Math.max(1, z - 0.2))}
+                            >
+                                <ZoomOut className="h-4 w-4" />
+                            </Button>
+                            <input
+                                type="range"
+                                min={1}
+                                max={3}
+                                step={0.1}
+                                value={zoom}
+                                onChange={(e) => setZoom(Number(e.target.value))}
+                                className="h-2 flex-1 cursor-pointer accent-primary"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 shrink-0"
+                                onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                            >
+                                <ZoomIn className="h-4 w-4" />
+                            </Button>
+                            <span className="w-10 text-right text-xs text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setCropModalOpen(false);
+                                if (!processedFile) {
+                                    resetUpload();
+                                }
+                            }}
+                            className="font-sans"
+                        >
+                            Batal
+                        </Button>
+                        <Button type="button" onClick={handleApplyCrop} className="font-sans">
+                            <Crop className="mr-2 h-4 w-4" />
+                            Gunakan Area Crop
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Signatures List */}
             <Card>
                 <CardHeader>
                     <CardTitle>Tanda Tangan Saya</CardTitle>
-                    <CardDescription>Kelola tanda tangan yang telah disimpan</CardDescription>
+                    <CardDescription>Kelola tanda tangan yang telah disimpan (semua berformat 1:1 persegi)</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {initialLoading ? (
@@ -388,7 +589,7 @@ export default function SignatureManager() {
                                             <Skeleton className="h-5 w-16" />
                                             <Skeleton className="h-5 w-20" />
                                         </div>
-                                        <Skeleton className="mb-4 h-32 w-full rounded" />
+                                        <Skeleton className="mb-4 aspect-square w-full rounded" />
                                         <div className="flex gap-2">
                                             <Skeleton className="h-8 w-24" />
                                             <Skeleton className="h-8 w-8" />
@@ -410,7 +611,7 @@ export default function SignatureManager() {
                         </div>
                     ) : (
                         /* Signatures grid */
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {signatures.map((signature) => (
                                 <Card key={signature.id} className="relative">
                                     <CardContent className="p-4">
@@ -425,7 +626,7 @@ export default function SignatureManager() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <div className="mb-4 flex h-32 items-center justify-center rounded border border-neutral-200 bg-white p-2">
+                                        <div className="mb-4 flex aspect-square w-full items-center justify-center rounded border border-neutral-200 bg-white p-3 dark:border-neutral-800">
                                             <img
                                                 src={`/signatures/${signature.id}/file`}
                                                 alt="Tanda Tangan"

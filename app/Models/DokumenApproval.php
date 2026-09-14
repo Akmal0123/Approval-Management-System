@@ -34,11 +34,8 @@ class DokumenApproval extends Model
         'alasan_reject',
         'comment',
         'signature_path',
-        'signature_type',
-        'show_signature',
-        'show_date',
-        'show_jabatan',
-        'approver_jabatan',
+        'signature_method',
+        'verification_token',
         'revision_notes',
         'revision_requested_by',
         'revision_requested_at',
@@ -224,7 +221,7 @@ class DokumenApproval extends Model
     /**
      * Approve this approval.
      */
-    public function approve(string $comment = null): bool
+    public function approve(?string $comment = null): bool
     {
         return $this->update([
             'approval_status' => 'approved',
@@ -236,7 +233,7 @@ class DokumenApproval extends Model
     /**
      * Reject this approval.
      */
-    public function reject(string $reason, string $comment = null): bool
+    public function reject(string $reason, ?string $comment = null): bool
     {
         return $this->update([
             'approval_status' => 'rejected',

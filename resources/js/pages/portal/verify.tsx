@@ -41,7 +41,7 @@ interface DocumentData {
     judul_dokumen: string;
     tipe_dokumen?: string;
     nominal?: number | null;
-    company_name: string;
+    company_name?: string;
     aplikasi_name: string;
     transaksi_name?: string;
     departemen?: string;
@@ -243,8 +243,10 @@ export default function DocumentVerificationPortal({ isValid, dokumen, errorMess
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Departemen</div>
-                                                <div className="text-sm font-medium text-slate-800 mt-1">{dokumen.departemen || '-'}</div>
+                                                <div className="text-xs text-gray-500 uppercase">Perusahaan</div>
+<div className="text-sm font-medium text-slate-800 mt-1">
+    {dokumen.company_name}
+</div>
                                             </div>
                                             <div>
                                                 <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Tanggal Pengajuan</div>

@@ -166,8 +166,8 @@ class PdfSignatureService
                     $yPosition = 220; // Starting Y position
                     $xPosition = 20; // Starting X position
                     $signaturesPerRow = 3;
-                    $signatureWidth = 35;
-                    $signatureHeight = 13;
+                    $signatureWidth = 25;
+                    $signatureHeight = 25;
                     $spacing = 60; // Horizontal spacing
 
                     foreach ($signatures as $index => $signature) {
@@ -182,7 +182,7 @@ class PdfSignatureService
                         $col = $index % $signaturesPerRow;
 
                         $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 30); // 30mm vertical spacing
+                        $y = $yPosition + ($row * 35); // 35mm vertical spacing
 
                         $options = array_merge([
                             'x' => $x,
@@ -233,41 +233,74 @@ class PdfSignatureService
      */
     public function generateSignedPdfStream(string $pdfPath, $approvals, $dokumen = null): string
     {
-        try {
-            $fullPdfPath = Storage::disk('local')->path($pdfPath);
+        $tempConfigFile = null;
+        $tempOutputFile = null;
 
-            if (!file_exists($fullPdfPath)) {
-                throw new Exception("PDF file not found: {$fullPdfPath}");
+        try {
+            // Cek file PDF utama di local, lalu fallback ke public
+            $fullPdfPath = Storage::disk('local')->exists($pdfPath) 
+                ? Storage::disk('local')->path($pdfPath) 
+                : (Storage::disk('public')->exists($pdfPath) ? Storage::disk('public')->path($pdfPath) : null);
+
+            if (!$fullPdfPath || !file_exists($fullPdfPath)) {
+                throw new Exception("PDF file not found: {$pdfPath}");
+            }
+
+            // Ekstraksi Dokumen Secara Agresif
+            // Memastikan $dokumen terisi penuh meskipun $approvals kosong pada awal masa review
+            if (!$dokumen) {
+                if ($approvals && $approvals->count() > 0) {
+                    $dokumen = $approvals->first()->dokumen()->first() ?? \App\Models\Dokumen::find($approvals->first()->dokumen_id);
+                } else {
+                    $dokumen = \App\Models\Dokumen::whereHas('versions', function ($q) use ($pdfPath) {
+                        $q->where('file_url', $pdfPath);
+                    })->first();
+                }
             }
 
             $signaturesData = [];
-            
+
             if ($approvals && $approvals->count() > 0) {
-                // Determine page count using FPDI for unpositioned signatures fallback
-                // (Note: FPDI might fail on compressed PDFs, so we wrap it)
                 $pageCount = 1;
                 try {
                     $pdf = new Fpdi();
                     $pageCount = $pdf->setSourceFile($fullPdfPath);
                 } catch (\Exception $e) {
-                    // Ignore FPDI compression error, assume large page count for unpositioned
                     $pageCount = 999;
                 }
 
                 $unpositionedIndex = 0;
-                $yPosition = 220; // Starting Y position for fallback
-                $xPosition = 20; // Starting X position for fallback
+                $yPosition = 220;
+                $xPosition = 20;
                 $signaturesPerRow = 3;
-                $spacing = 60; // Horizontal spacing
+                $spacing = 60;
 
                 foreach ($approvals as $approval) {
-                    if (!$approval->signature_path) {
+                    if ($approval->signature_method !== 'qr' && !$approval->signature_path && (!$approval->user || !$approval->user->signature)) {
                         continue;
                     }
+
+                    $fullSignaturePath = null;
                     
-                    $fullSignaturePath = Storage::disk('local')->path($approval->signature_path);
-                    if (!file_exists($fullSignaturePath)) {
-                        continue;
+                    $pathsToCheck = array_filter([
+                        $approval->signature_path,
+                        $approval->user->signature ?? null
+                    ]);
+
+                    foreach ($pathsToCheck as $relPath) {
+                        if (Storage::disk('public')->exists($relPath)) {
+                            $fullSignaturePath = Storage::disk('public')->path($relPath);
+                            break;
+                        } elseif (Storage::disk('local')->exists($relPath)) {
+                            $fullSignaturePath = Storage::disk('local')->path($relPath);
+                            break;
+                        } elseif (file_exists(storage_path('app/private/' . $relPath))) {
+                            $fullSignaturePath = storage_path('app/private/' . $relPath);
+                            break;
+                        } elseif (file_exists(public_path('storage/' . $relPath))) {
+                            $fullSignaturePath = public_path('storage/' . $relPath);
+                            break;
+                        }
                     }
 
                     $pos = $approval->signaturePosition;
@@ -275,113 +308,139 @@ class PdfSignatureService
                     $showSignature = $approval->show_signature ?? true;
                     $showDate = $approval->show_date ?? true;
                     $showJabatan = $approval->show_jabatan ?? true;
-                    
+
                     if ($pos) {
-                        $signaturesData[] = [
-                            'imagePath' => $fullSignaturePath,
-                            'page' => $pos->page,
-                            'x' => $pos->x,
-                            'y' => $pos->y,
-                            'width' => $pos->width,
-                            'height' => $pos->height,
-                            'add_text' => true,
-                            'show_signature' => $showSignature,
-                            'show_date' => $showDate,
-                            'show_jabatan' => $showJabatan,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Disetujui',
-                            'jabatan' => $jabatan,
-                            'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
-                            'name' => $approval->user?->name ?? null,
-                            'signature_type' => $approval->signature_type ?? 'signature',
-                        ];
+                        $page = $pos->page;
+                        $x = $pos->x;
+                        $y = $pos->y;
+                        $width = $pos->width;
+                        $height = $pos->height;
                     } else {
-                        // Fallback positioning
                         $row = floor($unpositionedIndex / $signaturesPerRow);
                         $col = $unpositionedIndex % $signaturesPerRow;
 
+                        $page = $pageCount;
                         $x = $xPosition + ($col * $spacing);
-                        $y = $yPosition + ($row * 35); // 35mm vertical spacing
+                        $y = $yPosition + ($row * 35);
+                        $width = 35;
+                        $height = 15;
                         
-                        $signaturesData[] = [
-                            'imagePath' => $fullSignaturePath,
-                            'page' => $pageCount, // Last page
-                            'x' => $x,
-                            'y' => $y,
-                            'width' => 35,
-                            'height' => 15,
-                            'add_text' => true,
-                            'show_signature' => $showSignature,
-                            'show_date' => $showDate,
-                            'show_jabatan' => $showJabatan,
-                            'text' => $approval->masterflowStep?->step_name ?? 'Disetujui',
-                            'jabatan' => $jabatan,
-                            'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
-                            'name' => $approval->user?->name ?? null,
-                            'signature_type' => $approval->signature_type ?? 'signature',
-                        ];
                         $unpositionedIndex++;
                     }
+
+                    if ($approval->signature_method === 'qr' || $width !== $height) {
+                        $squareSize = min($width, $height);
+                        $width = $squareSize;
+                        $height = $squareSize;
+                    }
+
+                    $sigDetails = [
+                        'page' => (int)$page,
+                        'x' => (float)$x,
+                        'y' => (float)$y,
+                        'width' => (float)$width,
+                        'height' => (float)$height,
+                        'add_text' => true,
+                        'show_signature' => $showSignature,
+                        'show_date' => $showDate,
+                        'show_jabatan' => $showJabatan,
+                        'text' => $approval->masterflowStep?->step_name ?? 'Disetujui',
+                        'jabatan' => $jabatan,
+                        'date' => $approval->tgl_approve?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
+                        'name' => $approval->user?->name ?? null,
+                        'signature_type' => $approval->signature_type ?? 'signature',
+                    ];
+
+                    if ($approval->signature_method === 'qr') {
+                        $token = $approval->verification_token;
+                        if (!$token) {
+                            $token = \Illuminate\Support\Str::uuid()->toString();
+                            try {
+                                $approval->update(['verification_token' => $token]);
+                            } catch (\Throwable $th) {}
+                        }
+                        $sigDetails['qrText'] = url('/verify/signature/' . $token);
+                    } else {
+                        $sigDetails['imagePath'] = $fullSignaturePath;
+                    }
+
+                    $signaturesData[] = $sigDetails;
                 }
             }
 
-            if (!$dokumen && $approvals && $approvals->count() > 0) {
-                $firstApproval = $approvals->first();
-                if ($firstApproval) {
-                    $dokumen = $firstApproval->dokumen;
-                }
-            }
+            // Pengumpulan QR Code Dokumen dengan Fallback & Auto-Generate
+            $qrCodesData = [];
+            $targetDokumenId = $dokumen->id ?? ($approvals->first()->dokumen_id ?? null);
+            $verificationUrl = url('/verify/' . ($dokumen->verification_hash ?? $targetDokumenId));
 
-            $qrCodeData = null;
-            if ($dokumen) {
-                $qrPosition = \App\Models\DocumentSignaturePosition::where('dokumen_id', $dokumen->id)
+            if ($targetDokumenId) {
+                $qrPositions = \App\Models\DocumentSignaturePosition::where('dokumen_id', $targetDokumenId)
                     ->whereNull('dokumen_approval_id')
-                    ->first();
-                
-                if ($qrPosition) {
-                    $qrCodeData = [
-                        'text' => $dokumen->getVerificationUrl(),
-                        'page' => $qrPosition->page,
-                        'x' => $qrPosition->x,
-                        'y' => $qrPosition->y,
-                        'width' => $qrPosition->width,
-                        'height' => $qrPosition->height,
+                    ->orderBy('page')
+                    ->get();
+
+                if ($qrPositions->count() > 0) {
+                    foreach ($qrPositions as $qrPosition) {
+                        $qrCodesData[] = [
+                            'text' => $verificationUrl,
+                            'page' => (int)$qrPosition->page,
+                            'x' => (float)$qrPosition->x,
+                            'y' => (float)$qrPosition->y,
+                            'width' => (float)$qrPosition->width,
+                            'height' => (float)$qrPosition->height,
+                        ];
+                    }
+                } else {
+                    // Fallback mutlak di pojok kanan atas jika database kosong
+                    $qrCodesData[] = [
+                        'text' => $verificationUrl,
+                        'page' => 1,
+                        'x' => 170,
+                        'y' => 15,
+                        'width' => 25,
+                        'height' => 25,
                     ];
                 }
             }
 
+            // Tambahkan baris log ini untuk debugging di storage/logs/laravel.log
+            \Illuminate\Support\Facades\Log::info('QR Codes Data Sent to Node:', $qrCodesData);
 
-            // Write config to temp file
+            $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';
+            $tempOutputFile = tempnam(sys_get_temp_dir(), 'pdf_sig_out_') . '.pdf';
+
             $config = [
                 'pdfPath' => $fullPdfPath,
+                'outPath' => $tempOutputFile,
                 'signatures' => $signaturesData,
-                'qrCode' => $qrCodeData
+                'qrCode' => $qrCodesData[0] ?? null,
+                'qrCodes' => $qrCodesData
             ];
-            
-            $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';
+
             file_put_contents($tempConfigFile, json_encode($config));
 
             $nodeScriptPath = base_path('scripts/sign-pdf.cjs');
-            
-            // Execute node script
             $process = new \Symfony\Component\Process\Process(['node', $nodeScriptPath, $tempConfigFile]);
-            // Increase timeout for large PDFs
-            $process->setTimeout(60); 
+            $process->setTimeout(60);
             $process->run();
-
-            // Cleanup config file
-            if (file_exists($tempConfigFile)) {
-                unlink($tempConfigFile);
-            }
 
             if (!$process->isSuccessful()) {
                 throw new \Symfony\Component\Process\Exception\ProcessFailedException($process);
             }
 
-            return $process->getOutput();
+            if (!file_exists($tempOutputFile) || filesize($tempOutputFile) === 0) {
+                throw new Exception("Signed PDF output was not generated");
+            }
+
+            return file_get_contents($tempOutputFile);
         } catch (Exception $e) {
             throw new Exception("Failed to generate signed PDF stream: " . $e->getMessage());
+        } finally {
+            if ($tempConfigFile && file_exists($tempConfigFile)) @unlink($tempConfigFile);
+            if ($tempOutputFile && file_exists($tempOutputFile)) @unlink($tempOutputFile);
         }
     }
+    
 
     /**
      * Get signature placement suggestions based on document size
@@ -421,7 +480,6 @@ class PdfSignatureService
                 ],
             ];
         } catch (Exception $e) {
-            // Return default suggestions
             return [
                 'bottom_right' => ['x' => 140, 'y' => 250, 'label' => 'Bottom Right'],
                 'bottom_left' => ['x' => 20, 'y' => 250, 'label' => 'Bottom Left'],

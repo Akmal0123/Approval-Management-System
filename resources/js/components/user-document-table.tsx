@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from '@inertiajs/react';
 import { Eye, FileText } from 'lucide-react';
+import { DocumentCardView } from '@/components/documents/document-card-view';
 
 interface Document {
     id: number;
@@ -48,37 +49,45 @@ export default function UserDocumentTable({ documents = [] }: UserDocumentTableP
     }
 
     return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Document</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {documents.map((doc) => (
-                        <TableRow key={doc.id}>
-                            <TableCell className="font-medium">{doc.name}</TableCell>
-                            <TableCell className="text-muted-foreground">{doc.category}</TableCell>
-                            <TableCell>
-                                <Badge variant={getStatusVariant(doc.status)}>{doc.status}</Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{doc.submitted_at}</TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="sm" asChild>
-                                    <Link href={`/dokumen/${doc.id}`}>
-                                        <Eye className="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                            </TableCell>
+        <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Document</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Submitted</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
+                    </TableHeader>
+                    <TableBody>
+                        {documents.map((doc) => (
+                            <TableRow key={doc.id}>
+                                <TableCell className="font-medium">{doc.name}</TableCell>
+                                <TableCell className="text-muted-foreground">{doc.category}</TableCell>
+                                <TableCell>
+                                    <Badge variant={getStatusVariant(doc.status)}>{doc.status}</Badge>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">{doc.submitted_at}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="sm" asChild>
+                                        <Link href={`/dokumen/${doc.id}`}>
+                                            <Eye className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Mobile Stacked Card View */}
+            <div className="block md:hidden">
+                <DocumentCardView documents={documents} getStatusVariant={getStatusVariant} />
+            </div>
+        </>
     );
 }

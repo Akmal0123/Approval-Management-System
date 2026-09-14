@@ -8,6 +8,7 @@ import Pusher from 'pusher-js';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from 'react-hot-toast';
 import { initializeTheme } from './hooks/use-appearance';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 // Extend Window interface for Pusher and Echo
 declare global {
@@ -78,18 +79,9 @@ router.on('before', (event) => {
             headers['X-CSRF-TOKEN'] = csrfInfo.token;
         }
 
-        // Always try to set X-XSRF-TOKEN if we have an encrypted one (from cookie)
-        // If getCsrfTokenInfo returned raw, we might check cookie specifically for XSRF header
-        // But simpler logic: If we have encrypted from cookie, use X-XSRF-TOKEN.
-        // If getCsrfTokenInfo returned encrypted, we MUST use X-XSRF-TOKEN and NOT X-CSRF-TOKEN.
-
         if (csrfInfo.type === 'encrypted') {
             headers['X-XSRF-TOKEN'] = csrfInfo.token;
-            // IMPORTANT: Do NOT set X-CSRF-TOKEN with encrypted value
         } else {
-            // If raw, we can also set X-XSRF-TOKEN if we want, but X-CSRF-TOKEN is enough.
-            // Usually Axios does this automatically for X-XSRF-TOKEN from cookie?
-            // Let's explicitly check cookie for X-XSRF-TOKEN even if we found raw meta
             const cookieMatch = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
             if (cookieMatch && cookieMatch[1]) {
                 headers['X-XSRF-TOKEN'] = decodeURIComponent(cookieMatch[1]);
@@ -125,7 +117,7 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <>
+            <AuthProvider>
                 <App {...props} />
                 <Toaster
                     position="bottom-right"
@@ -156,7 +148,7 @@ createInertiaApp({
                         },
                     }}
                 />
-            </>,
+            </AuthProvider>
         );
     },
     progress: {

@@ -52,7 +52,7 @@ class Transaksi extends Model
      */
     public function dokumens(): HasMany
     {
-        return $this->hasMany(Dokumen::class);
+        return $this->hasMany(Dokumen::class, 'transaksi_id');
     }
 
     /**

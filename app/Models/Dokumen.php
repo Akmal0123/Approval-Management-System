@@ -38,6 +38,7 @@ class Dokumen extends Model
         'aplikasi_id',
         'transaksi_id',
         'departemen',
+        'tipe_dokumen',
         'masterflow_id',
         'comment_id',
         'status',
@@ -98,7 +99,7 @@ class Dokumen extends Model
      */
     public function transaksi(): BelongsTo
     {
-        return $this->belongsTo(Transaksi::class);
+return $this->belongsTo(Transaksi::class, 'transaksi_id');
     }
 
     /**
@@ -113,7 +114,6 @@ class Dokumen extends Model
 
         return url('/verify/' . $this->verification_hash);
     }
-
 
     /**
      * Get the main comment for this document.
@@ -144,7 +144,7 @@ class Dokumen extends Model
      */
     public function approvals(): HasMany
     {
-        return $this->hasMany(DokumenApproval::class);
+        return $this->hasMany(DokumenApproval::class)->orderBy('approval_order', 'asc');
     }
 
     /**

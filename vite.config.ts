@@ -23,8 +23,13 @@ export default defineConfig({
         },
     },
     server: {
+        //        host: '0.0.0.0',
+        //        hmr: {
+        //          host: '192.168.49.141',
+        //      },
         proxy: {
             '/storage': {
+                //                target: 'http://192.168.49.141:8000',
                 target: 'http://127.0.0.1:8000',
                 changeOrigin: true,
             },
