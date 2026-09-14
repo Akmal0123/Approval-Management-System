@@ -198,6 +198,12 @@ export default function UserDokumen() {
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [lookupError, setLookupError] = useState('');
 
+    // State untuk dropdown daftar dokumen ERP
+    const [erpDocuments, setErpDocuments] = useState<any[]>([]);
+    const [isLoadingErpDocs, setIsLoadingErpDocs] = useState(false);
+    const [erpSearchQuery, setErpSearchQuery] = useState('');
+    const [showErpDropdown, setShowErpDropdown] = useState(false);
+
     const { auth } = usePage().props as any;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
     const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
@@ -291,6 +297,8 @@ const fetchDokumen = async () => {
     const handleAplikasiChange = async (aplikasiId: string) => {
         setFormData((prev) => ({ ...prev, transaksi_id: '' }));
        setTransaksiList([]);
+       setErpDocuments([]);
+       setErpSearchQuery('');
 
         if (!aplikasiId || aplikasiId === 'empty') return;
 
@@ -302,6 +310,23 @@ const fetchDokumen = async () => {
             console.error("Gagal mengambil data transaksi:", error);
         } finally {
             setIsLoadingTransaksi(false);
+        }
+    };
+
+    // Fetch daftar dokumen dari Fastify ERP untuk ditampilkan di dropdown
+    const fetchExternalDocuments = async () => {
+        setIsLoadingErpDocs(true);
+        setErpDocuments([]);
+        setErpSearchQuery('');
+        setLookupError('');
+        try {
+            const response = await api.get('/dokumen/list-external');
+            setErpDocuments(response.data.data || []);
+        } catch (error: any) {
+            console.error('Gagal mengambil daftar dokumen ERP:', error);
+            setLookupError('Gagal memuat daftar dokumen dari External ERP.');
+        } finally {
+            setIsLoadingErpDocs(false);
         }
     };
 
@@ -1389,41 +1414,147 @@ const fetchDokumen = async () => {
                                         </div>
                                     </div>
 
-                                    {/* Form Lookup Keyword & Fetch Eksternal (Hanya untuk Transaksi) */}
+                                    {/* Form Lookup — Dropdown Otomatis dari ERP (Hanya untuk Transaksi) */}
                                     {docTypeMode === 'transaksi' && formData.aplikasi_id && formData.transaksi_id && (
                                         <div className="col-span-2 mt-2 rounded-lg border border-emerald-200 bg-emerald-100/50 p-4">
                                             <Label className="mb-2 block font-sans font-semibold text-slate-700">
-                                                Tarik Data & File PDF dari Aplikasi (Lookup)
+                                                Pilih Dokumen dari Aplikasi External
                                             </Label>
-                                            <div className="flex items-start gap-2">
-                                                <div className="flex flex-1 flex-col gap-1">
-                                                    <Input
-                                                        type="text"
-                                                        placeholder="Masukkan Nomor Transaksi / Keyword..."
-                                                        className="w-full border-emerald-300 bg-white font-sans focus-visible:ring-emerald-500"
-                                                        value={lookupKeyword}
-                                                        onChange={(e) => setLookupKeyword(e.target.value)}
-                                                        disabled={isLookingUp}
-                                                    />
-                                                    {lookupError && (
-                                                        <p
-                                                            className="text-sm text-red-500"
-                                                            dangerouslySetInnerHTML={{ __html: lookupError }}
-                                                        />
-                                                    )}
-                                                </div>
+
+                                            {/* Tombol Load / Reload daftar dari ERP */}
+                                            {erpDocuments.length === 0 && !isLoadingErpDocs && (
                                                 <Button
                                                     type="button"
-                                                    onClick={handleLookup}
-                                                    disabled={!lookupKeyword || isLookingUp}
-                                                    className="bg-emerald-600 font-sans text-white hover:bg-emerald-700"
+                                                    onClick={fetchExternalDocuments}
+                                                    className="mb-3 bg-emerald-600 font-sans text-white hover:bg-emerald-700"
                                                 >
-                                                    {isLookingUp ? 'Mencari...' : '🔍 Cari Data'}
+                                                    📋 Tampilkan Daftar Dokumen
                                                 </Button>
-                                            </div>
-                                            {formData.file && (
+                                            )}
+
+                                            {isLoadingErpDocs && (
+                                                <p className="mb-2 text-sm text-slate-500">⏳ Memuat daftar dokumen...</p>
+                                            )}
+
+                                            {erpDocuments.length > 0 && (
+                                                <div className="relative">
+                                                    {/* Search box */}
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="🔍 Cari nomor atau judul dokumen..."
+                                                        className="mb-2 w-full border-emerald-300 bg-white font-sans focus-visible:ring-emerald-500"
+                                                        value={erpSearchQuery}
+                                                        onChange={(e) => setErpSearchQuery(e.target.value)}
+                                                        disabled={isLookingUp}
+                                                    />
+
+                                                    {/* Dropdown list */}
+                                                    <div className="max-h-60 overflow-y-auto rounded-md border border-emerald-200 bg-white shadow-md">
+                                                        {erpDocuments
+                                                            .filter((doc) => {
+                                                                const q = erpSearchQuery.toLowerCase();
+                                                                return (
+                                                                    !q ||
+                                                                    doc.kode?.toLowerCase().includes(q) ||
+                                                                    doc.judul?.toLowerCase().includes(q) ||
+                                                                    doc.entity?.toLowerCase().includes(q)
+                                                                );
+                                                            })
+                                                            .map((doc) => (
+                                                                <button
+                                                                    key={doc.id}
+                                                                    type="button"
+                                                                    disabled={isLookingUp}
+                                                                    onClick={async () => {
+                                                                        setLookupKeyword(doc.kode);
+                                                                        setLookupError('');
+                                                                        setIsLookingUp(true);
+                                                                        try {
+                                                                            const response = await api.post('/dokumen/lookup-external', {
+                                                                                aplikasi_id: formData.aplikasi_id,
+                                                                                transaksi_id: formData.transaksi_id,
+                                                                                keyword: doc.kode,
+                                                                            });
+                                                                            const data = response.data.data;
+                                                                            if (data.pdf_base64) {
+                                                                                const pdfFile = base64ToFile(data.pdf_base64, `${data.nomor_dokumen}.pdf`);
+                                                                                const filePreviewUrl = URL.createObjectURL(pdfFile);
+                                                                                setLocalFileUrl(filePreviewUrl);
+                                                                                setFormData(prev => ({
+                                                                                    ...prev,
+                                                                                    nomor_dokumen: data.nomor_dokumen,
+                                                                                    judul_dokumen: data.judul,
+                                                                                    nominal_transaksi: data.nominal,
+                                                                                    tgl_pengajuan: data.tanggal,
+                                                                                    file: pdfFile,
+                                                                                }));
+                                                                            } else {
+                                                                                setFormData(prev => ({
+                                                                                    ...prev,
+                                                                                    nomor_dokumen: data.nomor_dokumen,
+                                                                                    judul_dokumen: data.judul,
+                                                                                    nominal_transaksi: data.nominal,
+                                                                                    tgl_pengajuan: data.tanggal,
+                                                                                }));
+                                                                                setLookupError('⚠️ Data berhasil dimuat, namun PDF belum tersedia untuk dokumen ini.');
+                                                                            }
+                                                                        } catch (error: any) {
+                                                                            setLookupError(error.response?.data?.message || 'Gagal mengambil data dari aplikasi luar.');
+                                                                        } finally {
+                                                                            setIsLookingUp(false);
+                                                                        }
+                                                                    }}
+                                                                    className={`w-full cursor-pointer px-4 py-3 text-left transition-colors hover:bg-emerald-50 ${
+                                                                        lookupKeyword === doc.kode ? 'bg-emerald-100 font-semibold' : ''
+                                                                    } border-b border-emerald-50 last:border-0`}
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <span className="font-mono text-sm font-semibold text-emerald-700">{doc.kode}</span>
+                                                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{doc.entity}</span>
+                                                                    </div>
+                                                                    <div className="mt-0.5 truncate text-sm text-slate-600">{doc.judul}</div>
+                                                                    <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-400">
+                                                                        <span>📅 {doc.tanggal}</span>
+                                                                        <span>💰 Rp {Number(doc.nominal).toLocaleString('id-ID')}</span>
+                                                                        <span className={doc.pdf_available ? 'text-emerald-500' : 'text-slate-400'}>
+                                                                            {doc.pdf_available ? '📄 PDF tersedia' : '📄 PDF belum ada'}
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                            ))
+                                                        }
+                                                        {erpDocuments.filter((doc) => {
+                                                            const q = erpSearchQuery.toLowerCase();
+                                                            return !q || doc.kode?.toLowerCase().includes(q) || doc.judul?.toLowerCase().includes(q) || doc.entity?.toLowerCase().includes(q);
+                                                        }).length === 0 && (
+                                                            <p className="px-4 py-3 text-sm text-slate-400">Tidak ada dokumen yang cocok.</p>
+                                                        )}
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={fetchExternalDocuments}
+                                                        className="mt-2 text-xs text-emerald-600 underline hover:text-emerald-800"
+                                                    >
+                                                        🔄 Refresh daftar
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {lookupError && (
+                                                <p
+                                                    className="mt-2 text-sm text-red-500"
+                                                    dangerouslySetInnerHTML={{ __html: lookupError }}
+                                                />
+                                            )}
+
+                                            {isLookingUp && (
+                                                <p className="mt-2 text-sm text-slate-500">⏳ Memuat data dan PDF...</p>
+                                            )}
+
+                                            {formData.file && !isLookingUp && (
                                                 <p className="mt-3 flex items-center rounded border border-emerald-200 bg-emerald-50 p-2 text-sm font-medium text-emerald-700">
-                                                    ✅ File PDF berhasil ditarik dan dilampirkan otomatis.
+                                                    ✅ <strong className="ml-1">{lookupKeyword}</strong>&nbsp;— Data & File PDF berhasil ditarik otomatis.
                                                 </p>
                                             )}
                                         </div>

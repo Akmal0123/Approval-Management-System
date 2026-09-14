@@ -1609,6 +1609,80 @@ class DokumenController extends Controller
     }
 
     /**
+     * List all available documents from External ERP (Fastify) for dropdown display.
+     * Digunakan oleh frontend untuk menampilkan daftar dokumen yang tersedia
+     * tanpa perlu memasukkan kode secara manual.
+     */
+    public function listExternalDocuments(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $erpUrl = rtrim(config('services.external_erp.url'), '/') . '/api/v1/purchase-requests';
+
+        // Opsional: filter berdasarkan query search dari frontend
+        $params = [];
+        if ($request->filled('search')) {
+            $params['search'] = $request->input('search');
+        }
+        if ($request->filled('page')) {
+            $params['page'] = $request->input('page', 1);
+        }
+        $params['limit'] = $request->input('limit', 100); // Ambil max 100 data untuk dropdown
+
+        try {
+            $erpResponse = Http::withToken(config('services.external_erp.token'))
+                ->acceptJson()
+                ->timeout(30)
+                ->get($erpUrl, $params);
+        } catch (\Throwable $exception) {
+            Log::error('External ERP list-all API connection failed', [
+                'url'   => $erpUrl,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Tidak dapat terhubung ke External ERP.',
+            ], 502);
+        }
+
+        if ($erpResponse->failed()) {
+            Log::error('External ERP list-all API returned an error', [
+                'http_status' => $erpResponse->status(),
+                'response'    => $erpResponse->json(),
+            ]);
+
+            return response()->json([
+                'status'      => 'error',
+                'message'     => 'Gagal mengambil daftar data dari aplikasi luar.',
+                'http_status' => $erpResponse->status(),
+            ], 502);
+        }
+
+        $erpData = $erpResponse->json();
+        $documents = $erpData['data'] ?? [];
+
+        // Normalisasi data untuk konsumsi dropdown frontend
+        $normalized = array_map(function ($item) {
+            return [
+                'id'            => $item['id'] ?? null,
+                'kode'          => $item['requestNo'] ?? '',
+                'judul'         => $item['remark'] ?? 'Purchase Request',
+                'tanggal'       => $item['requestDate'] ?? null,
+                'nominal'       => $item['totalAmount'] ?? $item['grandTotal'] ?? $item['amount'] ?? 0,
+                'status'        => $item['statusLabel'] ?? null,
+                'entity'        => $item['entity'] ?? null,
+                'items_count'   => $item['totalItems'] ?? 0,
+                'pdf_available' => $item['pdfAvailable'] ?? false,
+            ];
+        }, $documents);
+
+        return response()->json([
+            'status'     => 'success',
+            'data'       => $normalized,
+            'pagination' => $erpData['pagination'] ?? null,
+        ]);
+    }
+
+    /**
      * Lookup external transaction data and generate its template PDF.
      */
     public function lookupExternal(Request $request): \Illuminate\Http\JsonResponse
