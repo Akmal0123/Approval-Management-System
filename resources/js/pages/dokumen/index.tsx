@@ -1358,12 +1358,13 @@ const fetchDokumen = async () => {
                                                     setFormData((prev) => ({ ...prev, transaksi_id: value, masterflow_id: '' }));
                                                     
                                                     try {
-                                                        const res = await axios.get(`/api/masterflows-by-transaksi/${value}`);
-                                                        setMasterflows(res.data.masterflows || []);
-                                                    } catch (error) {
-                                                        console.error("Gagal memfilter masterflow", error);
-                                                        setMasterflows([]);
-                                                    }
+                                                // Tambahkan parameter company_id dari formData ke dalam URL
+                                                const res = await axios.get(`/api/masterflows-by-transaksi/${value}?company_id=${formData.company_id}`);
+                                                setMasterflows(res.data.masterflows || []);
+                                            } catch (error) {
+                                                console.error("Gagal memfilter masterflow", error);
+                                                setMasterflows([]);
+                                            }
                                                 }}
                                                 disabled={!formData.aplikasi_id || isLoadingTransaksi}
                                             >
