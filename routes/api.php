@@ -74,7 +74,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
 
     // Lookup Dokumen
     Route::post('/dokumen/lookup-external', [DokumenController::class, 'lookupExternal']);
-    
+
     // Masterflow API Routes (via UserDashboardController)
     Route::get('/masterflows', [UserDashboardController::class, 'getMasterflowsApi']);
     Route::get('/masterflows/{masterflow}/steps', [\App\Http\Controllers\Admin\MasterflowController::class, 'getSteps']);
