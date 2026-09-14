@@ -43,8 +43,12 @@ return [
 
     'external_api' => [
         'base_url' => env('EXTERNAL_API_BASE_URL', 'http://127.0.0.1:8000/api/mock-external'),
-        'key'      => env('EXTERNAL_API_KEY', 'tisera_app_key_2026'),
-        'secret'   => env('EXTERNAL_API_SECRET', 'tisera_jwt_secret_key_secure_approval_2026'),
+        'key' => env('EXTERNAL_API_KEY', 'tisera_app_key_2026'),
+        'secret' => env('EXTERNAL_API_SECRET', 'tisera_jwt_secret_key_secure_approval_2026'),
     ],
 
+    'external_erp' => [
+        'url' => env('EXTERNAL_ERP_API_URL', 'http://127.0.0.1:3000'),
+        'token' => env('EXTERNAL_ERP_API_TOKEN'),
+    ],
 ];
