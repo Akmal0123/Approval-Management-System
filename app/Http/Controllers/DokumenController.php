@@ -26,6 +26,7 @@ use App\Services\ContextService;
 use App\Services\PdfSignatureService;
 use App\Services\DummyTransactionService;
 use App\Services\TransactionTemplatePdfService;
+use App\Services\FastifyIntegrationService;
 
 class DokumenController extends Controller
 {
@@ -1412,6 +1413,7 @@ class DokumenController extends Controller
 
     /**
      * Lookup external transaction data and generate its template PDF.
+     * Integrates with Fastify Integration Service (REST API + JWT) and falls back to local dummy.
      */
     public function lookupExternal(Request $request): \Illuminate\Http\JsonResponse
     {
@@ -1422,27 +1424,43 @@ class DokumenController extends Controller
         ]);
 
         $keyword = trim($request->keyword);
-        $txData = DummyTransactionService::findByKeyword($keyword);
+        $source = 'dummy';
+
+        // 1. Coba cari melalui Fastify Integration Service (External Inventory System via JWT)
+        $txData = FastifyIntegrationService::getDocument($keyword);
+        if ($txData) {
+            $source = 'external-inventory-system';
+        } else {
+            // 2. Fallback ke DummyTransactionService lokal jika tidak ditemukan di sistem eksternal
+            $txData = DummyTransactionService::findByKeyword($keyword);
+        }
 
         if (!$txData) {
-            $samples = DummyTransactionService::getSamples();
+            $samples = array_merge(
+                ['PO-2026-0001', 'PR-2026-0001', 'PO-2026-0002', 'PR-2026-0002'],
+                DummyTransactionService::getSamples()
+            );
             return response()->json([
                 'status' => 'error',
-                'message' => "Data transaksi dengan nomor/kode '{$keyword}' tidak ditemukan.",
-                'samples' => $samples,
+                'message' => "Data transaksi dengan nomor/kode '{$keyword}' tidak ditemukan di External Inventory System maupun data lokal.",
+                'samples' => array_values(array_unique($samples)),
             ], 404);
         }
 
-        // Generate the PDF template dynamically
+        // Generate the PDF template dynamically via TransactionTemplatePdfService
         $pdfBinary = TransactionTemplatePdfService::generate($txData, 'S');
         $pdfBase64 = base64_encode($pdfBinary);
 
         // Map data to return
         $filename = ($txData['kode'] ?? 'dokumen') . '.pdf';
+        $message = $source === 'external-inventory-system'
+            ? "Data transaksi dan template PDF berhasil ditarik dari External Inventory System via Fastify (JWT Protected)"
+            : 'Data transaksi dan file PDF berhasil ditarik';
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Data transaksi dan file PDF berhasil ditarik',
+            'message' => $message,
+            'source' => $source,
             'data' => [
                 'kode' => $txData['kode'] ?? '',
                 'nomor_dokumen' => $txData['nomor_dokumen'] ?? $txData['kode'],
@@ -1451,11 +1469,57 @@ class DokumenController extends Controller
                 'tanggal' => $txData['tanggal'] ?? date('Y-m-d'),
                 'tipe' => $txData['tipe'] ?? 'PR',
                 'deskripsi' => $txData['deskripsi'] ?? '',
+                'vendor' => $txData['vendor'] ?? null,
                 'filename' => $filename,
                 'pdf_base64' => $pdfBase64,
                 'items_count' => count($txData['items'] ?? []),
+                'source' => $source,
             ],
-            'samples' => DummyTransactionService::getSamples(),
+            'samples' => array_merge(
+                ['PO-2026-0001', 'PR-2026-0001', 'PO-2026-0002', 'PR-2026-0002'],
+                DummyTransactionService::getSamples()
+            ),
+        ]);
+    }
+
+    /**
+     * Autocomplete suggestions untuk pencarian dokumen eksternal via Fastify + Dummy fallback.
+     */
+    public function lookupExternalSuggestions(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $query = trim($request->input('q', ''));
+        $results = [];
+
+        // Ambil dari Fastify
+        $externalResults = FastifyIntegrationService::lookup($query);
+        if (!empty($externalResults)) {
+            $results = array_merge($results, $externalResults);
+        }
+
+        // Lengkapi dengan mock / dummy transactions jika relevan
+        $dummySamples = DummyTransactionService::all();
+        foreach ($dummySamples as $key => $dummy) {
+            if ($query === '' || stripos($key, $query) !== false || stripos($dummy['judul'] ?? '', $query) !== false || stripos($dummy['nomor_dokumen'] ?? '', $query) !== false) {
+                // Hindari duplikat jika kode sama sudah dari external
+                $exists = collect($results)->contains(fn($r) => strcasecmp($r['code'] ?? '', $key) === 0);
+                if (!$exists) {
+                    $results[] = [
+                        'id' => $key,
+                        'code' => $key,
+                        'number' => $dummy['nomor_dokumen'] ?? $key,
+                        'type' => $dummy['tipe'] ?? 'PR',
+                        'title' => $dummy['judul'] ?? $key,
+                        'subtitle' => $dummy['vendor'] ?? ($dummy['gudang'] ?? 'Head Office'),
+                        'status' => 'local',
+                        'source' => 'dummy',
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => array_values(array_slice($results, 0, 15)),
         ]);
     }
 }

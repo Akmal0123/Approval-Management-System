@@ -1140,6 +1140,120 @@ class DummyTransactionService
                     'Akt' => 'Dokumen verifikasi supplier UD Mebel Dewata Indah lengkap dan valid'
                 ]
             ],
+
+            // =========================================================================
+            // EXTERNAL INVENTORY SYSTEM - PURCHASE ORDERS (PO)
+            // =========================================================================
+            'PO-2026-0001' => [
+                'kode' => 'PO-2026-0001',
+                'nomor_dokumen' => 'PO-2026-0001',
+                'judul' => 'PO Pengadaan Perangkat Komputer Workstation Development - PT Teknologi Nusantara',
+                'nominal' => 28700000,
+                'tanggal' => '2026-09-14',
+                'print_date' => '14/09/2026 10:00:00',
+                'tipe' => 'PO',
+                'ref_no' => 'PR-2026-0001',
+                'vendor' => 'PT Teknologi Nusantara',
+                'phone' => '0271-123456',
+                'deliver_to' => 'PT Tiga Serangkai (Jl. Dr. Supomo No. 23, Surakarta)',
+                'notes' => 'PO Pengadaan Perangkat Komputer Workstation Development',
+                'deskripsi' => 'PO Pengadaan Perangkat Komputer Workstation Development',
+                'items' => [
+                    ['delDate' => '2026-09-14', 'name' => 'Laptop Lenovo ThinkPad L14 Gen 4', 'unit' => 'UNIT', 'qty' => 2, 'price' => 12500000, 'amount' => 25000000],
+                    ['delDate' => '2026-09-14', 'name' => 'Monitor LED 24 Inch IPS Full HD', 'unit' => 'UNIT', 'qty' => 2, 'price' => 1850000, 'amount' => 3700000],
+                ],
+                'totals' => [
+                    'subtotal' => 28700000,
+                    'discount' => 0,
+                    'dppLainnya' => 26317900,
+                    'ppn' => 0,
+                    'transport' => 0,
+                    'total' => 28700000,
+                ],
+                'approvers' => ['NNR', 'P.A.M.'],
+                'app_date' => '2026-09-14',
+                'source' => 'external-inventory-system',
+            ],
+
+            'PO-2026-0002' => [
+                'kode' => 'PO-2026-0002',
+                'nomor_dokumen' => 'PO-2026-0002',
+                'judul' => 'PO Bahan Kemasan & Kertas Faktur Surat Jalan Bulanan - CV Bintang Plastik Surakarta',
+                'nominal' => 5772000,
+                'tanggal' => '2026-09-12',
+                'print_date' => '12/09/2026 11:15:00',
+                'tipe' => 'PO',
+                'ref_no' => 'PR-2026-0002',
+                'vendor' => 'CV Bintang Plastik Surakarta',
+                'phone' => '0271-741289',
+                'deliver_to' => 'PT Wangsa Jatra Lestari (Kawasan Industri Palur, Karanganyar)',
+                'notes' => 'PO Bahan Kemasan & Kertas Faktur Surat Jalan Bulanan',
+                'deskripsi' => 'PO Bahan Kemasan & Kertas Faktur Surat Jalan Bulanan',
+                'items' => [
+                    ['delDate' => '2026-09-12', 'name' => 'Kertas HVS SiDU A4 70 GSM (500 Lembar)', 'unit' => 'RIM', 'qty' => 50, 'price' => 50000, 'amount' => 2500000],
+                    ['delDate' => '2026-09-12', 'name' => 'Lakban Bening Daimaru 2 Inch x 100 Yard', 'unit' => 'DUS', 'qty' => 5, 'price' => 540000, 'amount' => 2700000],
+                ],
+                'totals' => [
+                    'subtotal' => 5200000,
+                    'discount' => 0,
+                    'dppLainnya' => 4768400,
+                    'ppn' => 572000,
+                    'transport' => 0,
+                    'total' => 5772000,
+                ],
+                'approvers' => ['NNR', 'P.A.M.'],
+                'app_date' => '2026-09-12',
+                'source' => 'external-inventory-system',
+            ],
+
+            // =========================================================================
+            // EXTERNAL INVENTORY SYSTEM - PURCHASE REQUESTS (PR)
+            // =========================================================================
+            'PR-2026-0001' => [
+                'kode' => 'PR-2026-0001',
+                'nomor_dokumen' => 'PR-2026-0001',
+                'judul' => 'Pengadaan perangkat komputer baru untuk tim development & QA - IT Department',
+                'nominal' => 28700000,
+                'tanggal' => '2026-09-01',
+                'print_date' => '01/09/2026 09:00:00',
+                'tipe' => 'PR',
+                'no_ref' => 'PR-2026-0001',
+                'gudang' => 'IT Department',
+                'entity' => 'PT Tiga Serangkai',
+                'del_date' => '2026-09-01',
+                'deskripsi' => 'Pengadaan perangkat komputer baru untuk tim development & QA diajukan oleh Budi Santoso.',
+                'items' => [
+                    ['kode' => 'BRG-001', 'nama' => 'Laptop Lenovo ThinkPad L14 Gen 4', 'satuan' => 'Unit', 'qty' => 2, 'keterangan' => 'Laptop development'],
+                    ['kode' => 'BRG-002', 'nama' => 'Monitor LED 24 Inch IPS Full HD', 'satuan' => 'Unit', 'qty' => 2, 'keterangan' => 'Dual monitor setup'],
+                ],
+                'approver1' => 'AGM',
+                'approver2' => 'M.M',
+                'app_date' => '2026-09-01',
+                'source' => 'external-inventory-system',
+            ],
+
+            'PR-2026-0002' => [
+                'kode' => 'PR-2026-0002',
+                'nomor_dokumen' => 'PR-2026-0002',
+                'judul' => 'Pengadaan perlengkapan packing dan dokumen ekspedisi bulanan - Logistik & Warehouse',
+                'nominal' => 5200000,
+                'tanggal' => '2026-09-02',
+                'print_date' => '02/09/2026 09:30:00',
+                'tipe' => 'PR',
+                'no_ref' => 'PR-2026-0002',
+                'gudang' => 'Logistik & Warehouse',
+                'entity' => 'PT Wangsa Jatra Lestari',
+                'del_date' => '2026-09-02',
+                'deskripsi' => 'Pengadaan perlengkapan packing dan dokumen ekspedisi bulanan diajukan oleh Siti Rahma.',
+                'items' => [
+                    ['kode' => 'BRG-004', 'nama' => 'Kertas HVS SiDU A4 70 GSM (500 Lembar)', 'satuan' => 'Rim', 'qty' => 50, 'keterangan' => 'Kertas cetak surat jalan'],
+                    ['kode' => 'BRG-007', 'nama' => 'Lakban Bening Daimaru 2 Inch x 100 Yard', 'satuan' => 'Dus', 'qty' => 5, 'keterangan' => 'Stok lakban packing ekspedisi'],
+                ],
+                'approver1' => 'AGM',
+                'approver2' => 'M.M',
+                'app_date' => '2026-09-02',
+                'source' => 'external-inventory-system',
+            ],
         ];
     }
 
@@ -1193,18 +1307,15 @@ class DummyTransactionService
     public static function getSamples(): array
     {
         return [
+            ['code' => 'PO-2026-0001', 'label' => 'PO-2026-0001 (PO Komputer Workstation - External)', 'type' => 'PO'],
+            ['code' => 'PR-2026-0001', 'label' => 'PR-2026-0001 (PR Komputer IT - External)', 'type' => 'PR'],
+            ['code' => 'PO-2026-0002', 'label' => 'PO-2026-0002 (PO Kertas & Lakban - External)', 'type' => 'PO'],
+            ['code' => 'PR-2026-0002', 'label' => 'PR-2026-0002 (PR Packing Logistik - External)', 'type' => 'PR'],
             ['code' => 'RQE-22001434', 'label' => 'RQE-22001434 (PR Kertas HVS Solo)', 'type' => 'PR'],
             ['code' => 'RQE-22001436', 'label' => 'RQE-22001436 (PR IT Switch Surabaya)', 'type' => 'PR'],
-            ['code' => 'RQE-22001437', 'label' => 'RQE-22001437 (PR Hand Pallet Solo)', 'type' => 'PR'],
-            ['code' => 'RQE-22001443', 'label' => 'RQE-22001443 (PR Paket ATK 12-Item)', 'type' => 'PR'],
             ['code' => 'POE-22005020', 'label' => 'POE-22005020 (PO Basa Jawa SMP)', 'type' => 'PO'],
-            ['code' => 'POE-22005021', 'label' => 'POE-22005021 (PO Buku Merdeka SMP)', 'type' => 'PO'],
             ['code' => 'POE-22005023', 'label' => 'POE-22005023 (PO Tematik SD 1-6)', 'type' => 'PO'],
-            ['code' => 'POE-22005025', 'label' => 'POE-22005025 (PO Rak Heavy Duty)', 'type' => 'PO'],
             ['code' => 'CCA-00000002', 'label' => 'CCA-00000002 (NPK Meja Murante)', 'type' => 'CCA'],
-            ['code' => 'CCA-00000005', 'label' => 'CCA-00000005 (NPK Smart Board Sleman)', 'type' => 'CCA'],
-            ['code' => 'CCA-00000006', 'label' => 'CCA-00000006 (NPK Lab Bahasa Surabaya)', 'type' => 'CCA'],
-            ['code' => 'CCA-00000011', 'label' => 'CCA-00000011 (NPK Lab IPA Makassar)', 'type' => 'CCA'],
         ];
     }
 }

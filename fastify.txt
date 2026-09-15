@@ -1,0 +1,417 @@
+Bisa. Kalau kita fokus ke rancangan AMS yang sedang kamu bangun, **`integration-service` Fastify bukan backend utama Digital Approval**. Dia adalah **service khusus untuk menangani komunikasi antara AMS dengan sistem eksternal**.
+
+Aku jabarkan fungsi dan kegunaannya dari yang paling penting.
+
+## 1. Fungsi utama: sebagai Integration Service
+
+Posisinya:
+
+```text
+┌─────────────────────┐
+│   Digital Approval  │
+│ React + Laravel     │
+└──────────┬──────────┘
+           │
+           │ Request
+           ▼
+┌─────────────────────┐
+│ integration-service │
+│      Fastify        │
+└──────────┬──────────┘
+           │
+           │ REST API + JWT
+           ▼
+┌─────────────────────┐
+│ External System     │
+│ Inventory / ERP     │
+└─────────────────────┘
+```
+
+Jadi ketika AMS membutuhkan data dari sistem lain, **Laravel tidak perlu mengurus seluruh detail komunikasi dengan sistem eksternal**.
+
+Fastify yang menangani bagian tersebut.
+
+---
+
+## 2. Mengambil data dari sistem eksternal
+
+Misalnya di `dokumen/index.tsx` user mengetik:
+
+```text
+PO-2026-0001
+```
+
+dan menekan:
+
+> **Tarik Data**
+
+Flow-nya:
+
+```text
+User
+ ↓
+React
+ ↓
+Laravel
+ ↓
+Fastify
+ ↓
+External Inventory API
+```
+
+Fastify kemudian meminta:
+
+```http
+GET /api/purchase-orders/PO-2026-0001
+```
+
+dan menerima:
+
+```json
+{
+  "po_number": "PO-2026-0001",
+  "vendor": "PT ABC",
+  "total": 25000000
+}
+```
+
+Jadi Fastify berperan sebagai **pengambil data dari external system**.
+
+---
+
+## 3. Menangani REST API
+
+Fastify menyediakan endpoint yang bisa dipanggil oleh Laravel.
+
+Misalnya:
+
+```text
+GET /api/integration/purchase-orders/lookup
+GET /api/integration/purchase-orders/:id
+GET /api/integration/purchase-orders/:id/pdf
+```
+
+Kemudian Fastify sendiri melakukan request ke external system.
+
+Dengan demikian ada dua sisi:
+
+```text
+Laravel
+   │
+   │ REST API
+   ▼
+Fastify
+   │
+   │ REST API
+   ▼
+External System
+```
+
+Fastify menjadi **lapisan integrasi** di tengah.
+
+---
+
+## 4. Menangani JWT
+
+Ini salah satu fungsi keamanan penting.
+
+Misalnya External Inventory System hanya mengizinkan aplikasi tertentu mengakses datanya.
+
+Fastify akan mendapatkan/menggunakan JWT:
+
+```http
+Authorization: Bearer eyJ...
+```
+
+ketika mengakses API external.
+
+External system kemudian melakukan:
+
+```text
+JWT valid?
+   │
+   ├── Ya → izinkan
+   │
+   └── Tidak → 401 Unauthorized
+```
+
+Jadi Fastify dapat menjadi pihak yang menyimpan dan menggunakan credential untuk integrasi tersebut.
+
+**JWT bukan fungsi utama Fastify**, tetapi salah satu mekanisme autentikasi yang digunakan dalam komunikasi.
+
+---
+
+## 5. Menyembunyikan credential dari frontend
+
+Ini penting banget.
+
+Jangan sampai React melakukan:
+
+```text
+React
+  ↓
+External API
+  ↓
+JWT
+```
+
+Karena credential/API secret berpotensi terekspos ke browser.
+
+Lebih aman:
+
+```text
+React
+  ↓
+Laravel
+  ↓
+Fastify
+  ↓
+JWT
+  ↓
+External API
+```
+
+JWT dan credential external disimpan di sisi server, misalnya environment variable/secret management, **bukan di React**.
+
+---
+
+## 6. Mengambil PDF dari sistem eksternal
+
+Ini sangat sesuai dengan kebutuhan AMS-mu.
+
+Misalnya External System menyediakan:
+
+```http
+GET /api/purchase-orders/PO-2026-0001/pdf
+```
+
+Fastify mengambil PDF tersebut:
+
+```text
+External System
+      ↓
+    PDF
+      ↓
+   Fastify
+      ↓
+   Laravel
+      ↓
+   AMS
+```
+
+Kemudian AMS bisa menggunakan PDF itu sebagai dokumen approval.
+
+Ini juga cocok dengan requirement mentor:
+
+> **lookup → list → detail → PDF**
+
+---
+
+## 7. Transformasi data
+
+Ini salah satu kegunaan Fastify yang menurutku paling menarik.
+
+Data dari sistem perusahaan belum tentu bentuknya cocok dengan AMS.
+
+Misalnya External System mengirim:
+
+```json
+{
+  "po_no": "PO-001",
+  "supplier_name": "PT ABC",
+  "amount": 25000000
+}
+```
+
+Sedangkan AMS membutuhkan:
+
+```json
+{
+  "nomor_dokumen": "PO-001",
+  "judul_dokumen": "Purchase Order",
+  "vendor": "PT ABC",
+  "total": 25000000
+}
+```
+
+Fastify dapat melakukan:
+
+```text
+External Response
+       ↓
+   Transformation
+       ↓
+AMS Response
+```
+
+Sehingga Laravel tidak perlu memahami struktur setiap sistem eksternal.
+
+---
+
+# 8. Menangani perbedaan sistem eksternal
+
+Bayangkan nanti bukan hanya satu sistem:
+
+```text
+                Fastify
+                   │
+       ┌───────────┼───────────┐
+       ↓           ↓           ↓
+   Inventory      ERP        Finance
+```
+
+Inventory mungkin menggunakan:
+
+```text
+/api/purchase-orders
+```
+
+ERP mungkin menggunakan:
+
+```text
+/api/procurement/orders
+```
+
+Finance mungkin menggunakan:
+
+```text
+/api/documents/po
+```
+
+Fastify bisa menjadi **lapisan yang menyamakan cara AMS mengakses semuanya**.
+
+Dari sudut pandang Laravel:
+
+```text
+GET /integration/purchase-order/PO-001
+```
+
+Laravel tidak perlu tahu apakah sumbernya:
+
+* Inventory System
+* ERP
+* SAP
+* Finance System
+
+Detail tersebut ditangani oleh integration service.
+
+---
+
+# 9. Menangani error dari sistem eksternal
+
+Ini juga alasan bagus kenapa ada layer Fastify.
+
+Misalnya external API mati:
+
+```text
+External API
+     X
+  timeout
+```
+
+Fastify dapat menangani:
+
+```text
+Timeout
+Connection Error
+401
+403
+404
+500
+503
+```
+
+dan mengubahnya menjadi response yang lebih mudah dipahami AMS.
+
+Contoh:
+
+```json
+{
+  "success": false,
+  "message": "Sistem eksternal tidak dapat dihubungi"
+}
+```
+
+Daripada error mentah dari external API langsung dilempar ke frontend.
+
+---
+
+# 10. Jadi apa yang TIDAK dilakukan Fastify?
+
+Ini juga penting supaya batas tanggung jawabnya jelas.
+
+Fastify **bukan** tempat utama untuk:
+
+```text
+❌ Approval workflow
+❌ Signature management
+❌ QR signature
+❌ User management AMS
+❌ Generate seluruh business logic dokumen
+❌ Approval timeline
+❌ Master user/role AMS
+```
+
+Itu tetap menjadi tanggung jawab **Laravel AMS**.
+
+Fastify fokus pada:
+
+```text
+✅ External API communication
+✅ Authentication integration
+✅ Data retrieval
+✅ Data transformation
+✅ External PDF retrieval
+✅ Integration error handling
+```
+
+---
+
+# 11. Kalau diterapkan ke AMS kamu sekarang
+
+Fitur **Tarik Data** di `dokumen/index.tsx` nantinya kurang lebih menjadi:
+
+```text
+User
+ │
+ │ masukkan nomor/kode dokumen
+ ▼
+React
+ │
+ │ "Tarik Data"
+ ▼
+Laravel
+ │
+ │ request
+ ▼
+Fastify Integration Service
+ │
+ │ JWT
+ ▼
+External Inventory System
+ │
+ │ PO data + PDF
+ ▼
+Fastify
+ │
+ │ normalized response
+ ▼
+Laravel
+ │
+ ▼
+React
+ │
+ ├── nomor_dokumen
+ ├── judul_dokumen
+ ├── deskripsi
+ ├── tanggal
+ └── PDF
+```
+
+Jadi kalau diringkas:
+
+> **Fastify adalah "penerjemah sekaligus pintu integrasi" antara AMS dengan sistem-sistem eksternal.**
+
+**Laravel tetap menjadi otak Digital Approval. React tetap menjadi tampilan. Fastify hanya menangani urusan keluar-masuk data dengan sistem lain.**
+
+Dan menurutku ini adalah pembagian tanggung jawab yang cukup sehat untuk prototype AMS-mu sekarang.

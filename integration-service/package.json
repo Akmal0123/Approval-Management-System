@@ -1,0 +1,18 @@
+{
+  "name": "integration-service",
+  "version": "1.0.0",
+  "description": "Fastify Integration Service between Digital Approval (AMS) and External Inventory System",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "fastify": "^4.28.1"
+  }
+}

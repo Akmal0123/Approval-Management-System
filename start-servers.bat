@@ -16,6 +16,10 @@ echo [4/4] Starting Queue Worker (php artisan queue:work)...
 start "Queue Worker" cmd /k "php artisan queue:work"
 
 echo.
+echo [INFO] Catatan: Fastify Integration Service (Port 5000) dijalankan
+echo        dari folder external-inventory-system via start-external.bat
+echo        Pastikan start-external.bat sudah dijalankan terlebih dahulu.
+echo.
 echo All servers have been started in separate windows!
 echo You can minimize those windows while working.
 echo ====================================================

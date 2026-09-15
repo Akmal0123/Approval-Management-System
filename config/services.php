@@ -41,4 +41,8 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'fastify' => [
+        'url' => env('FASTIFY_INTEGRATION_URL', 'http://localhost:5000'),
+    ],
+
 ];
