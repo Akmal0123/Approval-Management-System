@@ -218,11 +218,6 @@ export default function UserDokumen() {
         source?: string;
     } | null>(null);
 
-    // State for Lookup Modal
-    const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
-    const [lookupSearchQuery, setLookupSearchQuery] = useState('');
-    const [lookupResults, setLookupResults] = useState<any[]>([]);
-    const [isLoadingLookup, setIsLoadingLookup] = useState(false);
 
     // Determine user profile & accessible aplikasis
     const isSuperAdmin = Boolean(
@@ -389,22 +384,6 @@ export default function UserDokumen() {
         }
     };
 
-    // Ambil suggestions pencarian dokumen dari Fastify / External Inventory
-    const fetchLookupSuggestions = async (q: string = '') => {
-        setIsLoadingLookup(true);
-        try {
-            const res = await api.get('/dokumen/lookup-external-suggestions', {
-                params: { q },
-            });
-            if (res.data?.data) {
-                setLookupResults(res.data.data);
-            }
-        } catch (err) {
-            console.error('Error fetching lookup suggestions:', err);
-        } finally {
-            setIsLoadingLookup(false);
-        }
-    };
 
     // Fetch masterflows for dropdown
     const fetchMasterflows = async () => {
@@ -1516,18 +1495,6 @@ export default function UserDokumen() {
                                                     </div>
                                                     <Button
                                                         type="button"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            setIsLookupModalOpen(true);
-                                                            fetchLookupSuggestions(lookupSearchQuery);
-                                                        }}
-                                                        className="h-9 px-3 font-sans text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                                                    >
-                                                        <SearchIcon className="h-3.5 w-3.5" />
-                                                        <span>Cari di Inventory</span>
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
                                                         onClick={() => handleFetchExternalData()}
                                                         disabled={isFetchingExternal || !externalDocKeyword.trim()}
                                                         className="h-9 px-4 font-sans text-xs gap-1.5"
@@ -1546,35 +1513,6 @@ export default function UserDokumen() {
                                                     </Button>
                                                 </div>
 
-                                                {/* Quick selection sample chips */}
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    <span className="text-xs text-muted-foreground font-sans">Contoh Cepat:</span>
-                                                    {[
-                                                        { code: 'PO-2026-0001', label: 'PO-2026-0001 (Komputer)', isExt: true },
-                                                        { code: 'PR-2026-0001', label: 'PR-2026-0001 (IT Workstation)', isExt: true },
-                                                        { code: 'PO-2026-0002', label: 'PO-2026-0002 (Kemasan WJL)', isExt: true },
-                                                        { code: 'RQE-22001434', label: 'RQE-22001434 (PR Solo)', isExt: false },
-                                                        { code: 'POE-22005020', label: 'POE-22005020 (PO Buku)', isExt: false },
-                                                    ].map((sample) => (
-                                                        <button
-                                                            key={sample.code}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setExternalDocKeyword(sample.code);
-                                                                handleFetchExternalData(sample.code);
-                                                            }}
-                                                            disabled={isFetchingExternal}
-                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-colors cursor-pointer ${
-                                                                sample.isExt
-                                                                    ? 'border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
-                                                                    : 'border-border bg-background text-foreground hover:bg-muted'
-                                                            }`}
-                                                        >
-                                                            {sample.isExt && <span className="text-[9px] font-bold text-emerald-600">⚡</span>}
-                                                            <span>{sample.label}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
 
                                                 {/* Success Banner */}
                                                 {externalFetchSuccess && (
@@ -2216,126 +2154,6 @@ export default function UserDokumen() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* Modal Dialog: Lookup Dokumen Eksternal Inventory via Fastify */}
-                    <Dialog open={isLookupModalOpen} onOpenChange={setIsLookupModalOpen}>
-                        <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                                <DialogTitle className="font-serif flex items-center gap-2">
-                                    <SearchIcon className="h-5 w-5 text-primary" />
-                                    Cari Dokumen di External Inventory System
-                                </DialogTitle>
-                                <DialogDescription className="font-sans">
-                                    Cari Purchase Order (PO) atau Purchase Request (PR) dari sistem eksternal via Fastify Integration Service.
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <div className="space-y-4 py-2">
-                                <div className="relative">
-                                    <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Ketik nomor PO / PR / nama vendor (misal: PO-2026, PR-2026, Teknologi)..."
-                                        value={lookupSearchQuery}
-                                        onChange={(e) => {
-                                            setLookupSearchQuery(e.target.value);
-                                            fetchLookupSuggestions(e.target.value);
-                                        }}
-                                        className="pl-9 font-sans h-10"
-                                        autoFocus
-                                    />
-                                    {lookupSearchQuery && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setLookupSearchQuery('');
-                                                fetchLookupSuggestions('');
-                                            }}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-                                        >
-                                            ✕
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
-                                    {isLoadingLookup ? (
-                                        <div className="flex items-center justify-center py-8">
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground font-sans">
-                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                                <span>Menghubungi Fastify Integration Service...</span>
-                                            </div>
-                                        </div>
-                                    ) : lookupResults.length > 0 ? (
-                                        lookupResults.map((item: any) => (
-                                            <div
-                                                key={`${item.type}-${item.code}`}
-                                                className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
-                                            >
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge
-                                                            className={`font-mono text-[10px] ${
-                                                                item.type === 'PO'
-                                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300'
-                                                                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'
-                                                            }`}
-                                                        >
-                                                            {item.type}
-                                                        </Badge>
-                                                        <span className="font-mono font-bold text-sm text-foreground">
-                                                            {item.code || item.number}
-                                                        </span>
-                                                        {item.source === 'external-inventory-system' && (
-                                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
-                                                                External System
-                                                            </span>
-                                                        )}
-                                                        {item.status && (
-                                                            <span className="text-[10px] uppercase font-sans text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                                                {item.status}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs font-sans text-muted-foreground">
-                                                        {item.title} {item.subtitle ? `• ${item.subtitle}` : ''}
-                                                    </p>
-                                                </div>
-
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        const targetCode = item.code || item.number;
-                                                        setExternalDocKeyword(targetCode);
-                                                        setIsLookupModalOpen(false);
-                                                        handleFetchExternalData(targetCode);
-                                                    }}
-                                                    className="font-sans text-xs gap-1 h-8"
-                                                >
-                                                    <IconDownload className="h-3.5 w-3.5" />
-                                                    Pilih & Tarik
-                                                </Button>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center py-8 text-sm text-muted-foreground font-sans">
-                                            Tidak ada dokumen yang sesuai dengan pencarian.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <DialogFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsLookupModalOpen(false)}
-                                    className="font-sans"
-                                >
-                                    Tutup
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
                 </SidebarInset>
             </SidebarProvider>
         </>
