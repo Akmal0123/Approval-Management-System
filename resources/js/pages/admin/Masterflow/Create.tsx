@@ -24,6 +24,19 @@ interface Company {
     name: string;
 }
 
+interface Transaksi {
+    id: number;
+    aplikasi_id: number;
+    kode_transaksi: string;
+    nama_transaksi: string;
+    departemen?: string | null;
+    deskripsi?: string | null;
+    aplikasi?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface MasterflowStep {
     step_order: number;
     step_name: string;
@@ -35,11 +48,13 @@ interface MasterflowStep {
 interface Props {
     jabatans: Jabatan[];
     company: Company;
+    transaksis: Transaksi[];
 }
 
-export default function Create({ jabatans, company }: Props) {
+export default function Create({ jabatans, company, transaksis = [] }: Props) {
     const [formData, setFormData] = useState({
         name: '',
+        transaksi_id: '',
         description: '',
         is_active: true,
         steps: [
@@ -165,6 +180,41 @@ export default function Create({ jabatans, company }: Props) {
                                                     className="font-sans"
                                                 />
                                                 {errors.name && <p className="font-sans text-sm text-red-600">{errors.name}</p>}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="transaksi_id" className="font-sans">
+                                                    Jenis Transaksi *
+                                                </Label>
+                                                <Select
+                                                    value={formData.transaksi_id}
+                                                    onValueChange={(value) => {
+                                                        setFormData({ ...formData, transaksi_id: value });
+                                                        if (errors.transaksi_id) {
+                                                            setErrors((prev) => ({ ...prev, transaksi_id: '' }));
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger id="transaksi_id" className="font-sans">
+                                                        <SelectValue placeholder="-- Pilih Jenis Transaksi --" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {transaksis && transaksis.length > 0 ? (
+                                                            transaksis.map((t) => (
+                                                                <SelectItem key={t.id} value={t.id.toString()} className="font-sans">
+                                                                    <span className="font-semibold text-primary">[{t.aplikasi?.name || 'Aplikasi'}]</span>{' '}
+                                                                    <span>{t.nama_transaksi}</span>{' '}
+                                                                    <span className="font-mono text-xs text-muted-foreground">({t.kode_transaksi})</span>
+                                                                </SelectItem>
+                                                            ))
+                                                        ) : (
+                                                            <SelectItem value="none" disabled className="font-sans text-muted-foreground">
+                                                                Tidak ada transaksi aktif untuk otoritas company/aplikasi Anda
+                                                            </SelectItem>
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors.transaksi_id && <p className="font-sans text-sm text-red-600">{errors.transaksi_id}</p>}
                                             </div>
 
                                             <div className="space-y-2">

@@ -29,15 +29,28 @@ interface Company {
     name: string;
 }
 
+interface Transaksi {
+    id: number;
+    kode_transaksi: string;
+    nama_transaksi: string;
+    departemen?: string | null;
+    aplikasi?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface Masterflow {
     id: number;
     name: string;
+    transaksi_id?: number | null;
     description?: string;
     is_active: boolean;
     total_steps: number;
     created_at: string;
     updated_at: string;
     company: Company;
+    transaksi?: Transaksi;
     steps: MasterflowStep[];
 }
 
@@ -115,6 +128,25 @@ export default function Show({ masterflow, company }: Props) {
                                                         </>
                                                     )}
                                                 </Badge>
+                                            </div>
+
+                                            <div>
+                                                <h4 className="font-sans text-sm font-medium text-muted-foreground">Jenis Transaksi</h4>
+                                                {masterflow.transaksi ? (
+                                                    <div className="mt-1 flex flex-col gap-0.5">
+                                                        <span className="font-sans font-semibold text-foreground">
+                                                            {masterflow.transaksi.nama_transaksi}{' '}
+                                                            <span className="font-mono text-xs text-muted-foreground">({masterflow.transaksi.kode_transaksi})</span>
+                                                        </span>
+                                                        {masterflow.transaksi.aplikasi && (
+                                                            <span className="font-sans text-xs text-primary font-medium">
+                                                                Aplikasi: {masterflow.transaksi.aplikasi.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground italic text-sm">-</span>
+                                                )}
                                             </div>
 
                                             <div>

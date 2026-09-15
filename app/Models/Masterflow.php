@@ -18,6 +18,7 @@ class Masterflow extends Model
      */
     protected $fillable = [
         'company_id',
+        'transaksi_id',
         'name',
         'description',
         'is_active',
@@ -42,6 +43,14 @@ class Masterflow extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Get the transaksi that this masterflow belongs to.
+     */
+    public function transaksi(): BelongsTo
+    {
+        return $this->belongsTo(Transaksi::class);
     }
 
     /**
@@ -76,6 +85,14 @@ class Masterflow extends Model
     public function scopeForCompany($query, $companyId)
     {
         return $query->where('company_id', $companyId);
+    }
+
+    /**
+     * Scope a query to filter by transaksi.
+     */
+    public function scopeForTransaksi($query, $transaksiId)
+    {
+        return $query->where('transaksi_id', $transaksiId);
     }
 
     /**

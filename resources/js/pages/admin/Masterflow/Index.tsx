@@ -32,15 +32,27 @@ interface Company {
     name: string;
 }
 
+interface Transaksi {
+    id: number;
+    kode_transaksi: string;
+    nama_transaksi: string;
+    aplikasi?: {
+        id: number;
+        name: string;
+    };
+}
+
 interface Masterflow {
     id: number;
     name: string;
+    transaksi_id?: number | null;
     description?: string;
     is_active: boolean;
     total_steps: number;
     created_at: string;
     updated_at: string;
     company: Company;
+    transaksi?: Transaksi;
     steps: MasterflowStep[];
 }
 
@@ -161,7 +173,15 @@ export default function Index({ masterflows, company }: Props) {
                                                         <TableRow key={masterflow.id}>
                                                             <TableCell className="font-sans font-medium text-foreground">
                                                                 <div>
-                                                                    <div className="font-semibold">{masterflow.name}</div>
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <span className="font-semibold">{masterflow.name}</span>
+                                                                        {masterflow.transaksi && (
+                                                                            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                                                                                {masterflow.transaksi.aplikasi?.name ? `[${masterflow.transaksi.aplikasi.name}] ` : ''}
+                                                                                {masterflow.transaksi.nama_transaksi}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
                                                                     <div className="text-sm text-muted-foreground">
                                                                         {masterflow.steps.map((step, index) => (
                                                                             <span key={step.id}>

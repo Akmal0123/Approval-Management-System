@@ -7,6 +7,8 @@ use App\Models\Company;
 use App\Models\Masterflow;
 use App\Models\MasterflowStep;
 use App\Models\Jabatan;
+use App\Models\Transaksi;
+use App\Services\ContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,12 +22,42 @@ class MasterflowController extends Controller
      */
     private function getCurrentUserCompanyId()
     {
+        $contextService = app(ContextService::class);
+        $companyId = $contextService->getCurrentCompanyId();
+        if ($companyId) {
+            return $companyId;
+        }
+
         $user = Auth::user();
         if (!$user || $user->user_auths->isEmpty()) {
             abort(403, 'User tidak memiliki akses ke company manapun.');
         }
 
         return $user->user_auths->first()->company_id;
+    }
+
+    /**
+     * Get authorized active transactions for the company based on user context / authority.
+     */
+    private function getAuthorizedTransaksis(int $companyId)
+    {
+        $user = Auth::user();
+        $isSuperAdmin = app(ContextService::class)->isSuperAdmin();
+
+        $query = Transaksi::with('aplikasi')
+            ->where('is_active', true)
+            ->whereHas('aplikasi', function ($q) use ($companyId, $user, $isSuperAdmin) {
+                $q->where('company_id', $companyId);
+                if (!$isSuperAdmin) {
+                    $userAplikasiIds = $user->user_auths()
+                        ->where('company_id', $companyId)
+                        ->whereNotNull('aplikasi_id')
+                        ->pluck('aplikasi_id');
+                    $q->whereIn('id', $userAplikasiIds);
+                }
+            });
+
+        return $query->orderBy('nama_transaksi')->get();
     }
 
     /**
@@ -36,7 +68,7 @@ class MasterflowController extends Controller
         $companyId = $this->getCurrentUserCompanyId();
         $company = Company::find($companyId);
 
-        $masterflows = Masterflow::with(['company', 'steps.jabatan'])
+        $masterflows = Masterflow::with(['company', 'steps.jabatan', 'transaksi.aplikasi'])
             ->where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -62,6 +94,7 @@ class MasterflowController extends Controller
         $jabatans = Jabatan::orderBy('name')->get();
         $companyId = $this->getCurrentUserCompanyId();
         $company = Company::find($companyId);
+        $transaksis = $this->getAuthorizedTransaksis($companyId);
 
         // Get user with full auth relationships for sidebar
         $userWithAuth = \App\Models\User::with('userAuths.role', 'userAuths.company')
@@ -70,6 +103,7 @@ class MasterflowController extends Controller
         return Inertia::render('admin/Masterflow/Create', [
             'jabatans' => $jabatans,
             'company' => $company,
+            'transaksis' => $transaksis,
             'auth' => [
                 'user' => $userWithAuth
             ],
@@ -85,6 +119,7 @@ class MasterflowController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'transaksi_id' => 'required|exists:transaksis,id',
             'description' => 'nullable|string',
             'steps' => 'required|array|min:1',
             'steps.*.jabatan_id' => 'required|exists:jabatans,id',
@@ -101,6 +136,7 @@ class MasterflowController extends Controller
             // Create masterflow
             $masterflow = Masterflow::create([
                 'company_id' => $companyId,
+                'transaksi_id' => $request->transaksi_id,
                 'name' => $request->name,
                 'description' => $request->description,
                 'is_active' => true,
@@ -134,7 +170,7 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::with(['company', 'steps.jabatan'])
+        $masterflow = Masterflow::with(['company', 'steps.jabatan', 'transaksi.aplikasi'])
             ->where('company_id', $companyId)
             ->findOrFail($id);
 
@@ -157,13 +193,12 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::with(['steps.jabatan'])
+        $masterflow = Masterflow::with(['steps.jabatan', 'transaksi.aplikasi'])
             ->where('company_id', $companyId)
             ->findOrFail($id);
 
         $jabatans = Jabatan::orderBy('name')->get();
-
-        $companyId = $this->getCurrentUserCompanyId();
+        $transaksis = $this->getAuthorizedTransaksis($companyId);
         $company = Company::find($companyId);
 
         // Get user with full auth relationships for sidebar
@@ -173,6 +208,7 @@ class MasterflowController extends Controller
         return Inertia::render('admin/Masterflow/Edit', [
             'masterflow' => $masterflow,
             'jabatans' => $jabatans,
+            'transaksis' => $transaksis,
             'company' => $company,
             'auth' => [
                 'user' => $userWithAuth
@@ -191,6 +227,7 @@ class MasterflowController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'transaksi_id' => 'required|exists:transaksis,id',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'steps' => 'required|array|min:1',
@@ -208,6 +245,7 @@ class MasterflowController extends Controller
             // Update masterflow
             $masterflow->update([
                 'name' => $request->name,
+                'transaksi_id' => $request->transaksi_id,
                 'description' => $request->description,
                 'is_active' => $request->is_active ?? true,
                 'total_steps' => count($request->steps),

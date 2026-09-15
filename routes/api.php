@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DokumenController;
+use App\Http\Controllers\DropdownController; // Pastikan controller ini di-use
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +64,10 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
         Route::get('/statistics', [UserDashboardController::class, 'getStatisticsApi']);
         Route::get('/recent-documents', [UserDashboardController::class, 'getRecentDocumentsApi']);
     });
+    
+    // 👇 PERBAIKAN: Hapus kata '/api' di depan karena group ini sudah otomatis berawalan /api
+    Route::get('/companies/{company}/aplikasis', [DropdownController::class, 'getAplikasis']);
+    Route::get('/aplikasis/{aplikasi}/transaksis', [DropdownController::class, 'getTransaksis']);
 
     // Dokumen API Routes
     Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
@@ -98,14 +103,9 @@ Route::prefix('auth/jwt')->group(function () {
 });
 
 // Protected API v1 — endpoint yang dibuka untuk ekosistem eksternal via JWT
-// Tambahkan endpoint sesuai kebutuhan integrasi dengan sistem lain di perusahaan.
 Route::middleware('auth.jwt')->prefix('v1')->group(function () {
-    // Dokumen: baca daftar dokumen (read-only untuk ekosistem eksternal)
     Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
     Route::get('/dokumen/{dokumen}/signature-positions', [\App\Http\Controllers\SignaturePositionController::class, 'index']);
-
-    // User info & statistics
     Route::get('/user/statistics', [UserDashboardController::class, 'getStatisticsApi']);
     Route::get('/user/recent-documents', [UserDashboardController::class, 'getRecentDocumentsApi']);
 });
-

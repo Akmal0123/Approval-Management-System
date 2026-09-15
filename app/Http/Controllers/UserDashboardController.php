@@ -279,13 +279,46 @@ class UserDashboardController extends Controller
     /**
      * Get user's available masterflows for document submission (API endpoint).
      */
-    public function getMasterflowsApi()
+    public function getMasterflowsApi(Request $request)
     {
         $context = $this->contextService->getContext();
-        $companyId = $context?->company_id;
+        $companyId = $request->query('company_id') ?: $context?->company_id;
+        $transaksiId = $request->query('transaksi_id');
+
+        $query = Masterflow::where('is_active', true)
+            ->with(['steps.jabatan', 'company', 'transaksi.aplikasi'])
+            ->orderBy('name');
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+
+        if ($transaksiId) {
+            $query->where('transaksi_id', $transaksiId);
+        }
+
+        $masterflows = $query->get()->map(function ($masterflow) {
+            return [
+                'id' => $masterflow->id,
+                'name' => $masterflow->name,
+                'transaksi_id' => $masterflow->transaksi_id,
+                'description' => $masterflow->description,
+                'steps_count' => $masterflow->steps ? $masterflow->steps->count() : 0,
+                'company' => $masterflow->company ? $masterflow->company->name : null,
+                'transaksi' => $masterflow->transaksi ? [
+                    'id' => $masterflow->transaksi->id,
+                    'nama_transaksi' => $masterflow->transaksi->nama_transaksi,
+                    'kode_transaksi' => $masterflow->transaksi->kode_transaksi,
+                    'aplikasi' => $masterflow->transaksi->aplikasi ? [
+                        'id' => $masterflow->transaksi->aplikasi->id,
+                        'name' => $masterflow->transaksi->aplikasi->name,
+                    ] : null,
+                ] : null,
+            ];
+        })->toArray();
 
         return response()->json([
-            'masterflows' => $this->getMasterflowsForContext($companyId)
+            'masterflows' => $masterflows
         ]);
     }
 }
