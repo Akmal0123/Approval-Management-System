@@ -69,7 +69,7 @@ export default function PDFViewer({
             {/* Controls */}
             {showControls && (
                 <Card className="p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center justify-center gap-4">
                         {/* Page Navigation */}
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="sm" onClick={previousPage} disabled={pageNumber <= 1 || loading}>
@@ -84,7 +84,7 @@ export default function PDFViewer({
                         </div>
 
                         {/* Zoom Controls */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-normal">
                             <Button variant="outline" size="sm" onClick={zoomOut} disabled={scale <= 0.5 || loading}>
                                 <ZoomOut className="h-4 w-4" />
                             </Button>

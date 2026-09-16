@@ -113,7 +113,7 @@ export default function Index({ masterflows, company }: Props) {
                         <div className="@container/main flex flex-1 flex-col gap-2 p-6">
                             <div className="space-y-8">
                                 {/* Header Section */}
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="space-y-1">
                                         <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-foreground">
                                             <IconSettings className="h-6 w-6 text-primary" />

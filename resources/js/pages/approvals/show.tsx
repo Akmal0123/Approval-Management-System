@@ -432,7 +432,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 <SidebarInset>
                     <SiteHeader />
 
-                    <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
+                    <div className="flex w-full max-w-full flex-col gap-6 overflow-hidden p-3 sm:p-6">
                         {/* Header Section */}
                         <div className="flex flex-col gap-3">
                             <div className="space-y-2">
@@ -482,7 +482,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             </Card>
                         )}
 
-                        <div className="grid gap-6 lg:grid-cols-3">
+                        <div className="grid w-full max-w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-3">
                             {/* LEFT COLUMN - Main Content */}
                             <div className="space-y-6 lg:col-span-2">
                                 {/* Document Info */}
@@ -611,7 +611,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         return (
                                                             <div
                                                                 key={version.id}
-                                                                className={`flex flex-col gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
+                                                                className={`flex items-center justify-between gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
                                                             >
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-4">
@@ -645,12 +645,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                     </Badge>
                                                                                 )}
                                                                             </div>
-                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                                <span>{version.nama_file}</span>
-                                                                                <span>•</span>
-                                                                                <span>{formatFileSize(version.size_file)}</span>
-                                                                                <span>•</span>
-                                                                                <span>{formatDate(version.tgl_upload)}</span>
+                                                                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground font-mono w-full">
+                                                                                <span className="truncate max-w-[150px] sm:max-w-[250px]">{version.nama_file}</span>
+                                                                                <span className="shrink-0">•</span>
+                                                                                <span className="shrink-0">{formatFileSize(version.size_file)}</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -660,6 +658,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                 <Button
                                                                                     variant="ghost"
                                                                                     size="icon"
+                                                                                    className="h-8 w-8 shrink-0"
                                                                                     onClick={() => handlePDFViewerPreview(version)}
                                                                                     title="Lihat"
                                                                                 >

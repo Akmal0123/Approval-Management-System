@@ -439,7 +439,7 @@ export default function SuperAdminTransaksiManagement() {
 
                     {/* Create / Edit Modal */}
                     <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                        <DialogContent className="sm:max-w-lg">
+                        <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-lg sm:rounded-2xl">
                             <DialogHeader>
                                 <DialogTitle className="font-serif">
                                     {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}

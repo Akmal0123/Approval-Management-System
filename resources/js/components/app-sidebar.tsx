@@ -42,6 +42,11 @@ const superAdminNavMain = [
         icon: CheckSquareIcon,
     },
     {
+        title: 'Masterflow Management',
+        url: '/admin/masterflows',
+        icon: FolderKanbanIcon,
+    },
+    {
         title: 'Role Management',
         url: '/super-admin/role-management',
         icon: ShieldIcon,
