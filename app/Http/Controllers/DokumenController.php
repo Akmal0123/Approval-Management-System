@@ -353,7 +353,25 @@ class DokumenController extends Controller
 
                 // Filter steps based on document nominal requirement
                 $applicableSteps = $masterflow->steps->filter(function ($step) use ($dokumen) {
-                    return is_null($step->min_nominal) || (float) $dokumen->nominal >= (float) $step->min_nominal;
+                    $stepMin = (!is_null($step->min_nominal) && (float)$step->min_nominal > 0) ? (float)$step->min_nominal : null;
+
+                    // Fallback: If min_nominal is not explicitly set, steps for Kadiv or Direktur require >= 5.000.000
+                    if (is_null($stepMin)) {
+                        $sName = strtolower($step->step_name ?? '');
+                        $jName = strtolower($step->jabatan?->name ?? '');
+                        if (
+                            str_contains($sName, 'kadiv') || str_contains($sName, 'kepala divisi') || str_contains($sName, 'direktur') ||
+                            str_contains($jName, 'kadiv') || str_contains($jName, 'kepala divisi') || str_contains($jName, 'direktur')
+                        ) {
+                            $stepMin = 5000000;
+                        }
+                    }
+
+                    if (!is_null($stepMin)) {
+                        return (float) $dokumen->nominal >= $stepMin;
+                    }
+
+                    return true;
                 })->values();
 
                     $minStepOrder = $applicableSteps->min('step_order');

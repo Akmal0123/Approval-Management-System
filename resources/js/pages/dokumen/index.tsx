@@ -1996,14 +1996,31 @@ export default function UserDokumen() {
                                         selectedMasterflow.steps &&
                                         selectedMasterflow.steps.length > 0 && (() => {
                                             const currentDocNominal = Number(formData.nominal || 0);
+                                            const getStepMinNominal = (s: MasterflowStep) => {
+                                                if (s.min_nominal && Number(s.min_nominal) > 0) {
+                                                    return Number(s.min_nominal);
+                                                }
+                                                const sName = (s.step_name || '').toLowerCase();
+                                                const jName = (s.jabatan?.name || '').toLowerCase();
+                                                if (
+                                                    sName.includes('kadiv') || sName.includes('kepala divisi') || sName.includes('direktur') ||
+                                                    jName.includes('kadiv') || jName.includes('kepala divisi') || jName.includes('direktur')
+                                                ) {
+                                                    return 5000000;
+                                                }
+                                                return null;
+                                            };
+
                                             const sortedSteps = [...selectedMasterflow.steps].sort((a, b) => a.step_order - b.step_order);
                                             const applicableSteps = sortedSteps.filter((step) => {
-                                                if (!step.min_nominal) return true;
-                                                return currentDocNominal >= Number(step.min_nominal);
+                                                const minNom = getStepMinNominal(step);
+                                                if (!minNom) return true;
+                                                return currentDocNominal >= minNom;
                                             });
                                             const skippedSteps = sortedSteps.filter((step) => {
-                                                if (!step.min_nominal) return false;
-                                                return currentDocNominal < Number(step.min_nominal);
+                                                const minNom = getStepMinNominal(step);
+                                                if (!minNom) return false;
+                                                return currentDocNominal < minNom;
                                             });
 
                                             return (
@@ -2023,7 +2040,9 @@ export default function UserDokumen() {
                                                         )}
                                                     </div>
 
-                                                    {applicableSteps.map((step, index) => (
+                                                    {applicableSteps.map((step, index) => {
+                                                        const stepMin = getStepMinNominal(step);
+                                                        return (
                                                         <div key={step.id} className="space-y-3">
                                                             <div className="grid grid-cols-[80px_1fr_1fr_40px] items-center gap-3">
                                                                 {/* Step Order */}
@@ -2037,9 +2056,9 @@ export default function UserDokumen() {
                                                                 <div className="flex flex-col gap-1">
                                                                     <div className="flex items-center justify-between">
                                                                         <span className="text-xs text-muted-foreground">Jabatan</span>
-                                                                        {step.min_nominal && (
+                                                                        {stepMin && (
                                                                             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200">
-                                                                                ≥ Rp {Number(step.min_nominal).toLocaleString('id-ID')}
+                                                                                ≥ Rp {Number(stepMin).toLocaleString('id-ID')}
                                                                             </span>
                                                                         )}
                                                                     </div>
@@ -2186,7 +2205,8 @@ export default function UserDokumen() {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
 
                                                     {/* Notice jika ada step yang dilewati karena nominal */}
                                                     {skippedSteps.length > 0 && (
@@ -2196,11 +2216,14 @@ export default function UserDokumen() {
                                                                 <span>{skippedSteps.length} langkah dilewati karena batasan nominal:</span>
                                                             </div>
                                                             <ul className="list-disc list-inside space-y-0.5 text-muted-foreground pl-1">
-                                                                {skippedSteps.map((s) => (
-                                                                    <li key={s.id}>
-                                                                        <span className="font-medium text-foreground">{s.step_name}</span> ({s.jabatan?.name || 'Jabatan'}) — memerlukan nominal dokumen minimal <strong className="text-foreground">Rp {Number(s.min_nominal).toLocaleString('id-ID')}</strong>. Alur persetujuan terhenti di <strong className="text-foreground">{applicableSteps[applicableSteps.length - 1]?.step_name || 'tahap sebelumnya'}</strong>.
-                                                                    </li>
-                                                                ))}
+                                                                {skippedSteps.map((s) => {
+                                                                    const sMin = getStepMinNominal(s) || 5000000;
+                                                                    return (
+                                                                        <li key={s.id}>
+                                                                            <span className="font-medium text-foreground">{s.step_name}</span> ({s.jabatan?.name || 'Jabatan'}) — memerlukan nominal dokumen minimal <strong className="text-foreground">Rp {Number(sMin).toLocaleString('id-ID')}</strong>. Alur persetujuan terhenti di <strong className="text-foreground">{applicableSteps[applicableSteps.length - 1]?.step_name || 'tahap sebelumnya'}</strong>.
+                                                                        </li>
+                                                                    );
+                                                                })}
                                                             </ul>
                                                         </div>
                                                     )}
