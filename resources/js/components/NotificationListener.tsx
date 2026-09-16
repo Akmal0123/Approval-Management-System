@@ -1,18 +1,23 @@
 import { useBrowserNotification } from '@/hooks/useBrowserNotification';
+import { useFastifyWebSocket } from '@/hooks/useFastifyWebSocket';
 import { usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 
 interface BrowserNotificationData {
+    id?: string;
     title: string;
     body: string;
-    url: string;
+    url?: string;
     type: 'info' | 'success' | 'warning' | 'error';
-    timestamp: string;
+    timestamp?: string;
 }
 
 /**
- * Global component that listens for browser notification events via Laravel Echo
+ * Global component that listens for browser notification events via:
+ * 1. Fastify Real-Time WebSocket Service (Dedicated Push Notification Backend)
+ * 2. Laravel Reverb / Echo (Secondary Fallback)
+ *
  * Should be mounted once in the app layout to handle all notification broadcasts
  */
 export function NotificationListener() {
@@ -23,88 +28,38 @@ export function NotificationListener() {
     const [permissionRequested, setPermissionRequested] = useState(false);
     const channelRef = useRef<ReturnType<typeof window.Echo.channel> | null>(null);
 
-    // Request notification permission on mount (only once per session)
-    useEffect(() => {
-        console.log('🔔 NotificationListener mounted', {
-            isSupported: isSupported(),
-            isPermitted: isPermitted(),
-            permissionRequested,
-            currentPermission: 'Notification' in window ? Notification.permission : 'unsupported',
-        });
+    // Set to avoid duplicate notifications if both Fastify WS and Echo trigger
+    const processedNotificationsRef = useRef<Set<string>>(new Set());
 
-        if (!isSupported()) {
-            console.warn('🔔 Browser notifications not supported');
-            return;
-        }
+    // Central notification handler
+    const handleNotification = useCallback(
+        (data: BrowserNotificationData, source: 'fastify' | 'reverb' = 'fastify') => {
+            // Deduplication key based on title, body, and timestamp/id
+            const dedupKey = data.id || `${data.title}|${data.body}|${data.timestamp?.slice(0, 19) || ''}`;
 
-        // Check current permission state
-        const currentPermission = Notification.permission;
-        console.log('🔔 Current notification permission:', currentPermission);
+            if (processedNotificationsRef.current.has(dedupKey)) {
+                return;
+            }
 
-        if (currentPermission === 'denied') {
-            console.warn('🔔 Notification permission was previously denied. User must manually enable from browser settings.');
-            return;
-        }
+            processedNotificationsRef.current.add(dedupKey);
 
-        if (currentPermission === 'granted') {
-            console.log('🔔 Notification permission already granted');
-            return;
-        }
-
-        // Only request if permission is 'default' (not yet asked)
-        if (currentPermission === 'default' && !permissionRequested) {
-            // Delay permission request to avoid blocking page load
-            const timer = setTimeout(async () => {
-                console.log('🔔 Requesting notification permission...');
-                try {
-                    const granted = await requestPermission();
-                    setPermissionRequested(true);
-                    console.log('🔔 Permission request result:', granted);
-
-                    if (granted) {
-                        toast.success('Notifikasi browser diaktifkan!', {
-                            duration: 3000,
-                            icon: '🔔',
-                        });
-                    } else {
-                        console.warn('🔔 User did not grant notification permission');
-                    }
-                } catch (error) {
-                    console.error('🔔 Error requesting notification permission:', error);
+            // Keep set size manageable
+            if (processedNotificationsRef.current.size > 100) {
+                const firstItem = processedNotificationsRef.current.values().next().value;
+                if (firstItem) {
+                    processedNotificationsRef.current.delete(firstItem);
                 }
-            }, 2000);
+            }
 
-            return () => clearTimeout(timer);
-        }
-    }, [isSupported, isPermitted, permissionRequested, requestPermission]);
+            console.log(`🔔 Received real-time push notification [via ${source}]:`, data);
 
-    // Subscribe to user-specific notification channel
-    useEffect(() => {
-        if (!userId) {
-            console.log('🔔 No userId provided, skipping notification subscription');
-            return;
-        }
-
-        if (!window.Echo) {
-            console.warn('🔔 Laravel Echo not initialized');
-            return;
-        }
-
-        const channelName = `user.${userId}.notifications`;
-        console.log('🔔 Subscribing to notification channel:', channelName);
-
-        // Subscribe to the channel
-        channelRef.current = window.Echo.channel(channelName);
-
-        // Listen for browser notification events
-        channelRef.current.listen('.browser.notification', (data: BrowserNotificationData) => {
-            console.log('🔔 Received browser notification:', data);
-
-            // Show toast notification (always shown, regardless of browser notification permission)
+            // 1. Show interactive Toast Notification
             const toastOptions = {
                 duration: 5000,
                 style: {
-                    maxWidth: '400px',
+                    maxWidth: '420px',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
                 },
             };
 
@@ -119,16 +74,16 @@ export function NotificationListener() {
                     toast.error(data.body, { ...toastOptions, icon: '❌' });
                     break;
                 default:
-                    toast(data.body, { ...toastOptions, icon: '📄' });
+                    toast(data.body, { ...toastOptions, icon: '🔔' });
             }
 
-            // Show browser notification (if permission granted)
+            // 2. Show native Browser Desktop Notification (if permitted)
             if (isPermitted()) {
                 showNotification(
                     data.title,
                     {
                         body: data.body,
-                        tag: `notification-${data.timestamp}`,
+                        tag: `notification-${data.id || data.timestamp || Date.now()}`,
                         requireInteraction: data.type === 'error' || data.type === 'warning',
                     },
                     () => {
@@ -139,19 +94,82 @@ export function NotificationListener() {
                     },
                 );
             }
-        });
+        },
+        [isPermitted, showNotification],
+    );
 
-        // Cleanup subscription on unmount
+    // Connect to Fastify Real-Time WebSocket backend
+    const { isConnected: isFastifyConnected } = useFastifyWebSocket({
+        userId,
+        onNotification: (payload) => handleNotification(payload, 'fastify'),
+        enabled: Boolean(userId),
+    });
+
+    useEffect(() => {
+        if (isFastifyConnected) {
+            console.log('⚡ [Fastify Real-Time Notification] Active & Connected');
+        }
+    }, [isFastifyConnected]);
+
+    // Request notification permission on mount (only once per session)
+    useEffect(() => {
+        if (!isSupported()) {
+            console.warn('🔔 Browser notifications not supported');
+            return;
+        }
+
+        const currentPermission = Notification.permission;
+        if (currentPermission === 'denied' || currentPermission === 'granted') {
+            return;
+        }
+
+        // Only request if permission is 'default' (not yet asked)
+        if (currentPermission === 'default' && !permissionRequested) {
+            const timer = setTimeout(async () => {
+                try {
+                    const granted = await requestPermission();
+                    setPermissionRequested(true);
+
+                    if (granted) {
+                        toast.success('Notifikasi push real-time aktif!', {
+                            duration: 3000,
+                            icon: '🔔',
+                        });
+                    }
+                } catch (error) {
+                    console.error('🔔 Error requesting notification permission:', error);
+                }
+            }, 2000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [isSupported, permissionRequested, requestPermission]);
+
+    // Fallback/parallel listener: Laravel Echo channel
+    useEffect(() => {
+        if (!userId || !window.Echo) {
+            return;
+        }
+
+        const channelName = `user.${userId}.notifications`;
+
+        try {
+            channelRef.current = window.Echo.channel(channelName);
+            channelRef.current.listen('.browser.notification', (data: BrowserNotificationData) => {
+                handleNotification(data, 'reverb');
+            });
+        } catch (e) {
+            console.warn('🔔 Echo subscription skipped/failed:', e);
+        }
+
         return () => {
             if (channelRef.current) {
-                console.log('🔔 Leaving notification channel:', channelName);
-                window.Echo.leave(channelName);
+                window.Echo?.leave(channelName);
                 channelRef.current = null;
             }
         };
-    }, [userId, isPermitted, showNotification]);
+    }, [userId, handleNotification]);
 
-    // This component doesn't render anything visible
     return null;
 }
 
