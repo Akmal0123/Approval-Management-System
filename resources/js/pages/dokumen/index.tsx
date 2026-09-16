@@ -1504,7 +1504,7 @@ export default function UserDokumen() {
 
                     {/* Create Document Dialog */}
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
+                        <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-[800px] sm:rounded-2xl">
                             <form onSubmit={(e) => e.preventDefault()}>
                                 <DialogHeader>
                                     <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
@@ -1843,7 +1843,7 @@ export default function UserDokumen() {
                                     )}
 
                                     {/* Row 1: Nomor Dokumen & Tanggal Pengajuan */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="grid gap-2">
                                             <Label htmlFor="nomor_dokumen" className="font-sans">
                                                 Nomor Dokumen
@@ -2230,14 +2230,14 @@ export default function UserDokumen() {
                                     )}
                                 </div>
 
-                                <DialogFooter className="sm:justify-between">
-                                    <div className="flex gap-2">
+                                <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+                                    <div className="flex flex-col gap-2 sm:flex-row">
                                         <Button
                                             type="button"
                                             variant="outline"
                                             onClick={() => setIsCreateDialogOpen(false)}
                                             disabled={isSubmitting}
-                                            className="font-sans"
+                                            className="w-full font-sans sm:w-auto"
                                         >
                                             Batal
                                         </Button>
@@ -2247,20 +2247,20 @@ export default function UserDokumen() {
                                                 variant="secondary"
                                                 onClick={openSignatureDialog}
                                                 disabled={isSubmitting || !formData.file}
-                                                className="font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                                className="w-full font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 sm:w-auto"
                                             >
                                                 <IconEdit className="mr-2 h-4 w-4" />
                                                 Atur Posisi Tanda Tangan
                                             </Button>
                                         )}
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row">
                                         <Button
                                             type="button"
                                             variant="outline"
                                             onClick={(e) => handleSubmit(e, 'draft')}
                                             disabled={isSubmitting}
-                                            className="border-gray-300 font-sans hover:bg-gray-50"
+                                            className="w-full border-gray-300 font-sans hover:bg-gray-50 sm:w-auto"
                                         >
                                             {isSubmitting && submitType === 'draft' ? (
                                                 <>
@@ -2278,7 +2278,7 @@ export default function UserDokumen() {
                                             type="button"
                                             onClick={(e) => handleSubmit(e, 'submit')}
                                             disabled={isSubmitting}
-                                            className="bg-green-600 font-sans hover:bg-green-700"
+                                            className="w-full bg-green-600 font-sans hover:bg-green-700 sm:w-auto"
                                         >
                                             {isSubmitting && submitType === 'submit' ? (
                                                 <>

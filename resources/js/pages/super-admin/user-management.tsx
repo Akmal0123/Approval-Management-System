@@ -726,7 +726,7 @@ export default function UserManagement() {
 
                 {/* Create/Edit Dialog */}
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
+                    <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-3xl sm:max-w-[800px] sm:rounded-2xl">
                         <form onSubmit={handleSubmit}>
                             <DialogHeader>
                                 <DialogTitle className="font-serif">{editingUser ? 'Edit Master User' : 'Tambah Master User Baru'}</DialogTitle>
@@ -735,7 +735,7 @@ export default function UserManagement() {
                                 </DialogDescription>
                             </DialogHeader>
 
-                            <div className="grid grid-cols-2 gap-4 py-4">
+                            <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="name" className="font-sans">
                                         Nama
@@ -887,7 +887,7 @@ export default function UserManagement() {
                                                 )}
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <div className="space-y-1">
                                                     <Label className="font-sans text-sm">Role</Label>
                                                     <Select
@@ -977,17 +977,17 @@ export default function UserManagement() {
                                 </div>
                             </div>
 
-                            <DialogFooter>
+                            <DialogFooter className="flex-col gap-2 sm:flex-row">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     onClick={() => setIsDialogOpen(false)}
                                     disabled={isSubmitting}
-                                    className="font-sans"
+                                    className="w-full font-sans sm:w-auto"
                                 >
                                     Batal
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting} className="bg-red-600 font-sans hover:bg-red-700">
+                                <Button type="submit" disabled={isSubmitting} className="font-sans hover:bg-red-700">
                                     {isSubmitting ? 'Menyimpan...' : editingUser ? 'Perbarui' : 'Simpan'}
                                 </Button>
                             </DialogFooter>

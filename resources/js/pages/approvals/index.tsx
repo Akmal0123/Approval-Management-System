@@ -457,7 +457,7 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
 
                                     {/* Tabs */}
                                     <Tabs value={selectedTab} onValueChange={handleTabChange}>
-                                        <TabsList>
+                                        <TabsList className="flex w-full justify-start overflow-x-auto whitespace-nowrap p-1">
                                             <TabsTrigger value="all" className="font-sans">
                                                 Semua
                                             </TabsTrigger>

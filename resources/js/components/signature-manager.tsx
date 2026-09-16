@@ -388,13 +388,13 @@ export default function SignatureManager() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="draw" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="draw">
-                                <PenTool className="mr-2 h-4 w-4" />
+                        <TabsList className="flex h-auto w-full flex-col gap-1.5 p-1.5">
+                            <TabsTrigger value="draw" className="w-full justify-center py-2.5 font-sans">
+                                <PenTool className="mr-2 h-4 w-4 shrink-0" />
                                 Gambar Tanda Tangan
                             </TabsTrigger>
                             <TabsTrigger value="upload">
-                                <Upload className="mr-2 h-4 w-4" />
+                                <Upload className="mr-2 h-4 w-4 shrink-0" />
                                 Upload Tanda Tangan
                             </TabsTrigger>
                         </TabsList>

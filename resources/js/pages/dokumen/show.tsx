@@ -829,10 +829,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                 <SidebarInset>
                     <SiteHeader />
 
-                    <div className="flex flex-1 flex-col gap-6 p-6">
+                    <div className="flex flex-1 flex-col gap-6 p-3 sm:p-6 w-full max-w-full overflow-hidden">
                         {/* Header Section */}
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="space-y-1">
+                            <div className="space-y-1 pl-2">
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/user/dokumen')}>
                                         Dokumen Saya
@@ -849,24 +849,25 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                         </Badge>
                                     )}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-1.5">
                                         <IconFileText className="h-4 w-4" />
                                         <span className="font-mono">{dokumen?.nomor_dokumen || '-'}</span>
                                     </div>
-                                    <span>•</span>
+
+                                    <span className="hidden h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50 sm:block" />
+
                                     <div className="flex items-center gap-1.5">
                                         <CalendarIcon className="h-4 w-4" />
                                         <span>{formatDate(dokumen?.tgl_pengajuan)}</span>
                                     </div>
+
                                     {dokumen?.aplikasi && (
                                         <>
-                                            <span>•</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <Badge variant="secondary" className="font-normal text-xs">
-                                                    📱 {dokumen.aplikasi.name}
-                                                </Badge>
-                                            </div>
+                                            <span className="hidden h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50 sm:block" />
+                                            <Badge variant="secondary" className="font-normal text-xs">
+                                                📱 {dokumen.aplikasi.name}
+                                            </Badge>
                                         </>
                                     )}
                                 </div>
@@ -889,7 +890,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                             </div>
                         </div>
 
-                        <div className="grid gap-6 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 w-full max-w-full min-w-0">
                             {/* LEFT COLUMN - Main Content */}
                             <div className="space-y-6 lg:col-span-2">
                                 {/* Description & Details */}
@@ -969,7 +970,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                 key={version.id}
                                                                 className={`flex items-center justify-between p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
                                                             >
-                                                                <div className="flex items-center gap-4">
+                                                                <div className="flex min-w-0 flex-1 items-center gap-4">
                                                                     <div
                                                                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest ? 'border-blue-200 bg-blue-100 text-blue-700' : 'bg-background text-muted-foreground'}`}
                                                                     >
@@ -996,8 +997,8 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
-                                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                            <span>{version.nama_file}</span>
+                                                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                                                            <span className="max-w-[220px] truncate sm:max-w-[320px]">{version.nama_file}</span>
                                                                             <span>•</span>
                                                                             <span>{formatFileSize(version.size_file)}</span>
                                                                             <span>•</span>
@@ -1357,7 +1358,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
                     {/* PDF Preview Dialog */}
                     <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
+                        <DialogContent className="flex h-[90vh] w-[calc(100%-1rem)] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0 sm:rounded-2xl">
                             <DialogHeader className="shrink-0 border-b p-4">
                                 <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">{previewFileName}</DialogDescription>
