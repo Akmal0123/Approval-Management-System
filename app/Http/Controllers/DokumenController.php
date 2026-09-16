@@ -349,10 +349,12 @@ class DokumenController extends Controller
                 }
             } else {
                 // Existing masterflow - create approvals from selected approvers
-                    // Filter steps based on document nominal requirement
-                    $applicableSteps = $masterflow->steps->filter(function ($step) use ($dokumen) {
-                        return is_null($step->min_nominal) || (float) $dokumen->nominal >= (float) $step->min_nominal;
-                    })->values();
+                $masterflow = Masterflow::with('steps')->findOrFail($validated['masterflow_id']);
+
+                // Filter steps based on document nominal requirement
+                $applicableSteps = $masterflow->steps->filter(function ($step) use ($dokumen) {
+                    return is_null($step->min_nominal) || (float) $dokumen->nominal >= (float) $step->min_nominal;
+                })->values();
 
                     $minStepOrder = $applicableSteps->min('step_order');
 
