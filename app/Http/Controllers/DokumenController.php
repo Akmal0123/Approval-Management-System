@@ -192,6 +192,7 @@ class DokumenController extends Controller
         $rules = [
             'nomor_dokumen' => 'required|string|unique:dokumen,nomor_dokumen',
             'judul_dokumen' => 'required|string|max:255',
+            'nominal' => 'nullable',
             'tgl_pengajuan' => 'required|date',
             'tgl_deadline' => 'required|date|after_or_equal:tgl_pengajuan',
             'deskripsi' => 'nullable|string',
@@ -220,6 +221,18 @@ class DokumenController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Parse nominal
+        $nominal = 0;
+        if ($request->filled('nominal')) {
+            $rawNom = $request->nominal;
+            if (is_numeric($rawNom)) {
+                $nominal = (float)$rawNom;
+            } elseif (is_string($rawNom)) {
+                $cleaned = preg_replace('/[^0-9.]/', '', str_replace(',', '.', str_replace('.', '', $rawNom)));
+                $nominal = is_numeric($cleaned) ? (float)$cleaned : 0;
+            }
+        }
+
         // Determine company_id and aplikasi_id
         $aplikasiId = $context->aplikasi_id;
         $companyId = $context->company_id;
@@ -247,6 +260,7 @@ class DokumenController extends Controller
             $dokumen = Dokumen::create([
                 'nomor_dokumen' => $validated['nomor_dokumen'],
                 'judul_dokumen' => $validated['judul_dokumen'],
+                'nominal' => $nominal,
                 'user_id' => Auth::id(),
                 'company_id' => $companyId,
                 'aplikasi_id' => $aplikasiId,
@@ -335,18 +349,23 @@ class DokumenController extends Controller
                 }
             } else {
                 // Existing masterflow - create approvals from selected approvers
-                    $masterflow = Masterflow::with('steps')->find($validated['masterflow_id']);
+                    // Filter steps based on document nominal requirement
+                    $applicableSteps = $masterflow->steps->filter(function ($step) use ($dokumen) {
+                        return is_null($step->min_nominal) || (float) $dokumen->nominal >= (float) $step->min_nominal;
+                    })->values();
 
-                    $minStepOrder = $masterflow->steps->min('step_order');
+                    $minStepOrder = $applicableSteps->min('step_order');
 
                     Log::info('Processing masterflow steps', [
                         'masterflow_id' => $masterflow->id,
-                        'steps_count' => $masterflow->steps->count(),
+                        'total_steps_count' => $masterflow->steps->count(),
+                        'applicable_steps_count' => $applicableSteps->count(),
+                        'dokumen_nominal' => $dokumen->nominal,
                         'has_step_approvers' => $request->has('step_approvers'),
                         'step_approvers_keys' => $request->has('step_approvers') ? array_keys($request->input('step_approvers', [])) : [],
                     ]);
 
-                    foreach ($masterflow->steps as $step) {
+                    foreach ($applicableSteps as $step) {
                         $isFirstLevel = $step->step_order == $minStepOrder;
                         // Check if user selected group approval for this step
                         if ($request->has("step_approvers.{$step->id}")) {
@@ -590,6 +609,7 @@ class DokumenController extends Controller
 
         $validated = $request->validate([
             'judul_dokumen' => 'required|string|max:255',
+            'nominal' => 'nullable',
             'tgl_deadline' => 'nullable|date',
             'deskripsi' => 'nullable|string',
             'file' => 'nullable|file|mimes:pdf|max:10240', // Only PDF for digital signature support
@@ -597,12 +617,24 @@ class DokumenController extends Controller
 
         DB::beginTransaction();
         try {
-            // Update dokumen
-            $dokumen->update([
+            $updateData = [
                 'judul_dokumen' => $validated['judul_dokumen'],
                 'tgl_deadline' => $validated['tgl_deadline'] ?? $dokumen->tgl_deadline,
                 'deskripsi' => $validated['deskripsi'] ?? $dokumen->deskripsi,
-            ]);
+            ];
+
+            if ($request->filled('nominal')) {
+                $rawNom = $request->nominal;
+                if (is_numeric($rawNom)) {
+                    $updateData['nominal'] = (float)$rawNom;
+                } elseif (is_string($rawNom)) {
+                    $cleaned = preg_replace('/[^0-9.]/', '', str_replace(',', '.', str_replace('.', '', $rawNom)));
+                    $updateData['nominal'] = is_numeric($cleaned) ? (float)$cleaned : 0;
+                }
+            }
+
+            // Update dokumen
+            $dokumen->update($updateData);
 
             // If new file uploaded, create new version
             if ($request->hasFile('file')) {

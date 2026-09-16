@@ -126,6 +126,7 @@ class MasterflowController extends Controller
             'steps.*.step_name' => 'required|string|max:255',
             'steps.*.description' => 'nullable|string',
             'steps.*.is_required' => 'boolean',
+            'steps.*.min_nominal' => 'nullable|numeric|min:0',
             'steps.*.group_index' => 'nullable|string|max:255',
             'steps.*.jenis_group' => 'nullable|in:all_required,any_one,majority',
             'steps.*.users_in_group' => 'nullable|array',
@@ -152,6 +153,7 @@ class MasterflowController extends Controller
                     'step_name' => $stepData['step_name'],
                     'description' => $stepData['description'] ?? null,
                     'is_required' => $stepData['is_required'] ?? true,
+                    'min_nominal' => !empty($stepData['min_nominal']) ? $stepData['min_nominal'] : null,
                     'group_index' => $stepData['group_index'] ?? null,
                     'jenis_group' => $stepData['jenis_group'] ?? null,
                     'users_in_group' => $stepData['users_in_group'] ?? null,
@@ -235,6 +237,7 @@ class MasterflowController extends Controller
             'steps.*.step_name' => 'required|string|max:255',
             'steps.*.description' => 'nullable|string',
             'steps.*.is_required' => 'boolean',
+            'steps.*.min_nominal' => 'nullable|numeric|min:0',
             'steps.*.group_index' => 'nullable|string|max:255',
             'steps.*.jenis_group' => 'nullable|in:all_required,any_one,majority',
             'steps.*.users_in_group' => 'nullable|array',
@@ -263,6 +266,7 @@ class MasterflowController extends Controller
                     'step_name' => $stepData['step_name'],
                     'description' => $stepData['description'] ?? null,
                     'is_required' => $stepData['is_required'] ?? true,
+                    'min_nominal' => !empty($stepData['min_nominal']) ? $stepData['min_nominal'] : null,
                     'group_index' => $stepData['group_index'] ?? null,
                     'jenis_group' => $stepData['jenis_group'] ?? null,
                     'users_in_group' => $stepData['users_in_group'] ?? null,
@@ -316,7 +320,7 @@ class MasterflowController extends Controller
         $steps = $masterflow->steps()
             ->with('jabatan:id,name')
             ->orderBy('step_order', 'asc')
-            ->get(['id', 'masterflow_id', 'step_order', 'step_name', 'jabatan_id']);
+            ->get(['id', 'masterflow_id', 'step_order', 'step_name', 'jabatan_id', 'min_nominal']);
 
         return response()->json([
             'steps' => $steps

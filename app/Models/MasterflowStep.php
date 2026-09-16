@@ -22,6 +22,7 @@ class MasterflowStep extends Model
         'step_name',
         'description',
         'is_required',
+        'min_nominal',
         'group_index',
         'jenis_group',
         'users_in_group',
@@ -35,6 +36,7 @@ class MasterflowStep extends Model
     protected $casts = [
         'step_order' => 'integer',
         'is_required' => 'boolean',
+        'min_nominal' => 'decimal:2',
         'users_in_group' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconAlertCircle, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
 import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -39,6 +39,7 @@ interface MasterflowStep {
     step_order: number;
     step_name: string;
     jabatan_id: number;
+    min_nominal?: number | string | null;
     jabatan?: {
         id: number;
         name: string;
@@ -120,6 +121,7 @@ interface Dokumen {
     aplikasi_id?: number;
     transaksi_id?: number | null;
     tipe_dokumen?: string;
+    nominal?: number | string | null;
     masterflow_id: number;
     status: string;
     tgl_pengajuan: string;
@@ -154,6 +156,7 @@ interface FormData {
     aplikasi_id?: string | number;
     transaksi_id?: string | number;
     tipe_dokumen?: string;
+    nominal?: string | number;
     nominal_transaksi?: string;
     masterflow_id: number | '' | 'custom'; // 'custom' untuk custom approval
     tgl_pengajuan: string;
@@ -173,6 +176,7 @@ const initialFormData: FormData = {
     aplikasi_id: '',
     transaksi_id: '',
     tipe_dokumen: '',
+    nominal: '',
     nominal_transaksi: '',
     masterflow_id: '',
     tgl_pengajuan: new Date().toISOString().split('T')[0],
@@ -457,6 +461,8 @@ export default function UserDokumen() {
                     ...prev,
                     nomor_dokumen: data.nomor_dokumen || prev.nomor_dokumen,
                     judul_dokumen: data.judul || prev.judul_dokumen,
+                    nominal: data.nominal !== undefined && data.nominal !== null ? String(data.nominal) : prev.nominal,
+                    nominal_transaksi: data.nominal !== undefined && data.nominal !== null ? String(data.nominal) : prev.nominal_transaksi,
                     tgl_pengajuan: data.tanggal || prev.tgl_pengajuan,
                     deskripsi: data.deskripsi ? data.deskripsi : prev.deskripsi,
                     transaksi_id: matchedTransaksiId || prev.transaksi_id,
@@ -1089,6 +1095,7 @@ export default function UserDokumen() {
             const submitData = new FormData();
             submitData.append('nomor_dokumen', formData.nomor_dokumen);
             submitData.append('judul_dokumen', formData.judul_dokumen);
+            submitData.append('nominal', formData.nominal ? String(formData.nominal) : '0');
             submitData.append('tgl_pengajuan', formData.tgl_pengajuan);
             submitData.append('tgl_deadline', formData.tgl_deadline);
             submitData.append('deskripsi', formData.deskripsi);
@@ -1414,6 +1421,11 @@ export default function UserDokumen() {
                                                                                 {doc.aplikasi && (
                                                                                     <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                                                                         {doc.aplikasi.name}
+                                                                                    </span>
+                                                                                )}
+                                                                                {Number(doc.nominal || 0) > 0 && (
+                                                                                    <span className="text-[11px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
+                                                                                        Rp {Number(doc.nominal).toLocaleString('id-ID')}
                                                                                     </span>
                                                                                 )}
                                                                             </div>
@@ -1890,6 +1902,44 @@ export default function UserDokumen() {
                                         {errors.judul_dokumen && <p className="text-sm text-red-500">{errors.judul_dokumen}</p>}
                                     </div>
 
+                                    {/* Nominal Dokumen / Transaksi */}
+                                    <div className="grid gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="nominal" className="font-sans">
+                                                Nominal Dokumen (Rp)
+                                            </Label>
+                                            {Number(formData.nominal || 0) > 0 && (
+                                                <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                                                    Rp {Number(formData.nominal).toLocaleString('id-ID')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">
+                                                Rp
+                                            </span>
+                                            <Input
+                                                id="nominal"
+                                                name="nominal"
+                                                type="number"
+                                                value={formData.nominal}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setFormData((prev) => ({ ...prev, nominal: val }));
+                                                }}
+                                                className="pl-10 font-mono text-sm"
+                                                placeholder="0 (atau otomatis dari Tarik Data)"
+                                                min="0"
+                                                step="1000"
+                                            />
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            {Number(formData.nominal || 0) > 0
+                                                ? `Nominal: Rp ${Number(formData.nominal).toLocaleString('id-ID')} • Menentukan batas langkah persetujuan (Masterflow).`
+                                                : 'Nominal otomatis terisi saat Tarik Data, atau dapat diinput manual untuk memfilter tingkat persetujuan.'}
+                                        </p>
+                                    </div>
+
                                     {/* Deadline */}
                                     <div className="grid gap-2">
                                         <Label htmlFor="tgl_deadline" className="font-sans">
@@ -1944,18 +1994,36 @@ export default function UserDokumen() {
                                         formData.masterflow_id !== 'custom' &&
                                         selectedMasterflow &&
                                         selectedMasterflow.steps &&
-                                        selectedMasterflow.steps.length > 0 && (
-                                            <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="font-sans font-semibold">Alur Persetujuan</Label>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {selectedMasterflow.steps.length} tahap persetujuan
-                                                    </span>
-                                                </div>
+                                        selectedMasterflow.steps.length > 0 && (() => {
+                                            const currentDocNominal = Number(formData.nominal || 0);
+                                            const sortedSteps = [...selectedMasterflow.steps].sort((a, b) => a.step_order - b.step_order);
+                                            const applicableSteps = sortedSteps.filter((step) => {
+                                                if (!step.min_nominal) return true;
+                                                return currentDocNominal >= Number(step.min_nominal);
+                                            });
+                                            const skippedSteps = sortedSteps.filter((step) => {
+                                                if (!step.min_nominal) return false;
+                                                return currentDocNominal < Number(step.min_nominal);
+                                            });
 
-                                                {selectedMasterflow.steps
-                                                    .sort((a, b) => a.step_order - b.step_order)
-                                                    .map((step, index) => (
+                                            return (
+                                                <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <Label className="font-sans font-semibold">Alur Persetujuan</Label>
+                                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                                {applicableSteps.length} tahap aktif
+                                                                {skippedSteps.length > 0 && ` (${skippedSteps.length} tahap dilewati)`}
+                                                            </p>
+                                                        </div>
+                                                        {skippedSteps.length > 0 && (
+                                                            <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800 text-[11px]">
+                                                                Filter Nominal Aktif
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+
+                                                    {applicableSteps.map((step, index) => (
                                                         <div key={step.id} className="space-y-3">
                                                             <div className="grid grid-cols-[80px_1fr_1fr_40px] items-center gap-3">
                                                                 {/* Step Order */}
@@ -1967,7 +2035,14 @@ export default function UserDokumen() {
 
                                                                 {/* Jabatan */}
                                                                 <div className="flex flex-col gap-1">
-                                                                    <span className="text-xs text-muted-foreground">Jabatan</span>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-xs text-muted-foreground">Jabatan</span>
+                                                                        {step.min_nominal && (
+                                                                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200">
+                                                                                ≥ Rp {Number(step.min_nominal).toLocaleString('id-ID')}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                     <div className="rounded-md border border-border bg-background px-3 py-2 font-sans text-sm">
                                                                         {step.jabatan?.name || 'Sekertaris'}
                                                                     </div>
@@ -2112,8 +2187,26 @@ export default function UserDokumen() {
                                                             </div>
                                                         </div>
                                                     ))}
-                                            </div>
-                                        )}
+
+                                                    {/* Notice jika ada step yang dilewati karena nominal */}
+                                                    {skippedSteps.length > 0 && (
+                                                        <div className="rounded-md border border-amber-200 bg-amber-50/70 dark:bg-amber-950/30 dark:border-amber-900/50 p-3 text-xs text-amber-900 dark:text-amber-300 space-y-1 mt-1">
+                                                            <div className="flex items-center gap-1.5 font-semibold">
+                                                                <IconAlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                                <span>{skippedSteps.length} langkah dilewati karena batasan nominal:</span>
+                                                            </div>
+                                                            <ul className="list-disc list-inside space-y-0.5 text-muted-foreground pl-1">
+                                                                {skippedSteps.map((s) => (
+                                                                    <li key={s.id}>
+                                                                        <span className="font-medium text-foreground">{s.step_name}</span> ({s.jabatan?.name || 'Jabatan'}) — memerlukan nominal dokumen minimal <strong className="text-foreground">Rp {Number(s.min_nominal).toLocaleString('id-ID')}</strong>. Alur persetujuan terhenti di <strong className="text-foreground">{applicableSteps[applicableSteps.length - 1]?.step_name || 'tahap sebelumnya'}</strong>.
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
                                     {/* Custom Approvers - Show when masterflow_id is 'custom' */}
                                     {formData.masterflow_id === 'custom' && (

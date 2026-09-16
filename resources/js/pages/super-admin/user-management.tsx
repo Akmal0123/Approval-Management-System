@@ -985,11 +985,7 @@ export default function UserManagement() {
                                 >
                                     Batal
                                 </Button>
-<<<<<<< HEAD
                                 <Button type="submit" disabled={isSubmitting} className="bg-primary font-sans hover:bg-primary/90">
-=======
-                                <Button type="submit" disabled={isSubmitting} className="font-sans hover:bg-red-700">
->>>>>>> 37be629049674f148ea87472261cfedd144e3a5d
                                     {isSubmitting ? 'Menyimpan...' : editingUser ? 'Perbarui' : 'Simpan'}
                                 </Button>
                             </DialogFooter>

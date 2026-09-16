@@ -31,6 +31,7 @@ class Dokumen extends Model
     protected $fillable = [
         'nomor_dokumen',
         'judul_dokumen',
+        'nominal',
         'user_id',
         'company_id',
         'aplikasi_id',
@@ -49,6 +50,7 @@ class Dokumen extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
+        'nominal' => 'decimal:2',
         'tgl_pengajuan' => 'date',
         'tgl_deadline' => 'date',
         'created_at' => 'datetime',

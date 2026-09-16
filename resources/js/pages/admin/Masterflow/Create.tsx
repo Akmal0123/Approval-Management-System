@@ -43,6 +43,7 @@ interface MasterflowStep {
     description: string;
     is_required: boolean;
     jabatan_id: number;
+    min_nominal?: string | number;
 }
 
 interface Props {
@@ -64,6 +65,7 @@ export default function Create({ jabatans, company, transaksis = [] }: Props) {
                 description: '',
                 is_required: true,
                 jabatan_id: 0,
+                min_nominal: '',
             },
         ] as MasterflowStep[],
     });
@@ -82,6 +84,7 @@ export default function Create({ jabatans, company, transaksis = [] }: Props) {
                     description: '',
                     is_required: true,
                     jabatan_id: 0,
+                    min_nominal: '',
                 },
             ],
         });
@@ -304,15 +307,33 @@ export default function Create({ jabatans, company, transaksis = [] }: Props) {
                                                         </div>
                                                     </div>
 
-                                                    <div className="space-y-2">
-                                                        <Label className="font-sans">Deskripsi Langkah</Label>
-                                                        <Textarea
-                                                            value={step.description}
-                                                            onChange={(e) => updateStep(index, 'description', e.target.value)}
-                                                            placeholder="Deskripsi tentang apa yang dilakukan pada langkah ini"
-                                                            rows={2}
-                                                            className="font-sans"
-                                                        />
+                                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                        <div className="space-y-2">
+                                                            <Label className="font-sans">Min. Nominal Dokumen (Rp - Opsional)</Label>
+                                                            <Input
+                                                                type="number"
+                                                                value={step.min_nominal || ''}
+                                                                onChange={(e) => updateStep(index, 'min_nominal', e.target.value)}
+                                                                placeholder="Kosongkan jika selalu berlaku (misal: 5000000)"
+                                                                className="font-sans font-mono text-sm"
+                                                                min="0"
+                                                                step="1000"
+                                                            />
+                                                            <p className="text-[11px] text-muted-foreground">
+                                                                Langkah ini hanya berlaku jika nominal dokumen ≥ nilai ini (misal di atas 5jt).
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label className="font-sans">Deskripsi Langkah</Label>
+                                                            <Textarea
+                                                                value={step.description}
+                                                                onChange={(e) => updateStep(index, 'description', e.target.value)}
+                                                                placeholder="Deskripsi tentang apa yang dilakukan pada langkah ini"
+                                                                rows={2}
+                                                                className="font-sans"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}

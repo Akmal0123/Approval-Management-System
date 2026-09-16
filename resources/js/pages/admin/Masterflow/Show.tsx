@@ -21,6 +21,7 @@ interface MasterflowStep {
     step_name: string;
     description?: string;
     is_required: boolean;
+    min_nominal?: number | string | null;
     jabatan: Jabatan;
 }
 
@@ -221,6 +222,11 @@ export default function Show({ masterflow, company }: Props) {
                                                                         Wajib
                                                                     </Badge>
                                                                 )}
+                                                                {step.min_nominal && (
+                                                                    <Badge variant="outline" className="font-mono text-xs text-primary border-primary/30 bg-primary/5">
+                                                                        ≥ Rp {Number(step.min_nominal).toLocaleString('id-ID')}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
 
                                                             <div className="mt-1 flex items-center space-x-2">
@@ -260,6 +266,7 @@ export default function Show({ masterflow, company }: Props) {
                                                         <th className="p-2 text-left font-sans font-medium text-muted-foreground">Urutan</th>
                                                         <th className="p-2 text-left font-sans font-medium text-muted-foreground">Nama Langkah</th>
                                                         <th className="p-2 text-left font-sans font-medium text-muted-foreground">Jabatan</th>
+                                                        <th className="p-2 text-left font-sans font-medium text-muted-foreground">Min. Nominal</th>
                                                         <th className="p-2 text-left font-sans font-medium text-muted-foreground">Deskripsi</th>
                                                         <th className="p-2 text-left font-sans font-medium text-muted-foreground">Status</th>
                                                     </tr>
@@ -274,6 +281,15 @@ export default function Show({ masterflow, company }: Props) {
                                                             </td>
                                                             <td className="p-2 font-sans font-medium text-foreground">{step.step_name}</td>
                                                             <td className="p-2 font-sans text-foreground">{step.jabatan.name}</td>
+                                                            <td className="p-2 font-mono text-sm text-foreground">
+                                                                {step.min_nominal ? (
+                                                                    <span className="font-semibold text-primary">
+                                                                        Rp {Number(step.min_nominal).toLocaleString('id-ID')}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">-</span>
+                                                                )}
+                                                            </td>
                                                             <td className="p-2 font-sans text-sm text-muted-foreground">
                                                                 {step.description || <span className="italic">Tidak ada deskripsi</span>}
                                                             </td>
