@@ -1186,8 +1186,10 @@ export default function UserDokumen() {
                     console.error('Form submission errors:', errors);
                     setErrors(errors);
 
-                    // Show specific error message if available
-                    const errorMessage = errors.error || 'Failed to create document. Please check the form.';
+                    // Show specific first error message if available
+                    const firstField = Object.keys(errors)[0];
+                    const firstErrorMsg = firstField ? (Array.isArray(errors[firstField]) ? errors[firstField][0] : errors[firstField]) : null;
+                    const errorMessage = errors.error || firstErrorMsg || 'Failed to create document. Please check the form.';
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {

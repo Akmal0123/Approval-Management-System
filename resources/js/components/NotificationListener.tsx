@@ -1,5 +1,4 @@
 import { useBrowserNotification } from '@/hooks/useBrowserNotification';
-import { useFastifyWebSocket } from '@/hooks/useFastifyWebSocket';
 import { usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -14,9 +13,7 @@ interface BrowserNotificationData {
 }
 
 /**
- * Global component that listens for browser notification events via:
- * 1. Fastify Real-Time WebSocket Service (Dedicated Push Notification Backend)
- * 2. Laravel Reverb / Echo (Secondary Fallback)
+ * Global component that listens for browser notification events via Laravel Reverb / Echo
  *
  * Should be mounted once in the app layout to handle all notification broadcasts
  */
@@ -28,12 +25,12 @@ export function NotificationListener() {
     const [permissionRequested, setPermissionRequested] = useState(false);
     const channelRef = useRef<ReturnType<typeof window.Echo.channel> | null>(null);
 
-    // Set to avoid duplicate notifications if both Fastify WS and Echo trigger
+    // Set to avoid duplicate notifications
     const processedNotificationsRef = useRef<Set<string>>(new Set());
 
     // Central notification handler
     const handleNotification = useCallback(
-        (data: BrowserNotificationData, source: 'fastify' | 'reverb' = 'fastify') => {
+        (data: BrowserNotificationData) => {
             // Deduplication key based on title, body, and timestamp/id
             const dedupKey = data.id || `${data.title}|${data.body}|${data.timestamp?.slice(0, 19) || ''}`;
 
@@ -51,7 +48,7 @@ export function NotificationListener() {
                 }
             }
 
-            console.log(`🔔 Received real-time push notification [via ${source}]:`, data);
+            console.log('🔔 Received real-time notification:', data);
 
             // 1. Show interactive Toast Notification
             const toastOptions = {
@@ -98,19 +95,6 @@ export function NotificationListener() {
         [isPermitted, showNotification],
     );
 
-    // Connect to Fastify Real-Time WebSocket backend
-    const { isConnected: isFastifyConnected } = useFastifyWebSocket({
-        userId,
-        onNotification: (payload) => handleNotification(payload, 'fastify'),
-        enabled: Boolean(userId),
-    });
-
-    useEffect(() => {
-        if (isFastifyConnected) {
-            console.log('⚡ [Fastify Real-Time Notification] Active & Connected');
-        }
-    }, [isFastifyConnected]);
-
     // Request notification permission on mount (only once per session)
     useEffect(() => {
         if (!isSupported()) {
@@ -145,7 +129,7 @@ export function NotificationListener() {
         }
     }, [isSupported, permissionRequested, requestPermission]);
 
-    // Fallback/parallel listener: Laravel Echo channel
+    // Listener: Laravel Echo channel
     useEffect(() => {
         if (!userId || !window.Echo) {
             return;
@@ -156,7 +140,7 @@ export function NotificationListener() {
         try {
             channelRef.current = window.Echo.channel(channelName);
             channelRef.current.listen('.browser.notification', (data: BrowserNotificationData) => {
-                handleNotification(data, 'reverb');
+                handleNotification(data);
             });
         } catch (e) {
             console.warn('🔔 Echo subscription skipped/failed:', e);
