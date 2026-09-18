@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 
 declare global {
     interface Window {
-        Echo?: any;
+        Echo: any;
     }
 }
 

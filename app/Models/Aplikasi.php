@@ -19,6 +19,7 @@ class Aplikasi extends Model
     protected $fillable = [
         'name',
         'company_id',
+        'path_api',
     ];
 
     /**

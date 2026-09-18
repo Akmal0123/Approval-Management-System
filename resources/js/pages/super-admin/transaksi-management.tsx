@@ -39,7 +39,6 @@ interface Transaksi {
     aplikasi?: Aplikasi;
     lookup_path_api?: string | null;
     get_pdf_path_api?: string | null;
-    field_tambahan_kiri?: string | null;
     path_dokumen?: string | null;
 }
 
@@ -63,8 +62,7 @@ export default function SuperAdminTransaksiManagement() {
         deskripsi: '',
         is_active: true,
         lookup_path_api: '',
-        get_pdf_path_api: '',
-        field_tambahan_kiri: '', 
+        get_pdf_path_api: '', 
         path_dokumen: '',
     });
 
@@ -125,7 +123,6 @@ export default function SuperAdminTransaksiManagement() {
             is_active: true,
             lookup_path_api: '',
             get_pdf_path_api: '',
-            field_tambahan_kiri: '',
             path_dokumen: '',
         });
         setErrors({});
@@ -143,7 +140,6 @@ export default function SuperAdminTransaksiManagement() {
             is_active: transaksi.is_active,
             lookup_path_api: transaksi.lookup_path_api || '',
             get_pdf_path_api: transaksi.get_pdf_path_api || '',
-            field_tambahan_kiri: transaksi.field_tambahan_kiri || '',
             path_dokumen: transaksi.path_dokumen || '',
         });
         setErrors({});
@@ -349,7 +345,7 @@ export default function SuperAdminTransaksiManagement() {
                                                             <TableHead className="w-32 font-sans">Kode</TableHead>
                                                             <TableHead className="font-sans">Nama Transaksi</TableHead>
                                                             <TableHead className="font-sans">Aplikasi</TableHead>
-                                                            <TableHead className="font-sans">Departemen</TableHead>
+                                                            {/* <TableHead className="font-sans">Departemen</TableHead> */}
                                                             <TableHead className="font-sans">Deskripsi</TableHead>
                                                             <TableHead className="w-28 font-sans">Status</TableHead>
                                                             <TableHead className="w-24 text-right font-sans">Aksi</TableHead>

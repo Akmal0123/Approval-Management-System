@@ -31,6 +31,7 @@ class Transaksi extends Model
         'deskripsi',
         'lookup_path_api',
         'get_pdf_path_api',
+        'path_dokumen',
         'is_active',
     ];
 

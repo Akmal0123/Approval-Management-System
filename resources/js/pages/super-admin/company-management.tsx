@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 
 declare global {
     interface Window {
-        Echo?: any;
+        Echo: any; 
     }
 }
 
@@ -26,11 +26,10 @@ interface Company {
     name: string;
     address: string | null;
     phone_number: string | null;
+    base_url: string | null; 
     created_at: string;
     updated_at: string;
 }
-
-// Removed breadcrumbs as we're using SidebarProvider layout
 
 export default function SuperAdminCompanyManagement() {
     const [companies, setCompanies] = useState<Company[]>([]);
@@ -42,6 +41,7 @@ export default function SuperAdminCompanyManagement() {
         name: '',
         address: '',
         phone_number: '',
+        base_url: '',
     });
 
     // Fetch companies from API
@@ -123,6 +123,7 @@ export default function SuperAdminCompanyManagement() {
             name: company.name,
             address: company.address || '',
             phone_number: company.phone_number || '',
+            base_url: company.base_url || '', 
         });
         setIsCreateModalOpen(true);
     };
@@ -145,14 +146,14 @@ export default function SuperAdminCompanyManagement() {
 
     const handleCreate = () => {
         setEditingCompany(null);
-        setFormData({ name: '', address: '', phone_number: '' });
+        setFormData({ name: '', address: '', phone_number: '', base_url: '' }); 
         setIsCreateModalOpen(true);
     };
 
     const closeModal = () => {
         setIsCreateModalOpen(false);
         setEditingCompany(null);
-        setFormData({ name: '', address: '', phone_number: '' });
+        setFormData({ name: '', address: '', phone_number: '', base_url: '' }); 
     };
 
     if (loading) {
@@ -220,8 +221,10 @@ export default function SuperAdminCompanyManagement() {
                                                 <TableRow>
                                                     <TableHead className="w-16 font-sans">No</TableHead>
                                                     <TableHead className="w-48 font-sans">Nama Perusahaan</TableHead>
-                                                    <TableHead className="w-80 font-sans">Alamat</TableHead>
+                                                    <TableHead className="w-64 font-sans">Alamat</TableHead>
                                                     <TableHead className="w-32 font-sans">Nomor Telepon</TableHead>
+                                                    {/* Tambahan: Header untuk Base URL */}
+                                                    <TableHead className="w-48 font-sans">Base URL</TableHead>
                                                     <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -231,7 +234,7 @@ export default function SuperAdminCompanyManagement() {
                                                         <TableRow key={company.id}>
                                                             <TableCell className="font-mono">{index + 1}</TableCell>
                                                             <TableCell className="font-sans font-medium">{company.name}</TableCell>
-                                                            <TableCell className="w-80 font-sans">
+                                                            <TableCell className="w-64 font-sans">
                                                                 {company.address ? (
                                                                     <div className="break-words whitespace-normal">{company.address}</div>
                                                                 ) : (
@@ -240,6 +243,16 @@ export default function SuperAdminCompanyManagement() {
                                                             </TableCell>
                                                             <TableCell className="font-sans">
                                                                 {company.phone_number || <span className="text-gray-400">-</span>}
+                                                            </TableCell>
+                                                            {/* Tambahan: Sel Data untuk Base URL */}
+                                                            <TableCell className="font-sans break-all">
+                                                                {company.base_url ? (
+                                                                    <a href={company.base_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                                        {company.base_url}
+                                                                    </a>
+                                                                ) : (
+                                                                    <span className="text-gray-400">-</span>
+                                                                )}
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <div className="flex justify-end gap-2">
@@ -265,7 +278,8 @@ export default function SuperAdminCompanyManagement() {
                                                     ))
                                                 ) : (
                                                     <TableRow>
-                                                        <TableCell colSpan={5} className="py-8 text-center font-sans text-gray-500">
+                                                        {/* Ubah colSpan menjadi 6 karena ada tambahan kolom Base URL */}
+                                                        <TableCell colSpan={6} className="py-8 text-center font-sans text-gray-500">
                                                             Belum ada perusahaan yang tersedia
                                                         </TableCell>
                                                     </TableRow>
@@ -332,6 +346,22 @@ export default function SuperAdminCompanyManagement() {
                                             maxLength={20}
                                         />
                                     </div>
+                                    
+                                    {/* Penambahan Field Base URL */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="base_url" className="font-sans">
+                                            Base URL (Opsional)
+                                        </Label>
+                                        <Input
+                                            id="base_url"
+                                            type="url"
+                                            value={formData.base_url || ''}
+                                            onChange={(e) => setFormData((prev) => ({ ...prev, base_url: e.target.value }))}
+                                            placeholder="Contoh: https://perusahaan.com"
+                                            className="font-sans"
+                                        />
+                                    </div>
+
                                     <div className="flex justify-end gap-2 pt-4">
                                         <Button type="button" variant="outline" onClick={closeModal} disabled={submitting} className="font-sans">
                                             Batal
@@ -349,3 +379,4 @@ export default function SuperAdminCompanyManagement() {
         </>
     );
 }
+
