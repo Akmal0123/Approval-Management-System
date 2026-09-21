@@ -166,6 +166,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Document approvals
     Route::get('approvals', [\App\Http\Controllers\DokumenApprovalController::class, 'index'])->name('approvals.index');
+    Route::post('approvals/bulk-approve', [\App\Http\Controllers\DokumenApprovalController::class, 'bulkApprove'])->name('approvals.bulk-approve');
     Route::get('approvals/{approval}', [\App\Http\Controllers\DokumenApprovalController::class, 'show'])->name('approvals.show');
     Route::post('approvals/{approval}/approve', [\App\Http\Controllers\DokumenApprovalController::class, 'approve'])->name('approvals.approve');
     Route::post('approvals/{approval}/reject', [\App\Http\Controllers\DokumenApprovalController::class, 'reject'])->name('approvals.reject');

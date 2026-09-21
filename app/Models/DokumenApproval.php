@@ -60,6 +60,14 @@ class DokumenApproval extends Model
     ];
 
     /**
+     * Check if current approval can be approved.
+     */
+    public function getCanApproveAttribute(): bool
+    {
+        return $this->canCurrentlyApprove();
+    }
+
+    /**
      * Get the document that owns this approval.
      */
     public function dokumen(): BelongsTo
