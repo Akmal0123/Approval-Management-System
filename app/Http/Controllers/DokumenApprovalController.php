@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Services\ContextService;
+use App\Models\Aplikasi;
+use App\Models\Transaksi;
 
 class DokumenApprovalController extends Controller
 {
@@ -38,6 +40,8 @@ class DokumenApprovalController extends Controller
     {
         $query = DokumenApproval::with([
             'dokumen.user',
+            'dokumen.aplikasi',
+            'dokumen.transaksi',
             'dokumen.latestVersion',
             'dokumen.approvals.user',
             'dokumen.approvals.masterflowStep.jabatan',
@@ -70,7 +74,22 @@ class DokumenApprovalController extends Controller
         // Search by document title
         if ($request->filled('search')) {
             $query->whereHas('dokumen', function ($q) use ($request) {
-                $q->where('judul_dokumen', 'like', '%' . $request->search . '%');
+                $q->where('judul_dokumen', 'like', '%' . $request->search . '%')
+                  ->orWhere('nomor_dokumen', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        // Filter by aplikasi
+        if ($request->filled('aplikasi_id')) {
+            $query->whereHas('dokumen', function ($q) use ($request) {
+                $q->where('aplikasi_id', $request->aplikasi_id);
+            });
+        }
+
+        // Filter by transaksi
+        if ($request->filled('transaksi_id')) {
+            $query->whereHas('dokumen', function ($q) use ($request) {
+                $q->where('transaksi_id', $request->transaksi_id);
             });
         }
 
@@ -97,7 +116,9 @@ class DokumenApprovalController extends Controller
         return Inertia::render('approvals/index', [
             'approvals' => $approvals,
             'stats' => $stats,
-            'filters' => $request->only(['status', 'overdue', 'search']),
+            'filters' => $request->only(['status', 'overdue', 'search', 'aplikasi_id', 'transaksi_id']),
+            'aplikasis' => Aplikasi::select('id', 'name')->get(),
+            'transaksis' => Transaksi::select('id', 'nama_transaksi', 'aplikasi_id')->get(),
         ]);
     }
 
