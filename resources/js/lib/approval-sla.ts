@@ -141,6 +141,90 @@ export function getApprovalDuration(
 }
 
 /**
+ * Get the raw milliseconds for a given approval duration (same logic as getApprovalDuration).
+ * Returns null if not applicable.
+ */
+export function getApprovalDurationMs(
+    approval: ApprovalForSLA,
+    allApprovals?: ApprovalForSLA[],
+    documentCreatedAt?: string | null,
+): number | null {
+    if (!['approved', 'rejected', 'pending'].includes(approval.approval_status)) {
+        return null;
+    }
+
+    const startTime = getApprovalStartTime(approval, allApprovals, documentCreatedAt);
+    if (!startTime || isNaN(startTime.getTime())) return null;
+
+    let endTime: Date;
+    if (approval.approval_status === 'pending') {
+        endTime = new Date();
+    } else if (approval.tgl_approve) {
+        endTime = new Date(approval.tgl_approve);
+    } else {
+        return null;
+    }
+
+    if (isNaN(endTime.getTime())) return null;
+    return endTime.getTime() - startTime.getTime();
+}
+
+/**
+ * Returns Tailwind color classes for a duration in milliseconds.
+ * - < 1 jam  → green   (cepat, aman)
+ * - 1–8 jam  → amber   (normal)
+ * - 8–24 jam → orange  (mulai lambat)
+ * - > 24 jam → red     (melebihi SLA)
+ */
+export function getDurationColorClass(durationMs: number | null): {
+    text: string;
+    icon: string;
+    bg: string;
+    border: string;
+} {
+    if (durationMs === null) {
+        return { text: 'text-muted-foreground', icon: 'text-muted-foreground', bg: '', border: '' };
+    }
+
+    const hours = durationMs / (1000 * 60 * 60);
+
+    if (hours < 1) {
+        // Cepat — hijau
+        return {
+            text: 'text-emerald-700 dark:text-emerald-400',
+            icon: 'text-emerald-500',
+            bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+            border: 'border-emerald-200 dark:border-emerald-800',
+        };
+    } else if (hours < 8) {
+        // Normal — amber/kuning
+        return {
+            text: 'text-amber-700 dark:text-amber-400',
+            icon: 'text-amber-500',
+            bg: 'bg-amber-50 dark:bg-amber-950/40',
+            border: 'border-amber-200 dark:border-amber-800',
+        };
+    } else if (hours < 24) {
+        // Mulai lambat — orange
+        return {
+            text: 'text-orange-700 dark:text-orange-400',
+            icon: 'text-orange-500',
+            bg: 'bg-orange-50 dark:bg-orange-950/40',
+            border: 'border-orange-200 dark:border-orange-800',
+        };
+    } else {
+        // Melebihi SLA — merah
+        return {
+            text: 'text-red-700 dark:text-red-400',
+            icon: 'text-red-500',
+            bg: 'bg-red-50 dark:bg-red-950/40',
+            border: 'border-red-200 dark:border-red-800',
+        };
+    }
+}
+
+
+/**
  * Calculate the cumulative approval duration from when the document was uploaded/submitted
  * until this approval step was completed (or current time if pending).
  * Returns formatted string or null if not applicable.

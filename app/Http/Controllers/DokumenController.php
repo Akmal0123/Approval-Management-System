@@ -593,9 +593,21 @@ class DokumenController extends Controller
         // Add detailed status
         $dokumen->detailed_status = $dokumen->getDetailedStatus();
 
-        // If API request (AJAX/Fetch), return JSON
-        if ($request->expectsJson() || $request->wantsJson()) {
+        // If Inertia request, always return Inertia view
+        if ($request->header('X-Inertia')) {
+            return Inertia::render('dokumen/show', [
+                'dokumen' => $dokumen,
+            ]);
+        }
+
+        // If explicitly requesting JSON (e.g. axios, fetch, API client)
+        if ($request->expectsJson() || $request->wantsJson() || $request->ajax()) {
             return response()->json($dokumen);
+        }
+
+        // If accessed directly from browser on /api/dokumen/{id}, redirect to /dokumen/{id}
+        if ($request->is('api/dokumen/*')) {
+            return redirect('/dokumen/' . $dokumen->id);
         }
 
         // Return Inertia view

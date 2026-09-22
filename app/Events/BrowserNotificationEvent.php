@@ -32,15 +32,6 @@ class BrowserNotificationEvent implements ShouldBroadcastNow
             'title' => $this->title,
             'type' => $this->type,
         ]);
-
-        // Push real-time notification via Fastify Backend Service
-        \App\Services\FastifyNotificationService::sendToUser(
-            $this->userId,
-            $this->title,
-            $this->body,
-            $this->url,
-            $this->type
-        );
     }
 
     /**

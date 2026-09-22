@@ -146,9 +146,9 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Document detail page
-    Route::get('/dokumen/{id}', function ($id) {
-        return Inertia::render('dokumen/show', ['id' => $id]);
-    })->where('id', '[0-9]+')->name('dokumen.detail');
+    Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])
+        ->where('dokumen', '[0-9]+')
+        ->name('dokumen.detail');
 });
 
 // Other Document Related Routes

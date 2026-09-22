@@ -201,6 +201,8 @@ export default function UserDokumen() {
     const [aplikasiList, setAplikasiList] = useState<any[]>([]);
     const [transaksis, setTransaksis] = useState<TransaksiItem[]>([]);
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
+    const [isLoadingAplikasi, setIsLoadingAplikasi] = useState(false);
+    const [isLoadingTransaksi, setIsLoadingTransaksi] = useState(false);
     
     const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
@@ -243,33 +245,67 @@ export default function UserDokumen() {
         auth.user?.user_auths?.some((ua: any) => ua.role?.role_name?.toLowerCase() === 'super admin')
     );
 
+    const isCurrentAdmin = Boolean(
+        isSuperAdmin ||
+        (context?.current?.role?.name && String(context.current.role.name).toLowerCase().includes('admin'))
+    );
+
     const userAuthsList = auth.user?.userAuths || auth.user?.user_auths || [];
-    
-    // Filter Aplikasi Sesuai Profil
-    const userAplikasiIds = new Set<number>();
-    userAuthsList.forEach((ua: any) => {
-        if (ua.aplikasi_id) userAplikasiIds.add(Number(ua.aplikasi_id));
-        if (ua.aplikasi?.id) userAplikasiIds.add(Number(ua.aplikasi.id));
-    });
-    if (context?.current?.aplikasi?.id) {
-        userAplikasiIds.add(Number(context.current.aplikasi.id));
-    }
+    const currentContextCompanyId = context?.current?.company?.id;
 
-    const accessibleAplikasiList = (isSuperAdmin || userAplikasiIds.size === 0)
-        ? aplikasiList
-        : aplikasiList.filter((app) => userAplikasiIds.has(Number(app.id)));
+    // Filter Perusahaan Sesuai Context Role yang Sedang Aktif / Login
+    const accessibleCompanyList = React.useMemo(() => {
+        // Prioritas 1: Jika user sedang aktif dalam context company tertentu (misal switch role/login role)
+        if (currentContextCompanyId) {
+            const filtered = companies.filter((comp) => Number(comp.id) === Number(currentContextCompanyId));
+            if (filtered.length > 0) {
+                return filtered;
+            }
+            // Fallback jika API companies belum selesai loading
+            if (context?.current?.company) {
+                return [{
+                    id: context.current.company.id,
+                    name: context.current.company.name,
+                }];
+            }
+        }
 
-    // 👇 TAMBAHAN: Filter Perusahaan Sesuai Profil
-    const userCompanyIds = new Set<number>();
-    userAuthsList.forEach((ua: any) => {
-        if (ua.company_id) userCompanyIds.add(Number(ua.company_id));
-        if (ua.aplikasi?.company_id) userCompanyIds.add(Number(ua.aplikasi.company_id));
-    });
+        // Prioritas 2: Jika Super Admin tanpa batasan context company
+        if (isSuperAdmin) {
+            return companies;
+        }
 
-    const accessibleCompanyList = (isSuperAdmin || userCompanyIds.size === 0)
-        ? companies
-        : companies.filter((comp) => userCompanyIds.has(Number(comp.id)));
-    // 👆 =========================================
+        // Prioritas 3: Fallback ke userAuths jika tidak ada context company spesifik
+        const userCompanyIds = new Set<number>();
+        userAuthsList.forEach((ua: any) => {
+            if (ua.company_id) userCompanyIds.add(Number(ua.company_id));
+            if (ua.aplikasi?.company_id) userCompanyIds.add(Number(ua.aplikasi.company_id));
+        });
+
+        return userCompanyIds.size === 0
+            ? companies
+            : companies.filter((comp) => userCompanyIds.has(Number(comp.id)));
+    }, [companies, currentContextCompanyId, isSuperAdmin, userAuthsList, context?.current?.company]);
+
+    // Filter Aplikasi Sesuai Profil & Context
+    const userAplikasiIds = React.useMemo(() => {
+        const ids = new Set<number>();
+        userAuthsList.forEach((ua: any) => {
+            if (ua.aplikasi_id) ids.add(Number(ua.aplikasi_id));
+            if (ua.aplikasi?.id) ids.add(Number(ua.aplikasi.id));
+        });
+        if (context?.current?.aplikasi?.id) {
+            ids.add(Number(context.current.aplikasi.id));
+        }
+        return ids;
+    }, [userAuthsList, context?.current?.aplikasi?.id]);
+
+    const accessibleAplikasiList = React.useMemo(() => {
+        if (isCurrentAdmin || userAplikasiIds.size === 0) {
+            return aplikasiList;
+        }
+        return aplikasiList.filter((app) => userAplikasiIds.has(Number(app.id)));
+    }, [isCurrentAdmin, userAplikasiIds, aplikasiList]);
 
     // Filter Masterflow sesuai Transaksi yang dipilih
     const filteredMasterflows = React.useMemo(() => {
@@ -317,6 +353,21 @@ export default function UserDokumen() {
         }
     };
 
+    // Helper untuk memuat aplikasi berdasarkan Company ID (tanpa auto-select)
+    const loadAplikasiByCompany = async (companyId: string) => {
+        if (!companyId) return;
+        setIsLoadingAplikasi(true);
+        try {
+            const response = await api.get(`/companies/${companyId}/aplikasis`);
+            const apps = response.data.aplikasis || response.data.data || response.data || [];
+            setAplikasiList(apps);
+        } catch (error) {
+            console.error('Error fetching aplikasi:', error);
+        } finally {
+            setIsLoadingAplikasi(false);
+        }
+    };
+
     // Handle saat dropdown Company dipilih
     const handleCompanyChange = (value: string) => {
         setSelectedCompanyId(value);
@@ -336,8 +387,11 @@ export default function UserDokumen() {
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         fetchMasterflows(value);
+
+        if (value) {
+            loadAplikasiByCompany(value);
+        }
     };
-    // 👆 =======================
 
     // Fetch aplikasi for dropdown (Bisa dibiarkan jika masih butuh panggil manual)
     const fetchAplikasi = async () => {
@@ -366,38 +420,23 @@ export default function UserDokumen() {
     // Handle saat dropdown Aplikasi dipilih
     const handleAplikasiChange = (value: string) => {
         setSelectedAplikasiId(value);
-        // 👇 TAMBAHAN: Reset pilihan Transaksi di bawahnya
         setTransaksis([]);
         setFormData((prev) => ({
             ...prev,
             aplikasi_id: value,
             transaksi_id: '',
         }));
-    };
 
-    // 👇 TAMBAHAN: Effect untuk Cascading Dropdown
-    // 1. Fetch Aplikasi saat Company berubah
-    useEffect(() => {
-        if (selectedCompanyId) {
-            api.get(`/companies/${selectedCompanyId}/aplikasis`) // Sesuaikan endpoint jika pakai prefix /api
-                .then(response => {
-                    setAplikasiList(response.data.aplikasis || response.data.data || response.data || []);
-                })
-                .catch(error => console.error('Error fetching aplikasi:', error));
-        }
-    }, [selectedCompanyId]);
-
-    // 2. Fetch Transaksi saat Aplikasi berubah
-    useEffect(() => {
-        const appId = formData.aplikasi_id || selectedAplikasiId;
-        if (appId) {
-            api.get(`/aplikasis/${appId}/transaksis`) // Sesuaikan endpoint
+        if (value) {
+            setIsLoadingTransaksi(true);
+            api.get(`/aplikasis/${value}/transaksis`)
                 .then(response => {
                     setTransaksis(response.data.transaksis || response.data.data || response.data || []);
                 })
-                .catch(error => console.error('Error fetching transaksis:', error));
+                .catch(error => console.error('Error fetching transaksis:', error))
+                .finally(() => setIsLoadingTransaksi(false));
         }
-    }, [selectedAplikasiId, formData.aplikasi_id]);
+    };
     // 👆 =======================
 
     // Handle Tarik Data & File PDF Eksternal via kode dokumen
@@ -512,7 +551,8 @@ export default function UserDokumen() {
         }
         console.log('Authenticated user found, loading data');
         fetchDokumen();
-        fetchMasterflows();
+        const initCompanyId = currentContextCompanyId ? String(currentContextCompanyId) : undefined;
+        fetchMasterflows(initCompanyId);
         
         // 👇 TAMBAHAN: Ubah inisialisasi awal
         fetchCompanies(); // Menggantikan fetchAplikasi() dan fetchTransaksis()
@@ -993,19 +1033,15 @@ export default function UserDokumen() {
             console.warn('Failed to refresh CSRF token:', error);
         }
 
-        const defaultAppId = context?.current?.aplikasi?.id
-            ? String(context.current.aplikasi.id)
-            : accessibleAplikasiList.length === 1
-                ? String(accessibleAplikasiList[0].id)
-                : '';
-
         // Generate new document number
         const newFormData: FormData = {
             ...initialFormData,
             nomor_dokumen: generateDocumentNumber(),
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
-            aplikasi_id: defaultAppId,
+            company_id: '',
+            aplikasi_id: '',
+            transaksi_id: '',
             tipe_dokumen: 'manual',
         };
 
@@ -1014,17 +1050,15 @@ export default function UserDokumen() {
         setAvailableApprovers({});
         setStepModes({}); // Reset step modes
         
-        // 👇 TAMBAHAN RESET
-        setSelectedCompanyId(''); // Reset company
-        setAplikasiList([]);      // Kosongkan list aplikasi
-        setTransaksis([]);        // Kosongkan list transaksi
-        // 👆 ===============
-
-        setSelectedAplikasiId(defaultAppId);
+        setSelectedCompanyId('');
+        setSelectedAplikasiId('');
+        setAplikasiList([]);
+        setTransaksis([]);
         setDocTypeMode('manual');
         setExternalDocKeyword('');
         setExternalFetchSuccess(null);
         setErrors({});
+
         setIsCreateDialogOpen(true);
     };
 
@@ -1466,7 +1500,7 @@ export default function UserDokumen() {
                                                                     </TableCell>
                                                                     <TableCell className="text-right">
                                                                         <div className="flex justify-end gap-2">
-                                                                            <Link href={`/api/dokumen/${doc.id}`}>
+                                                                            <Link href={`/dokumen/${doc.id}`}>
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
@@ -1564,21 +1598,10 @@ export default function UserDokumen() {
                                         }`}
                                         onClick={() => {
                                             setDocTypeMode('transaksi');
-                                            const defaultApp = formData.aplikasi_id
-                                                ? String(formData.aplikasi_id)
-                                                : context?.current?.aplikasi?.id
-                                                    ? String(context.current.aplikasi.id)
-                                                    : accessibleAplikasiList.length > 0
-                                                        ? String(accessibleAplikasiList[0].id)
-                                                        : '';
                                             setFormData((prev) => ({
                                                 ...prev,
-                                                aplikasi_id: defaultApp,
                                                 tipe_dokumen: 'transaksi',
                                             }));
-                                            if (defaultApp) {
-                                                setSelectedAplikasiId(defaultApp);
-                                            }
                                         }}
                                     >
                                         Dokumen Transaksi
@@ -1606,7 +1629,7 @@ export default function UserDokumen() {
                                                     )}
                                                 </div>
                                                 <Select
-                                                    value={String(selectedCompanyId || '')}
+                                                    value={String(selectedCompanyId || formData.company_id || '')}
                                                     onValueChange={(value) => handleCompanyChange(value)}
                                                 >
                                                     <SelectTrigger id="company_id" className="w-full min-w-0 font-sans truncate">
@@ -1640,28 +1663,37 @@ export default function UserDokumen() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <Select
-                                                    value={String(formData.aplikasi_id || selectedAplikasiId || '')}
-                                                    onValueChange={(value) => handleAplikasiChange(value)}
-                                                    disabled={!selectedCompanyId || (accessibleAplikasiList && accessibleAplikasiList.length === 0)}
-                                                >
-                                                    <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans truncate">
-                                                        <SelectValue placeholder={!selectedCompanyId ? "Pilih perusahaan dahulu" : "-- Pilih Aplikasi --"} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {accessibleAplikasiList && accessibleAplikasiList.length > 0 ? (
-                                                            accessibleAplikasiList.map((app) => (
-                                                                <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
-                                                                    {app.name || app.nama_aplikasi}
+                                                <div className="relative">
+                                                    <Select
+                                                        value={String(formData.aplikasi_id || selectedAplikasiId || '')}
+                                                        onValueChange={(value) => handleAplikasiChange(value)}
+                                                        disabled={!selectedCompanyId || isLoadingAplikasi || (accessibleAplikasiList && accessibleAplikasiList.length === 0)}
+                                                    >
+                                                        <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans truncate">
+                                                            {isLoadingAplikasi ? (
+                                                                <span className="flex items-center gap-2 text-muted-foreground">
+                                                                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent inline-block" />
+                                                                    Memuat aplikasi...
+                                                                </span>
+                                                            ) : (
+                                                                <SelectValue placeholder={!selectedCompanyId ? "Pilih perusahaan dahulu" : "-- Pilih Aplikasi --"} />
+                                                            )}
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {accessibleAplikasiList && accessibleAplikasiList.length > 0 ? (
+                                                                accessibleAplikasiList.map((app) => (
+                                                                    <SelectItem key={app.id} value={app.id.toString()} className="font-sans">
+                                                                        {app.name || app.nama_aplikasi}
+                                                                    </SelectItem>
+                                                                ))
+                                                            ) : (
+                                                                <SelectItem value="empty" disabled className="font-sans">
+                                                                    {!selectedCompanyId ? 'Pilih perusahaan dahulu' : 'Tidak ada aplikasi'}
                                                                 </SelectItem>
-                                                            ))
-                                                        ) : (
-                                                            <SelectItem value="empty" disabled className="font-sans">
-                                                                {!selectedCompanyId ? 'Pilih perusahaan dahulu' : (aplikasiList.length === 0 ? 'Memuat data aplikasi...' : 'Tidak ada aplikasi')}
-                                                            </SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                             </div>
 
                                             {/* 3. Dropdown Tipe Transaksi */}
@@ -1707,10 +1739,17 @@ export default function UserDokumen() {
                                                                     }
                                                                 }
                                                             }}
-                                                            disabled={!currentAppId || transaksis.length === 0}
+                                                            disabled={!currentAppId || isLoadingTransaksi || transaksis.length === 0}
                                                         >
                                                             <SelectTrigger id="transaksi_id" className="w-full min-w-0 font-sans truncate">
-                                                                <SelectValue placeholder={!currentAppId ? 'Pilih aplikasi dahulu' : '-- Pilih Transaksi --'} />
+                                                                {isLoadingTransaksi ? (
+                                                                    <span className="flex items-center gap-2 text-muted-foreground">
+                                                                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent inline-block" />
+                                                                        Memuat transaksi...
+                                                                    </span>
+                                                                ) : (
+                                                                    <SelectValue placeholder={!currentAppId ? 'Pilih aplikasi dahulu' : '-- Pilih Transaksi --'} />
+                                                                )}
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {currentAppTrans.length > 0 ? (

@@ -153,37 +153,14 @@ interface FormData {
     custom_approvers: CustomApprover[];
 }
 
-export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Dokumen }) {
-    // Call usePage at top level (before any conditional returns)
+export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: Dokumen }) {
     const pageProps = usePage().props as any;
     const { auth } = pageProps;
 
-    // Add null check and provide default
-    if (!initialDokumen || !initialDokumen.id) {
-        return (
-            <>
-                <Head title="Dokumen Not Found" />
-                <SidebarProvider>
-                    <NotificationListener />
-                    <AppSidebar variant="inset" />
-                    <SidebarInset>
-                        <SiteHeader />
-                        <div className="flex flex-1 flex-col items-center justify-center">
-                            <div className="text-center">
-                                <h1 className="text-2xl font-bold">Dokumen Tidak Ditemukan</h1>
-                                <p className="mt-2 text-muted-foreground">Data dokumen tidak tersedia</p>
-                                <Button className="mt-4" onClick={() => router.visit('/user/dokumen')}>
-                                    Kembali ke Daftar Dokumen
-                                </Button>
-                            </div>
-                        </div>
-                    </SidebarInset>
-                </SidebarProvider>
-            </>
-        );
-    }
+    const [dokumen, setDokumen] = useState<Dokumen | null>(initialDokumen && initialDokumen.id ? initialDokumen : null);
+    const [isLoading, setIsLoading] = useState<boolean>(!initialDokumen || !initialDokumen.id);
+    const [loadError, setLoadError] = useState<boolean>(false);
 
-    const [dokumen, setDokumen] = useState<Dokumen>(initialDokumen);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
@@ -199,18 +176,60 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, any[]>>({});
     const [formData, setFormData] = useState<FormData>({
-        nomor_dokumen: dokumen?.nomor_dokumen || '',
-        judul_dokumen: dokumen?.judul_dokumen || '',
-        masterflow_id: dokumen?.masterflow_id || '',
-        tgl_pengajuan: dokumen?.tgl_pengajuan || '',
-        tgl_deadline: dokumen?.tgl_deadline || '',
-        deskripsi: dokumen?.deskripsi || '',
+        nomor_dokumen: initialDokumen?.nomor_dokumen || '',
+        judul_dokumen: initialDokumen?.judul_dokumen || '',
+        masterflow_id: initialDokumen?.masterflow_id || '',
+        tgl_pengajuan: initialDokumen?.tgl_pengajuan || '',
+        tgl_deadline: initialDokumen?.tgl_deadline || '',
+        deskripsi: initialDokumen?.deskripsi || '',
         file: null,
         approvers: {},
         custom_approvers: [],
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    // Fallback fetch if initialDokumen was not provided via props
+    useEffect(() => {
+        if (!dokumen || !dokumen.id) {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            const docId = pageProps.id || pageProps.dokumen_id || pathParts[pathParts.length - 1];
+
+            if (docId && !isNaN(Number(docId))) {
+                setIsLoading(true);
+                api.get(`/dokumen/${docId}`)
+                    .then((res) => {
+                        const data = res.data?.dokumen || res.data;
+                        if (data && data.id) {
+                            setDokumen(data);
+                            setFormData({
+                                nomor_dokumen: data.nomor_dokumen || '',
+                                judul_dokumen: data.judul_dokumen || '',
+                                masterflow_id: data.masterflow_id || '',
+                                tgl_pengajuan: data.tgl_pengajuan || '',
+                                tgl_deadline: data.tgl_deadline || '',
+                                deskripsi: data.deskripsi || '',
+                                file: null,
+                                approvers: {},
+                                custom_approvers: [],
+                            });
+                        } else {
+                            setLoadError(true);
+                        }
+                    })
+                    .catch((err) => {
+                        console.error('Error fetching dokumen fallback:', err);
+                        setLoadError(true);
+                    })
+                    .finally(() => {
+                        setIsLoading(false);
+                    });
+            } else {
+                setIsLoading(false);
+                setLoadError(true);
+            }
+        }
+    }, [pageProps.id]);
 
     // Debug log
     useEffect(() => {
@@ -222,14 +241,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
 
     // Fetch latest dokumen data
     const fetchDokumen = async () => {
+        if (!dokumen?.id) return null;
         try {
             const response = await api.get(`/dokumen/${dokumen.id}`);
             console.log('Fetched dokumen:', response.data);
 
-            // Check if response has dokumen data
-            if (response.data && response.data.id) {
-                setDokumen(response.data);
-                return response.data;
+            const fetchedData = response.data?.dokumen || response.data;
+            if (fetchedData && fetchedData.id) {
+                setDokumen(fetchedData);
+                return fetchedData;
             } else {
                 console.warn('Invalid dokumen data received:', response.data);
                 return null;
@@ -805,7 +825,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
     };
 
     // Sort approvals by order or step_order
-    const sortedApprovals = [...(dokumen.approvals || [])].sort((a, b) => {
+    const sortedApprovals = [...(dokumen?.approvals || [])].sort((a, b) => {
         // For custom approval (has approval_order)
         if (a.approval_order !== undefined && b.approval_order !== undefined) {
             return a.approval_order - b.approval_order;
@@ -817,7 +837,50 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
         return 0;
     });
 
-    // Approval timeline is handled by ApprovalTimeline component
+    if (isLoading) {
+        return (
+            <>
+                <Head title="Memuat Dokumen..." />
+                <SidebarProvider>
+                    <NotificationListener />
+                    <AppSidebar variant="inset" />
+                    <SidebarInset>
+                        <SiteHeader />
+                        <div className="flex flex-1 flex-col items-center justify-center p-8 min-h-[400px]">
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                                <p className="text-sm text-muted-foreground">Memuat data dokumen...</p>
+                            </div>
+                        </div>
+                    </SidebarInset>
+                </SidebarProvider>
+            </>
+        );
+    }
+
+    if (loadError || !dokumen || !dokumen.id) {
+        return (
+            <>
+                <Head title="Dokumen Tidak Ditemukan" />
+                <SidebarProvider>
+                    <NotificationListener />
+                    <AppSidebar variant="inset" />
+                    <SidebarInset>
+                        <SiteHeader />
+                        <div className="flex flex-1 flex-col items-center justify-center p-8 min-h-[400px]">
+                            <div className="text-center">
+                                <h1 className="text-2xl font-bold">Dokumen Tidak Ditemukan</h1>
+                                <p className="mt-2 text-muted-foreground">Data dokumen tidak tersedia atau Anda tidak memiliki akses.</p>
+                                <Button className="mt-4" onClick={() => router.visit('/dokumen')}>
+                                    Kembali ke Daftar Dokumen
+                                </Button>
+                            </div>
+                        </div>
+                    </SidebarInset>
+                </SidebarProvider>
+            </>
+        );
+    }
 
     return (
         <>
@@ -834,7 +897,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen: Do
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-1 pl-2">
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/user/dokumen')}>
+                                    <Button variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => router.visit('/dokumen')}>
                                         Dokumen Saya
                                     </Button>
                                     <span>/</span>

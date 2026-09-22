@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Models\UsersAuth;
+use App\Services\ContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
+    public function __construct(
+        protected ContextService $contextService
+    ) {}
     /**
      * Display a listing of the resource.
      */
@@ -325,13 +329,20 @@ class UserController extends Controller
      */
     public function getByJabatan($jabatan_id)
     {
-        $users = User::whereHas('userAuths', function ($query) use ($jabatan_id) {
-            $query->where('jabatan_id', $jabatan_id);
+        // Ambil company_id dari context user yang sedang login
+        // agar daftar approver hanya berasal dari PT yang sama
+        $context = $this->contextService->getContext();
+        $companyId = $context?->company_id;
+
+        $query = User::whereHas('userAuths', function ($q) use ($jabatan_id, $companyId) {
+            $q->where('jabatan_id', $jabatan_id);
+            if ($companyId) {
+                $q->where('company_id', $companyId);
+            }
         })
             ->select('id', 'name', 'email')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
 
-        return response()->json($users);
+        return response()->json($query->get());
     }
 }

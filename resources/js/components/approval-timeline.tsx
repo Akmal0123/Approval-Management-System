@@ -8,7 +8,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { CheckCircle2Icon, Timer, XCircleIcon } from 'lucide-react';
-import { getApprovalDuration, getDurationFromUpload, type ApprovalForSLA } from '@/lib/approval-sla';
+import { getApprovalDuration, getDurationFromUpload, getApprovalDurationMs, getDurationColorClass, type ApprovalForSLA } from '@/lib/approval-sla';
 
 export interface ApprovalUser {
     id?: number;
@@ -275,10 +275,19 @@ export function ApprovalTimeline({
                                     documentUploadTime,
                                 );
 
+                                const durationMs = getApprovalDurationMs(
+                                    app as unknown as ApprovalForSLA,
+                                    approvals as unknown as ApprovalForSLA[],
+                                    documentUploadTime,
+                                );
+
                                 const durationFromUpload = getDurationFromUpload(
                                     app as unknown as ApprovalForSLA,
                                     documentUploadTime,
                                 );
+
+                                const durationColor = getDurationColorClass(durationMs);
+
 
                                 return (
                                     <div key={app.id} className="relative flex gap-3 sm:gap-4 pb-8 last:pb-0">
@@ -350,9 +359,9 @@ export function ApprovalTimeline({
 
                                             {/* Approval Duration (SLA per step) */}
                                             {duration && (
-                                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
-                                                    <Timer className="h-3 w-3 shrink-0" />
-                                                    <span>Durasi approval: {duration}</span>
+                                                <div className={`flex items-center gap-1.5 text-[10px] sm:text-xs rounded-md px-2 py-1 ${durationColor.bg} ${durationColor.border} border`}>
+                                                    <Timer className={`h-3 w-3 shrink-0 ${durationColor.icon}`} />
+                                                    <span className={`font-medium ${durationColor.text}`}>Durasi approval: {duration}</span>
                                                 </div>
                                             )}
 
@@ -466,10 +475,18 @@ export function ApprovalTimeline({
                                                             documentUploadTime,
                                                         );
 
+                                                        const durationMs = getApprovalDurationMs(
+                                                            app as unknown as ApprovalForSLA,
+                                                            approvals as unknown as ApprovalForSLA[],
+                                                            documentUploadTime,
+                                                        );
+
                                                         const durationFromUpload = getDurationFromUpload(
                                                             app as unknown as ApprovalForSLA,
                                                             documentUploadTime,
                                                         );
+
+                                                        const groupDurationColor = getDurationColorClass(durationMs);
 
                                                         return (
                                                             <div
@@ -523,8 +540,8 @@ export function ApprovalTimeline({
                                                                     )}
                                                                     {/* Approval Duration (SLA per step) */}
                                                                     {duration && (
-                                                                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                                                            <Timer className="h-2.5 w-2.5 shrink-0" />
+                                                                        <span className={`flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 font-medium ${groupDurationColor.bg} ${groupDurationColor.border} border ${groupDurationColor.text}`}>
+                                                                            <Timer className={`h-2.5 w-2.5 shrink-0 ${groupDurationColor.icon}`} />
                                                                             <span>Durasi: {duration}</span>
                                                                         </span>
                                                                     )}
