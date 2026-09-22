@@ -14,7 +14,7 @@ class TransaksiController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request): JsonResponse
+   public function index(Request $request): JsonResponse
     {
         $query = Transaksi::with(['aplikasi.company'])->orderBy('created_at', 'desc');
 
@@ -36,7 +36,8 @@ class TransaksiController extends Controller
                   ->orWhere('kode_transaksi', 'like', "%{$search}%")
                   ->orWhere('departemen', 'like', "%{$search}%")
                   ->orWhere('lookup_path_api', 'like', "%{$search}%")
-                  ->orWhere('get_pdf_path_api', 'like', "%{$search}%");
+                  ->orWhere('get_pdf_path_api', 'like', "%{$search}%")
+                  ->orWhere('path_dokumen', 'like', "%{$search}%"); // Ditambahkan untuk pencarian path_dokumen
             });
         }
 
@@ -64,11 +65,13 @@ class TransaksiController extends Controller
                 'is_active' => 'nullable|boolean',
                 'lookup_path_api' => 'nullable|string|max:255',
                 'get_pdf_path_api' => 'nullable|string|max:255',
+                'path_dokumen' => 'nullable|string|max:255', // Validasi path_dokumen ditambahkan
             ]);
 
             $validated['is_active'] = $request->boolean('is_active', true);
             $validated['lookup_path_api'] = $request->input('lookup_path_api') ?: null;
             $validated['get_pdf_path_api'] = $request->input('get_pdf_path_api') ?: null;
+            $validated['path_dokumen'] = $request->input('path_dokumen') ?: null; // Handle null values
 
             $transaksi = Transaksi::create($validated);
             $transaksi->load('aplikasi.company');
@@ -127,6 +130,7 @@ class TransaksiController extends Controller
                 'is_active' => 'nullable|boolean',
                 'lookup_path_api' => 'nullable|string|max:255',
                 'get_pdf_path_api' => 'nullable|string|max:255',
+                'path_dokumen' => 'nullable|string|max:255', // Validasi path_dokumen ditambahkan
             ]);
 
             if ($request->has('is_active')) {
@@ -137,6 +141,9 @@ class TransaksiController extends Controller
             }
             if ($request->has('get_pdf_path_api')) {
                 $validated['get_pdf_path_api'] = $request->input('get_pdf_path_api') ?: null;
+            }
+            if ($request->has('path_dokumen')) {
+                $validated['path_dokumen'] = $request->input('path_dokumen') ?: null; // Handle null values
             }
 
             $transaksi->update($validated);

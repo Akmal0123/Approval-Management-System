@@ -1,15 +1,34 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
+import SignaturePad from '@/components/signature-pad';
+import SignaturePlacementDialog, { SignaturePosition } from '@/components/signature-placement-dialog';
 import { SiteHeader } from '@/components/site-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Head, router, usePage } from '@inertiajs/react';
-import { IconAlertCircle, IconCalendar, IconCheck, IconClock, IconEye, IconFileText, IconSearch, IconUser, IconX } from '@tabler/icons-react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import {
+    IconAlertCircle,
+    IconCalendar,
+    IconCheck,
+    IconClock,
+    IconEye,
+    IconFileText,
+    IconPencil,
+    IconSearch,
+    IconUser,
+    IconX,
+} from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -37,6 +56,8 @@ interface Dokumen {
     tgl_deadline?: string;
     user?: User;
     latest_version?: DokumenVersion;
+    approvals?: DokumenApproval[];
+    versions?: DokumenVersion[];
 }
 
 interface MasterflowStep {
@@ -52,12 +73,23 @@ interface MasterflowStep {
 interface DokumenApproval {
     id: number;
     dokumen_id: number;
+    user_id?: number;
+    approval_order?: number;
     approval_status: string;
     tgl_deadline?: string;
+    tgl_approve?: string;
+    alasan_reject?: string;
+    comment?: string;
+    signature_path?: string;
+    signature_url?: string;
+    signature_method?: string;
+    verification_token?: string | null;
+    can_approve?: boolean;
     created_at: string;
     dokumen: Dokumen;
     masterflow_step?: MasterflowStep;
     dokumen_version?: DokumenVersion;
+    user?: User;
 }
 
 interface PaginatedApprovals {
@@ -96,9 +128,25 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
     const [selectedTab, setSelectedTab] = useState(filters.status || 'all');
     const [approvalsData, setApprovalsData] = useState<DokumenApproval[]>(approvals.data);
     const [statsData, setStatsData] = useState<Stats>(stats);
-    const [updatedApprovalIds, setUpdatedApprovalIds] = useState<Set<number>>(new Set()); // Track recently updated approvals
+    const [updatedApprovalIds, setUpdatedApprovalIds] = useState<Set<number>>(new Set());
 
-    // Update local state when props change (e.g., pagination, filter)
+    // Bulk approval states
+    const [selectedApprovalIds, setSelectedApprovalIds] = useState<number[]>([]);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [bulkSignatureMethod, setBulkSignatureMethod] = useState<'original' | 'qr'>('original');
+    const [bulkSignatureData, setBulkSignatureData] = useState<string | null>(null);
+    const [showBulkSignaturePad, setShowBulkSignaturePad] = useState(false);
+    const [bulkComment, setBulkComment] = useState('');
+    const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+
+    // Preview Dialog states
+    const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+    const [previewApproval, setPreviewApproval] = useState<DokumenApproval | null>(null);
+    const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
+    const [previewFileName, setPreviewFileName] = useState<string>('');
+    const [previewSignaturePositions, setPreviewSignaturePositions] = useState<SignaturePosition[]>([]);
+
+    // Update local state when props change
     useEffect(() => {
         setApprovalsData(approvals.data);
         setStatsData(stats);
@@ -109,40 +157,25 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
         if (typeof window !== 'undefined' && window.Echo && auth.user?.id) {
             console.log('📡 Setting up real-time listeners for approvals');
 
-            // 1. Subscribe to user-specific approvals channel for NEW dokumen
             const userApprovalChannelName = `user.${auth.user.id}.approvals`;
             console.log('🔧 Subscribing to user approvals channel:', userApprovalChannelName);
-            const userChannel = window.Echo.channel(userApprovalChannelName);
 
-            // DIRECT BINDING to channel (not just Echo.listen)
             if (window.Echo.connector?.pusher) {
                 const pusherChannel = window.Echo.connector.pusher.subscribe(userApprovalChannelName);
 
                 pusherChannel.bind('approval.created', (event: any) => {
-                    console.log('🎉🎉🎉 APPROVAL.CREATED EVENT RECEIVED VIA PUSHER! 🎉🎉🎉');
-                    console.log('🆕 Event data:', event);
-
-                    // Add new approval to the list
                     if (event.approval) {
                         setApprovalsData((prevApprovals) => {
-                            // Check if approval already exists
                             const exists = prevApprovals.some((a) => a.id === event.approval.id);
-                            if (exists) {
-                                console.log('Approval already exists, skipping');
-                                return prevApprovals;
-                            }
-
-                            console.log('✨ Adding new approval to list');
-                            return [event.approval, ...prevApprovals]; // Add to beginning
+                            if (exists) return prevApprovals;
+                            return [event.approval, ...prevApprovals];
                         });
 
-                        // Update stats
                         setStatsData((prevStats) => ({
                             ...prevStats,
                             pending: prevStats.pending + 1,
                         }));
 
-                        // Highlight new approval
                         setUpdatedApprovalIds((prev) => new Set(prev).add(event.approval.id));
                         setTimeout(() => {
                             setUpdatedApprovalIds((prev) => {
@@ -150,165 +183,160 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                 newSet.delete(event.approval.id);
                                 return newSet;
                             });
-                        }, 3000); // Longer highlight for new approvals
-
-                        // Show toast
-                        if (event.approval.dokumen?.judul_dokumen) {
-                            showToast.success(`🆕 Dokumen baru "${event.approval.dokumen.judul_dokumen}" perlu persetujuan Anda!`);
-                        }
+                        }, 5000);
                     }
                 });
 
-                console.log('✅ Direct Pusher binding set for approval.created on channel:', userApprovalChannelName);
-            }
+                pusherChannel.bind('approval.updated', (event: any) => {
+                    if (event.approval) {
+                        setApprovalsData((prevApprovals) =>
+                            prevApprovals.map((a) => (a.id === event.approval.id ? event.approval : a))
+                        );
 
-            // ALSO use Echo.listen as fallback
-            userChannel.listen('approval.created', (event: any) => {
-                console.log('🎉 APPROVAL.CREATED via Echo.listen:', event);
-            });
-
-            userChannel.subscribed(() => {
-                console.log('✅ Subscribed to user approvals channel:', userApprovalChannelName);
-            });
-
-            userChannel.error((error: any) => {
-                console.error('❌ User approvals channel subscription error:', error);
-            });
-
-            // 2. Subscribe to each existing dokumen channel for UPDATES
-            const dokumenChannels: string[] = [];
-
-            if (approvalsData.length > 0) {
-                approvalsData.forEach((approval) => {
-                    const channelName = `dokumen.${approval.dokumen_id}`;
-                    if (!dokumenChannels.includes(channelName)) {
-                        dokumenChannels.push(channelName);
-
-                        const channel = window.Echo.channel(channelName);
-
-                        channel.listen('dokumen.updated', (event: any) => {
-                            console.log('📡 Real-time dokumen update received on approvals page:', event);
-
-                            // Update approvals state smoothly (no full refresh)
-                            if (event.dokumen?.id) {
-                                console.log('🔄 Updating approval state smoothly for dokumen ID:', event.dokumen.id);
-
-                                setApprovalsData((prevApprovals) => {
-                                    const updatedApprovals = prevApprovals.map((approval) => {
-                                        if (approval.dokumen_id === event.dokumen.id) {
-                                            console.log('✨ Found matching approval, updating dokumen data');
-
-                                            // Find the matching approval in the event data
-                                            const updatedApproval = event.dokumen.approvals?.find((a: any) => a.id === approval.id);
-
-                                            return {
-                                                ...approval,
-                                                dokumen: {
-                                                    ...approval.dokumen,
-                                                    ...event.dokumen,
-                                                    user: event.dokumen.user || approval.dokumen.user,
-                                                    latest_version:
-                                                        event.dokumen.latestVersion ||
-                                                        event.dokumen.latest_version ||
-                                                        approval.dokumen.latest_version,
-                                                },
-                                                approval_status: updatedApproval?.approval_status || approval.approval_status,
-                                            };
-                                        }
-                                        return approval;
-                                    });
-
-                                    console.log('✅ Approvals state updated smoothly');
-                                    return updatedApprovals;
-                                });
-
-                                // Update stats if approval status changed
-                                if (event.dokumen.approvals) {
-                                    const userApproval = event.dokumen.approvals.find((a: any) => a.user_id === auth.user.id);
-
-                                    if (userApproval) {
-                                        setStatsData((prevStats) => {
-                                            // Find old status
-                                            const oldApproval = approvalsData.find((a) => a.dokumen_id === event.dokumen.id);
-
-                                            if (!oldApproval) return prevStats;
-
-                                            const newStats = { ...prevStats };
-
-                                            // Decrease old status count
-                                            if (oldApproval.approval_status === 'pending') newStats.pending--;
-                                            else if (oldApproval.approval_status === 'approved') newStats.approved--;
-                                            else if (oldApproval.approval_status === 'rejected') newStats.rejected--;
-
-                                            // Increase new status count
-                                            if (userApproval.approval_status === 'pending') newStats.pending++;
-                                            else if (userApproval.approval_status === 'approved') newStats.approved++;
-                                            else if (userApproval.approval_status === 'rejected') newStats.rejected++;
-
-                                            return newStats;
-                                        });
-                                    }
-                                }
-
-                                // Mark approval as recently updated for animation
-                                const matchingApproval = approvalsData.find((a) => a.dokumen_id === event.dokumen.id);
-                                if (matchingApproval) {
-                                    setUpdatedApprovalIds((prev) => new Set(prev).add(matchingApproval.id));
-
-                                    // Remove highlight after animation
-                                    setTimeout(() => {
-                                        setUpdatedApprovalIds((prev) => {
-                                            const newSet = new Set(prev);
-                                            newSet.delete(matchingApproval.id);
-                                            return newSet;
-                                        });
-                                    }, 2000);
-                                }
-                            }
-
-                            // Show toast
-                            if (event.dokumen?.judul_dokumen) {
-                                const statusText =
-                                    event.dokumen.status === 'approved'
-                                        ? 'telah disetujui'
-                                        : event.dokumen.status === 'rejected'
-                                          ? 'telah ditolak'
-                                          : 'telah diupdate';
-                                showToast.success(`📡 Dokumen "${event.dokumen.judul_dokumen}" ${statusText}!`);
-                            }
-                        });
-
-                        channel.subscribed(() => {
-                            console.log('✅ Subscribed to dokumen channel:', channelName);
-                        });
+                        setUpdatedApprovalIds((prev) => new Set(prev).add(event.approval.id));
+                        setTimeout(() => {
+                            setUpdatedApprovalIds((prev) => {
+                                const newSet = new Set(prev);
+                                newSet.delete(event.approval.id);
+                                return newSet;
+                            });
+                        }, 5000);
                     }
                 });
 
-                console.log(`📻 Subscribed to ${dokumenChannels.length} dokumen channels`);
-            }
-
-            // Cleanup
-            return () => {
-                console.log('🔌 Leaving user approvals channel:', userApprovalChannelName);
-                window.Echo.leave(userApprovalChannelName);
-
-                dokumenChannels.forEach((channelName) => {
-                    console.log('🔌 Leaving dokumen channel:', channelName);
-                    window.Echo.leave(channelName);
+                pusherChannel.bind('approval.count.updated', (event: any) => {
+                    if (event.pending_count !== undefined) {
+                        setStatsData((prev) => ({
+                            ...prev,
+                            pending: event.pending_count,
+                        }));
+                    }
                 });
-            };
+            }
         }
     }, [approvalsData.length, auth.user?.id]);
+
+    // Filter eligible approvals for approval
+    const eligibleApprovals = approvalsData.filter(
+        (a) => a.approval_status === 'pending' && a.can_approve !== false
+    );
+    const isAllSelected =
+        eligibleApprovals.length > 0 &&
+        eligibleApprovals.every((a) => selectedApprovalIds.includes(a.id));
+
+    // Handle single checkbox selection
+    const toggleSelectApproval = (id: number) => {
+        setSelectedApprovalIds((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+        );
+    };
+
+    // Handle select all toggle
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedApprovalIds(eligibleApprovals.map((a) => a.id));
+        } else {
+            setSelectedApprovalIds([]);
+        }
+    };
+
+    // Handle bulk approve submission
+    const handleBulkApproveSubmit = () => {
+        if (selectedApprovalIds.length === 0) {
+            showToast.error('❌ Pilih setidaknya satu dokumen untuk disetujui');
+            return;
+        }
+
+        if (bulkSignatureMethod === 'original' && !bulkSignatureData) {
+            showToast.error('❌ Silakan buat atau tambahkan tanda tangan terlebih dahulu');
+            return;
+        }
+
+        setIsBulkSubmitting(true);
+        router.post(
+            route('approvals.bulk-approve'),
+            {
+                approval_ids: selectedApprovalIds,
+                signature_method: bulkSignatureMethod,
+                signature: bulkSignatureMethod === 'original' ? bulkSignatureData : undefined,
+                comment: bulkComment.trim() || undefined,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showToast.success(`✅ Berhasil menyetujui ${selectedApprovalIds.length} dokumen!`);
+                    setSelectedApprovalIds([]);
+                    setBulkSignatureData(null);
+                    setBulkComment('');
+                    setShowBulkSignaturePad(false);
+                    setIsBulkSubmitting(false);
+                    setIsBulkModalOpen(false);
+                    router.reload({ only: ['approvals', 'stats'] });
+                },
+                onError: (errors: any) => {
+                    setIsBulkSubmitting(false);
+                    const errMsg =
+                        errors.error ||
+                        errors.signature ||
+                        (typeof errors === 'object' ? Object.values(errors)[0] : 'Gagal memproses persetujuan massal');
+                    showToast.error(`❌ ${errMsg}`);
+                },
+            }
+        );
+    };
+
+    // Handle preview dialog open
+    const handleOpenPreview = (approval: DokumenApproval) => {
+        const targetVersion = approval.dokumen_version || approval.dokumen.latest_version;
+        if (!targetVersion) {
+            showToast.error('❌ File dokumen tidak ditemukan.');
+            return;
+        }
+
+        const fileType = (targetVersion.tipe_file || '').toLowerCase();
+        if (fileType !== 'pdf' && fileType !== 'application/pdf') {
+            showToast.error('❌ Preview hanya tersedia untuk file PDF.');
+            return;
+        }
+
+        setPreviewApproval(approval);
+        setPreviewFileName(targetVersion.nama_file || approval.dokumen.judul_dokumen);
+        setPreviewFileUrl(`/api/dokumen/${approval.dokumen.id}/signed-pdf/${targetVersion.id}`);
+        setPreviewSignaturePositions([]);
+        setIsPreviewDialogOpen(true);
+    };
+
+    // Mapped approvals for SignaturePlacementDialog
+    const previewMappedApprovals = (
+        previewApproval?.dokumen?.approvals || (previewApproval ? [previewApproval] : [])
+    )
+        .filter((a: any) => a.approval_status !== 'skipped')
+        .map((a: any) => ({
+            id: a.id,
+            step_name: a.masterflow_step?.step_name || 'Approval Step',
+            jabatan_name: a.masterflow_step?.jabatan?.name || '',
+            user: a.user ? { name: a.user.name } : undefined,
+            approver_email: a.user?.email || '',
+            approval_status: a.approval_status,
+            signature_method: a.signature_method,
+            signature_path: a.signature_path,
+            verification_token: a.verification_token,
+        }));
 
     // Handle search
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        router.get(route('approvals.index'), { search, status: selectedTab !== 'all' ? selectedTab : undefined }, { preserveState: true });
+        router.get(
+            route('approvals.index'),
+            { search, status: selectedTab !== 'all' ? selectedTab : undefined },
+            { preserveState: true }
+        );
     };
 
     // Handle tab change
     const handleTabChange = (value: string) => {
         setSelectedTab(value);
+        setSelectedApprovalIds([]); // Reset selection on tab switch
         router.get(route('approvals.index'), { status: value !== 'all' ? value : undefined, search }, { preserveState: true });
     };
 
@@ -377,7 +405,9 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                             {/* Header */}
                             <div className="space-y-2">
                                 <h1 className="font-serif text-3xl font-bold">Approval Dokumen</h1>
-                                <p className="font-sans text-muted-foreground">Kelola persetujuan dokumen yang memerlukan tindakan Anda</p>
+                                <p className="font-sans text-muted-foreground">
+                                    Kelola persetujuan dokumen yang memerlukan tindakan Anda
+                                </p>
                             </div>
 
                             {/* Stats Cards */}
@@ -435,7 +465,9 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="font-serif">Daftar Approval</CardTitle>
-                                    <CardDescription className="font-sans">Dokumen yang memerlukan persetujuan Anda</CardDescription>
+                                    <CardDescription className="font-sans">
+                                        Dokumen yang memerlukan persetujuan Anda
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {/* Search */}
@@ -473,6 +505,57 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                         </TabsList>
 
                                         <TabsContent value={selectedTab} className="mt-6 space-y-4">
+                                            {/* Toolbar Bulk Selection */}
+                                            {eligibleApprovals.length > 0 && (
+                                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <Checkbox
+                                                            id="select-all-approvals"
+                                                            checked={isAllSelected}
+                                                            onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                                                            className="h-4 w-4 data-[state=checked]:bg-primary"
+                                                        />
+                                                        <label
+                                                            htmlFor="select-all-approvals"
+                                                            className="font-sans text-xs sm:text-sm font-medium cursor-pointer select-none"
+                                                        >
+                                                            Pilih Semua Dokumen Menunggu ({eligibleApprovals.length} Dokumen)
+                                                        </label>
+                                                    </div>
+                                                    {selectedApprovalIds.length > 0 && (
+                                                        <div className="flex items-center gap-2.5">
+                                                            <span className="font-sans text-xs font-semibold text-muted-foreground hidden sm:inline">
+                                                                {selectedApprovalIds.length} dokumen terpilih
+                                                            </span>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                onClick={() => setIsBulkModalOpen(true)}
+                                                                className="font-sans text-xs font-semibold shadow-xs"
+                                                            >
+                                                                <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+                                                                Bulk Approve ({selectedApprovalIds.length})
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setSelectedApprovalIds([]);
+                                                                    setBulkSignatureData(null);
+                                                                    setShowBulkSignaturePad(false);
+                                                                    setBulkComment('');
+                                                                }}
+                                                                className="font-sans text-xs text-muted-foreground hover:text-destructive"
+                                                            >
+                                                                Batal
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Approval Items List */}
                                             {approvalsData.length === 0 ? (
                                                 <div className="py-12 text-center">
                                                     <IconFileText className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -486,9 +569,11 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                                     {approvalsData.map((approval) => (
                                                         <Card
                                                             key={approval.id}
-                                                            className={`transition-all duration-500 hover:shadow-md ${
+                                                            className={`transition-all duration-300 hover:shadow-md ${
                                                                 updatedApprovalIds.has(approval.id)
                                                                     ? 'bg-green-50 shadow-md dark:bg-green-950/20'
+                                                                    : selectedApprovalIds.includes(approval.id)
+                                                                    ? 'border-primary/50 bg-primary/5'
                                                                     : ''
                                                             }`}
                                                         >
@@ -496,6 +581,20 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                                                                 <div className="flex items-start justify-between gap-4">
                                                                     <div className="flex-1 space-y-2">
                                                                         <div className="flex items-start gap-3">
+                                                                            {/* Checkbox for selection */}
+                                                                            <div className="flex items-center pt-1.5">
+                                                                                <Checkbox
+                                                                                    id={`approval-check-${approval.id}`}
+                                                                                    checked={selectedApprovalIds.includes(approval.id)}
+                                                                                    onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                    disabled={
+                                                                                        approval.approval_status !== 'pending' ||
+                                                                                        approval.can_approve === false
+                                                                                    }
+                                                                                    className="h-4 w-4 data-[state=checked]:bg-primary"
+                                                                                />
+                                                                            </div>
+
                                                                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                                                                                 <IconFileText className="h-5 w-5 text-primary" />
                                                                             </div>
@@ -534,7 +633,7 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
 
                                                                         {approval.tgl_deadline && (
                                                                             <div
-                                                                                className={`flex items-center gap-1 font-sans text-sm ${
+                                                                                className={`flex items-center gap-1 font-sans text-sm pl-7 ${
                                                                                     isOverdue(approval.tgl_deadline)
                                                                                         ? 'text-red-600'
                                                                                         : 'text-muted-foreground'
@@ -556,15 +655,29 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
 
                                                                     <div className="flex shrink-0 flex-col items-end gap-3">
                                                                         {getStatusBadge(approval.approval_status)}
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => handleViewDetail(approval.id)}
-                                                                            className="font-sans"
-                                                                        >
-                                                                            <IconEye className="mr-2 h-4 w-4" />
-                                                                            Lihat Detail
-                                                                        </Button>
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            {/* Preview Dokumen Button */}
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => handleOpenPreview(approval)}
+                                                                                className="font-sans border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
+                                                                            >
+                                                                                <IconFileText className="mr-1.5 h-4 w-4" />
+                                                                                Preview Dokumen
+                                                                            </Button>
+
+                                                                            {/* Lihat Detail Button */}
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => handleViewDetail(approval.id)}
+                                                                                className="font-sans"
+                                                                            >
+                                                                                <IconEye className="mr-1.5 h-4 w-4" />
+                                                                                Lihat Detail
+                                                                            </Button>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </CardContent>
@@ -595,6 +708,302 @@ export default function ApproverIndex({ approvals, stats, filters }: Props) {
                             </Card>
                         </div>
                     </div>
+
+                    {/* Bulk Approval Modal Dialog */}
+                    <Dialog
+                        open={isBulkModalOpen}
+                        onOpenChange={(open) => {
+                            setIsBulkModalOpen(open);
+                            if (!open) {
+                                setShowBulkSignaturePad(false);
+                            }
+                        }}
+                    >
+                        <DialogContent className="flex max-h-[90vh] max-w-xl flex-col p-0 overflow-hidden">
+                            <DialogHeader className="shrink-0 border-b p-4 sm:p-5 bg-muted/20">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-primary text-primary-foreground font-semibold px-2 py-0.5 text-xs">
+                                            {selectedApprovalIds.length} Dokumen
+                                        </Badge>
+                                        <DialogTitle className="font-serif text-lg font-bold">Bulk Approval Persetujuan</DialogTitle>
+                                    </div>
+                                    <DialogDescription className="font-sans text-xs">
+                                        Tanda tangani dan setujui {selectedApprovalIds.length} dokumen yang dipilih sekaligus dengan metode tanda tangan yang sama.
+                                    </DialogDescription>
+                                </div>
+                            </DialogHeader>
+
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                                {/* Selected Documents Summary */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                        Dokumen yang Dipilih ({selectedApprovalIds.length})
+                                    </Label>
+                                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 rounded-md bg-muted/30 border text-xs">
+                                        {approvalsData
+                                            .filter((a) => selectedApprovalIds.includes(a.id))
+                                            .map((a) => (
+                                                <span
+                                                    key={a.id}
+                                                    className="inline-flex items-center gap-1 rounded bg-background px-2 py-1 font-mono text-[11px] border"
+                                                >
+                                                    <IconFileText className="h-3 w-3 text-primary shrink-0" />
+                                                    <span className="truncate max-w-[200px]">{a.dokumen.nomor_dokumen || a.dokumen.judul_dokumen}</span>
+                                                </span>
+                                            ))}
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* Metode Tanda Tangan */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                        Metode Tanda Tangan
+                                    </Label>
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <Button
+                                            type="button"
+                                            variant={bulkSignatureMethod === 'original' ? 'default' : 'outline'}
+                                            onClick={() => {
+                                                setBulkSignatureMethod('original');
+                                                setShowBulkSignaturePad(false);
+                                            }}
+                                            className="w-full text-xs font-medium"
+                                        >
+                                            Tanda Tangan Asli
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={bulkSignatureMethod === 'qr' ? 'default' : 'outline'}
+                                            onClick={() => {
+                                                setBulkSignatureMethod('qr');
+                                                setShowBulkSignaturePad(false);
+                                            }}
+                                            className="w-full text-xs font-medium"
+                                        >
+                                            Tanda Tangan QR Code
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* Signature Input / QR Display */}
+                                {bulkSignatureMethod === 'original' ? (
+                                    !showBulkSignaturePad && !bulkSignatureData ? (
+                                        <div className="space-y-3">
+                                            <Card className="border-dashed bg-background">
+                                                <CardContent className="flex flex-col items-center justify-center py-6">
+                                                    <IconPencil className="h-10 w-10 text-muted-foreground" />
+                                                    <p className="mt-2 text-center font-sans text-sm text-muted-foreground">
+                                                        Belum ada tanda tangan
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                            <Button
+                                                type="button"
+                                                onClick={() => setShowBulkSignaturePad(true)}
+                                                className="w-full font-sans"
+                                                variant="outline"
+                                            >
+                                                <IconPencil className="mr-2 h-4 w-4" />
+                                                Tambah Tanda Tangan
+                                            </Button>
+                                        </div>
+                                    ) : bulkSignatureData ? (
+                                        <div className="space-y-3">
+                                            <Card className="bg-background max-w-xs mx-auto">
+                                                <CardContent className="p-4">
+                                                    <div className="flex aspect-square max-w-[160px] mx-auto items-center justify-center rounded border bg-white p-3">
+                                                        <img
+                                                            src={bulkSignatureData}
+                                                            alt="Signature"
+                                                            className="max-h-full max-w-full object-contain"
+                                                        />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                            <div className="flex gap-2 max-w-xs mx-auto">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        setBulkSignatureData(null);
+                                                        setShowBulkSignaturePad(true);
+                                                    }}
+                                                    className="flex-1 font-sans text-xs"
+                                                >
+                                                    Ganti
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => setBulkSignatureData(null)}
+                                                    className="font-sans text-red-600 hover:bg-red-50 text-xs"
+                                                >
+                                                    <IconX className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-lg border p-3 bg-background">
+                                            <SignaturePad
+                                                onSignatureComplete={(sig) => {
+                                                    setBulkSignatureData(sig);
+                                                    setShowBulkSignaturePad(false);
+                                                    showToast.success('✅ Tanda tangan berhasil ditambahkan!');
+                                                }}
+                                                onCancel={() => setShowBulkSignaturePad(false)}
+                                            />
+                                        </div>
+                                    )
+                                ) : (
+                                    <Card className="border bg-white">
+                                        <CardContent className="flex flex-col items-center justify-center py-6 text-center">
+                                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="h-8 w-8"
+                                                >
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                                    <rect x="7" y="7" width="3" height="3" />
+                                                    <rect x="14" y="7" width="3" height="3" />
+                                                    <rect x="7" y="14" width="3" height="3" />
+                                                    <rect x="14" y="14" width="3" height="3" />
+                                                </svg>
+                                            </div>
+                                            <p className="mt-3 font-serif text-base font-semibold">
+                                                Tanda Tangan QR Code Terpilih
+                                            </p>
+                                            <p className="mt-1 max-w-[320px] font-sans text-xs text-muted-foreground">
+                                                Sistem akan otomatis menyematkan QR Code unik pada setiap dokumen untuk verifikasi keaslian persetujuan.
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Komentar Opsional */}
+                                {(bulkSignatureData || bulkSignatureMethod === 'qr') && (
+                                    <div className="space-y-1.5 pt-2 border-t">
+                                        <Label htmlFor="bulk-comment" className="font-sans text-xs font-medium">
+                                            Komentar (Opsional)
+                                        </Label>
+                                        <Textarea
+                                            id="bulk-comment"
+                                            placeholder="Tambahkan komentar persetujuan jika diperlukan..."
+                                            value={bulkComment}
+                                            onChange={(e) => setBulkComment(e.target.value)}
+                                            className="font-sans text-sm bg-background"
+                                            rows={2}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer Action Buttons */}
+                            <div className="shrink-0 border-t p-3 sm:p-4 bg-muted/10 flex items-center justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsBulkModalOpen(false)}
+                                    disabled={isBulkSubmitting}
+                                    className="font-sans"
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleBulkApproveSubmit}
+                                    disabled={
+                                        isBulkSubmitting ||
+                                        (bulkSignatureMethod === 'original' && !bulkSignatureData)
+                                    }
+                                    className="font-sans"
+                                >
+                                    <IconCheck className="mr-2 h-4 w-4" />
+                                    {isBulkSubmitting
+                                        ? 'Memproses Persetujuan...'
+                                        : `Setujui ${selectedApprovalIds.length} Dokumen`}
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Preview Dokumen Modal Dialog */}
+                    {previewApproval && (
+                        <Dialog
+                            open={isPreviewDialogOpen}
+                            onOpenChange={async (open) => {
+                                if (!open && previewApproval?.dokumen?.id && previewSignaturePositions && previewSignaturePositions.length > 0) {
+                                    try {
+                                        await api.post(`/dokumen/${previewApproval.dokumen.id}/signature-positions`, {
+                                            positions: previewSignaturePositions,
+                                        });
+                                    } catch (e) {
+                                        console.error('Failed to sync signature positions on dialog close:', e);
+                                    }
+                                }
+                                setIsPreviewDialogOpen(open);
+                                if (!open) {
+                                    setPreviewApproval(null);
+                                }
+                            }}
+                        >
+                            <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
+                                <DialogHeader className="shrink-0 border-b p-4">
+                                    <div className="space-y-1">
+                                        <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
+                                        <DialogDescription className="font-sans">
+                                            {previewFileName || previewApproval.dokumen_version?.nama_file || previewApproval.dokumen.judul_dokumen}
+                                        </DialogDescription>
+                                        {previewApproval.approval_status !== 'pending' && (
+                                            <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
+                                                Dokumen ini sudah{' '}
+                                                {previewApproval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
+                                            </div>
+                                        )}
+                                        {previewApproval.can_approve === false &&
+                                            previewApproval.approval_status === 'pending' && (
+                                                <div className="rounded-md bg-yellow-50 p-2 text-xs text-yellow-700">
+                                                    Approval ini bukan untuk Anda atau sedang menunggu giliran.
+                                                </div>
+                                            )}
+                                    </div>
+                                </DialogHeader>
+
+                                <div className="flex flex-1 overflow-hidden">
+                                    {/* PDF Preview with Placement */}
+                                    {previewFileUrl && (
+                                        <SignaturePlacementDialog
+                                            open={isPreviewDialogOpen}
+                                            onOpenChange={setIsPreviewDialogOpen}
+                                            dokumenId={previewApproval.dokumen.id}
+                                            fileUrl={previewFileUrl}
+                                            approvals={previewMappedApprovals}
+                                            defaultActiveApprovalId={previewApproval.id}
+                                            onPositionsChange={setPreviewSignaturePositions}
+                                            onSaved={(positions) => setPreviewSignaturePositions(positions)}
+                                            isEmbedded={true}
+                                            readOnly={
+                                                !(
+                                                    (previewApproval.can_approve ?? true) &&
+                                                    previewApproval.approval_status === 'pending'
+                                                )
+                                            }
+                                        />
+                                    )}
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </SidebarInset>
             </SidebarProvider>
         </>

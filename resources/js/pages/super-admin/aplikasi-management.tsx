@@ -18,13 +18,14 @@ import { useEffect, useState } from 'react';
 
 declare global {
     interface Window {
-        Echo?: any;
+        Echo: any;
     }
 }
 
 interface Company {
     id: number;
     name: string;
+    base_url?: string | null; // Ditambahkan untuk menangkap base_url
 }
 
 interface Aplikasi {
@@ -32,11 +33,10 @@ interface Aplikasi {
     name: string;
     company_id: number;
     company: Company;
+    path_api?: string | null; // Ditambahkan untuk menyimpan path api aplikasi
     created_at: string;
     updated_at: string;
 }
-
-// Removed breadcrumbs as we're using SidebarProvider layout
 
 export default function SuperAdminAplikasiManagement() {
     const [aplikasis, setAplikasis] = useState<Aplikasi[]>([]);
@@ -48,6 +48,7 @@ export default function SuperAdminAplikasiManagement() {
     const [formData, setFormData] = useState({
         name: '',
         company_id: '',
+        path_api: '', // Tambahkan state ini
     });
 
     // Fetch aplikasis and companies from API
@@ -67,7 +68,6 @@ export default function SuperAdminAplikasiManagement() {
                     switch (action) {
                         case 'created':
                             showToast.realtime.created(aplikasi.name, 'aplikasi');
-                            // Tambah di akhir array untuk urutan ascending berdasarkan created_at
                             return [...prevAplikasis, aplikasi];
                         case 'updated':
                             showToast.realtime.updated(aplikasi.name, 'aplikasi');
@@ -113,6 +113,7 @@ export default function SuperAdminAplikasiManagement() {
             const payload = {
                 name: formData.name,
                 company_id: parseInt(formData.company_id),
+                path_api: formData.path_api, // Sertakan path_api di payload
             };
 
             if (editingAplikasi) {
@@ -137,6 +138,7 @@ export default function SuperAdminAplikasiManagement() {
         setFormData({
             name: aplikasi.name,
             company_id: aplikasi.company_id.toString(),
+            path_api: aplikasi.path_api || '', // Isi form dengan data yang sudah ada
         });
         setIsCreateModalOpen(true);
     };
@@ -159,15 +161,17 @@ export default function SuperAdminAplikasiManagement() {
 
     const handleCreate = () => {
         setEditingAplikasi(null);
-        setFormData({ name: '', company_id: '' });
+        setFormData({ name: '', company_id: '', path_api: '' }); // Reset form
         setIsCreateModalOpen(true);
     };
 
     const closeModal = () => {
         setIsCreateModalOpen(false);
         setEditingAplikasi(null);
-        setFormData({ name: '', company_id: '' });
+        setFormData({ name: '', company_id: '', path_api: '' }); // Reset form
     };
+    const selectedCompany = companies.find((c) => String(c.id) === formData.company_id);
+const baseUrlPrefix = selectedCompany?.base_url || 'https://...';
 
     if (loading) {
         return (
@@ -205,6 +209,7 @@ export default function SuperAdminAplikasiManagement() {
                     <div className="flex flex-1 flex-col">
                         <div className="@container/main flex flex-1 flex-col gap-2 p-6">
                             <div className="space-y-8">
+                                
                                 {/* Header Section */}
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="space-y-2">
@@ -240,7 +245,8 @@ export default function SuperAdminAplikasiManagement() {
                                                     <TableRow>
                                                         <TableHead className="w-16 font-sans">No</TableHead>
                                                         <TableHead className="w-64 font-sans">Nama Aplikasi</TableHead>
-                                                        <TableHead className="font-sans">Perusahaan</TableHead>
+                                                        <TableHead className="w-48 font-sans">Perusahaan</TableHead>
+                                                        <TableHead className="font-sans">Path API</TableHead>
                                                         <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
@@ -251,6 +257,19 @@ export default function SuperAdminAplikasiManagement() {
                                                                 <TableCell className="font-mono">{index + 1}</TableCell>
                                                                 <TableCell className="font-sans font-medium">{aplikasi.name}</TableCell>
                                                                 <TableCell className="font-sans">{aplikasi.company.name}</TableCell>
+                                                                
+                                                                {/* Render gabungan Base URL + Path API di Tabel */}
+                                                                <TableCell className="font-sans text-sm">
+                                                                    {aplikasi.path_api ? (
+                                                                        <div className="flex flex-wrap items-center">
+                                                                            <span className="text-muted-foreground">{aplikasi.company.base_url}</span>
+                                                                            <span className="font-semibold text-primary">{aplikasi.path_api}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-gray-400">-</span>
+                                                                    )}
+                                                                </TableCell>
+
                                                                 <TableCell className="text-right">
                                                                     <div className="flex justify-end gap-2">
                                                                         <Button
@@ -275,7 +294,7 @@ export default function SuperAdminAplikasiManagement() {
                                                         ))
                                                     ) : (
                                                         <TableRow>
-                                                            <TableCell colSpan={4} className="py-8 text-center font-sans text-gray-500">
+                                                            <TableCell colSpan={5} className="py-8 text-center font-sans text-gray-500">
                                                                 Belum ada aplikasi yang tersedia
                                                             </TableCell>
                                                         </TableRow>
@@ -338,6 +357,24 @@ export default function SuperAdminAplikasiManagement() {
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {/* Input Path API dengan Base URL di Atas */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="path_api" className="font-sans">
+                                            Path API Aplikasi (Opsional)
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground font-mono bg-muted/50 p-2 rounded-md border border-input break-all">
+                                            Base URL: <span className="font-semibold text-foreground">{baseUrlPrefix}</span>
+                                        </p>
+                                        <Input
+                                            id="path_api"
+                                            value={formData.path_api}
+                                            onChange={(e) => setFormData((prev) => ({ ...prev, path_api: e.target.value }))}
+                                            placeholder="/api/v1"
+                                            className="font-sans"
+                                        />
+                                    </div>
+
                                     <div className="flex justify-end gap-2 pt-4">
                                         <Button type="button" variant="outline" onClick={closeModal} disabled={submitting} className="font-sans">
                                             Batal
@@ -355,3 +392,4 @@ export default function SuperAdminAplikasiManagement() {
         </>
     );
 }
+

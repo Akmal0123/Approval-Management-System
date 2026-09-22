@@ -205,10 +205,9 @@ class DokumenController extends Controller
 
         // Check if custom approval or existing masterflow
         if ($tipeDokumen === 'manual' && $request->masterflow_id !== 'custom') {
-            return response()->json([
-                'message' => 'Dokumen manual hanya mendukung Custom Approval.',
-                'errors' => ['masterflow_id' => ['Dokumen manual hanya mendukung Custom Approval.']]
-            ], 422);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'masterflow_id' => 'Dokumen manual hanya mendukung Custom Approval.'
+            ]);
         }
 
         if ($request->masterflow_id === 'custom') {

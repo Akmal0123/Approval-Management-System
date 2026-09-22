@@ -66,7 +66,15 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     // Positions map: approval_id -> SignaturePosition
     const [positions, setPositions] = useState<Record<string | number, SignaturePosition>>({});
+    const positionsRef = useRef(positions);
     const [activeApprovalId, setActiveApprovalId] = useState<number | string | null>(null);
+
+    useEffect(() => {
+        positionsRef.current = positions;
+        if (onPositionsChange && Object.keys(positions).length > 0) {
+            onPositionsChange(Object.values(positions));
+        }
+    }, [positions, onPositionsChange]);
 
     // References for dragging
     const containerRef = useRef<HTMLDivElement>(null);
@@ -209,6 +217,21 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         }
     };
 
+    const autoSavePositions = async (customPositions?: Record<string | number, SignaturePosition>) => {
+        if (!dokumenId || readOnly) return;
+        const posToSave = customPositions || positionsRef.current || positions;
+        const positionsArray = Object.values(posToSave);
+        if (positionsArray.length === 0) return;
+        try {
+            await api.post(`/dokumen/${dokumenId}/signature-positions`, {
+                positions: positionsArray,
+            });
+            if (onSaved) onSaved(positionsArray as any);
+        } catch (error) {
+            console.error('Failed to auto-save signature positions:', error);
+        }
+    };
+
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
         setLoading(false);
@@ -322,14 +345,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             newX = Math.max(0, Math.min(newX, containerWidth - boxWidth));
             newY = Math.max(0, Math.min(newY, containerHeight - boxHeight));
 
-            setPositions((prev) => ({
-                ...prev,
-                [activeApprovalId]: {
-                    ...prev[activeApprovalId],
-                    x: pxToMm(newX),
-                    y: pxToMm(newY),
-                },
-            }));
+            setPositions((prev) => {
+                const next = {
+                    ...prev,
+                    [activeApprovalId]: {
+                        ...prev[activeApprovalId],
+                        x: pxToMm(newX),
+                        y: pxToMm(newY),
+                    },
+                };
+                positionsRef.current = next;
+                return next;
+            });
         } else if (isResizing) {
             const dx = e.clientX - resizeStart.x;
             const dy = e.clientY - resizeStart.y;
@@ -342,23 +369,32 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             const maxSize = Math.max(minSize, Math.min(containerWidth - currentBoxX, containerHeight - currentBoxY));
             const newSize = Math.min(maxSize, Math.max(minSize, initialSize.width + delta));
 
-            setPositions((prev) => ({
-                ...prev,
-                [activeApprovalId]: {
-                    ...prev[activeApprovalId],
-                    width: pxToMm(newSize),
-                    height: pxToMm(newSize),
-                },
-            }));
+            setPositions((prev) => {
+                const next = {
+                    ...prev,
+                    [activeApprovalId]: {
+                        ...prev[activeApprovalId],
+                        width: pxToMm(newSize),
+                        height: pxToMm(newSize),
+                    },
+                };
+                positionsRef.current = next;
+                return next;
+            });
         }
     };
 
     const handleMouseUp = () => {
+        const wasInteracting = isDragging || isResizing;
         setIsDragging(false);
         setIsResizing(false);
+        if (wasInteracting) {
+            autoSavePositions(positionsRef.current);
+        }
     };
 
     const moveToPage = (approvalId: number | string, targetPage: number) => {
+        let updatedPositions: Record<string | number, SignaturePosition> = {};
         if (isQrCodeId(approvalId)) {
             const oldKey = String(approvalId);
             const newKey = `qr_code_page_${targetPage}`;
@@ -373,21 +409,30 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         page: targetPage,
                     };
                 }
+                positionsRef.current = next;
+                updatedPositions = next;
                 return next;
             });
             setActiveApprovalId(newKey);
             setCurrentPage(targetPage);
+            autoSavePositions(updatedPositions);
             return;
         }
 
-        setPositions((prev) => ({
-            ...prev,
-            [approvalId]: {
-                ...prev[approvalId],
-                page: targetPage,
-            },
-        }));
+        setPositions((prev) => {
+            const next = {
+                ...prev,
+                [approvalId]: {
+                    ...prev[approvalId],
+                    page: targetPage,
+                },
+            };
+            positionsRef.current = next;
+            updatedPositions = next;
+            return next;
+        });
         setCurrentPage(targetPage);
+        autoSavePositions(updatedPositions);
     };
 
     // Active QR code helpers
@@ -405,6 +450,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const toggleQrForPage = (pageNum: number) => {
         if (readOnly) return;
         const key = `qr_code_page_${pageNum}`;
+        let updatedPositions: Record<string | number, SignaturePosition> = {};
 
         setPositions((prev) => {
             const next = { ...prev };
@@ -426,12 +472,15 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 };
                 setActiveApprovalId(key);
             }
+            positionsRef.current = next;
+            updatedPositions = next;
             return next;
         });
 
         if (currentPage !== pageNum) {
             setCurrentPage(pageNum);
         }
+        autoSavePositions(updatedPositions);
     };
 
     const enableAllPages = () => {
@@ -442,6 +491,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             ? { x: existingQr.x, y: existingQr.y, width: existingQr.width, height: existingQr.height }
             : { x: 175, y: 20, width: 25, height: 25 };
 
+        let updatedPositions: Record<string | number, SignaturePosition> = {};
         setPositions((prev) => {
             const next = { ...prev };
             for (let p = 1; p <= total; p++) {
@@ -454,13 +504,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     };
                 }
             }
+            positionsRef.current = next;
+            updatedPositions = next;
             return next;
         });
         showToast.success(`QR Code diaktifkan untuk semua (${total}) halaman.`);
+        autoSavePositions(updatedPositions);
     };
 
     const removeAllQrCodes = () => {
         if (readOnly) return;
+        let updatedPositions: Record<string | number, SignaturePosition> = {};
         setPositions((prev) => {
             const next = { ...prev };
             Object.keys(next).forEach((key) => {
@@ -468,11 +522,14 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     delete next[key];
                 }
             });
+            positionsRef.current = next;
+            updatedPositions = next;
             return next;
         });
         if (isQrCodeId(activeApprovalId)) {
             setActiveApprovalId(approvals.length > 0 ? approvals[0].id : null);
         }
+        autoSavePositions(updatedPositions);
     };
 
     const syncPositionToAllQrPages = (sourceKey: string) => {
@@ -480,6 +537,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         const sourcePos = positions[sourceKey];
         if (!sourcePos) return;
 
+        let updatedPositions: Record<string | number, SignaturePosition> = {};
         setPositions((prev) => {
             const next = { ...prev };
             Object.keys(next).forEach((key) => {
@@ -493,9 +551,12 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     };
                 }
             });
+            positionsRef.current = next;
+            updatedPositions = next;
             return next;
         });
         showToast.success('Posisi & ukuran QR code diterapkan ke seluruh halaman QR.');
+        autoSavePositions(updatedPositions);
     };
 
     const renderSignatureBoxes = () => {

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Services\ContextService;
 
@@ -38,6 +39,8 @@ class DokumenApprovalController extends Controller
         $query = DokumenApproval::with([
             'dokumen.user',
             'dokumen.latestVersion',
+            'dokumen.approvals.user',
+            'dokumen.approvals.masterflowStep.jabatan',
             'masterflowStep.jabatan',
             'dokumenVersion'
         ])
@@ -72,6 +75,11 @@ class DokumenApprovalController extends Controller
         }
 
         $approvals = $query->paginate(15)->withQueryString();
+
+        // Append can_approve to each approval
+        $approvals->getCollection()->each(function ($approval) {
+            $approval->append('can_approve');
+        });
 
         // Get statistics - with context filter applied
         $statsBaseQuery = DokumenApproval::byUser(Auth::id());
@@ -310,6 +318,128 @@ class DokumenApprovalController extends Controller
 
         return redirect()->route('approvals.index')
             ->with('success', 'Dokumen berhasil di-approve dan ditandatangani!');
+    }
+
+    /**
+     * Bulk approve multiple documents.
+     */
+    public function bulkApprove(Request $request, PdfSignatureService $pdfSignatureService)
+    {
+        $validated = $request->validate([
+            'approval_ids' => 'required|array|min:1',
+            'approval_ids.*' => 'required|integer',
+            'signature_method' => 'nullable|string|in:original,qr',
+            'signature' => 'required_if:signature_method,original|nullable|string',
+            'comment' => 'nullable|string|max:1000',
+        ]);
+
+        $signatureMethod = $validated['signature_method'] ?? 'original';
+        $signaturePath = null;
+
+        // Process signature once if original
+        if ($signatureMethod === 'original') {
+            $signatureData = $validated['signature'] ?? null;
+            if ($signatureData && str_starts_with($signatureData, 'data:image')) {
+                $image = preg_replace('/^data:image\/\w+;base64,/', '', $signatureData);
+                $image = str_replace(' ', '+', $image);
+                $imageData = base64_decode($image);
+
+                $filename = 'approval_signature_bulk_' . time() . '_' . \Illuminate\Support\Str::random(10) . '.png';
+                $path = 'signatures/approvals/bulk/' . $filename;
+
+                \Illuminate\Support\Facades\Storage::disk('local')->put($path, $imageData);
+                $signaturePath = $path;
+            } elseif ($signatureData && preg_match('/\/signatures\/(\d+)\/file/', $signatureData, $matches)) {
+                $signatureId = $matches[1];
+                $signature = \App\Models\Signature::find($signatureId);
+                if ($signature) {
+                    $signaturePath = $signature->signature_path;
+                }
+            } elseif ($signatureData && (str_starts_with($signatureData, 'http') || str_starts_with($signatureData, '/storage'))) {
+                $signaturePath = str_replace('/storage/', '', parse_url($signatureData, PHP_URL_PATH));
+            }
+        }
+
+        $approvedCount = 0;
+        $failedCount = 0;
+
+        foreach ($validated['approval_ids'] as $approvalId) {
+            $approval = DokumenApproval::with(['dokumen.latestVersion', 'dokumenVersion'])
+                ->where('id', $approvalId)
+                ->where('user_id', Auth::id())
+                ->first();
+
+            if (!$approval || !$approval->canCurrentlyApprove()) {
+                $failedCount++;
+                continue;
+            }
+
+            $verificationToken = null;
+            if ($signatureMethod === 'qr') {
+                $verificationToken = \Illuminate\Support\Str::uuid()->toString();
+            }
+
+            DB::beginTransaction();
+            try {
+                $approval->update([
+                    'approval_status' => 'approved',
+                    'tgl_approve' => now(),
+                    'comment' => $validated['comment'] ?? null,
+                    'signature_path' => $signaturePath,
+                    'signature_method' => $signatureMethod,
+                    'verification_token' => $verificationToken,
+                ]);
+
+                if (!empty($validated['comment'])) {
+                    \App\Models\Comment::create([
+                        'dokumen_id' => $approval->dokumen_id,
+                        'content' => 'Approved: ' . $validated['comment'],
+                        'user_id' => Auth::id(),
+                        'created_at_custom' => now(),
+                    ]);
+                }
+
+                $this->checkAndUpdateDocumentStatus($approval->dokumen);
+                DB::commit();
+                $approvedCount++;
+            } catch (\Exception $e) {
+                DB::rollback();
+                Log::error("Bulk approval DB transaction failed for ID {$approvalId}: " . $e->getMessage());
+                $failedCount++;
+                continue;
+            }
+
+            // Embed physical signature/QR into PDF outside transaction
+            try {
+                $version = $approval->dokumen->latestVersion;
+                if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && ($signaturePath || $signatureMethod === 'qr')) {
+                    $pdfContent = $pdfSignatureService->generateSignedPdfStream(
+                        $version->file_url,
+                        collect([$approval->fresh()]),
+                        $approval->dokumen
+                    );
+                    \Illuminate\Support\Facades\Storage::disk('local')->put($version->file_url, $pdfContent);
+                }
+
+                // Broadcast real-time events
+                $dokumen = $approval->dokumen->fresh();
+                broadcast(new DokumenUpdated($dokumen))->toOthers();
+                broadcast(new UserDokumenUpdated($dokumen))->toOthers();
+            } catch (\Exception $e) {
+                Log::error("Bulk approval PDF embedding failed for ID {$approvalId}: " . $e->getMessage());
+            }
+        }
+
+        if ($approvedCount === 0) {
+            return back()->withErrors(['error' => 'Tidak ada dokumen yang berhasil disetujui. Pastikan dokumen belum disetujui dan giliran approval Anda aktif.']);
+        }
+
+        $message = "{$approvedCount} dokumen berhasil disetujui dan ditandatangani!";
+        if ($failedCount > 0) {
+            $message .= " ({$failedCount} dokumen dilewati karena tidak memenuhi syarat approval).";
+        }
+
+        return redirect()->route('approvals.index')->with('success', $message);
     }
 
     /**
@@ -869,7 +999,7 @@ class DokumenApprovalController extends Controller
         $version = $approval->dokumenVersion;
 
         // Check if file exists
-        if (!$version || !\Illuminate\Support\Facades\Storage::disk('local')->exists($version->file_url)) {
+        if (!$version || !Storage::disk('local')->exists($version->file_url)) {
             abort(404, 'File tidak ditemukan.');
         }
 
@@ -893,7 +1023,10 @@ class DokumenApprovalController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            return \Illuminate\Support\Facades\Storage::disk('local')->download($version->file_url, $version->nama_file);
+            return response()->download(
+                Storage::disk('local')->path($version->file_url),
+                $version->nama_file
+            );
         }
     }
 }

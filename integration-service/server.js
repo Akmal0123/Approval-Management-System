@@ -14,7 +14,7 @@ await fastify.register(cors, {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 });
 
-// Register Integration Routes
+// Register Routes
 await fastify.register(integrationRoutes);
 
 // Global Error Handler
@@ -30,8 +30,8 @@ const start = async () => {
   try {
     await fastify.listen({ port: config.port, host: config.host });
     console.log(`\n======================================================`);
-    console.log(`🚀 Fastify Integration Service berjalan di http://localhost:${config.port}`);
-    console.log(`📡 Terhubung ke External Inventory System: ${config.externalApiUrl}`);
+    console.log(`🚀 Fastify Backend Service berjalan di http://localhost:${config.port}`);
+    console.log(`📡 External Inventory System URL: ${config.externalApiUrl}`);
     console.log(`🔐 Autentikasi JWT: Menggunakan kredensial '${config.auth.username}'`);
     console.log(`======================================================\n`);
   } catch (err) {

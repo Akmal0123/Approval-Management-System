@@ -39,6 +39,7 @@ interface Transaksi {
     aplikasi?: Aplikasi;
     lookup_path_api?: string | null;
     get_pdf_path_api?: string | null;
+    path_dokumen?: string | null;
 }
 
 export default function SuperAdminTransaksiManagement() {
@@ -61,7 +62,8 @@ export default function SuperAdminTransaksiManagement() {
         deskripsi: '',
         is_active: true,
         lookup_path_api: '',
-        get_pdf_path_api: '',
+        get_pdf_path_api: '', 
+        path_dokumen: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -121,6 +123,7 @@ export default function SuperAdminTransaksiManagement() {
             is_active: true,
             lookup_path_api: '',
             get_pdf_path_api: '',
+            path_dokumen: '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -137,6 +140,7 @@ export default function SuperAdminTransaksiManagement() {
             is_active: transaksi.is_active,
             lookup_path_api: transaksi.lookup_path_api || '',
             get_pdf_path_api: transaksi.get_pdf_path_api || '',
+            path_dokumen: transaksi.path_dokumen || '',
         });
         setErrors({});
         setIsCreateModalOpen(true);
@@ -341,7 +345,7 @@ export default function SuperAdminTransaksiManagement() {
                                                             <TableHead className="w-32 font-sans">Kode</TableHead>
                                                             <TableHead className="font-sans">Nama Transaksi</TableHead>
                                                             <TableHead className="font-sans">Aplikasi</TableHead>
-                                                            <TableHead className="font-sans">Departemen</TableHead>
+                                                            {/* <TableHead className="font-sans">Departemen</TableHead> */}
                                                             <TableHead className="font-sans">Deskripsi</TableHead>
                                                             <TableHead className="w-28 font-sans">Status</TableHead>
                                                             <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
@@ -438,186 +442,194 @@ export default function SuperAdminTransaksiManagement() {
                     </div>
 
                     {/* Create / Edit Modal */}
-                    <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                        <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-lg sm:rounded-2xl">
-                            <DialogHeader>
-                                <DialogTitle className="font-serif">
-                                    {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}
-                                </DialogTitle>
-                                <DialogDescription className="font-sans">
-                                    Konfigurasi tipe transaksi dan kaitkan dengan modul aplikasi & departemen.
-                                </DialogDescription>
-                            </DialogHeader>
+<Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+    <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-3xl sm:rounded-2xl">
+        <DialogHeader>
+            <DialogTitle className="font-serif">
+                {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}
+            </DialogTitle>
+            <DialogDescription className="font-sans">
+                Konfigurasi tipe transaksi dan kaitkan dengan modul aplikasi.
+            </DialogDescription>
+        </DialogHeader>
 
-                            <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="aplikasi_id" className="font-sans">
-                                        Aplikasi <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Select
-                                        value={formData.aplikasi_id}
-                                        onValueChange={(val) => setFormData((prev) => ({ ...prev, aplikasi_id: val }))}
-                                    >
-                                        <SelectTrigger id="aplikasi_id" className="font-sans">
-                                            <SelectValue placeholder="Pilih Aplikasi" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {aplikasis.map((app) => (
-                                                <SelectItem key={app.id} value={String(app.id)} className="font-sans">
-                                                    {app.name} {app.company ? `(${app.company.name})` : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.aplikasi_id && <p className="text-xs text-red-500">{errors.aplikasi_id}</p>}
-                                </div>
+        <form onSubmit={handleSubmit} className="py-2">
+            {/* Grid Utama: 2 Kolom Kiri & Kanan */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                
+                {/* ================= KOLOM KIRI ================= */}
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="aplikasi_id" className="font-sans">
+                            Aplikasi <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                            value={formData.aplikasi_id}
+                            onValueChange={(val) => setFormData((prev) => ({ ...prev, aplikasi_id: val }))}
+                        >
+                            <SelectTrigger id="aplikasi_id" className="font-sans">
+                                <SelectValue placeholder="Pilih Aplikasi" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {aplikasis.map((app) => (
+                                    <SelectItem key={app.id} value={String(app.id)} className="font-sans">
+                                        {app.name} {app.company ? `(${app.company.name})` : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {errors.aplikasi_id && <p className="text-xs text-red-500">{errors.aplikasi_id}</p>}
+                    </div>
 
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="kode_transaksi" className="font-sans">
-                                            Kode Transaksi <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="kode_transaksi"
-                                            name="kode_transaksi"
-                                            placeholder="Misal: PR, PO, CUTI"
-                                            value={formData.kode_transaksi}
-                                            onChange={handleInputChange}
-                                            className="font-mono uppercase"
-                                            required
-                                        />
-                                        {errors.kode_transaksi && <p className="text-xs text-red-500">{errors.kode_transaksi}</p>}
-                                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="nama_transaksi" className="font-sans">
+                            Nama Transaksi <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                            id="nama_transaksi"
+                            name="nama_transaksi"
+                            placeholder="Misal: Purchase Request, Pengajuan Cuti..."
+                            value={formData.nama_transaksi}
+                            onChange={handleInputChange}
+                            className="font-sans"
+                            required
+                        />
+                        {errors.nama_transaksi && <p className="text-xs text-red-500">{errors.nama_transaksi}</p>}
+                    </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="departemen" className="font-sans">
-                                            Departemen (Opsional)
-                                        </Label>
-                                        <Input
-                                            id="departemen"
-                                            name="departemen"
-                                            placeholder="Misal: Finance, HRD, IT"
-                                            value={formData.departemen}
-                                            onChange={handleInputChange}
-                                            className="font-sans"
-                                        />
-                                        {errors.departemen && <p className="text-xs text-red-500">{errors.departemen}</p>}
-                                    </div>
-                                </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="kode_transaksi" className="font-sans">
+                            Kode Transaksi <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                            id="kode_transaksi"
+                            name="kode_transaksi"
+                            placeholder="Misal: PR, PO, CUTI"
+                            value={formData.kode_transaksi}
+                            onChange={handleInputChange}
+                            className="font-mono uppercase"
+                            required
+                        />
+                        {errors.kode_transaksi && <p className="text-xs text-red-500">{errors.kode_transaksi}</p>}
+                    </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="nama_transaksi" className="font-sans">
-                                        Nama Transaksi <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="nama_transaksi"
-                                        name="nama_transaksi"
-                                        placeholder="Misal: Purchase Request, Pengajuan Cuti Tahunan"
-                                        value={formData.nama_transaksi}
-                                        onChange={handleInputChange}
-                                        className="font-sans"
-                                        required
-                                    />
-                                    {errors.nama_transaksi && <p className="text-xs text-red-500">{errors.nama_transaksi}</p>}
-                                </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="deskripsi" className="font-sans">
+                            Deskripsi (Opsional)
+                        </Label>
+                        <Textarea
+                            id="deskripsi"
+                            name="deskripsi"
+                            placeholder="Keterangan alur atau peruntukan transaksi..."
+                            value={formData.deskripsi}
+                            onChange={handleInputChange}
+                            className="font-sans"
+                            rows={3}
+                        />
+                    </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="deskripsi" className="font-sans">
-                                        Deskripsi (Opsional)
-                                    </Label>
-                                    <Textarea
-                                        id="deskripsi"
-                                        name="deskripsi"
-                                        placeholder="Keterangan alur atau peruntukan transaksi..."
-                                        value={formData.deskripsi}
-                                        onChange={handleInputChange}
-                                        className="font-sans"
-                                        rows={3}
-                                    />
-                                </div>
+                    <div className="flex items-center gap-2 pt-2">
+                        <input
+                            type="checkbox"
+                            id="is_active"
+                            checked={formData.is_active}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
+                            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor="is_active" className="cursor-pointer font-sans text-sm font-medium">
+                            Status Transaksi Aktif
+                        </Label>
+                    </div>
+                </div>
 
-                                {/* Path API (Lookup & Get PDF) */}
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="lookup_path_api" className="font-sans">
-                                            Lookup Path API (Opsional)
-                                        </Label>
-                                        <Input
-                                            id="lookup_path_api"
-                                            name="lookup_path_api"
-                                            placeholder="Contoh: /po/search"
-                                            value={formData.lookup_path_api || ''}
-                                            onChange={handleInputChange}
-                                            className="font-sans"
-                                        />
-                                        {errors.lookup_path_api && <p className="text-xs text-red-500">{errors.lookup_path_api}</p>}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="get_pdf_path_api" className="font-sans">
-                                            Get PDF Path API (Opsional)
-                                        </Label>
-                                        <Input
-                                            id="get_pdf_path_api"
-                                            name="get_pdf_path_api"
-                                            placeholder="Contoh: /po/download"
-                                            value={formData.get_pdf_path_api || ''}
-                                            onChange={handleInputChange}
-                                            className="font-sans"
-                                        />
-                                        {errors.get_pdf_path_api && <p className="text-xs text-red-500">{errors.get_pdf_path_api}</p>}
-                                    </div>
-                                </div>
+                {/* ================= KOLOM KANAN ================= */}
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="lookup_path_api" className="font-sans">
+                            Lookup Path API (Opsional)
+                        </Label>
+                        <Input
+                            id="lookup_path_api"
+                            name="lookup_path_api"
+                            placeholder="Contoh: /po/search"
+                            value={formData.lookup_path_api || ''}
+                            onChange={handleInputChange}
+                            className="font-sans"
+                        />
+                        {errors.lookup_path_api && <p className="text-xs text-red-500">{errors.lookup_path_api}</p>}
+                    </div>
 
-                                <div className="flex items-center gap-2 pt-2">
-                                    <input
-                                        type="checkbox"
-                                        id="is_active"
-                                        checked={formData.is_active}
-                                        onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-                                        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
-                                    />
-                                    <Label htmlFor="is_active" className="cursor-pointer font-sans text-sm font-medium">
-                                        Status Transaksi Aktif
-                                    </Label>
-                                </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="get_pdf_path_api" className="font-sans">
+                            Get PDF Path API (Opsional)
+                        </Label>
+                        <Input
+                            id="get_pdf_path_api"
+                            name="get_pdf_path_api"
+                            placeholder="Contoh: /po/download"
+                            value={formData.get_pdf_path_api || ''}
+                            onChange={handleInputChange}
+                            className="font-sans"
+                        />
+                        {errors.get_pdf_path_api && <p className="text-xs text-red-500">{errors.get_pdf_path_api}</p>}
+                    </div>
 
-                                <DialogFooter className="pt-4">
-                                    <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="font-sans">
-                                        Batal
-                                    </Button>
-                                    <Button type="submit" disabled={submitting} className="font-sans">
-                                        {submitting ? 'Menyimpan...' : editingTransaksi ? 'Simpan Perubahan' : 'Tambah Transaksi'}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
+                    <div className="space-y-2">
+                        <Label htmlFor="path_dokumen" className="font-sans">
+                            Path Dokumen (Opsional)
+                        </Label>
+                        <Input
+                            id="path_dokumen"
+                            name="path_dokumen"
+                            placeholder="Contoh: /dokumen/view"
+                            value={formData.path_dokumen || ''}
+                            onChange={handleInputChange}
+                            className="font-sans"
+                        />
+                        {errors.path_dokumen && <p className="text-xs text-red-500">{errors.path_dokumen}</p>}
+                    </div>
+                </div>
 
-                    {/* Delete Confirmation Modal */}
-                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="font-serif text-red-600">Hapus Transaksi</DialogTitle>
-                                <DialogDescription className="font-sans">
-                                    Apakah Anda yakin ingin menghapus transaksi{' '}
-                                    <span className="font-semibold text-foreground">
-                                        "{deletingTransaksi?.nama_transaksi}" ({deletingTransaksi?.kode_transaksi})
-                                    </span>
-                                    ? Data masterflow yang terhubung mungkin akan terpengaruh.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter className="gap-2 sm:gap-0">
-                                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
-                                    Batal
-                                </Button>
-                                <Button variant="destructive" onClick={handleDelete} className="font-sans">
-                                    Hapus
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                </SidebarInset>
-            </SidebarProvider>
-        </>
-    );
+            </div>
+
+            {/* Footer Form */}
+            <DialogFooter className="mt-8">
+                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="font-sans">
+                    Batal
+                </Button>
+                <Button type="submit" disabled={submitting} className="font-sans">
+                    {submitting ? 'Menyimpan...' : editingTransaksi ? 'Simpan Perubahan' : 'Tambah Transaksi'}
+                </Button>
+            </DialogFooter>
+        </form>
+    </DialogContent>
+</Dialog>
+
+{/* Delete Confirmation Modal */}
+<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+    <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+            <DialogTitle className="font-serif text-red-600">Hapus Transaksi</DialogTitle>
+            <DialogDescription className="font-sans">
+                Apakah Anda yakin ingin menghapus transaksi{' '}
+                <span className="font-semibold text-foreground">
+                    "{deletingTransaksi?.nama_transaksi}" ({deletingTransaksi?.kode_transaksi})
+                </span>
+                ? Data masterflow yang terhubung mungkin akan terpengaruh.
+            </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
+                Batal
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} className="font-sans">
+                Hapus
+            </Button>
+        </DialogFooter>
+    </DialogContent>
+</Dialog>
+            </SidebarInset>
+        </SidebarProvider>
+    </>
+);
 }
