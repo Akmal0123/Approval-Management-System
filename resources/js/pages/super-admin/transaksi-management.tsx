@@ -272,33 +272,46 @@ export default function SuperAdminTransaksiManagement() {
                                 </div>
 
                                 {/* Search & Filter Bar */}
-                                <Card className="border-border bg-card">
-                                    <CardContent className="p-4">
-                                        <div className="flex flex-col gap-4 md:flex-row">
+                                <Card className="border-border bg-card overflow-hidden w-full">
+                                    <CardContent className="p-4 w-full">
+                                        <div className="flex flex-col gap-4 md:flex-row w-full min-w-0">
                                             <div className="relative flex-1">
                                                 <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                                 <Input
                                                     placeholder="Cari transaksi berdasarkan nama, kode, departemen..."
                                                     value={searchQuery}
                                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                                    className="pl-9 font-sans"
+                                                    className="pl-9 font-sans w-full"
                                                 />
                                             </div>
 
-                                            <div className="w-full md:w-64">
+                                            <div className="w-full md:w-64 md:w-72 shrink-0 min-w-0">
                                                 <Select
                                                     value={selectedAplikasiFilter}
                                                     onValueChange={setSelectedAplikasiFilter}
                                                 >
-                                                    <SelectTrigger className="font-sans">
-                                                        <SelectValue placeholder="Semua Aplikasi" />
+                                                    <SelectTrigger className="font-sans w-full h-10 px-3 flex items-center justify-between">
+                                                        <SelectValue placeholder="Semua Aplikasi" className="w-full truncate">
+                                                        {selectedAplikasiFilter === 'all' ? (
+                                                            <span>Semua Aplikasi</span>
+                                                        ) : (
+                                                            <span className="truncate block">
+                                                                {(() => {
+                                                                    const found = aplikasis.find((a) => String(a.id) === selectedAplikasiFilter);
+                                                                    return found ? `${found.name} ${found.company ? `(${found.company.name})` : ''}` : 'Semua Aplikasi';
+                                                                })()}
+                                                            </span>
+                                                        )}
+                                                        </SelectValue>
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent
+                                                        className="w-[--radix-select-trigger-width] max-w-[calc(100vw-2rem)]"
+                                                    >
                                                         <SelectItem value="all" className="font-sans">
                                                             Semua Aplikasi
                                                         </SelectItem>
                                                         {aplikasis.map((app) => (
-                                                            <SelectItem key={app.id} value={String(app.id)} className="font-sans">
+                                                            <SelectItem key={app.id} value={String(app.id)} className="font-sans whitespace-normal">
                                                                 {app.name} {app.company ? `(${app.company.name})` : ''}
                                                             </SelectItem>
                                                         ))}
