@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Services\ContextService;
 
@@ -998,7 +999,7 @@ class DokumenApprovalController extends Controller
         $version = $approval->dokumenVersion;
 
         // Check if file exists
-        if (!$version || !\Illuminate\Support\Facades\Storage::disk('local')->exists($version->file_url)) {
+        if (!$version || !Storage::disk('local')->exists($version->file_url)) {
             abort(404, 'File tidak ditemukan.');
         }
 
@@ -1022,7 +1023,10 @@ class DokumenApprovalController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            return \Illuminate\Support\Facades\Storage::disk('local')->download($version->file_url, $version->nama_file);
+            return response()->download(
+                Storage::disk('local')->path($version->file_url),
+                $version->nama_file
+            );
         }
     }
 }
