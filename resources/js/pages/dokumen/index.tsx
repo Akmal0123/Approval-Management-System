@@ -192,7 +192,7 @@ const initialFormData: FormData = {
 export default function UserDokumen() {
     const { auth, context } = usePage().props as any;
     const [dokumen, setDokumen] = useState<Dokumen[]>([]);
-    
+
     // 👇 TAMBAHAN: State untuk Company
     const [companies, setCompanies] = useState<any[]>([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
@@ -203,7 +203,7 @@ export default function UserDokumen() {
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>('');
     const [isLoadingAplikasi, setIsLoadingAplikasi] = useState(false);
     const [isLoadingTransaksi, setIsLoadingTransaksi] = useState(false);
-    
+
     const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -220,7 +220,7 @@ export default function UserDokumen() {
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
     const [updatedDokumenIds, setUpdatedDokumenIds] = useState<Set<number>>(new Set()); // Track recently updated documents
-    
+
     const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
     const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
     const [pendingApprovalsForDialog, setPendingApprovalsForDialog] = useState<any[]>([]);
@@ -553,7 +553,7 @@ export default function UserDokumen() {
         fetchDokumen();
         const initCompanyId = currentContextCompanyId ? String(currentContextCompanyId) : undefined;
         fetchMasterflows(initCompanyId);
-        
+
         // 👇 TAMBAHAN: Ubah inisialisasi awal
         fetchCompanies(); // Menggantikan fetchAplikasi() dan fetchTransaksis()
         // 👆 =======================
@@ -809,7 +809,7 @@ export default function UserDokumen() {
                 ...prev,
                 file: file,
             }));
-            
+
             // Create a local URL for the PDF preview in the signature placement dialog
             if (localFileUrl) {
                 URL.revokeObjectURL(localFileUrl);
@@ -1049,7 +1049,7 @@ export default function UserDokumen() {
         setSelectedMasterflow(null);
         setAvailableApprovers({});
         setStepModes({}); // Reset step modes
-        
+
         setSelectedCompanyId('');
         setSelectedAplikasiId('');
         setAplikasiList([]);
@@ -1069,7 +1069,7 @@ export default function UserDokumen() {
         }
 
         const generatedApprovals: any[] = [];
-        
+
         if (formData.masterflow_id === 'custom') {
             formData.custom_approvers.forEach((app, idx) => {
                 if (app.email) {
@@ -1104,12 +1104,12 @@ export default function UserDokumen() {
                 }
             });
         }
-        
+
         if (generatedApprovals.length === 0) {
             showToast.error('Silakan tentukan minimal 1 approver terlebih dahulu.');
             return;
         }
-        
+
         setPendingApprovalsForDialog(generatedApprovals);
         setSignatureDialogOpen(true);
     };
@@ -1301,7 +1301,7 @@ export default function UserDokumen() {
         submitted: dokumen.filter((d) => d.status === 'submitted' || d.status === 'under_review').length,
         approved: dokumen.filter((d) => d.status === 'approved').length,
     };
-    
+
 
     return (
         <>
@@ -1570,11 +1570,10 @@ export default function UserDokumen() {
                                 <div className="flex bg-slate-100 dark:bg-muted/50 p-1 rounded-lg border my-3">
                                     <button
                                         type="button"
-                                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                                            docTypeMode === 'manual'
-                                                ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
-                                                : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
-                                        }`}
+                                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${docTypeMode === 'manual'
+                                            ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
+                                            : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
+                                            }`}
                                         onClick={() => {
                                             setDocTypeMode('manual');
                                             setFormData((prev) => ({
@@ -1593,11 +1592,10 @@ export default function UserDokumen() {
                                     </button>
                                     <button
                                         type="button"
-                                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                                            docTypeMode === 'transaksi'
-                                                ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
-                                                : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
-                                        }`}
+                                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${docTypeMode === 'transaksi'
+                                            ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
+                                            : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
+                                            }`}
                                         onClick={() => {
                                             setDocTypeMode('transaksi');
                                             setFormData((prev) => ({
@@ -1611,13 +1609,13 @@ export default function UserDokumen() {
                                 </div>
 
                                 <div className="grid gap-4 py-2">
-                                    
+
                                     {/* 1. ✅ PINDAH KE ATAS: Perusahaan, Aplikasi & Tipe Transaksi Grid */}
                                     <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
                                         <Label className="font-sans font-semibold">Perusahaan, Aplikasi & Tipe Transaksi</Label>
-                                        
+
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            
+
                                             {/* 1. Dropdown Perusahaan */}
                                             <div className="grid gap-2 min-w-0 overflow-hidden">
                                                 <div className="flex items-center justify-between gap-2">
@@ -1858,11 +1856,7 @@ export default function UserDokumen() {
                                                                 <span className="text-sm font-semibold text-foreground font-sans">
                                                                     Template PDF Berhasil Dibuat
                                                                 </span>
-                                                                {externalFetchSuccess.source === 'external-inventory-system' && (
-                                                                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300">
-                                                                        ⚡ Fastify + JWT (External Inventory)
-                                                                    </span>
-                                                                )}
+                                                                {externalFetchSuccess.source === 'external-inventory-system'}
                                                             </div>
                                                             <span className="font-mono text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 rounded border border-border">
                                                                 Rp {Number(externalFetchSuccess.nominal).toLocaleString('id-ID')}

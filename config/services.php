@@ -43,6 +43,9 @@ return [
 
     'fastify' => [
         'url' => env('FASTIFY_INTEGRATION_URL', 'http://localhost:5000'),
+        'jwt_secret' => env('FASTIFY_JWT_SECRET', 'ams-fastify-secret-key-super-secure-token-a'),
+        'jwt_issuer' => env('FASTIFY_JWT_ISSUER', 'ams'),
+        'jwt_audience' => env('FASTIFY_JWT_AUDIENCE', 'integration-service'),
     ],
 
 ];
