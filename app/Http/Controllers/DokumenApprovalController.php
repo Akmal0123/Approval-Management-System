@@ -23,6 +23,7 @@ use Inertia\Inertia;
 use App\Services\ContextService;
 use App\Models\Aplikasi;
 use App\Models\Transaksi;
+use App\Models\UsersAuth;
 
 class DokumenApprovalController extends Controller
 {
@@ -113,12 +114,36 @@ class DokumenApprovalController extends Controller
             'overdue' => (clone $statsBaseQuery)->overdue()->count(),
         ];
 
+        // Ambil aplikasi_id yang diizinkan untuk user berdasarkan otoritas di tabel usersauth
+        $allowedAplikasiIds = UsersAuth::where('user_id', Auth::id())
+            ->whereNotNull('aplikasi_id')
+            ->pluck('aplikasi_id')
+            ->unique()
+            ->values();
+
+        // Jika user adalah Super Admin (tidak ada entry di usersauth atau memiliki akses ke semua),
+        // tampilkan semua aplikasi; jika tidak, filter sesuai otoritas
+        $isSuperAdmin = $this->contextService->isSuperAdmin();
+
+        $aplikasisQuery = Aplikasi::select('id', 'name');
+        if (!$isSuperAdmin && $allowedAplikasiIds->isNotEmpty()) {
+            $aplikasisQuery->whereIn('id', $allowedAplikasiIds);
+        }
+
+        $allowedAplikasis = $aplikasisQuery->get();
+
+        // Filter transaksi berdasarkan aplikasi yang diizinkan
+        $transaksiQuery = Transaksi::select('id', 'nama_transaksi', 'aplikasi_id');
+        if (!$isSuperAdmin && $allowedAplikasiIds->isNotEmpty()) {
+            $transaksiQuery->whereIn('aplikasi_id', $allowedAplikasiIds);
+        }
+
         return Inertia::render('approvals/index', [
             'approvals' => $approvals,
             'stats' => $stats,
             'filters' => $request->only(['status', 'overdue', 'search', 'aplikasi_id', 'transaksi_id']),
-            'aplikasis' => Aplikasi::select('id', 'name')->get(),
-            'transaksis' => Transaksi::select('id', 'nama_transaksi', 'aplikasi_id')->get(),
+            'aplikasis' => $allowedAplikasis,
+            'transaksis' => $transaksiQuery->get(),
         ]);
     }
 
