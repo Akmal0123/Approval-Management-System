@@ -141,6 +141,7 @@ interface Transaksi {
     id: number;
     aplikasi_id: number;
     nama_transaksi: string;
+    kode_transaksi?: string;
 }
 
 interface Props {
@@ -182,6 +183,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [previewSignaturePositions, setPreviewSignaturePositions] = useState<SignaturePosition[]>([]);
+
+
 
     // Update local state when props change
     useEffect(() => {
@@ -343,6 +346,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
         setIsPreviewDialogOpen(true);
     };
 
+
+
     // Mapped approvals for SignaturePlacementDialog
     const previewMappedApprovals = (
         previewApproval?.dokumen?.approvals || (previewApproval ? [previewApproval] : [])
@@ -468,7 +473,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                 <SidebarInset>
                     <SiteHeader />
                     <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-6 p-6">
+                        <div className="@container/main flex flex-1 flex-col gap-6 p-6" style={{ transition: 'all 0.3s ease' }}>
                             {/* Header */}
                             <div className="space-y-2">
                                 <h1 className="font-serif text-3xl font-bold">Approval Dokumen</h1>
@@ -682,12 +687,13 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             {approvalsData.map((approval, index) => (
                                                                 <TableRow
                                                                     key={approval.id}
-                                                                    className={`group transition-colors ${updatedApprovalIds.has(approval.id)
+                                                                    className={`group transition-colors ${
+                                                                        updatedApprovalIds.has(approval.id)
                                                                             ? 'bg-green-50 dark:bg-green-950/20'
                                                                             : selectedApprovalIds.includes(approval.id)
                                                                                 ? 'bg-primary/5'
                                                                                 : ''
-                                                                        }`}
+                                                                    }`}
                                                                 >
                                                                     <TableCell className="text-center font-sans font-medium text-muted-foreground text-xs">
                                                                         {index + 1 + (approvals.current_page - 1) * approvals.per_page}
@@ -763,15 +769,26 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                         {formatDate(approval.dokumen.tgl_pengajuan)}
                                                                     </TableCell>
                                                                     <TableCell className="py-3 text-right">
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => handleViewDetail(approval.id)}
-                                                                            className="font-sans text-xs border-primary/20 hover:bg-primary/5 hover:text-primary h-8"
-                                                                        >
-                                                                            <IconEye className="mr-1 h-3.5 w-3.5" />
-                                                                            Detail
-                                                                        </Button>
+                                                                        <div className="flex items-center justify-end gap-1.5">
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => handleOpenPreview(approval)}
+                                                                                className="font-sans text-xs h-8"
+                                                                                title="Preview dokumen"
+                                                                            >
+                                                                                <IconEye className="mr-1 h-3.5 w-3.5" />
+                                                                                Preview
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => handleViewDetail(approval.id)}
+                                                                                className="font-sans text-xs border-primary/20 hover:bg-primary/5 hover:text-primary h-8"
+                                                                            >
+                                                                                Detail
+                                                                            </Button>
+                                                                        </div>
                                                                     </TableCell>
                                                                 </TableRow>
                                                             ))}
