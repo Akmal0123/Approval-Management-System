@@ -225,6 +225,11 @@ Route::get('/spa/role-management', function () {
     return redirect('/super-admin/role-management');
 })->name('spa.role-management');
 
+// Interactive API Documentation & Testing (Scalar & Swagger)
+Route::get('/docs', [\App\Http\Controllers\API\ApiDocsController::class, 'scalar'])->name('docs');
+Route::get('/swagger', [\App\Http\Controllers\API\ApiDocsController::class, 'swagger'])->name('swagger');
+Route::get('/docs/openapi.json', [\App\Http\Controllers\API\ApiDocsController::class, 'openapi'])->name('docs.openapi');
+
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';
 require __DIR__ . '/debug.php';

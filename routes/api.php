@@ -26,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Developer Testing Helper (Credentials & Tokens)
+Route::get('/dev/tokens', [\App\Http\Controllers\API\ApiDocsController::class, 'tokens']);
+
 // Public routes (Sanctum — untuk web SPA)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
