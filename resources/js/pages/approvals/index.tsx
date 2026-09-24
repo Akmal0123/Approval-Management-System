@@ -532,7 +532,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         <div className="flex shrink-0 items-center gap-2">
                                             <IconFilter className="hidden h-5 w-5 text-muted-foreground lg:block" />
                                             <Select value={selectedAplikasiId} onValueChange={handleAplikasiChange}>
-                                                <SelectTrigger className="w-[180px] font-sans">
+                                                <SelectTrigger className="min-w-0 flex-1 font-sans sm:w-[180px] sm:flex-none">
                                                     <SelectValue placeholder="Semua Aplikasi" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -546,7 +546,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             </Select>
 
                                             <Select value={selectedTransaksiId} onValueChange={handleTransaksiChange}>
-                                                <SelectTrigger className="w-[180px] font-sans">
+                                                <SelectTrigger className="min-w-0 flex-1 font-sans sm:w-[180px] sm:flex-none">
                                                     <SelectValue placeholder="Semua Transaksi" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1053,8 +1053,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 }
                             }}
                         >
-                            <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
-                                <DialogHeader className="shrink-0 border-b p-4">
+                            <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col overflow-y-auto p-0 md:overflow-hidden rounded-2xl">
+                                <DialogHeader className="border-b p-4 md:shrink-0">
                                     <div className="space-y-1">
                                         <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                         <DialogDescription className="font-sans">
@@ -1073,7 +1073,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                     </div>
                                 </DialogHeader>
 
-                                <div className="flex flex-1 overflow-hidden">
+                                <div className="flex min-h-[70vh] flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
                                     {/* PDF Preview with Placement */}
                                     {previewFileUrl && (
                                         <SignaturePlacementDialog
