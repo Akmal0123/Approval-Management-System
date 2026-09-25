@@ -111,14 +111,14 @@ const adminNavMain = [
         icon: FolderKanbanIcon,
     },
     {
-        title: 'My Workflow',
-        url: '/admin/my-workflows',
-        icon: FolderKanbanIcon,
-    },
-    {
         title: 'Transaksi Management',
         url: '/admin/transaksi-management',
         icon: LayersIcon,
+    },
+    {
+        title: 'My Workflow',
+        url: '/admin/my-workflows',
+        icon: FolderKanbanIcon,
     },
 ];
 

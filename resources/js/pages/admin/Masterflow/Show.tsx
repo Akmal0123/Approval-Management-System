@@ -81,7 +81,7 @@ export default function Show({ masterflow, company }: Props) {
                                         </h1>
                                         <p className="flex items-center gap-2 font-sans text-sm text-muted-foreground">
                                             <IconBuilding className="h-4 w-4" />
-                                            {company?.name || 'Unknown Company'}
+                                            {masterflow.company?.name || company?.name || 'Unknown Company'}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
