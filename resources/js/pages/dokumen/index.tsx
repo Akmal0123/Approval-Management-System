@@ -1622,11 +1622,7 @@ export default function UserDokumen() {
                                                     <span className="text-xs text-muted-foreground">
                                                         Perusahaan <span className="text-destructive">*</span>
                                                     </span>
-                                                    {!isSuperAdmin && (
-                                                        <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border shrink-0">
-                                                            Sesuai Profil
-                                                        </span>
-                                                    )}
+                                                   
                                                 </div>
                                                 <Select
                                                     value={String(selectedCompanyId || formData.company_id || '')}
@@ -1657,11 +1653,7 @@ export default function UserDokumen() {
                                                     <span className="text-xs text-muted-foreground">
                                                         Aplikasi Modul <span className="text-destructive">*</span>
                                                     </span>
-                                                    {!isSuperAdmin && (
-                                                        <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border shrink-0">
-                                                            Sesuai Profil
-                                                        </span>
-                                                    )}
+                                                    
                                                 </div>
                                                 <div className="relative">
                                                     <Select
@@ -2040,11 +2032,7 @@ export default function UserDokumen() {
                                                         <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
                                                             <div className="flex items-center gap-2">
                                                                 <span>{mf.name}</span>
-                                                                {formData.transaksi_id && Number(mf.transaksi_id) === Number(formData.transaksi_id) && (
-                                                                    <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
-                                                                        Cocok Transaksi
-                                                                    </span>
-                                                                )}
+                                                                
                                                             </div>
                                                         </SelectItem>
                                                     ))}

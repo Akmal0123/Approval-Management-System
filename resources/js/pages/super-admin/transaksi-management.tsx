@@ -536,9 +536,7 @@ export default function SuperAdminTransaksiManagement() {
                             <Globe className="h-3.5 w-3.5 text-primary" />
                             Path API Aplikasi
                         </Label>
-                        <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                            Autofill
-                        </span>
+                        
                     </div>
                     <Input
                         id="base_path_api"
