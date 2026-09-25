@@ -171,10 +171,11 @@ export function getApprovalDurationMs(
 
 /**
  * Returns Tailwind color classes for a duration in milliseconds.
- * - < 1 jam  → green   (cepat, aman)
- * - 1–8 jam  → amber   (normal)
- * - 8–24 jam → orange  (mulai lambat)
- * - > 24 jam → red     (melebihi SLA)
+ * Standar 8 jam kerja:
+ * - < 2 jam  → green   (cepat, aman)
+ * - 2–6 jam  → amber   (normal, masih aman)
+ * - 6–8 jam  → orange  (mendekati batas, mepet)
+ * - > 8 jam  → red     (melebihi 1 hari kerja / SLA)
  */
 export function getDurationColorClass(durationMs: number | null): {
     text: string;
@@ -188,24 +189,24 @@ export function getDurationColorClass(durationMs: number | null): {
 
     const hours = durationMs / (1000 * 60 * 60);
 
-    if (hours < 1) {
-        // Cepat — hijau
+    if (hours < 2) {
+        // Cepat, aman — hijau
         return {
             text: 'text-emerald-700 dark:text-emerald-400',
             icon: 'text-emerald-500',
             bg: 'bg-emerald-50 dark:bg-emerald-950/40',
             border: 'border-emerald-200 dark:border-emerald-800',
         };
-    } else if (hours < 8) {
-        // Normal — amber/kuning
+    } else if (hours < 6) {
+        // Normal, masih aman — amber/kuning
         return {
             text: 'text-amber-700 dark:text-amber-400',
             icon: 'text-amber-500',
             bg: 'bg-amber-50 dark:bg-amber-950/40',
             border: 'border-amber-200 dark:border-amber-800',
         };
-    } else if (hours < 24) {
-        // Mulai lambat — orange
+    } else if (hours < 8) {
+        // Mendekati batas hari kerja — orange
         return {
             text: 'text-orange-700 dark:text-orange-400',
             icon: 'text-orange-500',
@@ -213,7 +214,7 @@ export function getDurationColorClass(durationMs: number | null): {
             border: 'border-orange-200 dark:border-orange-800',
         };
     } else {
-        // Melebihi SLA — merah
+        // Melebihi 1 hari kerja / SLA — merah
         return {
             text: 'text-red-700 dark:text-red-400',
             icon: 'text-red-500',
