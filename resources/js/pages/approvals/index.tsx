@@ -263,6 +263,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const isAllSelected =
         eligibleApprovals.length > 0 &&
         eligibleApprovals.every((a) => selectedApprovalIds.includes(a.id));
+    const isSomeSelected =
+        selectedApprovalIds.length > 0 && !isAllSelected;
 
     // Handle single checkbox selection
     const toggleSelectApproval = (id: number) => {
@@ -272,11 +274,11 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     };
 
     // Handle select all toggle
-    const handleSelectAll = (checked: boolean) => {
-        if (checked) {
-            setSelectedApprovalIds(eligibleApprovals.map((a) => a.id));
-        } else {
+    const handleSelectAll = (checked?: boolean | 'indeterminate') => {
+        if (isAllSelected) {
             setSelectedApprovalIds([]);
+        } else {
+            setSelectedApprovalIds(eligibleApprovals.map((a) => a.id));
         }
     };
 
@@ -610,35 +612,47 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         <TabsContent value={selectedTab} className="mt-6 space-y-4">
                                             {/* Toolbar Bulk Selection */}
                                             {eligibleApprovals.length > 0 && (
-                                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <Checkbox
-                                                            id="select-all-approvals"
-                                                            checked={isAllSelected}
-                                                            onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
-                                                            className="h-4 w-4 data-[state=checked]:bg-primary"
-                                                        />
-                                                        <label
-                                                            htmlFor="select-all-approvals"
-                                                            className="font-sans text-xs sm:text-sm font-medium cursor-pointer select-none"
-                                                        >
-                                                            Pilih Semua Dokumen Menunggu ({eligibleApprovals.length} Dokumen)
-                                                        </label>
-                                                    </div>
-                                                    {selectedApprovalIds.length > 0 && (
-                                                        <div className="flex items-center gap-2.5">
-                                                            <span className="font-sans text-xs font-semibold text-muted-foreground hidden sm:inline">
-                                                                {selectedApprovalIds.length} dokumen terpilih
+                                                <div
+                                                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5 transition-all ${
+                                                        selectedApprovalIds.length > 0
+                                                            ? 'border-primary/30 bg-primary/10 shadow-xs'
+                                                            : 'border-border/60 bg-muted/40'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2.5">
+                                                        {selectedApprovalIds.length > 0 ? (
+                                                            <>
+                                                                <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                                                                <span className="font-sans text-xs sm:text-sm font-semibold text-foreground">
+                                                                    {selectedApprovalIds.length} dokumen terpilih
+                                                                </span>
+                                                                <span className="font-sans text-xs text-muted-foreground hidden sm:inline">
+                                                                    (dari {eligibleApprovals.length} dokumen menunggu)
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="font-sans text-xs text-muted-foreground flex items-center gap-1.5">
+                                                                <IconClock className="h-3.5 w-3.5 text-amber-500" />
+                                                                Centang checklist pada tabel samping kiri nomor untuk persetujuan massal ({eligibleApprovals.length} dokumen menunggu)
                                                             </span>
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                onClick={() => setIsBulkModalOpen(true)}
-                                                                className="font-sans text-xs font-semibold shadow-xs"
-                                                            >
-                                                                <IconCheck className="mr-1.5 h-3.5 w-3.5" />
-                                                                Bulk Approve ({selectedApprovalIds.length})
-                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            disabled={selectedApprovalIds.length === 0}
+                                                            onClick={() => setIsBulkModalOpen(true)}
+                                                            className={`font-sans text-xs font-semibold shadow-xs transition-colors ${
+                                                                selectedApprovalIds.length > 0
+                                                                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                                                    : 'opacity-50 cursor-not-allowed'
+                                                            }`}
+                                                        >
+                                                            <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+                                                            Bulk Approve ({selectedApprovalIds.length})
+                                                        </Button>
+                                                        {selectedApprovalIds.length > 0 && (
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
@@ -653,8 +667,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             >
                                                                 Batal
                                                             </Button>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -672,6 +686,22 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                     <Table>
                                                         <TableHeader className="bg-muted/50">
                                                             <TableRow>
+                                                                <TableHead className="w-10 text-center">
+                                                                    <div className="flex items-center justify-center">
+                                                                        <Checkbox
+                                                                            checked={
+                                                                                isAllSelected
+                                                                                    ? true
+                                                                                    : isSomeSelected
+                                                                                    ? "indeterminate"
+                                                                                    : false
+                                                                            }
+                                                                            disabled={eligibleApprovals.length === 0}
+                                                                            onCheckedChange={handleSelectAll}
+                                                                            aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                                        />
+                                                                    </div>
+                                                                </TableHead>
                                                                 <TableHead className="w-10 text-center font-sans font-semibold text-xs">#</TableHead>
                                                                 <TableHead className="font-sans font-semibold text-xs">Dokumen</TableHead>
                                                                 <TableHead className="font-sans font-semibold text-xs">Perusahaan / Pengaju</TableHead>
@@ -684,17 +714,31 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
-                                                            {approvalsData.map((approval, index) => (
+                                                            {approvalsData.map((approval, index) => {
+                                                                const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
+                                                                const isSelected = selectedApprovalIds.includes(approval.id);
+
+                                                                return (
                                                                 <TableRow
                                                                     key={approval.id}
                                                                     className={`group transition-colors ${
                                                                         updatedApprovalIds.has(approval.id)
                                                                             ? 'bg-green-50 dark:bg-green-950/20'
-                                                                            : selectedApprovalIds.includes(approval.id)
+                                                                            : isSelected
                                                                                 ? 'bg-primary/5'
                                                                                 : ''
                                                                     }`}
                                                                 >
+                                                                    <TableCell className="w-10 text-center py-3">
+                                                                        <div className="flex items-center justify-center">
+                                                                            <Checkbox
+                                                                                checked={isSelected}
+                                                                                disabled={!isEligible}
+                                                                                onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
+                                                                            />
+                                                                        </div>
+                                                                    </TableCell>
                                                                     <TableCell className="text-center font-sans font-medium text-muted-foreground text-xs">
                                                                         {index + 1 + (approvals.current_page - 1) * approvals.per_page}
                                                                     </TableCell>
@@ -791,7 +835,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                         </div>
                                                                     </TableCell>
                                                                 </TableRow>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </TableBody>
                                                     </Table>
                                                 </div>

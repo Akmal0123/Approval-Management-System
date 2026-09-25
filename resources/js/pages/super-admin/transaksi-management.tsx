@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { IconEdit, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react';
 import { Activity, Building2, CheckCircle2, Layers, XCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -43,6 +43,11 @@ interface Transaksi {
 }
 
 export default function SuperAdminTransaksiManagement() {
+    const { context } = usePage().props as any;
+    const currentContext = context?.current;
+    const isSuperAdmin = context?.is_super_admin;
+    const currentAplikasiId = currentContext?.aplikasi?.id;
+
     const [transaksis, setTransaksis] = useState<Transaksi[]>([]);
     const [aplikasis, setAplikasis] = useState<Aplikasi[]>([]);
     const [loading, setLoading] = useState(true);
@@ -70,14 +75,19 @@ export default function SuperAdminTransaksiManagement() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [currentContext?.id]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
+            const params: Record<string, any> = {};
+            if (currentContext?.id) {
+                params.context_id = currentContext.id;
+            }
+
             const [transaksiRes, aplikasiRes] = await Promise.allSettled([
-                api.get('/transaksis'),
-                api.get('/aplikasis'),
+                api.get('/transaksis', { params }),
+                api.get('/aplikasis', { params }),
             ]);
 
             if (transaksiRes.status === 'fulfilled') {
@@ -114,8 +124,9 @@ export default function SuperAdminTransaksiManagement() {
 
     const openCreateModal = () => {
         setEditingTransaksi(null);
+        const defaultAppId = currentAplikasiId ? String(currentAplikasiId) : (aplikasis.length > 0 ? String(aplikasis[0].id) : '');
         setFormData({
-            aplikasi_id: aplikasis.length > 0 ? String(aplikasis[0].id) : '',
+            aplikasi_id: defaultAppId,
             kode_transaksi: '',
             nama_transaksi: '',
             departemen: '',
@@ -219,6 +230,10 @@ export default function SuperAdminTransaksiManagement() {
     };
 
     const filteredTransaksis = transaksis.filter((t) => {
+        if (!isSuperAdmin && currentAplikasiId && t.aplikasi_id !== currentAplikasiId) {
+            return false;
+        }
+
         const matchesSearch =
             t.nama_transaksi.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.kode_transaksi.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -235,7 +250,7 @@ export default function SuperAdminTransaksiManagement() {
 
     return (
         <>
-            <Head title="Super Admin - Transaksi Management" />
+            <Head title="Transaksi Management" />
             <SidebarProvider>
                 <NotificationListener />
                 <AppSidebar variant="inset" />

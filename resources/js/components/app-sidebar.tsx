@@ -105,6 +105,11 @@ const adminNavMain = [
         url: '/admin/masterflows',
         icon: FolderKanbanIcon,
     },
+    {
+        title: 'Transaksi Management',
+        url: '/admin/transaksi-management',
+        icon: LayersIcon,
+    },
 ];
 
 // User Menu Items
