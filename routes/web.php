@@ -88,13 +88,20 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
         return Inertia::render('super-admin/aplikasi-management');
     })->name('super-admin.aplikasi-management');
 
+    Route::get('/super-admin/user-management', function () {
+        return Inertia::render('super-admin/user-management');
+    })->name('super-admin.user-management');
+});
+
+// Transaksi Management Routes (Super Admin & Admin)
+Route::middleware(['auth', 'check.role:Admin,Super Admin'])->group(function () {
     Route::get('/super-admin/transaksi-management', function () {
         return Inertia::render('super-admin/transaksi-management');
     })->name('super-admin.transaksi-management');
 
-    Route::get('/super-admin/user-management', function () {
-        return Inertia::render('super-admin/user-management');
-    })->name('super-admin.user-management');
+    Route::get('/admin/transaksi-management', function () {
+        return Inertia::render('super-admin/transaksi-management');
+    })->name('admin.transaksi-management');
 });
 
 // Admin Routes  

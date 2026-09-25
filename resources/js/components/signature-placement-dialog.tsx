@@ -1050,6 +1050,72 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         )}
                     </div>
                 </div>
+
+                {/* Kontrol Tampilan & Simpan Posisi */}
+                <div className="border-t pt-4 space-y-3">
+                    <div className="text-sm font-semibold">Kontrol Tampilan</div>
+
+                    <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+                            title="Zoom Out"
+                        >
+                            <ZoomOut className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm font-medium">{Math.round(scale * 100)}%</span>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setScale((s) => Math.min(2.0, s + 0.2))}
+                            title="Zoom In"
+                        >
+                            <ZoomIn className="h-4 w-4" />
+                        </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage <= 1 || loading}
+                        >
+                            Prev
+                        </Button>
+                        <span className="flex-1 text-center text-xs font-medium text-muted-foreground">
+                            Hal {currentPage}/{numPages || '-'}
+                        </span>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
+                            disabled={currentPage >= numPages || loading}
+                        >
+                            Next
+                        </Button>
+                    </div>
+
+                    {!readOnly && (
+                        <Button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={saving || loading}
+                            className="w-full bg-primary text-white hover:bg-primary/90 mt-1"
+                        >
+                            {saving ? 'Menyimpan...' : 'Simpan Posisi'}
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* PDF Viewer Area */}
@@ -1102,47 +1168,6 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     </div>
                 )}
             </div>
-
-            {/* Kontrol Tampilan - sticky di bawah PDF */}
-            <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t bg-background p-3">
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}>
-                        <ZoomOut className="h-4 w-4" />
-                    </Button>
-                    <span className="w-12 text-center text-sm">{Math.round(scale * 100)}%</span>
-                    <Button variant="outline" size="sm" onClick={() => setScale((s) => Math.min(2.0, s + 0.2))}>
-                        <ZoomIn className="h-4 w-4" />
-                    </Button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage <= 1 || loading}
-                    >
-                        Prev
-                    </Button>
-                    <span className="w-16 text-center text-sm">
-                        Hal {currentPage}/{numPages || '-'}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
-                        disabled={currentPage >= numPages || loading}
-                    >
-                        Next
-                    </Button>
-                </div>
-
-                {isEmbedded && !readOnly && (
-                    <Button onClick={handleSave} disabled={saving || loading} size="sm" className="bg-primary text-white">
-                        {saving ? 'Menyimpan...' : 'Simpan Posisi'}
-                    </Button>
-                )}
-                </div>
         </div>
     );
 
