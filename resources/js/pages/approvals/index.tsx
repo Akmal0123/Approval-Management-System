@@ -10,40 +10,27 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     IconAlertCircle,
-    IconCalendar,
     IconCheck,
     IconClock,
     IconEye,
     IconFileText,
+    IconFilter,
     IconPencil,
     IconSearch,
     IconUser,
     IconX,
-    IconFilter,
 } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
@@ -158,8 +145,16 @@ interface Props {
     transaksis: Transaksi[];
 }
 
+interface ApprovalCreatedEvent {
+    approval?: DokumenApproval;
+}
+
+interface ApprovalCountUpdatedEvent {
+    pending_count?: number;
+}
+
 export default function ApproverIndex({ approvals, stats, filters, aplikasis = [], transaksis = [] }: Props) {
-    const { auth } = usePage().props as any;
+    const { auth } = usePage<SharedData>().props;
     const [search, setSearch] = useState(filters.search || '');
     const [selectedTab, setSelectedTab] = useState(filters.status || 'all');
     const [selectedAplikasiId, setSelectedAplikasiId] = useState<string>(filters.aplikasi_id || 'all');
@@ -184,8 +179,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [previewFileName, setPreviewFileName] = useState<string>('');
     const [previewSignaturePositions, setPreviewSignaturePositions] = useState<SignaturePosition[]>([]);
 
-
-
     // Update local state when props change
     useEffect(() => {
         setApprovalsData(approvals.data);
@@ -203,12 +196,13 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             if (window.Echo.connector?.pusher) {
                 const pusherChannel = window.Echo.connector.pusher.subscribe(userApprovalChannelName);
 
-                pusherChannel.bind('approval.created', (event: any) => {
-                    if (event.approval) {
+                pusherChannel.bind('approval.created', (event: ApprovalCreatedEvent) => {
+                    const approval = event.approval;
+                    if (approval) {
                         setApprovalsData((prevApprovals) => {
-                            const exists = prevApprovals.some((a) => a.id === event.approval.id);
+                            const exists = prevApprovals.some((a) => a.id === approval.id);
                             if (exists) return prevApprovals;
-                            return [event.approval, ...prevApprovals];
+                            return [approval, ...prevApprovals];
                         });
 
                         setStatsData((prevStats) => ({
@@ -216,39 +210,39 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             pending: prevStats.pending + 1,
                         }));
 
-                        setUpdatedApprovalIds((prev) => new Set(prev).add(event.approval.id));
+                        setUpdatedApprovalIds((prev) => new Set(prev).add(approval.id));
                         setTimeout(() => {
                             setUpdatedApprovalIds((prev) => {
                                 const newSet = new Set(prev);
-                                newSet.delete(event.approval.id);
+                                newSet.delete(approval.id);
                                 return newSet;
                             });
                         }, 5000);
                     }
                 });
 
-                pusherChannel.bind('approval.updated', (event: any) => {
-                    if (event.approval) {
-                        setApprovalsData((prevApprovals) =>
-                            prevApprovals.map((a) => (a.id === event.approval.id ? event.approval : a))
-                        );
+                pusherChannel.bind('approval.updated', (event: ApprovalCreatedEvent) => {
+                    const approval = event.approval;
+                    if (approval) {
+                        setApprovalsData((prevApprovals) => prevApprovals.map((a) => (a.id === approval.id ? approval : a)));
 
-                        setUpdatedApprovalIds((prev) => new Set(prev).add(event.approval.id));
+                        setUpdatedApprovalIds((prev) => new Set(prev).add(approval.id));
                         setTimeout(() => {
                             setUpdatedApprovalIds((prev) => {
                                 const newSet = new Set(prev);
-                                newSet.delete(event.approval.id);
+                                newSet.delete(approval.id);
                                 return newSet;
                             });
                         }, 5000);
                     }
                 });
 
-                pusherChannel.bind('approval.count.updated', (event: any) => {
-                    if (event.pending_count !== undefined) {
+                pusherChannel.bind('approval.count.updated', (event: ApprovalCountUpdatedEvent) => {
+                    const pendingCount = event.pending_count;
+                    if (pendingCount !== undefined) {
                         setStatsData((prev) => ({
                             ...prev,
-                            pending: event.pending_count,
+                            pending: pendingCount,
                         }));
                     }
                 });
@@ -315,15 +309,13 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                     setIsBulkModalOpen(false);
                     router.reload({ only: ['approvals', 'stats'] });
                 },
-                onError: (errors: any) => {
+                onError: (errors: Record<string, string | string[]>) => {
                     setIsBulkSubmitting(false);
-                    const errMsg =
-                        errors.error ||
-                        errors.signature ||
-                        (typeof errors === 'object' ? Object.values(errors)[0] : 'Gagal memproses persetujuan massal');
+                    const error = errors.error || errors.signature || Object.values(errors)[0];
+                    const errMsg = Array.isArray(error) ? error[0] : error || 'Gagal memproses persetujuan massal';
                     showToast.error(`❌ ${errMsg}`);
                 },
-            }
+            },
         );
     };
 
@@ -348,14 +340,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
         setIsPreviewDialogOpen(true);
     };
 
-
-
     // Mapped approvals for SignaturePlacementDialog
-    const previewMappedApprovals = (
-        previewApproval?.dokumen?.approvals || (previewApproval ? [previewApproval] : [])
-    )
-        .filter((a: any) => a.approval_status !== 'skipped')
-        .map((a: any) => ({
+    const previewMappedApprovals = (previewApproval?.dokumen?.approvals || (previewApproval ? [previewApproval] : []))
+        .filter((a) => a.approval_status !== 'skipped')
+        .map((a) => ({
             id: a.id,
             step_name: a.masterflow_step?.step_name || 'Approval Step',
             jabatan_name: a.masterflow_step?.jabatan?.name || '',
@@ -377,7 +365,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                 aplikasi_id: aplikasiId !== 'all' ? aplikasiId : undefined,
                 transaksi_id: transaksiId !== 'all' ? transaksiId : undefined,
             },
-            { preserveState: true }
+            { preserveState: true },
         );
     };
 
@@ -405,9 +393,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     };
 
     // Filter available transactions based on selected aplikasi
-    const availableTransaksis = selectedAplikasiId === 'all'
-        ? transaksis
-        : transaksis.filter(t => t.aplikasi_id.toString() === selectedAplikasiId);
+    const availableTransaksis = selectedAplikasiId === 'all' ? transaksis : transaksis.filter((t) => t.aplikasi_id.toString() === selectedAplikasiId);
 
     // Handle view detail
     const handleViewDetail = (approvalId: number) => {
@@ -427,7 +413,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
 
     // Get status badge
     const getStatusBadge = (status: string) => {
-        const config: Record<string, { label: string; className: string; icon: any }> = {
+        const config: Record<string, { label: string; className: string; icon: typeof IconClock }> = {
             pending: {
                 label: 'Menunggu',
                 className: 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100',
@@ -448,7 +434,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
         const { label, className, icon: Icon } = config[status] || config.pending;
 
         return (
-            <Badge variant="outline" className={`font-sans px-2.5 py-1 font-semibold ${className}`}>
+            <Badge variant="outline" className={`px-2.5 py-1 font-sans font-semibold ${className}`}>
                 <Icon className="mr-1 h-3 w-3" />
                 {label}
             </Badge>
@@ -479,9 +465,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             {/* Header */}
                             <div className="space-y-2">
                                 <h1 className="font-serif text-3xl font-bold">Approval Dokumen</h1>
-                                <p className="font-sans text-muted-foreground">
-                                    Kelola persetujuan dokumen yang memerlukan tindakan Anda
-                                </p>
+                                <p className="font-sans text-muted-foreground">Kelola persetujuan dokumen yang memerlukan tindakan Anda</p>
                             </div>
 
                             {/* Stats Cards */}
@@ -539,9 +523,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="font-serif">Daftar Approval</CardTitle>
-                                    <CardDescription className="font-sans">
-                                        Dokumen yang memerlukan persetujuan Anda
-                                    </CardDescription>
+                                    <CardDescription className="font-sans">Dokumen yang memerlukan persetujuan Anda</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {/* Search */}
@@ -556,14 +538,14 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 className="pl-10 font-sans"
                                             />
                                         </div>
-                                        <Button type="submit" className="font-sans shrink-0">
+                                        <Button type="submit" className="shrink-0 font-sans">
                                             Cari
                                         </Button>
 
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <IconFilter className="h-5 w-5 text-muted-foreground hidden lg:block" />
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <IconFilter className="hidden h-5 w-5 text-muted-foreground lg:block" />
                                             <Select value={selectedAplikasiId} onValueChange={handleAplikasiChange}>
-                                                <SelectTrigger className="w-[180px] font-sans">
+                                                <SelectTrigger className="min-w-0 flex-1 font-sans sm:w-[180px] sm:flex-none">
                                                     <SelectValue placeholder="Semua Aplikasi" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -577,7 +559,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             </Select>
 
                                             <Select value={selectedTransaksiId} onValueChange={handleTransaksiChange}>
-                                                <SelectTrigger className="w-[180px] font-sans">
+                                                <SelectTrigger className="min-w-0 flex-1 font-sans sm:w-[180px] sm:flex-none">
                                                     <SelectValue placeholder="Semua Transaksi" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -594,7 +576,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
 
                                     {/* Tabs */}
                                     <Tabs value={selectedTab} onValueChange={handleTabChange}>
-                                        <TabsList className="flex w-full justify-start overflow-x-auto whitespace-nowrap p-1">
+                                        <TabsList className="flex w-full justify-start overflow-x-auto p-1 whitespace-nowrap">
                                             <TabsTrigger value="all" className="font-sans">
                                                 Semua
                                             </TabsTrigger>
@@ -744,25 +726,34 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                     </TableCell>
                                                                     <TableCell className="py-3">
                                                                         <div className="space-y-1">
-                                                                            <h4 className="font-sans font-semibold text-sm leading-tight text-foreground">
+                                                                            <h4 className="font-sans text-sm leading-tight font-semibold text-foreground">
                                                                                 {approval.dokumen.judul_dokumen}
                                                                             </h4>
                                                                             <div className="flex flex-wrap items-center gap-1.5">
-                                                                                <Badge variant="secondary" className="font-mono text-[10px] bg-green-100 text-green-800 hover:bg-green-100 px-1.5 py-0">
+                                                                                <Badge
+                                                                                    variant="secondary"
+                                                                                    className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
+                                                                                >
                                                                                     {approval.dokumen.nomor_dokumen}
                                                                                 </Badge>
                                                                                 {approval.masterflow_step && (
-                                                                                    <span className="font-sans text-muted-foreground bg-muted px-1.5 py-0.5 rounded text-[10px]">
-                                                                                        Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}
+                                                                                    <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
+                                                                                        Step {approval.masterflow_step.step_order}:{' '}
+                                                                                        {approval.masterflow_step.step_name}
                                                                                     </span>
                                                                                 )}
                                                                             </div>
                                                                             {approval.tgl_deadline && (
-                                                                                <div className={`flex items-center gap-1 font-sans text-[11px] ${isOverdue(approval.tgl_deadline) ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                                                                <div
+                                                                                    className={`flex items-center gap-1 font-sans text-[11px] ${isOverdue(approval.tgl_deadline) ? 'text-red-600' : 'text-muted-foreground'}`}
+                                                                                >
                                                                                     <IconClock className="h-3 w-3" />
                                                                                     <span>Terlambat {formatDate(approval.tgl_deadline)}</span>
                                                                                     {isOverdue(approval.tgl_deadline) && (
-                                                                                        <Badge variant="outline" className="text-[10px] px-1 py-0 border-red-300 bg-red-50 text-red-700">
+                                                                                        <Badge
+                                                                                            variant="outline"
+                                                                                            className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700"
+                                                                                        >
                                                                                             Terlambat
                                                                                         </Badge>
                                                                                     )}
@@ -773,8 +764,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                     <TableCell className="py-3">
                                                                         <div className="space-y-1 font-sans">
                                                                             <div className="flex items-center gap-1.5">
-                                                                                <IconFileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                                                                <span className="text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</span>
+                                                                                <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                                <span className="text-sm font-medium">
+                                                                                    {approval.dokumen.aplikasi?.name || '-'}
+                                                                                </span>
                                                                             </div>
                                                                             <div className="flex items-center gap-1.5 text-muted-foreground">
                                                                                 <IconUser className="h-3.5 w-3.5 shrink-0" />
@@ -783,33 +776,39 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell className="py-3">
-                                                                        <span className="font-sans font-semibold text-sm text-green-600">
+                                                                        <span className="font-sans text-sm font-semibold text-green-600">
                                                                             {formatCurrency(approval.dokumen.nominal)}
                                                                         </span>
                                                                     </TableCell>
                                                                     <TableCell className="py-3">
-                                                                        <div className="flex flex-col gap-1 items-start">
+                                                                        <div className="flex flex-col items-start gap-1">
                                                                             {approval.dokumen.transaksi ? (
                                                                                 <>
-                                                                                    <Badge variant="outline" className="font-sans font-semibold text-[11px] bg-blue-50 text-blue-700 border-blue-200 px-1.5 py-0">
+                                                                                    <Badge
+                                                                                        variant="outline"
+                                                                                        className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
+                                                                                    >
                                                                                         {approval.dokumen.transaksi.kode_transaksi}
                                                                                     </Badge>
                                                                                     <span className="font-sans text-xs text-muted-foreground">
                                                                                         {approval.dokumen.transaksi.nama_transaksi}
                                                                                     </span>
                                                                                 </>
-                                                                            ) : <span className="text-xs text-muted-foreground">-</span>}
+                                                                            ) : (
+                                                                                <span className="text-xs text-muted-foreground">-</span>
+                                                                            )}
                                                                         </div>
                                                                     </TableCell>
-                                                                    <TableCell className="py-3">
-                                                                        {getStatusBadge(approval.approval_status)}
-                                                                    </TableCell>
-                                                                    <TableCell className="py-3 max-w-[180px]">
-                                                                        <p className="font-sans text-xs text-muted-foreground line-clamp-2" title={approval.dokumen.deskripsi}>
+                                                                    <TableCell className="py-3">{getStatusBadge(approval.approval_status)}</TableCell>
+                                                                    <TableCell className="max-w-[180px] py-3">
+                                                                        <p
+                                                                            className="line-clamp-2 font-sans text-xs text-muted-foreground"
+                                                                            title={approval.dokumen.deskripsi}
+                                                                        >
                                                                             {approval.dokumen.deskripsi || '-'}
                                                                         </p>
                                                                     </TableCell>
-                                                                    <TableCell className="py-3 font-sans text-xs text-muted-foreground whitespace-nowrap">
+                                                                    <TableCell className="py-3 font-sans text-xs whitespace-nowrap text-muted-foreground">
                                                                         {formatDate(approval.dokumen.tgl_pengajuan)}
                                                                     </TableCell>
                                                                     <TableCell className="py-3 text-right">
@@ -818,7 +817,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                                 variant="outline"
                                                                                 size="sm"
                                                                                 onClick={() => handleOpenPreview(approval)}
-                                                                                className="font-sans text-xs h-8"
+                                                                                className="h-8 font-sans text-xs"
                                                                                 title="Preview dokumen"
                                                                             >
                                                                                 <IconEye className="mr-1 h-3.5 w-3.5" />
@@ -828,7 +827,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                                 variant="outline"
                                                                                 size="sm"
                                                                                 onClick={() => handleViewDetail(approval.id)}
-                                                                                className="font-sans text-xs border-primary/20 hover:bg-primary/5 hover:text-primary h-8"
+                                                                                className="h-8 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
                                                                             >
                                                                                 Detail
                                                                             </Button>
@@ -875,37 +874,40 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             }
                         }}
                     >
-                        <DialogContent className="flex max-h-[90vh] max-w-xl flex-col p-0 overflow-hidden">
-                            <DialogHeader className="shrink-0 border-b p-4 sm:p-5 bg-muted/20">
+                        <DialogContent className="flex max-h-[90vh] max-w-xl flex-col overflow-hidden p-0">
+                            <DialogHeader className="shrink-0 border-b bg-muted/20 p-4 sm:p-5">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
-                                        <Badge className="bg-primary text-primary-foreground font-semibold px-2 py-0.5 text-xs">
+                                        <Badge className="bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
                                             {selectedApprovalIds.length} Dokumen
                                         </Badge>
                                         <DialogTitle className="font-serif text-lg font-bold">Bulk Approval Persetujuan</DialogTitle>
                                     </div>
                                     <DialogDescription className="font-sans text-xs">
-                                        Tanda tangani dan setujui {selectedApprovalIds.length} dokumen yang dipilih sekaligus dengan metode tanda tangan yang sama.
+                                        Tanda tangani dan setujui {selectedApprovalIds.length} dokumen yang dipilih sekaligus dengan metode tanda
+                                        tangan yang sama.
                                     </DialogDescription>
                                 </div>
                             </DialogHeader>
 
-                            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                            <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
                                 {/* Selected Documents Summary */}
                                 <div className="space-y-1.5">
                                     <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                         Dokumen yang Dipilih ({selectedApprovalIds.length})
                                     </Label>
-                                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 rounded-md bg-muted/30 border text-xs">
+                                    <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto rounded-md border bg-muted/30 p-2 text-xs">
                                         {approvalsData
                                             .filter((a) => selectedApprovalIds.includes(a.id))
                                             .map((a) => (
                                                 <span
                                                     key={a.id}
-                                                    className="inline-flex items-center gap-1 rounded bg-background px-2 py-1 font-mono text-[11px] border"
+                                                    className="inline-flex items-center gap-1 rounded border bg-background px-2 py-1 font-mono text-[11px]"
                                                 >
-                                                    <IconFileText className="h-3 w-3 text-primary shrink-0" />
-                                                    <span className="truncate max-w-[200px]">{a.dokumen.nomor_dokumen || a.dokumen.judul_dokumen}</span>
+                                                    <IconFileText className="h-3 w-3 shrink-0 text-primary" />
+                                                    <span className="max-w-[200px] truncate">
+                                                        {a.dokumen.nomor_dokumen || a.dokumen.judul_dokumen}
+                                                    </span>
                                                 </span>
                                             ))}
                                     </div>
@@ -953,9 +955,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             <Card className="border-dashed bg-background">
                                                 <CardContent className="flex flex-col items-center justify-center py-6">
                                                     <IconPencil className="h-10 w-10 text-muted-foreground" />
-                                                    <p className="mt-2 text-center font-sans text-sm text-muted-foreground">
-                                                        Belum ada tanda tangan
-                                                    </p>
+                                                    <p className="mt-2 text-center font-sans text-sm text-muted-foreground">Belum ada tanda tangan</p>
                                                 </CardContent>
                                             </Card>
                                             <Button
@@ -970,9 +970,9 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         </div>
                                     ) : bulkSignatureData ? (
                                         <div className="space-y-3">
-                                            <Card className="bg-background max-w-xs mx-auto">
+                                            <Card className="mx-auto max-w-xs bg-background">
                                                 <CardContent className="p-4">
-                                                    <div className="flex aspect-square max-w-[160px] mx-auto items-center justify-center rounded border bg-white p-3">
+                                                    <div className="mx-auto flex aspect-square max-w-[160px] items-center justify-center rounded border bg-white p-3">
                                                         <img
                                                             src={bulkSignatureData}
                                                             alt="Signature"
@@ -981,7 +981,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                     </div>
                                                 </CardContent>
                                             </Card>
-                                            <div className="flex gap-2 max-w-xs mx-auto">
+                                            <div className="mx-auto flex max-w-xs gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
@@ -997,14 +997,14 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                     type="button"
                                                     variant="outline"
                                                     onClick={() => setBulkSignatureData(null)}
-                                                    className="font-sans text-red-600 hover:bg-red-50 text-xs"
+                                                    className="font-sans text-xs text-red-600 hover:bg-red-50"
                                                 >
                                                     <IconX className="h-4 w-4" />
                                                 </Button>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="rounded-lg border p-3 bg-background">
+                                        <div className="rounded-lg border bg-background p-3">
                                             <SignaturePad
                                                 onSignatureComplete={(sig) => {
                                                     setBulkSignatureData(sig);
@@ -1036,11 +1036,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                     <rect x="14" y="14" width="3" height="3" />
                                                 </svg>
                                             </div>
-                                            <p className="mt-3 font-serif text-base font-semibold">
-                                                Tanda Tangan QR Code Terpilih
-                                            </p>
+                                            <p className="mt-3 font-serif text-base font-semibold">Tanda Tangan QR Code Terpilih</p>
                                             <p className="mt-1 max-w-[320px] font-sans text-xs text-muted-foreground">
-                                                Sistem akan otomatis menyematkan QR Code unik pada setiap dokumen untuk verifikasi keaslian persetujuan.
+                                                Sistem akan otomatis menyematkan QR Code unik pada setiap dokumen untuk verifikasi keaslian
+                                                persetujuan.
                                             </p>
                                         </CardContent>
                                     </Card>
@@ -1048,7 +1047,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
 
                                 {/* Komentar Opsional */}
                                 {(bulkSignatureData || bulkSignatureMethod === 'qr') && (
-                                    <div className="space-y-1.5 pt-2 border-t">
+                                    <div className="space-y-1.5 border-t pt-2">
                                         <Label htmlFor="bulk-comment" className="font-sans text-xs font-medium">
                                             Komentar (Opsional)
                                         </Label>
@@ -1057,7 +1056,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             placeholder="Tambahkan komentar persetujuan jika diperlukan..."
                                             value={bulkComment}
                                             onChange={(e) => setBulkComment(e.target.value)}
-                                            className="font-sans text-sm bg-background"
+                                            className="bg-background font-sans text-sm"
                                             rows={2}
                                         />
                                     </div>
@@ -1065,7 +1064,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             </div>
 
                             {/* Footer Action Buttons */}
-                            <div className="shrink-0 border-t p-3 sm:p-4 bg-muted/10 flex items-center justify-end gap-2">
+                            <div className="flex shrink-0 items-center justify-end gap-2 border-t bg-muted/10 p-3 sm:p-4">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -1078,16 +1077,11 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 <Button
                                     type="button"
                                     onClick={handleBulkApproveSubmit}
-                                    disabled={
-                                        isBulkSubmitting ||
-                                        (bulkSignatureMethod === 'original' && !bulkSignatureData)
-                                    }
+                                    disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
                                     className="font-sans"
                                 >
                                     <IconCheck className="mr-2 h-4 w-4" />
-                                    {isBulkSubmitting
-                                        ? 'Memproses Persetujuan...'
-                                        : `Setujui ${selectedApprovalIds.length} Dokumen`}
+                                    {isBulkSubmitting ? 'Memproses Persetujuan...' : `Setujui ${selectedApprovalIds.length} Dokumen`}
                                 </Button>
                             </div>
                         </DialogContent>
@@ -1113,8 +1107,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 }
                             }}
                         >
-                            <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
-                                <DialogHeader className="shrink-0 border-b p-4">
+                            <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col overflow-y-auto p-0 md:overflow-hidden rounded-2xl">
+                                <DialogHeader className="border-b p-4 md:shrink-0">
                                     <div className="space-y-1">
                                         <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                         <DialogDescription className="font-sans">
@@ -1122,20 +1116,18 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         </DialogDescription>
                                         {previewApproval.approval_status !== 'pending' && (
                                             <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
-                                                Dokumen ini sudah{' '}
-                                                {previewApproval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
+                                                Dokumen ini sudah {previewApproval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
                                             </div>
                                         )}
-                                        {previewApproval.can_approve === false &&
-                                            previewApproval.approval_status === 'pending' && (
-                                                <div className="rounded-md bg-yellow-50 p-2 text-xs text-yellow-700">
-                                                    Approval ini bukan untuk Anda atau sedang menunggu giliran.
-                                                </div>
-                                            )}
+                                        {previewApproval.can_approve === false && previewApproval.approval_status === 'pending' && (
+                                            <div className="rounded-md bg-yellow-50 p-2 text-xs text-yellow-700">
+                                                Approval ini bukan untuk Anda atau sedang menunggu giliran.
+                                            </div>
+                                        )}
                                     </div>
                                 </DialogHeader>
 
-                                <div className="flex flex-1 overflow-hidden">
+                                <div className="flex min-h-[70vh] flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
                                     {/* PDF Preview with Placement */}
                                     {previewFileUrl && (
                                         <SignaturePlacementDialog
@@ -1148,12 +1140,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             onPositionsChange={setPreviewSignaturePositions}
                                             onSaved={(positions) => setPreviewSignaturePositions(positions)}
                                             isEmbedded={true}
-                                            readOnly={
-                                                !(
-                                                    (previewApproval.can_approve ?? true) &&
-                                                    previewApproval.approval_status === 'pending'
-                                                )
-                                            }
+                                            readOnly={!((previewApproval.can_approve ?? true) && previewApproval.approval_status === 'pending')}
                                         />
                                     )}
                                 </div>

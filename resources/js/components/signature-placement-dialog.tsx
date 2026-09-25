@@ -746,9 +746,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     };
 
     const innerContent = (
-        <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-background">
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
             {/* Sidebar Configuration */}
-            <div className="flex w-80 shrink-0 flex-col gap-6 overflow-y-auto border-r bg-muted/20 p-4">
+            <div className="flex max-h-[35vh] w-full shrink-0 flex-col gap-6 overflow-y-auto border-b bg-muted/20 p-4 md:h-full md:max-h-none md:w-80 md:border-r md:border-b-0">
                 <div>
                     <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
                     <div className="space-y-3">
@@ -1051,20 +1051,37 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     </div>
                 </div>
 
-                <div className="mt-auto">
-                    <h3 className="mb-3 text-sm font-semibold">Kontrol Tampilan</h3>
-                    <div className="mb-3 flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}>
+                {/* Kontrol Tampilan & Simpan Posisi */}
+                <div className="border-t pt-4 space-y-3">
+                    <div className="text-sm font-semibold">Kontrol Tampilan</div>
+
+                    <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+                            title="Zoom Out"
+                        >
                             <ZoomOut className="h-4 w-4" />
                         </Button>
-                        <span className="w-12 text-center text-sm">{Math.round(scale * 100)}%</span>
-                        <Button variant="outline" size="sm" onClick={() => setScale((s) => Math.min(2.0, s + 0.2))}>
+                        <span className="text-sm font-medium">{Math.round(scale * 100)}%</span>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setScale((s) => Math.min(2.0, s + 0.2))}
+                            title="Zoom In"
+                        >
                             <ZoomIn className="h-4 w-4" />
                         </Button>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
                         <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             className="flex-1"
@@ -1073,10 +1090,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         >
                             Prev
                         </Button>
-                        <span className="w-16 text-center text-sm">
+                        <span className="flex-1 text-center text-xs font-medium text-muted-foreground">
                             Hal {currentPage}/{numPages || '-'}
                         </span>
                         <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             className="flex-1"
@@ -1087,19 +1105,22 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         </Button>
                     </div>
 
-                    {isEmbedded && !readOnly && (
-                        <div className="mt-4 border-t pt-4">
-                            <Button onClick={handleSave} disabled={saving || loading} className="w-full bg-primary text-white">
-                                {saving ? 'Menyimpan...' : 'Simpan Posisi'}
-                            </Button>
-                        </div>
+                    {!readOnly && (
+                        <Button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={saving || loading}
+                            className="w-full bg-primary text-white hover:bg-primary/90 mt-1"
+                        >
+                            {saving ? 'Menyimpan...' : 'Simpan Posisi'}
+                        </Button>
                     )}
                 </div>
             </div>
 
             {/* PDF Viewer Area */}
             <div
-                className="relative flex flex-1 justify-center overflow-auto bg-gray-100 p-8"
+                className="relative flex flex-1 justify-center overflow-auto bg-gray-100 p-4 md:p-8"
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
