@@ -88,13 +88,20 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
         return Inertia::render('super-admin/aplikasi-management');
     })->name('super-admin.aplikasi-management');
 
+    Route::get('/super-admin/user-management', function () {
+        return Inertia::render('super-admin/user-management');
+    })->name('super-admin.user-management');
+});
+
+// Transaksi Management Routes (Super Admin & Admin)
+Route::middleware(['auth', 'check.role:Admin,Super Admin'])->group(function () {
     Route::get('/super-admin/transaksi-management', function () {
         return Inertia::render('super-admin/transaksi-management');
     })->name('super-admin.transaksi-management');
 
-    Route::get('/super-admin/user-management', function () {
-        return Inertia::render('super-admin/user-management');
-    })->name('super-admin.user-management');
+    Route::get('/admin/transaksi-management', function () {
+        return Inertia::render('super-admin/transaksi-management');
+    })->name('admin.transaksi-management');
 });
 
 // Admin Routes  
@@ -107,6 +114,7 @@ Route::middleware(['auth', 'check.role:Admin'])->group(function () {
 
     // Masterflow Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('my-workflows', [\App\Http\Controllers\Admin\MyWorkflowController::class, 'index'])->name('my-workflows');
         Route::resource('masterflows', \App\Http\Controllers\Admin\MasterflowController::class);
         Route::patch('masterflows/{masterflow}/toggle-status', [\App\Http\Controllers\Admin\MasterflowController::class, 'toggleStatus'])
             ->name('masterflows.toggle-status');

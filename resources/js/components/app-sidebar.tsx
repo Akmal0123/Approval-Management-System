@@ -47,6 +47,11 @@ const superAdminNavMain = [
         icon: FolderKanbanIcon,
     },
     {
+        title: 'My Workflow',
+        url: '/admin/my-workflows',
+        icon: FolderKanbanIcon,
+    },
+    {
         title: 'Role Management',
         url: '/super-admin/role-management',
         icon: ShieldIcon,
@@ -103,6 +108,16 @@ const adminNavMain = [
     {
         title: 'Masterflow Management',
         url: '/admin/masterflows',
+        icon: FolderKanbanIcon,
+    },
+    {
+        title: 'Transaksi Management',
+        url: '/admin/transaksi-management',
+        icon: LayersIcon,
+    },
+    {
+        title: 'My Workflow',
+        url: '/admin/my-workflows',
         icon: FolderKanbanIcon,
     },
 ];

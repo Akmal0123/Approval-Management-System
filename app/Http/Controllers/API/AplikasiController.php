@@ -14,10 +14,62 @@ class AplikasiController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $aplikasis = Aplikasi::with('company')->orderBy('created_at', 'asc')->get();
-        $companies = Company::orderBy('name', 'asc')->get();
+        $query = Aplikasi::with('company')->orderBy('created_at', 'asc');
+        $companiesQuery = Company::orderBy('name', 'asc');
+
+        $user = $request->user() ?? \Illuminate\Support\Facades\Auth::user();
+        $contextService = app(\App\Services\ContextService::class);
+        $isSuperAdmin = $contextService->isSuperAdmin();
+
+        if ($user && !$isSuperAdmin) {
+            $context = $contextService->getContext();
+
+            $contextId = $request->input('context_id') ?? $request->header('X-Context-Id');
+            if ($contextId) {
+                $requestedContext = \App\Models\UsersAuth::where('id', $contextId)
+                    ->where('user_id', $user->id)
+                    ->with(['company', 'aplikasi'])
+                    ->first();
+                if ($requestedContext) {
+                    $context = $requestedContext;
+                }
+            }
+
+            if ($context && !empty($context->aplikasi_id)) {
+                $allowedAplikasiIds = collect([$context->aplikasi_id]);
+                $allowedCompanyIds = $context->company_id ? collect([$context->company_id]) : collect();
+            } elseif ($context && !empty($context->company_id)) {
+                $allowedAplikasiIds = \App\Models\UsersAuth::where('user_id', $user->id)
+                    ->where('company_id', $context->company_id)
+                    ->whereNotNull('aplikasi_id')
+                    ->pluck('aplikasi_id')
+                    ->unique()
+                    ->values();
+                $allowedCompanyIds = collect([$context->company_id]);
+            } else {
+                $allowedAplikasiIds = \App\Models\UsersAuth::where('user_id', $user->id)
+                    ->whereNotNull('aplikasi_id')
+                    ->pluck('aplikasi_id')
+                    ->unique()
+                    ->values();
+
+                $allowedCompanyIds = \App\Models\UsersAuth::where('user_id', $user->id)
+                    ->whereNotNull('company_id')
+                    ->pluck('company_id')
+                    ->unique()
+                    ->values();
+            }
+
+            $query->whereIn('id', $allowedAplikasiIds);
+            if ($allowedCompanyIds->isNotEmpty()) {
+                $companiesQuery->whereIn('id', $allowedCompanyIds);
+            }
+        }
+
+        $aplikasis = $query->get();
+        $companies = $companiesQuery->get();
 
         return response()->json([
             'aplikasis' => $aplikasis,

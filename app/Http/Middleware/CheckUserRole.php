@@ -18,7 +18,7 @@ class CheckUserRole
      * Handle an incoming request.
      * Check if user can access the requested dashboard based on their CURRENT CONTEXT role
      */
-    public function handle(Request $request, Closure $next, string $requiredRole)
+    public function handle(Request $request, Closure $next, ...$requiredRoles)
     {
         if (!Auth::check()) {
             return redirect()->route('login');
@@ -29,22 +29,31 @@ class CheckUserRole
         // Get current context from ContextService
         $context = $this->contextService->getContext();
 
+        $allowedRoles = [];
+        foreach ($requiredRoles as $role) {
+            foreach (explode(',', $role) as $r) {
+                $trimmed = strtolower(trim($r));
+                if ($trimmed !== '') {
+                    $allowedRoles[] = $trimmed;
+                }
+            }
+        }
+
         if ($context && $context->role) {
             $userRoleName = strtolower($context->role->role_name);
-            $requiredRoleLower = strtolower($requiredRole);
 
             // Debug logging
             Log::info('CheckUserRole Debug', [
                 'user_email' => $user->email,
                 'current_context_id' => $context->id,
                 'user_role' => $userRoleName,
-                'required_role' => $requiredRoleLower,
+                'allowed_roles' => $allowedRoles,
                 'route_name' => $request->route()->getName(),
                 'url' => $request->url()
             ]);
 
-            // If current context's role matches required role, allow access
-            if ($userRoleName === $requiredRoleLower) {
+            // If current context's role matches any allowed role, allow access
+            if (in_array($userRoleName, $allowedRoles)) {
                 return $next($request);
             }
 
@@ -64,9 +73,8 @@ class CheckUserRole
 
             if ($firstAuth && $firstAuth->role) {
                 $userRoleName = strtolower($firstAuth->role->role_name);
-                $requiredRoleLower = strtolower($requiredRole);
 
-                if ($userRoleName === $requiredRoleLower) {
+                if (in_array($userRoleName, $allowedRoles)) {
                     return $next($request);
                 }
 

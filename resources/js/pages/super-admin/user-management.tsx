@@ -623,14 +623,14 @@ export default function UserManagement() {
                                             <span className="font-medium text-foreground">{pagination.total}</span> user
                                         </div>
 
-                                        <div className="flex items-center gap-6">
+                                        <div className="flex items-center justify-between gap-2 sm:gap-6">
                                             {/* Per Page Selector */}
-                                            <div className="flex items-center gap-2">
-                                                <Label htmlFor="per-page" className="text-sm font-medium">
+                                            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                                                <Label htmlFor="per-page" className="text-sm font-medium sm:text-sm">
                                                     Per halaman:
                                                 </Label>
                                                 <Select value={perPage.toString()} onValueChange={(value) => setPerPage(Number(value))}>
-                                                    <SelectTrigger id="per-page" className="w-20 font-sans">
+                                                    <SelectTrigger id="per-page" className="h-7 w-16 font-sans text-xs sm:h-9 sm:w-20 sm:text-sm">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -644,13 +644,13 @@ export default function UserManagement() {
                                             </div>
 
                                             {/* Pagination Buttons */}
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setCurrentPage(1)}
                                                     disabled={currentPage === 1}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-8 w-8 p-0 sm:inline-flex"
                                                 >
                                                     <ChevronsLeft className="h-4 w-4" />
                                                 </Button>
@@ -659,13 +659,13 @@ export default function UserManagement() {
                                                     size="sm"
                                                     onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                                                     disabled={currentPage === 1}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-8 w-8 p-0 sm:h-8 sm:w-8"
                                                 >
-                                                    <ChevronLeft className="h-4 w-4" />
+                                                    <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 </Button>
 
                                                 {/* Page Numbers */}
-                                                <div className="flex items-center gap-1">
+                                                <div className="flex items-center gap-0.5 sm:gap-1">
                                                     {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
                                                         let pageNum;
                                                         if (pagination.last_page <= 5) {
@@ -684,7 +684,7 @@ export default function UserManagement() {
                                                                 variant={currentPage === pageNum ? 'default' : 'outline'}
                                                                 size="sm"
                                                                 onClick={() => setCurrentPage(pageNum)}
-                                                                className={`h-8 w-8 p-0 ${currentPage === pageNum
+                                                                className={`h-7 w-7 p-0 text-xs sm:h-8 sm:w-8 sm:text-sm ${currentPage === pageNum
                                                                     ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                                                                     : ''
                                                                     }`}
@@ -700,16 +700,16 @@ export default function UserManagement() {
                                                     size="sm"
                                                     onClick={() => setCurrentPage((prev) => Math.min(pagination.last_page, prev + 1))}
                                                     disabled={currentPage === pagination.last_page}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-7 w-7 p-0 sm:h-8 sm:w-8"
                                                 >
-                                                    <ChevronRight className="h-4 w-4" />
+                                                    <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 </Button>
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setCurrentPage(pagination.last_page)}
                                                     disabled={currentPage === pagination.last_page}
-                                                    className="h-8 w-8 p-0"
+                                                    className="hidden h-8 w-8 p-0 sm:inline-flex"
                                                 >
                                                     <ChevronsRight className="h-4 w-4" />
                                                 </Button>
@@ -724,7 +724,7 @@ export default function UserManagement() {
 
                 {/* Create/Edit Dialog */}
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-3xl sm:max-w-[800px] sm:rounded-2xl">
+                    <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-[800px] sm:rounded-2xl">
                         <form onSubmit={handleSubmit}>
                             <DialogHeader>
                                 <DialogTitle className="font-serif">{editingUser ? 'Edit Master User' : 'Tambah Master User Baru'}</DialogTitle>
@@ -743,7 +743,7 @@ export default function UserManagement() {
                                         name="name"
                                         value={formData.name}
                                         onChange={handleInputChange}
-                                        className={errors.name ? 'border-red-500 font-sans' : 'font-sans'}
+                                        className={errors.name ? 'w-full border-red-500 font-sans' : 'w-full font-sans'}
                                         placeholder="Masukkan nama lengkap"
                                     />
                                     {errors.name && <p className="text-sm text-red-500">{errors.name[0]}</p>}
@@ -759,7 +759,7 @@ export default function UserManagement() {
                                         type="email"
                                         value={formData.email}
                                         onChange={handleInputChange}
-                                        className={errors.email ? 'border-red-500 font-sans' : 'font-sans'}
+                                        className={errors.email ? 'w-full border-red-500 font-sans' : 'w-full font-sans'}
                                         placeholder="masukkan@email.com"
                                     />
                                     {errors.email && <p className="text-sm text-red-500">{errors.email[0]}</p>}
