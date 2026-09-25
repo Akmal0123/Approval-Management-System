@@ -59,9 +59,13 @@ interface Masterflow {
 interface Props {
     masterflows: Masterflow[];
     company: Company;
+    currentAplikasi?: {
+        id: number;
+        name: string;
+    } | null;
 }
 
-export default function Index({ masterflows, company }: Props) {
+export default function Index({ masterflows, company, currentAplikasi }: Props) {
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; masterflow: Masterflow | null }>({
         open: false,
         masterflow: null,
@@ -119,9 +123,15 @@ export default function Index({ masterflows, company }: Props) {
                                             <IconSettings className="h-6 w-6 text-primary" />
                                             Masterflow Management
                                         </h1>
-                                        <p className="flex items-center gap-2 font-sans text-sm text-muted-foreground">
+                                        <p className="flex flex-wrap items-center gap-2 font-sans text-sm text-muted-foreground">
                                             <IconBuilding className="h-4 w-4" />
-                                            {company?.name || 'Unknown Company'}
+                                            <span>{company?.name || 'Unknown Company'}</span>
+                                            {currentAplikasi && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span className="font-semibold text-primary">{currentAplikasi.name}</span>
+                                                </>
+                                            )}
                                         </p>
                                     </div>
                                     <Link href={route('admin.masterflows.create')}>
@@ -136,7 +146,9 @@ export default function Index({ masterflows, company }: Props) {
                                     <CardHeader>
                                         <CardTitle className="font-serif text-foreground">Daftar Masterflow</CardTitle>
                                         <CardDescription className="font-sans">
-                                            Kelola template skema approval dokumen untuk company Anda.
+                                            {currentAplikasi
+                                                ? `Kelola template skema approval dokumen untuk modul aplikasi ${currentAplikasi.name}.`
+                                                : 'Kelola template skema approval dokumen untuk company Anda.'}
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent>

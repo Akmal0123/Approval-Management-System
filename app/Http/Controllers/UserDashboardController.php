@@ -171,9 +171,17 @@ class UserDashboardController extends Controller
             return [];
         }
 
-        return Masterflow::where('company_id', $companyId)
-            ->where('is_active', true)
-            ->with(['steps.jabatan', 'company'])
+        $query = Masterflow::where('company_id', $companyId)
+            ->where('is_active', true);
+
+        $aplikasiId = $this->contextService->getCurrentAplikasiId();
+        if (!$this->contextService->isSuperAdmin() && $aplikasiId) {
+            $query->whereHas('transaksi', function ($q) use ($aplikasiId) {
+                $q->where('aplikasi_id', $aplikasiId);
+            });
+        }
+
+        return $query->with(['steps.jabatan', 'company'])
             ->orderBy('name')
             ->take(5)
             ->get()
