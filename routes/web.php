@@ -107,6 +107,7 @@ Route::middleware(['auth', 'check.role:Admin'])->group(function () {
 
     // Masterflow Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('my-workflows', [\App\Http\Controllers\Admin\MyWorkflowController::class, 'index'])->name('my-workflows');
         Route::resource('masterflows', \App\Http\Controllers\Admin\MasterflowController::class);
         Route::patch('masterflows/{masterflow}/toggle-status', [\App\Http\Controllers\Admin\MasterflowController::class, 'toggleStatus'])
             ->name('masterflows.toggle-status');

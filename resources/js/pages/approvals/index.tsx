@@ -455,56 +455,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 <p className="font-sans text-muted-foreground">Kelola persetujuan dokumen yang memerlukan tindakan Anda</p>
                             </div>
 
-                            {/* Stats Cards */}
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <Card className="border-border bg-card">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-1">
-                                                <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu</p>
-                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.pending}</p>
-                                            </div>
-                                            <IconClock className="h-8 w-8 text-yellow-500" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
 
-                                <Card className="border-border bg-card">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-1">
-                                                <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
-                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.approved}</p>
-                                            </div>
-                                            <IconCheck className="h-8 w-8 text-green-500" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-border bg-card">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-1">
-                                                <p className="font-sans text-sm font-medium text-muted-foreground">Ditolak</p>
-                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.rejected}</p>
-                                            </div>
-                                            <IconX className="h-8 w-8 text-red-500" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-border bg-card">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-1">
-                                                <p className="font-sans text-sm font-medium text-muted-foreground">Terlambat</p>
-                                                <p className="font-sans text-2xl font-bold text-foreground">{statsData.overdue}</p>
-                                            </div>
-                                            <IconAlertCircle className="h-8 w-8 text-orange-500" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
 
                             {/* Search and Filter */}
                             <Card>
@@ -660,13 +611,12 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             {approvalsData.map((approval, index) => (
                                                                 <TableRow
                                                                     key={approval.id}
-                                                                    className={`group transition-colors ${
-                                                                        updatedApprovalIds.has(approval.id)
+                                                                    className={`group transition-colors ${updatedApprovalIds.has(approval.id)
                                                                             ? 'bg-green-50 dark:bg-green-950/20'
                                                                             : selectedApprovalIds.includes(approval.id)
-                                                                              ? 'bg-primary/5'
-                                                                              : ''
-                                                                    }`}
+                                                                                ? 'bg-primary/5'
+                                                                                : ''
+                                                                        }`}
                                                                 >
                                                                     <TableCell className="text-center font-sans text-xs font-medium text-muted-foreground">
                                                                         {index + 1 + (approvals.current_page - 1) * approvals.per_page}
