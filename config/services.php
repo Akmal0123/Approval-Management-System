@@ -41,11 +41,18 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'lookup' => [
+        'url' => env('LOOKUP_MICROSERVICE_URL', env('FASTIFY_INTEGRATION_URL', 'http://localhost:5000')),
+        'jwt_secret' => env('LOOKUP_JWT_SECRET', env('FASTIFY_JWT_SECRET', 'ams-microservice-lookup-secret-key-jwt-auth')),
+        'jwt_issuer' => env('LOOKUP_JWT_ISSUER', env('FASTIFY_JWT_ISSUER', 'ams')),
+        'jwt_audience' => env('LOOKUP_JWT_AUDIENCE', env('FASTIFY_JWT_AUDIENCE', 'microservice-lookup')),
+    ],
+
     'fastify' => [
-        'url' => env('FASTIFY_INTEGRATION_URL', 'http://localhost:5000'),
-        'jwt_secret' => env('FASTIFY_JWT_SECRET', 'ams-fastify-secret-key-super-secure-token-a'),
-        'jwt_issuer' => env('FASTIFY_JWT_ISSUER', 'ams'),
-        'jwt_audience' => env('FASTIFY_JWT_AUDIENCE', 'integration-service'),
+        'url' => env('LOOKUP_MICROSERVICE_URL', env('FASTIFY_INTEGRATION_URL', 'http://localhost:5000')),
+        'jwt_secret' => env('LOOKUP_JWT_SECRET', env('FASTIFY_JWT_SECRET', 'ams-microservice-lookup-secret-key-jwt-auth')),
+        'jwt_issuer' => env('LOOKUP_JWT_ISSUER', env('FASTIFY_JWT_ISSUER', 'ams')),
+        'jwt_audience' => env('LOOKUP_JWT_AUDIENCE', env('FASTIFY_JWT_AUDIENCE', 'microservice-lookup')),
     ],
 
 ];

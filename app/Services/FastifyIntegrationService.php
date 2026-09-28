@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Log;
 class FastifyIntegrationService
 {
     /**
-     * Dapatkan base URL dari Fastify Integration Service.
+     * Dapatkan base URL dari Microservice Lookup.
      */
     protected static function getBaseUrl(): string
     {
-        return rtrim(config('services.fastify.url', 'http://localhost:5000'), '/');
+        return rtrim(config('services.lookup.url', config('services.fastify.url', 'http://localhost:5000')), '/');
     }
 
     /**

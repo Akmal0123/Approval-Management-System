@@ -5,21 +5,25 @@ namespace App\Services;
 class AmsJwtService
 {
     /**
-     * Generate short-lived signed JWT A for calling Fastify Integration Service.
-     * Boundary 1: AMS -> Fastify (HS256)
+     * Generate short-lived signed JWT for calling microservice-lookup.
+     * Boundary: AMS -> microservice-lookup (HS256)
      */
-    public static function generateToken(?array $scopes = null, int $ttl = 900): string
+    public static function generateToken(?array $scopes = null, int $ttl = 900, ?string $userIdentifier = null): string
     {
-        $secret = config('services.fastify.jwt_secret', env('FASTIFY_JWT_SECRET', 'ams-fastify-secret-key-super-secure-token-a'));
-        $issuer = config('services.fastify.jwt_issuer', env('FASTIFY_JWT_ISSUER', 'ams'));
-        $audience = config('services.fastify.jwt_audience', env('FASTIFY_JWT_AUDIENCE', 'integration-service'));
+        $secret = config('services.lookup.jwt_secret', config('services.fastify.jwt_secret', env('LOOKUP_JWT_SECRET', env('FASTIFY_JWT_SECRET', 'ams-microservice-lookup-secret-key-jwt-auth'))));
+        $issuer = config('services.lookup.jwt_issuer', config('services.fastify.jwt_issuer', env('LOOKUP_JWT_ISSUER', env('FASTIFY_JWT_ISSUER', 'ams'))));
+        $audience = config('services.lookup.jwt_audience', config('services.fastify.jwt_audience', env('LOOKUP_JWT_AUDIENCE', env('FASTIFY_JWT_AUDIENCE', 'microservice-lookup'))));
 
         $defaultScopes = [
+            'lookup:read',
             'integration:purchase-order:read',
             'integration:purchase-request:read',
         ];
 
         $now = time();
+        $user = auth()->user();
+        $sub = $userIdentifier ?? ($user ? ($user->email ?? (string)$user->id) : 'ams-user');
+
         $header = [
             'typ' => 'JWT',
             'alg' => 'HS256',
@@ -28,7 +32,12 @@ class AmsJwtService
         $payload = [
             'iss' => $issuer,
             'aud' => $audience,
-            'sub' => 'ams-service',
+            'sub' => $sub,
+            'user' => $user ? [
+                'id' => $user->id,
+                'name' => $user->name ?? null,
+                'email' => $user->email ?? null,
+            ] : null,
             'scope' => $scopes ?? $defaultScopes,
             'iat' => $now,
             'exp' => $now + $ttl,
