@@ -393,7 +393,7 @@ export default function SignatureManager() {
                                 <PenTool className="mr-2 h-4 w-4 shrink-0" />
                                 Gambar Tanda Tangan
                             </TabsTrigger>
-                            <TabsTrigger value="upload">
+                            <TabsTrigger value="upload" className="w-full justify-center py-2.5 font-sans">
                                 <Upload className="mr-2 h-4 w-4 shrink-0" />
                                 Upload Tanda Tangan
                             </TabsTrigger>
@@ -433,14 +433,16 @@ export default function SignatureManager() {
                         </TabsContent>
 
                         <TabsContent value="upload" className="space-y-4">
-                            <div className="space-y-2">
+                            <div className="space-y-4">
                                 <Label htmlFor="signature-file">Upload gambar tanda tangan</Label>
                                 <Input id="signature-file" type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileChange} />
-                                <p className="text-sm text-muted-foreground">Format: PNG, JPG, JPEG (Maks. 2MB). Gambar akan dipotong menjadi rasio persegi 1:1.</p>
+                                <p className="text-sm leading-relaxed text-muted-foreground">
+                                    Format: PNG, JPG, JPEG (Maks. 2MB). Gambar akan dipotong menjadi rasio persegi 1:1.
+                                </p>
                             </div>
 
                             {croppedPreviewUrl && processedFile && (
-                                <div className="space-y-3 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
+                                <div className="space-y-4 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-medium">Hasil Crop Tanda Tangan (1:1)</p>
@@ -468,12 +470,12 @@ export default function SignatureManager() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between pt-2">
-                                        <Button type="button" variant="ghost" size="sm" onClick={resetUpload} className="text-xs text-muted-foreground">
+                                    <div className="flex flex-col gap-3 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <Button type="button" variant="ghost" size="sm" onClick={resetUpload} className="w-full text-xs text-muted-foreground sm:w-auto">
                                             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                                             Pilih File Lain
                                         </Button>
-                                        <Button type="button" onClick={uploadSignature} disabled={loading}>
+                                        <Button type="button" onClick={uploadSignature} disabled={loading} className="w-full sm:w-auto">
                                             <Upload className="mr-2 h-4 w-4" />
                                             {loading ? 'Mengupload...' : 'Upload Tanda Tangan'}
                                         </Button>

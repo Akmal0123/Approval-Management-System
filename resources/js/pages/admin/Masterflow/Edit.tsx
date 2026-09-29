@@ -160,18 +160,18 @@ export default function Edit({ masterflow, jabatans, company, transaksis = [] }:
                         <div className="@container/main flex flex-1 flex-col gap-2 p-6">
                             <div className="space-y-8">
                                 {/* Header Section */}
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-1">
-                                        <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-foreground">
-                                            <IconEdit className="h-6 w-6 text-primary" />
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0 space-y-1">
+                                        <h1 className="flex min-w-0 items-center gap-2 font-serif text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                                            <IconEdit className="h-6 w-6 shrink-0 text-primary" />
                                             Edit Masterflow
                                         </h1>
-                                        <p className="flex items-center gap-2 font-sans text-sm text-muted-foreground">
-                                            <IconBuilding className="h-4 w-4" />
+                                        <p className="flex min-w-0 items-center gap-2 font-sans text-sm text-muted-foreground">
+                                            <IconBuilding className="h-4 w-4 shrink-0" />
                                             {company?.name || 'Unknown Company'}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
                                         <Link href={route('admin.masterflows.show', masterflow.id)}>
                                             <Button variant="outline" className="font-sans">
                                                 <IconSettings className="mr-2 h-4 w-4" />

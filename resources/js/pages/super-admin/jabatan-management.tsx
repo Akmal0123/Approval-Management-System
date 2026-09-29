@@ -193,7 +193,7 @@ export default function SuperAdminJabatanManagement() {
                                     </h1>
                                     <p className="font-sans text-base text-muted-foreground">Kelola dan atur master jabatan/posisi dalam sistem</p>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="mb-4 flex items-center gap-3 sm:mb-0">
                                     <Badge variant="outline" className="border-primary/30 bg-primary/10 font-sans text-sm font-medium text-primary">
                                         <Activity className="mr-1 h-3 w-3" />
                                         {jabatans.length} Jabatans

@@ -216,6 +216,70 @@ export default function SuperAdminCompanyManagement() {
                             <div className="space-y-6">
                                 <Card className="border-border bg-card">
                                     <CardContent className="p-0">
+                                        <div className="space-y-3 p-4 md:hidden">
+                                            {companies.length > 0 ? (
+                                                companies.map((company, index) => (
+                                                    <div key={company.id} className="space-y-3 border-b border-border pb-3 last:border-0 last:pb-0">
+                                                        <div className="flex min-w-0 items-start justify-between gap-3">
+                                                            <div className="flex min-w-0 items-start gap-2">
+                                                                <span className="shrink-0 font-mono text-xs text-muted-foreground">{index + 1}</span>
+                                                                <span className="min-w-0 break-words font-sans font-medium text-foreground">{company.name}</span>
+                                                            </div>
+                                                            <div className="flex shrink-0 gap-1">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleEdit(company)}
+                                                                    className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                    aria-label={`Edit ${company.name}`}
+                                                                    title="Edit"
+                                                                >
+                                                                    <IconEdit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleDelete(company.id, company.name)}
+                                                                    className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                    aria-label={`Hapus ${company.name}`}
+                                                                    title="Hapus"
+                                                                >
+                                                                    <IconTrash className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs text-muted-foreground">Alamat</p>
+                                                                <p className="break-words font-sans text-foreground">{company.address || '-'}</p>
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs text-muted-foreground">Nomor Telepon</p>
+                                                                <p className="break-words font-sans text-foreground">{company.phone_number || '-'}</p>
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs text-muted-foreground">Base URL</p>
+                                                                {company.base_url ? (
+                                                                    <a
+                                                                        href={company.base_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="block break-all font-sans text-blue-600 hover:underline"
+                                                                    >
+                                                                        {company.base_url}
+                                                                    </a>
+                                                                ) : (
+                                                                    <p className="text-foreground">-</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="py-4 text-center font-sans text-sm text-muted-foreground">Belum ada perusahaan yang tersedia</p>
+                                            )}
+                                        </div>
+                                        <div className="hidden md:block">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
@@ -286,6 +350,7 @@ export default function SuperAdminCompanyManagement() {
                                                 )}
                                             </TableBody>
                                         </Table>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>

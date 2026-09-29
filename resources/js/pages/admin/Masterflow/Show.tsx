@@ -73,18 +73,18 @@ export default function Show({ masterflow, company }: Props) {
                         <div className="@container/main flex flex-1 flex-col gap-2 p-6">
                             <div className="space-y-8">
                                 {/* Header Section */}
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-1">
-                                        <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-foreground">
-                                            <IconSettings className="h-6 w-6 text-primary" />
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0 space-y-1">
+                                        <h1 className="flex min-w-0 items-center gap-2 font-serif text-xl font-bold tracking-tight break-words text-foreground sm:text-2xl">
+                                            <IconSettings className="h-6 w-6 shrink-0 text-primary" />
                                             {masterflow.name}
                                         </h1>
-                                        <p className="flex items-center gap-2 font-sans text-sm text-muted-foreground">
+                                        <p className="flex min-w-0 items-center gap-2 font-sans text-sm text-muted-foreground">
                                             <IconBuilding className="h-4 w-4" />
                                             {masterflow.company?.name || company?.name || 'Unknown Company'}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
                                         <Link href={route('admin.masterflows.edit', masterflow.id)}>
                                             <Button className="font-sans">
                                                 <IconEdit className="mr-2 h-4 w-4" />
@@ -259,7 +259,54 @@ export default function Show({ masterflow, company }: Props) {
                                         <CardDescription className="font-sans">Tabel ringkasan semua langkah dalam masterflow ini.</CardDescription>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="overflow-x-auto">
+                                        <div className="space-y-3 md:hidden">
+                                            {masterflow.steps.map((step) => (
+                                                <div key={step.id} className="space-y-3 rounded-md border border-border p-3">
+                                                    <div className="flex min-w-0 items-start justify-between gap-2">
+                                                        <div className="flex min-w-0 items-start gap-2">
+                                                            <Badge variant="outline" className="shrink-0 font-sans">
+                                                                {step.step_order}
+                                                            </Badge>
+                                                            <span className="min-w-0 break-words font-sans text-sm font-semibold text-foreground">
+                                                                {step.step_name}
+                                                            </span>
+                                                        </div>
+                                                        {step.is_required ? (
+                                                            <Badge variant="secondary" className="shrink-0 font-sans text-xs">
+                                                                Wajib
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="shrink-0 font-sans text-xs">
+                                                                Opsional
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid min-w-0 grid-cols-2 gap-3 text-sm">
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs text-muted-foreground">Jabatan</p>
+                                                            <p className="break-words font-sans text-foreground">{step.jabatan.name}</p>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs text-muted-foreground">Min. Nominal</p>
+                                                            {step.min_nominal ? (
+                                                                <p className="break-words font-mono text-sm font-semibold text-primary">
+                                                                    Rp {Number(step.min_nominal).toLocaleString('id-ID')}
+                                                                </p>
+                                                            ) : (
+                                                                <p className="text-muted-foreground">-</p>
+                                                            )}
+                                                        </div>
+                                                        <div className="col-span-2 min-w-0">
+                                                            <p className="text-xs text-muted-foreground">Deskripsi</p>
+                                                            <p className="break-words font-sans text-sm text-foreground">
+                                                                {step.description || <span className="text-muted-foreground italic">Tidak ada deskripsi</span>}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="hidden overflow-x-auto md:block">
                                             <table className="w-full border-collapse">
                                                 <thead>
                                                     <tr className="border-b border-border">
