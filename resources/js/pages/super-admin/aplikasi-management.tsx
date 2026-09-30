@@ -240,6 +240,64 @@ const baseUrlPrefix = selectedCompany?.base_url || 'https://...';
                                 <div className="space-y-6">
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-0">
+                                            <div className="space-y-3 p-4 md:hidden">
+                                                {aplikasis.length > 0 ? (
+                                                    aplikasis.map((aplikasi, index) => (
+                                                        <div key={aplikasi.id} className="space-y-3 border-b border-border pb-3 last:border-0 last:pb-0">
+                                                            <div className="flex min-w-0 items-start justify-between gap-3">
+                                                                <div className="flex min-w-0 items-start gap-2">
+                                                                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center font-mono text-xs leading-none text-muted-foreground">
+                                                                        {index + 1}
+                                                                    </span>
+                                                                    <span className="min-w-0 break-words font-sans font-medium text-foreground">{aplikasi.name}</span>
+                                                                </div>
+                                                                <div className="flex shrink-0 gap-1">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleEdit(aplikasi)}
+                                                                        className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                        aria-label={`Edit ${aplikasi.name}`}
+                                                                        title="Edit"
+                                                                    >
+                                                                        <IconEdit className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleDelete(aplikasi.id, aplikasi.name)}
+                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                        aria-label={`Hapus ${aplikasi.name}`}
+                                                                        title="Hapus"
+                                                                    >
+                                                                        <IconTrash className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-2 text-sm">
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs text-muted-foreground">Perusahaan</p>
+                                                                    <p className="break-words font-sans text-foreground">{aplikasi.company.name}</p>
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs text-muted-foreground">Path API</p>
+                                                                    {aplikasi.path_api ? (
+                                                                        <p className="break-all font-sans text-foreground">
+                                                                            <span className="text-muted-foreground">{aplikasi.company.base_url}</span>
+                                                                            <span className="font-semibold text-primary">{aplikasi.path_api}</span>
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="text-muted-foreground">-</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="py-4 text-center font-sans text-sm text-muted-foreground">Belum ada aplikasi yang tersedia</p>
+                                                )}
+                                            </div>
+                                            <div className="hidden md:block">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -301,6 +359,7 @@ const baseUrlPrefix = selectedCompany?.base_url || 'https://...';
                                                     )}
                                                 </TableBody>
                                             </Table>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 </div>

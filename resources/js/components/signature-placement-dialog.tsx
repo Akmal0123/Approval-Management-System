@@ -78,14 +78,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     // References for dragging
     const containerRef = useRef<HTMLDivElement>(null);
+    const pageContainersRef = useRef<Record<number, HTMLDivElement | null>>({});
+    const pageSizesRef = useRef<Record<number, { width: number; height: number }>>({});
+    const pagesViewportRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [initialPos, setInitialPos] = useState({ x: 0, y: 0 });
     const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 });
     const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
-    const [pageSizePt, setPageSizePt] = useState({ width: 595.28, height: 841.89 });
-    const [pageDimensions, setPageDimensions] = useState({ width: 0, height: 0 });
+    const viewerRef = useRef<HTMLDivElement>(null);
+    const hasAutoFit = useRef(false);
 
     const PDF_TO_MM = 25.4 / 72; // Exact: 1 point = 25.4 / 72 mm (~0.3527777777777778 mm)
 
@@ -128,6 +131,24 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             return changed ? next : prev;
         });
     }, [approvals]);
+
+    const MOBILE_MIN_SCALE = 0.45;
+
+    const getMobileScale = (widthPt: number) => {
+        const el = viewerRef.current;
+        if (!el || widthPt <= 0) return 1;
+        const style = getComputedStyle(el);
+        const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        if (available <= 0) return 1;
+        return Math.min(1, Math.max(MOBILE_MIN_SCALE, available / widthPt));
+    };
+
+    useEffect(() => {
+        hasAutoFit.current = false;
+        setNumPages(0);
+        setCurrentPage(1);
+        pageSizesRef.current = {};
+    }, [fileUrl]);
 
     // Notify parent on positions changes
     useEffect(() => {
@@ -244,27 +265,75 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         setLoading(false);
     }
 
-    const onPageLoadSuccess = (page: any) => {
+    const onPageLoadSuccess = (page: any, pageNumber: number) => {
         const viewport = page.getViewport ? page.getViewport({ scale: 1 }) : null;
         const widthPt = viewport ? viewport.width : (page.originalWidth || (page.width ? page.width / scale : 595.28));
         const heightPt = viewport ? viewport.height : (page.originalHeight || (page.height ? page.height / scale : 841.89));
 
-        setPageSizePt({ width: widthPt, height: heightPt });
-        setPageDimensions({
-            width: widthPt * scale,
-            height: heightPt * scale,
-        });
+        pageSizesRef.current[pageNumber] = { width: widthPt, height: heightPt };
+
+        if (!hasAutoFit.current) {
+            hasAutoFit.current = true;
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                setScale(getMobileScale(widthPt));
+            }
+        }
     };
 
-    // Keep pageDimensions synchronized with zoom scale changes
     useEffect(() => {
-        if (pageSizePt.width > 0 && pageSizePt.height > 0) {
-            setPageDimensions({
-                width: pageSizePt.width * scale,
-                height: pageSizePt.height * scale,
-            });
-        }
-    }, [scale, pageSizePt]);
+        const root = pagesViewportRef.current;
+        if (!root || numPages === 0) return;
+
+        const observer = new IntersectionObserver(
+            () => {
+                const rootRect = root.getBoundingClientRect();
+                const viewportCenter = rootRect.top + rootRect.height / 2;
+                let visiblePage: number | null = null;
+                let closestDistance = Number.POSITIVE_INFINITY;
+
+                Object.entries(pageContainersRef.current).forEach(([pageNumber, element]) => {
+                    if (!element) return;
+                    const rect = element.getBoundingClientRect();
+                    if (rect.bottom <= rootRect.top || rect.top >= rootRect.bottom) return;
+
+                    const pageCenter = rect.top + rect.height / 2;
+                    const distance = Math.abs(pageCenter - viewportCenter);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        visiblePage = Number(pageNumber);
+                    }
+                });
+
+                if (visiblePage !== null) {
+                    const nextVisiblePage = visiblePage;
+                    setCurrentPage((page) => (page === nextVisiblePage ? page : nextVisiblePage));
+                }
+            },
+            { root, threshold: 0.01 },
+        );
+
+        Object.values(pageContainersRef.current).forEach((element) => {
+            if (element) observer.observe(element);
+        });
+
+        return () => observer.disconnect();
+    }, [numPages]);
+
+    const goToPage = (pageNumber: number) => {
+        const targetPage = Math.max(1, Math.min(numPages || pageNumber, pageNumber));
+        setCurrentPage(targetPage);
+
+        const root = pagesViewportRef.current;
+        const target = pageContainersRef.current[targetPage];
+        if (!root || !target) return;
+
+        const rootRect = root.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        root.scrollTo({
+            top: root.scrollTop + targetRect.top - rootRect.top,
+            behavior: 'smooth',
+        });
+    };
 
     // Convert mm (PDF coordinate) to pixels (UI coordinate based on scale)
     const mmToPx = (mm: number) => {
@@ -276,7 +345,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         return (px / scale) * PDF_TO_MM;
     };
 
-    const handleMouseDown = (e: React.MouseEvent, approvalId: number | string) => {
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, approvalId: number | string, pageNumber: number) => {
         if (readOnly) return;
 
         // Prevent editing already approved signatures
@@ -289,6 +358,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         e.preventDefault();
         e.stopPropagation();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        containerRef.current = pageContainersRef.current[pageNumber];
         setActiveApprovalId(approvalId);
         setIsDragging(true);
         setDragStart({ x: e.clientX, y: e.clientY });
@@ -299,7 +370,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         }
     };
 
-    const handleResizeMouseDown = (e: React.MouseEvent, approvalId: number | string) => {
+    const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, approvalId: number | string, pageNumber: number) => {
         if (readOnly) return;
 
         // Prevent editing already approved signatures
@@ -312,6 +383,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         e.preventDefault();
         e.stopPropagation();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        containerRef.current = pageContainersRef.current[pageNumber];
         setActiveApprovalId(approvalId);
         setIsResizing(true);
         setResizeStart({ x: e.clientX, y: e.clientY });
@@ -322,14 +395,15 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         }
     };
 
-    const handleMouseMove = (e: React.MouseEvent) => {
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!activeApprovalId || !containerRef.current) return;
 
         const currentPos = positions[activeApprovalId];
         if (!currentPos) return;
 
-        const containerWidth = pageDimensions.width > 0 ? pageDimensions.width : containerRef.current.clientWidth;
-        const containerHeight = pageDimensions.height > 0 ? pageDimensions.height : containerRef.current.clientHeight;
+        const pageSize = pageSizesRef.current[currentPos.page];
+        const containerWidth = pageSize ? pageSize.width * scale : containerRef.current.clientWidth;
+        const containerHeight = pageSize ? pageSize.height * scale : containerRef.current.clientHeight;
 
         if (isDragging) {
             const dx = e.clientX - dragStart.x;
@@ -384,7 +458,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
         const wasInteracting = isDragging || isResizing;
         setIsDragging(false);
         setIsResizing(false);
@@ -414,7 +488,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 return next;
             });
             setActiveApprovalId(newKey);
-            setCurrentPage(targetPage);
+            goToPage(targetPage);
             autoSavePositions(updatedPositions);
             return;
         }
@@ -431,7 +505,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             updatedPositions = next;
             return next;
         });
-        setCurrentPage(targetPage);
+        goToPage(targetPage);
         autoSavePositions(updatedPositions);
     };
 
@@ -478,7 +552,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         });
 
         if (currentPage !== pageNum) {
-            setCurrentPage(pageNum);
+            goToPage(pageNum);
         }
         autoSavePositions(updatedPositions);
     };
@@ -559,13 +633,13 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         autoSavePositions(updatedPositions);
     };
 
-    const renderSignatureBoxes = () => {
+    const renderSignatureBoxes = (pageNumber: number) => {
         if (loading) return null;
 
         const boxes = approvals
             .map((approval) => {
                 const pos = positions[approval.id];
-                if (!pos || pos.page !== currentPage) return null;
+                if (!pos || pos.page !== pageNumber) return null;
 
                 const isActive = activeApprovalId === approval.id;
                 const isApproved = approval.approval_status === 'approved';
@@ -583,7 +657,6 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     return (
                         <div
                             key={approval.id}
-                            className={`absolute flex flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${qrBoxClass}`}
                             style={{
                                 left: `${mmToPx(pos.x)}px`,
                                 top: `${mmToPx(pos.y)}px`,
@@ -591,7 +664,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                 height: `${mmToPx(pos.height)}px`,
                                 cursor: isEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                             }}
-                            onMouseDown={isEditable ? (e) => handleMouseDown(e, approval.id) : undefined}
+                            className={`absolute flex touch-none flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${qrBoxClass}`}
+                            onPointerDown={isEditable ? (e) => handlePointerDown(e, approval.id, pageNumber) : undefined}
                         >
                             <div className="pointer-events-none flex flex-col items-center justify-center gap-1 p-1 text-center text-amber-700">
                                 <div className="flex max-w-[90%] items-center gap-1 overflow-hidden rounded bg-white/90 px-1 py-0.5 text-[9px] font-semibold whitespace-nowrap shadow-xs sm:text-[10px]">
@@ -631,7 +705,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             {isActive && isEditable && (
                                 <div
                                     className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize rounded-tl-sm rounded-br-sm bg-amber-600"
-                                    onMouseDown={(e) => handleResizeMouseDown(e, approval.id)}
+                                    onPointerDown={(e) => handleResizePointerDown(e, approval.id, pageNumber)}
                                 />
                             )}
                         </div>
@@ -656,7 +730,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             height: `${mmToPx(pos.height)}px`,
                             cursor: isEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                         }}
-                        onMouseDown={isEditable ? (e) => handleMouseDown(e, approval.id) : undefined}
+                        onPointerDown={isEditable ? (e) => handlePointerDown(e, approval.id, pageNumber) : undefined}
                     >
                         <div className="pointer-events-none flex max-w-[90%] items-center gap-1 overflow-hidden rounded bg-white/80 px-1 py-0.5 text-[10px] font-semibold whitespace-nowrap shadow-sm sm:text-xs">
                             {isEditable && <GripHorizontal className="h-3 w-3 flex-shrink-0" />}
@@ -672,7 +746,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         {isActive && isEditable && (
                             <div
                                 className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize rounded-tl-sm rounded-br-sm bg-primary"
-                                onMouseDown={(e) => handleResizeMouseDown(e, approval.id)}
+                                onPointerDown={(e) => handleResizePointerDown(e, approval.id, pageNumber)}
                             />
                         )}
                     </div>
@@ -682,7 +756,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         // Render QR codes configured for currentPage
         const qrEntries = Object.entries(positions).filter(
-            ([id, pos]) => isQrCodeId(id) && pos.page === currentPage
+            ([id, pos]) => isQrCodeId(id) && pos.page === pageNumber
         );
 
         qrEntries.forEach(([qrId, qrPos]) => {
@@ -691,7 +765,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             boxes.push(
                 <div
                     key={qrId}
-                    className={`absolute flex flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${isActive ? 'z-10 border-amber-600 bg-amber-500/20 ring-2 ring-amber-400' : 'z-0 border-amber-500 bg-amber-100/50 hover:border-amber-600'}`}
+                    className={`absolute flex touch-none flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${isActive ? 'z-10 border-amber-600 bg-amber-500/20 ring-2 ring-amber-400' : 'z-0 border-amber-500 bg-amber-100/50 hover:border-amber-600'}`}
                     style={{
                         left: `${mmToPx(qrPos.x)}px`,
                         top: `${mmToPx(qrPos.y)}px`,
@@ -699,7 +773,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         height: `${mmToPx(qrPos.height)}px`,
                         cursor: isQrEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                     }}
-                    onMouseDown={isQrEditable ? (e) => handleMouseDown(e, qrId) : undefined}
+                    onPointerDown={isQrEditable ? (e) => handlePointerDown(e, qrId, pageNumber) : undefined}
                 >
                     <div className="pointer-events-none flex flex-col items-center gap-1 p-1.5 text-amber-700">
                         <span className="text-center text-[8px] font-bold tracking-wider uppercase sm:text-[9px]">
@@ -735,7 +809,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     {isActive && isQrEditable && (
                         <div
                             className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize rounded-tl-sm rounded-br-sm bg-amber-600"
-                            onMouseDown={(e) => handleResizeMouseDown(e, qrId)}
+                            onPointerDown={(e) => handleResizePointerDown(e, qrId, pageNumber)}
                         />
                     )}
                 </div>,
@@ -748,7 +822,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const innerContent = (
         <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
             {/* Sidebar Configuration */}
-            <div className="flex max-h-[35vh] w-full shrink-0 flex-col gap-6 overflow-y-auto border-b bg-muted/20 p-4 md:h-full md:max-h-none md:w-80 md:border-r md:border-b-0">
+            <div className="flex max-h-[22vh] w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3 md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4">
                 <div>
                     <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
                     <div className="space-y-3">
@@ -758,6 +832,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             const isCurrentPage = pos?.page === currentPage;
                             const isApproved = approval.approval_status === 'approved';
                             const isQr = approval.signature_method === 'qr';
+                            
 
                             return (
                                 <div
@@ -766,7 +841,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                     onClick={() => {
                                         setActiveApprovalId(approval.id);
                                         if (pos && pos.page !== currentPage) {
-                                            setCurrentPage(pos.page);
+                                            goToPage(pos.page);
                                         }
                                     }}
                                 >
@@ -985,7 +1060,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                     onClick={() => {
                                                         setActiveApprovalId(qr.id);
                                                         if (qr.page !== currentPage) {
-                                                            setCurrentPage(qr.page);
+                                                            goToPage(qr.page);
                                                         }
                                                     }}
                                                 >
@@ -1033,7 +1108,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                                 className="h-5 px-1.5 text-[10px]"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setCurrentPage(qr.page);
+                                                                    goToPage(qr.page);
                                                                     setActiveApprovalId(qr.id);
                                                                 }}
                                                             >
@@ -1052,7 +1127,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 </div>
 
                 {/* Kontrol Tampilan & Simpan Posisi */}
-                <div className="border-t pt-4 space-y-3">
+                <div className="hidden space-y-3 border-t pt-4 md:block">
                     <div className="text-sm font-semibold">Kontrol Tampilan</div>
 
                     <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
@@ -1085,7 +1160,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             variant="outline"
                             size="sm"
                             className="flex-1"
-                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            onClick={() => goToPage(currentPage - 1)}
                             disabled={currentPage <= 1 || loading}
                         >
                             Prev
@@ -1098,7 +1173,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             variant="outline"
                             size="sm"
                             className="flex-1"
-                            onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
+                            onClick={() => goToPage(currentPage + 1)}
                             disabled={currentPage >= numPages || loading}
                         >
                             Next
@@ -1120,51 +1195,96 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
             {/* PDF Viewer Area */}
             <div
-                className="relative flex flex-1 justify-center overflow-auto bg-gray-100 p-4 md:p-8"
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                ref={viewerRef}
+                className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-100 p-2 md:p-8"
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
             >
-                {loading && (
-                    <div className="flex h-full min-h-[300px] w-full items-center justify-center">
-                        <div className="text-center">
-                            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
-                            <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
-                        </div>
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-background/90 px-2 py-1.5 md:hidden">
+                    <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.max(0.45, s - 0.2))} title="Zoom Out" aria-label="Zoom out">
+                            <ZoomOut className="h-4 w-4" />
+                        </Button>
+                        <span className="min-w-10 text-center text-xs font-medium">{Math.round(scale * 100)}%</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.min(2.0, s + 0.2))} title="Zoom In" aria-label="Zoom in">
+                            <ZoomIn className="h-4 w-4" />
+                        </Button>
                     </div>
-                )}
-
-                {error && (
-                    <div className="flex h-full min-h-[300px] w-full items-center justify-center">
-                        <div className="text-center">
-                            <p className="text-sm text-red-600">{error}</p>
-                            <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>
-                                Coba Lagi
-                            </Button>
-                        </div>
+                    <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1 || loading}>
+                            Prev
+                        </Button>
+                        <span className="min-w-12 text-center text-xs font-medium text-muted-foreground">
+                            {currentPage}/{numPages || '-'}
+                        </span>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages || loading}>
+                            Next
+                        </Button>
                     </div>
-                )}
+                </div>
 
-                {!error && (
-                    <div ref={containerRef} className={`relative w-fit shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}>
+                <div ref={pagesViewportRef} className="relative flex min-h-0 min-w-0 flex-1 overflow-auto">
+                    {loading && (
+                        <div className="flex h-full min-h-[300px] w-full items-center justify-center">
+                            <div className="text-center">
+                                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                                <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
+                            </div>
+                        </div>
+                    )}
+                    {error && (
+                        <div className="flex h-full min-h-[300px] w-full items-center justify-center">
+                            <div className="text-center">
+                                <p className="text-sm text-red-600">{error}</p>
+                                <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>
+                                    Coba Lagi
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                    {!error && (
                         <Document
                             file={fileUrl}
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
+                            className="flex w-full flex-col items-center gap-4"
                         >
-                            <Page
-                                pageNumber={currentPage}
-                                scale={scale}
-                                renderTextLayer={false}
-                                renderAnnotationLayer={false}
-                                className="relative block !m-0 !p-0 !max-w-none !shadow-none"
-                                onLoadSuccess={onPageLoadSuccess}
-                            >
-                                {renderSignatureBoxes()}
-                            </Page>
+                            {Array.from({ length: numPages }, (_, index) => {
+                                const pageNumber = index + 1;
+                                return (
+                                    <div key={pageNumber} className="flex w-full shrink-0 justify-center">
+                                        <div
+                                            ref={(element) => {
+                                                pageContainersRef.current[pageNumber] = element;
+                                            }}
+                                            data-page-number={pageNumber}
+                                            className={`relative w-fit shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}
+                                        >
+                                            <Page
+                                                pageNumber={pageNumber}
+                                                scale={scale}
+                                                renderTextLayer={false}
+                                                renderAnnotationLayer={false}
+                                                className="relative block !m-0 !p-0 !max-w-none !shadow-none"
+                                                onLoadSuccess={(page) => onPageLoadSuccess(page, pageNumber)}
+                                            >
+                                                {renderSignatureBoxes(pageNumber)}
+                                            </Page>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </Document>
+                    )}
+                </div>
+                {isEmbedded && !readOnly && (
+                    <div className="shrink-0 border-t bg-background p-2 md:hidden">
+                        <Button type="button" onClick={handleSave} disabled={saving || loading} className="h-9 w-full">
+                            {saving ? 'Menyimpan...' : 'Simpan Posisi'}
+                        </Button>
                     </div>
                 )}
             </div>

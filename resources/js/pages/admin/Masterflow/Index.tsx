@@ -59,9 +59,13 @@ interface Masterflow {
 interface Props {
     masterflows: Masterflow[];
     company: Company;
+    currentAplikasi?: {
+        id: number;
+        name: string;
+    } | null;
 }
 
-export default function Index({ masterflows, company }: Props) {
+export default function Index({ masterflows, company, currentAplikasi }: Props) {
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; masterflow: Masterflow | null }>({
         open: false,
         masterflow: null,
@@ -119,9 +123,15 @@ export default function Index({ masterflows, company }: Props) {
                                             <IconSettings className="h-6 w-6 text-primary" />
                                             Masterflow Management
                                         </h1>
-                                        <p className="flex items-center gap-2 font-sans text-sm text-muted-foreground">
+                                        <p className="flex flex-wrap items-center gap-2 font-sans text-sm text-muted-foreground">
                                             <IconBuilding className="h-4 w-4" />
-                                            {company?.name || 'Unknown Company'}
+                                            <span>{company?.name || 'Unknown Company'}</span>
+                                            {currentAplikasi && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span className="font-semibold text-primary">{currentAplikasi.name}</span>
+                                                </>
+                                            )}
                                         </p>
                                     </div>
                                     <Link href={route('admin.masterflows.create')}>
@@ -136,7 +146,9 @@ export default function Index({ masterflows, company }: Props) {
                                     <CardHeader>
                                         <CardTitle className="font-serif text-foreground">Daftar Masterflow</CardTitle>
                                         <CardDescription className="font-sans">
-                                            Kelola template skema approval dokumen untuk company Anda.
+                                            {currentAplikasi
+                                                ? `Kelola template skema approval dokumen untuk modul aplikasi ${currentAplikasi.name}.`
+                                                : 'Kelola template skema approval dokumen untuk company Anda.'}
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent>
@@ -157,6 +169,106 @@ export default function Index({ masterflows, company }: Props) {
                                                 </div>
                                             </div>
                                         ) : (
+                                            <div className="space-y-3 md:hidden">
+                                                {masterflows.map((masterflow) => (
+                                                    <article key={masterflow.id} className="space-y-3 rounded-md border border-border p-3">
+                                                        <div className="flex min-w-0 items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <h3 className="break-words font-sans text-sm font-semibold text-foreground">{masterflow.name}</h3>
+                                                                {masterflow.transaksi && (
+                                                                    <Badge variant="outline" className="mt-1 max-w-full whitespace-normal text-xs">
+                                                                        {masterflow.transaksi.aplikasi?.name ? `[${masterflow.transaksi.aplikasi.name}] ` : ''}
+                                                                        {masterflow.transaksi.nama_transaksi}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <Badge
+                                                                variant={masterflow.is_active ? 'default' : 'secondary'}
+                                                                className={
+                                                                    masterflow.is_active
+                                                                        ? 'shrink-0 bg-green-100 font-sans text-green-800 hover:bg-green-200'
+                                                                        : 'shrink-0 font-sans'
+                                                                }
+                                                            >
+                                                                {masterflow.is_active ? (
+                                                                    <>
+                                                                        <IconCheck className="mr-1 h-3 w-3" />
+                                                                        Aktif
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <IconX className="mr-1 h-3 w-3" />
+                                                                        Nonaktif
+                                                                    </>
+                                                                )}
+                                                            </Badge>
+                                                        </div>
+
+                                                        <p className="break-words font-sans text-sm text-muted-foreground">
+                                                            {masterflow.description || '-'}
+                                                        </p>
+
+                                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground">Total Steps</p>
+                                                                <Badge variant="secondary" className="mt-1 font-sans">
+                                                                    {masterflow.total_steps}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs text-muted-foreground">Dibuat</p>
+                                                                <p className="mt-1 font-sans text-foreground">
+                                                                    {new Date(masterflow.created_at).toLocaleDateString('id-ID')}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="break-words text-sm text-muted-foreground">
+                                                            {masterflow.steps.map((step, index) => (
+                                                                <span key={step.id}>
+                                                                    {step.jabatan.name}
+                                                                    {index < masterflow.steps.length - 1 && ' → '}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+
+                                                        <div className="flex items-center justify-end gap-1 border-t border-border pt-2">
+                                                            <Link href={route('admin.masterflows.show', masterflow.id)}>
+                                                                <Button variant="ghost" size="sm" aria-label={`Lihat ${masterflow.name}`} title="Lihat">
+                                                                    <IconEye className="h-4 w-4" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Link href={route('admin.masterflows.edit', masterflow.id)}>
+                                                                <Button variant="ghost" size="sm" aria-label={`Edit ${masterflow.name}`} title="Edit">
+                                                                    <IconEdit className="h-4 w-4" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => toggleStatus(masterflow)}
+                                                                aria-label={`${masterflow.is_active ? 'Nonaktifkan' : 'Aktifkan'} ${masterflow.name}`}
+                                                                title={masterflow.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                                                            >
+                                                                {masterflow.is_active ? <IconX className="h-4 w-4" /> : <IconCheck className="h-4 w-4" />}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleDelete(masterflow)}
+                                                                aria-label={`Hapus ${masterflow.name}`}
+                                                                title="Hapus"
+                                                            >
+                                                                <IconTrash className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </article>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {masterflows.length > 0 && (
+                                            <div className="hidden md:block">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -253,6 +365,7 @@ export default function Index({ masterflows, company }: Props) {
                                                     ))}
                                                 </TableBody>
                                             </Table>
+                                            </div>
                                         )}
                                     </CardContent>
                                 </Card>

@@ -390,6 +390,103 @@ export default function SuperAdminTransaksiManagement() {
                                                     </p>
                                                 </div>
                                             ) : (
+                                                <>
+                                                    <div className="space-y-3 p-4 md:hidden">
+                                                        {filteredTransaksis.map((transaksi, index) => (
+                                                            <article key={transaksi.id} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2 border-b border-border pb-3 last:border-0 last:pb-0">
+                                                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center font-mono text-xs leading-none text-muted-foreground">
+                                                                    {index + 1}
+                                                                </span>
+                                                                <div className="min-w-0 space-y-3">
+                                                                    <div className="flex min-w-0 items-start justify-between gap-3">
+                                                                        <div className="min-w-0 space-y-1">
+                                                                            <Badge variant="outline" className="max-w-full break-all font-mono">
+                                                                                {transaksi.kode_transaksi}
+                                                                            </Badge>
+                                                                            <h3 className="break-words font-sans text-sm font-semibold text-foreground">
+                                                                                {transaksi.nama_transaksi}
+                                                                            </h3>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleStatus(transaksi)}
+                                                                            className="shrink-0 cursor-pointer focus:outline-none"
+                                                                            title="Klik untuk mengubah status"
+                                                                            aria-label={`Ubah status ${transaksi.nama_transaksi}`}
+                                                                        >
+                                                                            {transaksi.is_active ? (
+                                                                                <Badge className="border-emerald-300 bg-emerald-100 font-sans text-emerald-800 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                                                                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                                                                                    Aktif
+                                                                                </Badge>
+                                                                            ) : (
+                                                                                <Badge
+                                                                                    variant="outline"
+                                                                                    className="border-slate-300 bg-slate-100 font-sans text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                                                                                >
+                                                                                    <XCircle className="mr-1 h-3 w-3" />
+                                                                                    Nonaktif
+                                                                                </Badge>
+                                                                            )}
+                                                                        </button>
+                                                                    </div>
+
+                                                                    <div className="grid min-w-0 grid-cols-2 gap-3 text-sm">
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-xs text-muted-foreground">Aplikasi</p>
+                                                                        <div className="mt-1 flex min-w-0 items-start gap-1.5">
+                                                                            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                            <span className="break-words text-foreground">{transaksi.aplikasi?.name || '-'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-xs text-muted-foreground">Departemen</p>
+                                                                        <div className="mt-1">
+                                                                            {transaksi.departemen ? (
+                                                                                <Badge variant="outline" className="max-w-full whitespace-normal break-words text-xs">
+                                                                                    {transaksi.departemen}
+                                                                                </Badge>
+                                                                            ) : (
+                                                                                <span className="text-xs text-muted-foreground">Semua</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="col-span-2 min-w-0">
+                                                                        <p className="text-xs text-muted-foreground">Deskripsi</p>
+                                                                        <p className="mt-1 break-words text-sm text-foreground">{transaksi.deskripsi || '-'}</p>
+                                                                    </div>
+                                                                    </div>
+
+                                                                    <div className="flex justify-end gap-2 border-t border-border pt-2">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => openEditModal(transaksi)}
+                                                                        className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-950"
+                                                                        aria-label={`Edit ${transaksi.nama_transaksi}`}
+                                                                        title="Edit Transaksi"
+                                                                    >
+                                                                        <IconEdit className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setDeletingTransaksi(transaksi);
+                                                                            setIsDeleteDialogOpen(true);
+                                                                        }}
+                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-950"
+                                                                        aria-label={`Hapus ${transaksi.nama_transaksi}`}
+                                                                        title="Hapus Transaksi"
+                                                                    >
+                                                                        <IconTrash className="h-4 w-4" />
+                                                                    </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </article>
+                                                        ))}
+                                                    </div>
+                                                    <div className="hidden md:block">
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
@@ -485,6 +582,8 @@ export default function SuperAdminTransaksiManagement() {
                                                         ))}
                                                     </TableBody>
                                                 </Table>
+                                                    </div>
+                                                </>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -508,7 +607,7 @@ export default function SuperAdminTransaksiManagement() {
         <form onSubmit={handleSubmit} className="py-2 space-y-4">
             {/* Baris 1: Aplikasi & Path API Aplikasi (Autofill) */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                     <Label htmlFor="aplikasi_id" className="font-sans font-medium">
                         Aplikasi <span className="text-red-500">*</span>
                     </Label>
@@ -516,12 +615,12 @@ export default function SuperAdminTransaksiManagement() {
                         value={formData.aplikasi_id}
                         onValueChange={(val) => setFormData((prev) => ({ ...prev, aplikasi_id: val }))}
                     >
-                        <SelectTrigger id="aplikasi_id" className="font-sans">
-                            <SelectValue placeholder="Pilih Aplikasi" />
+                        <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans">
+                            <SelectValue placeholder="Pilih Aplikasi" className="min-w-0 flex-1 truncate" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                             {aplikasis.map((app) => (
-                                <SelectItem key={app.id} value={String(app.id)} className="font-sans">
+                                <SelectItem key={app.id} value={String(app.id)} className="whitespace-normal break-words font-sans">
                                     {app.name} {app.company ? `(${app.company.name})` : ''}
                                 </SelectItem>
                             ))}

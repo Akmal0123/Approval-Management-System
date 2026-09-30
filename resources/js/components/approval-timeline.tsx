@@ -352,14 +352,22 @@ export function ApprovalTimeline({
                                                     <IconClock className="h-3 w-3 shrink-0" />
                                                     <span>
                                                         {isCompleted ? 'Disetujui' : 'Ditolak'} pada{' '}
-                                                        {formatDateTime(app.tgl_approve)}
+                                                        <span className={`font-medium ${
+                                                            isCompleted
+                                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                                : isRejected
+                                                                ? 'text-red-500 dark:text-red-400'
+                                                                : ''
+                                                        }`}>
+                                                            {formatDateTime(app.tgl_approve)}
+                                                        </span>
                                                     </span>
                                                 </div>
                                             )}
 
                                             {/* Approval Duration (SLA per step) */}
                                             {duration && (
-                                                <div className={`flex items-center gap-1.5 text-[10px] sm:text-xs rounded-md px-2 py-1 ${durationColor.bg} ${durationColor.border} border`}>
+                                                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
                                                     <Timer className={`h-3 w-3 shrink-0 ${durationColor.icon}`} />
                                                     <span className={`font-medium ${durationColor.text}`}>Durasi approval: {duration}</span>
                                                 </div>
@@ -369,7 +377,7 @@ export function ApprovalTimeline({
                                             {durationFromUpload && (
                                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
                                                     <Timer className="h-3 w-3 shrink-0" />
-                                                    <span>Durasi dari dokumen diupload: {durationFromUpload}</span>
+                                                    <span>Durasi dari dokumen diupload: <span className="font-medium text-foreground">{durationFromUpload}</span></span>
                                                 </div>
                                             )}
 
@@ -535,12 +543,20 @@ export function ApprovalTimeline({
                                                                     {getStatusBadge(isSkipped ? 'skipped' : app.approval_status)}
                                                                     {app.tgl_approve && (
                                                                         <span className="text-[10px] text-muted-foreground">
-                                                                            {formatDateTime(app.tgl_approve)}
+                                                                            <span className={`font-medium ${
+                                                                                app.approval_status === 'approved' || app.approval_status === 'skipped'
+                                                                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                                                                    : app.approval_status === 'rejected'
+                                                                                    ? 'text-red-500 dark:text-red-400'
+                                                                                    : ''
+                                                                            }`}>
+                                                                                {formatDateTime(app.tgl_approve)}
+                                                                            </span>
                                                                         </span>
                                                                     )}
                                                                     {/* Approval Duration (SLA per step) */}
                                                                     {duration && (
-                                                                        <span className={`flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 font-medium ${groupDurationColor.bg} ${groupDurationColor.border} border ${groupDurationColor.text}`}>
+                                                                        <span className={`flex items-center gap-1 text-[10px] font-medium ${groupDurationColor.text}`}>
                                                                             <Timer className={`h-2.5 w-2.5 shrink-0 ${groupDurationColor.icon}`} />
                                                                             <span>Durasi: {duration}</span>
                                                                         </span>
@@ -549,7 +565,7 @@ export function ApprovalTimeline({
                                                                     {durationFromUpload && (
                                                                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                                                             <Timer className="h-2.5 w-2.5 shrink-0" />
-                                                                            <span>Dari upload: {durationFromUpload}</span>
+                                                                            <span>Dari upload: <span className="font-medium text-foreground">{durationFromUpload}</span></span>
                                                                         </span>
                                                                     )}
                                                                     {currentApprovalId !== undefined &&

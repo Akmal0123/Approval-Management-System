@@ -209,6 +209,59 @@ export default function SuperAdminRoleManagement() {
                                 <div className="space-y-6">
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-0">
+                                            <div className="space-y-3 p-4 md:hidden">
+                                                {roles.length > 0 ? (
+                                                    roles.map((role, index) => (
+                                                        <div key={role.id} className="space-y-3 border-b border-border pb-3 last:border-0 last:pb-0">
+                                                            <div className="flex min-w-0 items-center justify-between gap-3">
+                                                                <div className="flex min-w-0 items-center gap-2">
+                                                                    <span className="shrink-0 font-mono text-xs text-muted-foreground">{index + 1}</span>
+                                                                    <span className="min-w-0 break-words font-sans font-medium text-foreground">{role.role_name}</span>
+                                                                </div>
+                                                                <div className="flex shrink-0 gap-1">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleEdit(role)}
+                                                                        className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                        aria-label={`Edit ${role.role_name}`}
+                                                                        title="Edit"
+                                                                    >
+                                                                        <IconEdit className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleDelete(role.id, role.role_name)}
+                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                        aria-label={`Hapus ${role.role_name}`}
+                                                                        title="Hapus"
+                                                                    >
+                                                                        <IconTrash className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                                                <div className="min-w-0">
+                                                                    <p className="text-muted-foreground">Dibuat</p>
+                                                                    <p className="mt-1 font-sans text-foreground">
+                                                                        {new Date(role.created_at).toLocaleDateString('id-ID')}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-muted-foreground">Diperbarui</p>
+                                                                    <p className="mt-1 font-sans text-foreground">
+                                                                        {new Date(role.updated_at).toLocaleDateString('id-ID')}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="py-4 text-center font-sans text-sm text-muted-foreground">Belum ada role yang tersedia</p>
+                                                )}
+                                            </div>
+                                            <div className="hidden md:block">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -262,6 +315,7 @@ export default function SuperAdminRoleManagement() {
                                                     )}
                                                 </TableBody>
                                             </Table>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 </div>

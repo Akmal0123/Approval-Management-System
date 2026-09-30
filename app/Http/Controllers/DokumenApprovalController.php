@@ -101,11 +101,27 @@ class DokumenApprovalController extends Controller
             $approval->append('can_approve');
         });
 
-        // Get statistics - with context filter applied
+        // Get statistics - apply same aplikasi/transaksi filters as the main query
         $statsBaseQuery = DokumenApproval::byUser(Auth::id());
 
-        // Stats also use byUser() only — no company/aplikasi filter needed.
-        // See comment above for explanation.
+        if ($request->filled('aplikasi_id')) {
+            $statsBaseQuery->whereHas('dokumen', function ($q) use ($request) {
+                $q->where('aplikasi_id', $request->aplikasi_id);
+            });
+        }
+
+        if ($request->filled('transaksi_id')) {
+            $statsBaseQuery->whereHas('dokumen', function ($q) use ($request) {
+                $q->where('transaksi_id', $request->transaksi_id);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $statsBaseQuery->whereHas('dokumen', function ($q) use ($request) {
+                $q->where('judul_dokumen', 'like', '%' . $request->search . '%')
+                  ->orWhere('nomor_dokumen', 'like', '%' . $request->search . '%');
+            });
+        }
 
         $stats = [
             'pending' => (clone $statsBaseQuery)->pending()->count(),

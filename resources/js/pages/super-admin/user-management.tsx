@@ -430,7 +430,7 @@ export default function UserManagement() {
                                     </h1>
                                     <p className="font-sans text-base text-muted-foreground">Kelola dan atur master user dalam sistem</p>
                                 </div>
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="mb-4 flex flex-col gap-4 sm:mb-0 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex flex-wrap items-center gap-3">
                                         <Badge
                                             variant="outline"
@@ -506,6 +506,99 @@ export default function UserManagement() {
                                 ) : (
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-0">
+                                            <div className="space-y-3 p-4 md:hidden">
+                                                {users.length > 0 ? (
+                                                    users.map((user, index) => (
+                                                        <article key={user.id} className="space-y-3 border-b border-border pb-5 last:border-0 last:pb-0">
+                                                            <div className="flex min-w-0 items-start justify-between gap-3">
+                                                                <div className="flex min-w-0 items-start gap-2">
+                                                                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center font-mono text-xs leading-none text-muted-foreground">
+                                                                        {index + 1}
+                                                                    </span>
+                                                                    <div className="min-w-0">
+                                                                        <h3 className="break-words font-sans text-sm font-semibold text-foreground">{user.name}</h3>
+                                                                        <p className="mt-1 break-all font-sans text-sm text-muted-foreground">{user.email}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex shrink-0 gap-1">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleEdit(user)}
+                                                                        className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                        aria-label={`Edit ${user.name}`}
+                                                                        title="Edit"
+                                                                    >
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleDelete(user)}
+                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                        aria-label={`Hapus ${user.name}`}
+                                                                        title="Hapus"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="min-w-0 pl-8">
+                                                                <p className="text-xs text-muted-foreground">Telepon</p>
+                                                                <p className="mt-1 break-words font-sans text-sm text-foreground">
+                                                                    {user.profile?.phone_number || '-'}
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="min-w-0 pl-8">
+                                                                <p className="mb-2 text-xs text-muted-foreground">Authorization</p>
+                                                                {user.user_auths && user.user_auths.length > 0 ? (
+                                                                    <div className="space-y-3">
+                                                                        {user.user_auths.map((auth, authIndex) => (
+                                                                            <div key={authIndex} className="min-w-0 border-l-2 border-border pl-3">
+                                                                                <span
+                                                                                    className={`inline-flex max-w-full items-center break-words rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
+                                                                                        ? 'bg-red-100 text-red-800'
+                                                                                        : auth.role?.role_name === 'Admin'
+                                                                                            ? 'bg-blue-100 text-blue-800'
+                                                                                            : auth.role?.role_name === 'User'
+                                                                                                ? 'bg-green-100 text-green-800'
+                                                                                                : 'bg-gray-100 text-gray-800'
+                                                                                        }`}
+                                                                                >
+                                                                                    {auth.role?.role_name || 'No Role'}
+                                                                                </span>
+                                                                                <div className="mt-2 space-y-1.5 text-sm">
+                                                                                    <div className="flex min-w-0 items-start gap-1.5 text-foreground">
+                                                                                        <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                                        <span className="break-words">{auth.company?.name || 'No Company'}</span>
+                                                                                    </div>
+                                                                                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                                                        <span className="flex min-w-0 items-center gap-1">
+                                                                                            <Briefcase className="h-3 w-3 shrink-0" />
+                                                                                            <span className="break-words">{auth.jabatan?.name || 'No Jabatan'}</span>
+                                                                                        </span>
+                                                                                        <span className="flex min-w-0 items-center gap-1">
+                                                                                            <Smartphone className="h-3 w-3 shrink-0" />
+                                                                                            <span className="break-words">{auth.aplikasi?.name || 'No Aplikasi'}</span>
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-sm text-muted-foreground">Tidak ada authorization</p>
+                                                                )}
+                                                            </div>
+                                                        </article>
+                                                    ))
+                                                ) : (
+                                                    <p className="py-4 text-center font-sans text-sm text-muted-foreground">Belum ada user yang tersedia</p>
+                                                )}
+                                            </div>
+                                            <div className="hidden md:block">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -609,6 +702,7 @@ export default function UserManagement() {
                                                     )}
                                                 </TableBody>
                                             </Table>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 )}
@@ -733,7 +827,7 @@ export default function UserManagement() {
                                 </DialogDescription>
                             </DialogHeader>
 
-                            <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-4 py-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="name" className="font-sans">
                                         Nama
@@ -835,7 +929,7 @@ export default function UserManagement() {
                                     {errors.phone_number && <p className="text-sm text-red-500">{errors.phone_number[0]}</p>}
                                 </div>
 
-                                <div className="col-span-2 space-y-2">
+                                <div className="space-y-2 md:col-span-2">
                                     <Label htmlFor="address" className="font-sans">
                                         Alamat
                                     </Label>
@@ -852,7 +946,7 @@ export default function UserManagement() {
                                 </div>
 
                                 {/* User Auth Section */}
-                                <div className="col-span-2 space-y-4">
+                                <div className="space-y-4 md:col-span-2">
                                     <div className="flex items-center justify-between">
                                         <Label className="font-sans font-medium">User Authorization</Label>
                                         <Button

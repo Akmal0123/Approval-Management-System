@@ -37,25 +37,51 @@ class MasterflowController extends Controller
     }
 
     /**
+     * Get authorized aplikasi IDs for the current context.
+     * Returns null if super admin without specific aplikasi context.
+     */
+    private function getAuthorizedAplikasiIds(): ?\Illuminate\Support\Collection
+    {
+        $contextService = app(ContextService::class);
+        $currentAplikasiId = $contextService->getCurrentAplikasiId();
+
+        if ($contextService->isSuperAdmin()) {
+            return $currentAplikasiId ? collect([$currentAplikasiId]) : null;
+        }
+
+        if ($currentAplikasiId) {
+            return collect([$currentAplikasiId]);
+        }
+
+        $user = Auth::user();
+        $companyId = $this->getCurrentUserCompanyId();
+        if ($user && $companyId) {
+            return $user->user_auths()
+                ->where('company_id', $companyId)
+                ->whereNotNull('aplikasi_id')
+                ->pluck('aplikasi_id')
+                ->unique()
+                ->values();
+        }
+
+        return collect();
+    }
+
+    /**
      * Get authorized active transactions for the company based on user context / authority.
      */
     private function getAuthorizedTransaksis(int $companyId)
     {
-        $user = Auth::user();
-        $isSuperAdmin = app(ContextService::class)->isSuperAdmin();
-
         $query = Transaksi::with('aplikasi')
             ->where('is_active', true)
-            ->whereHas('aplikasi', function ($q) use ($companyId, $user, $isSuperAdmin) {
+            ->whereHas('aplikasi', function ($q) use ($companyId) {
                 $q->where('company_id', $companyId);
-                if (!$isSuperAdmin) {
-                    $userAplikasiIds = $user->user_auths()
-                        ->where('company_id', $companyId)
-                        ->whereNotNull('aplikasi_id')
-                        ->pluck('aplikasi_id');
-                    $q->whereIn('id', $userAplikasiIds);
-                }
             });
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereIn('aplikasi_id', $allowedAplikasiIds);
+        }
 
         return $query->orderBy('nama_transaksi')->get();
     }
@@ -65,13 +91,23 @@ class MasterflowController extends Controller
      */
     public function index()
     {
+        $contextService = app(ContextService::class);
         $companyId = $this->getCurrentUserCompanyId();
         $company = Company::find($companyId);
+        $currentContext = $contextService->getContext();
+        $currentAplikasi = $currentContext?->aplikasi;
 
-        $masterflows = Masterflow::with(['company', 'steps.jabatan', 'transaksi.aplikasi'])
-            ->where('company_id', $companyId)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = Masterflow::with(['company', 'steps.jabatan', 'transaksi.aplikasi'])
+            ->where('company_id', $companyId);
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereHas('transaksi', function ($q) use ($allowedAplikasiIds) {
+                $q->whereIn('aplikasi_id', $allowedAplikasiIds);
+            });
+        }
+
+        $masterflows = $query->orderBy('created_at', 'desc')->get();
 
         // Get user with full auth relationships for sidebar
         $userWithAuth = \App\Models\User::with('userAuths.role', 'userAuths.company')
@@ -80,6 +116,7 @@ class MasterflowController extends Controller
         return Inertia::render('admin/Masterflow/Index', [
             'masterflows' => $masterflows,
             'company' => $company,
+            'currentAplikasi' => $currentAplikasi,
             'auth' => [
                 'user' => $userWithAuth
             ],
@@ -172,9 +209,17 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::with(['company', 'steps.jabatan', 'transaksi.aplikasi'])
-            ->where('company_id', $companyId)
-            ->findOrFail($id);
+        $query = Masterflow::with(['company', 'steps.jabatan', 'transaksi.aplikasi'])
+            ->where('company_id', $companyId);
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereHas('transaksi', function ($q) use ($allowedAplikasiIds) {
+                $q->whereIn('aplikasi_id', $allowedAplikasiIds);
+            });
+        }
+
+        $masterflow = $query->findOrFail($id);
 
         // Get user with full auth relationships for sidebar
         $userWithAuth = \App\Models\User::with('userAuths.role', 'userAuths.company')
@@ -195,9 +240,17 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::with(['steps.jabatan', 'transaksi.aplikasi'])
-            ->where('company_id', $companyId)
-            ->findOrFail($id);
+        $query = Masterflow::with(['steps.jabatan', 'transaksi.aplikasi'])
+            ->where('company_id', $companyId);
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereHas('transaksi', function ($q) use ($allowedAplikasiIds) {
+                $q->whereIn('aplikasi_id', $allowedAplikasiIds);
+            });
+        }
+
+        $masterflow = $query->findOrFail($id);
 
         $jabatans = Jabatan::orderBy('name')->get();
         $transaksis = $this->getAuthorizedTransaksis($companyId);
@@ -225,7 +278,16 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::where('company_id', $companyId)->findOrFail($id);
+        $query = Masterflow::where('company_id', $companyId);
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereHas('transaksi', function ($q) use ($allowedAplikasiIds) {
+                $q->whereIn('aplikasi_id', $allowedAplikasiIds);
+            });
+        }
+
+        $masterflow = $query->findOrFail($id);
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -285,7 +347,16 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::where('company_id', $companyId)->findOrFail($id);
+        $query = Masterflow::where('company_id', $companyId);
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereHas('transaksi', function ($q) use ($allowedAplikasiIds) {
+                $q->whereIn('aplikasi_id', $allowedAplikasiIds);
+            });
+        }
+
+        $masterflow = $query->findOrFail($id);
 
         $masterflow->delete();
 
@@ -300,7 +371,16 @@ class MasterflowController extends Controller
     {
         $companyId = $this->getCurrentUserCompanyId();
 
-        $masterflow = Masterflow::where('company_id', $companyId)->findOrFail($id);
+        $query = Masterflow::where('company_id', $companyId);
+
+        $allowedAplikasiIds = $this->getAuthorizedAplikasiIds();
+        if ($allowedAplikasiIds !== null) {
+            $query->whereHas('transaksi', function ($q) use ($allowedAplikasiIds) {
+                $q->whereIn('aplikasi_id', $allowedAplikasiIds);
+            });
+        }
+
+        $masterflow = $query->findOrFail($id);
 
         $masterflow->update([
             'is_active' => !$masterflow->is_active
