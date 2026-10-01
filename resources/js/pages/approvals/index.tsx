@@ -1253,8 +1253,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 }
                             }}
                         >
-                            <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col overflow-y-auto p-0 md:overflow-hidden rounded-2xl">
-                                <DialogHeader className="border-b p-4 md:shrink-0">
+                            <DialogContent className="flex h-[90dvh] max-h-[90dvh] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0">
+                                <DialogHeader className="shrink-0 border-b p-4">
                                     <div className="space-y-1">
                                         <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                         <DialogDescription className="font-sans">
@@ -1273,7 +1273,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                     </div>
                                 </DialogHeader>
 
-                                <div className="flex min-h-[70vh] flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
+                                <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
                                     {/* PDF Preview with Placement */}
                                     {previewFileUrl && (
                                         <SignaturePlacementDialog

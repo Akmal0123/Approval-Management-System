@@ -1224,7 +1224,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     </div>
                 </div>
 
-                <div ref={pagesViewportRef} className="relative flex min-h-0 min-w-0 flex-1 overflow-auto">
+                <div
+                    ref={pagesViewportRef}
+                    className="relative flex min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain"
+                >
                     {loading && (
                         <div className="flex h-full min-h-[300px] w-full items-center justify-center">
                             <div className="text-center">
@@ -1250,7 +1253,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex w-full flex-col items-center gap-4"
+                            className="flex w-max min-w-full flex-col items-center gap-4"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, Download, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 // Configure PDF.js worker
@@ -29,6 +29,18 @@ export default function PDFViewer({
     const [scale, setScale] = useState<number>(1.0);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const viewerRef = useRef<HTMLDivElement>(null);
+    const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+    const hasAutoFit = useRef(false);
+
+    useEffect(() => {
+        hasAutoFit.current = false;
+        setPageNumber(1);
+        setScale(1.0);
+        pageRefs.current = {};
+        setLoading(true);
+        setError(null);
+    }, [fileUrl]);
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
@@ -42,11 +54,21 @@ export default function PDFViewer({
         setLoading(false);
     }
 
+    const onPageLoadSuccess = (page: any) => {
+        if (hasAutoFit.current || window.innerWidth >= 768) return;
+
+        const pageWidth = page.getViewport({ scale: 1 }).width;
+        const availableWidth = (viewerRef.current?.clientWidth ?? 0) - 32;
+        if (pageWidth > 0 && availableWidth > 0) {
+            setScale(Math.min(1, Math.max(0.3, availableWidth / pageWidth)));
+            hasAutoFit.current = true;
+        }
+    };
+
     const changePage = (offset: number) => {
-        setPageNumber((prevPageNumber) => {
-            const newPageNumber = prevPageNumber + offset;
-            return Math.min(Math.max(1, newPageNumber), numPages);
-        });
+        const targetPage = Math.min(Math.max(1, pageNumber + offset), numPages);
+        setPageNumber(targetPage);
+        pageRefs.current[targetPage]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     const previousPage = () => changePage(-1);
@@ -57,7 +79,7 @@ export default function PDFViewer({
     };
 
     const zoomOut = () => {
-        setScale((prevScale) => Math.max(prevScale - 0.2, 0.5));
+        setScale((prevScale) => Math.max(prevScale - 0.2, 0.3));
     };
 
     const resetZoom = () => {
@@ -65,10 +87,10 @@ export default function PDFViewer({
     };
 
     return (
-        <div className="space-y-4">
+        <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 sm:gap-4">
             {/* Controls */}
             {showControls && (
-                <Card className="p-4">
+                <Card className="shrink-0 p-2 sm:p-4">
                     <div className="flex flex-wrap items-center justify-center gap-4">
                         {/* Page Navigation */}
                         <div className="flex items-center gap-2">
@@ -117,7 +139,19 @@ export default function PDFViewer({
             )}
 
             {/* PDF Viewer */}
-            <div className="overflow-auto rounded-lg border border-border bg-muted/30" style={{ height }}>
+            <div
+                ref={viewerRef}
+                className="min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain rounded-lg border border-border bg-muted/30"
+                style={{ height, maxHeight: '100%' }}
+                onScroll={() => {
+                    const viewportTop = viewerRef.current?.getBoundingClientRect().top ?? 0;
+                    const visiblePage = Object.entries(pageRefs.current).find(([, element]) => {
+                        if (!element) return false;
+                        return element.getBoundingClientRect().bottom > viewportTop + 16;
+                    });
+                    if (visiblePage) setPageNumber(Number(visiblePage[0]));
+                }}
+            >
                 {loading && (
                     <div className="flex h-full items-center justify-center">
                         <div className="text-center">
@@ -139,16 +173,36 @@ export default function PDFViewer({
                 )}
 
                 {!error && (
-                    <div className="flex justify-center p-4">
+                    <div className="flex min-w-max justify-center p-4">
                         <Document
                             file={fileUrl}
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex justify-center"
+                            className="flex w-max min-w-full flex-col items-center gap-4"
                         >
-                            <Page pageNumber={pageNumber} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} className="shadow-lg" />
+                            {Array.from({ length: numPages }, (_, index) => {
+                                const page = index + 1;
+                                return (
+                                    <div
+                                        key={page}
+                                        ref={(element) => {
+                                            pageRefs.current[page] = element;
+                                        }}
+                                        className="flex w-full shrink-0 justify-center"
+                                    >
+                                        <Page
+                                            pageNumber={page}
+                                            scale={scale}
+                                            renderTextLayer={false}
+                                            renderAnnotationLayer={false}
+                                            className="shadow-lg"
+                                            onLoadSuccess={onPageLoadSuccess}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </Document>
                     </div>
                 )}

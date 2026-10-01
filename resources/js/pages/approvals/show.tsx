@@ -555,9 +555,9 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                                                         <IconFileText className="h-6 w-6" />
                                                     </div>
-                                                    <div className="min-w-0">
+                                                    <div className="min-w-0 flex-1">
                                                         <p
-                                                            className="truncate font-medium text-foreground"
+                                                            className="w-full whitespace-normal font-medium leading-snug text-foreground [overflow-wrap:anywhere]"
                                                             title={approval.dokumen_version.nama_file}
                                                         >
                                                             {approval.dokumen_version.nama_file}
@@ -611,10 +611,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                         return (
                                                             <div
                                                                 key={version.id}
-                                                                className={`flex items-center justify-between gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
+                                                                className={`flex flex-col gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
                                                             >
-                                                                <div className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-4">
+                                                                <div className="flex w-full min-w-0 flex-col gap-2">
+                                                                    <div className="flex w-full min-w-0 items-start gap-4">
                                                                         <div
                                                                             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest
                                                                                 ? 'border-blue-200 bg-blue-100 text-blue-700'
@@ -625,7 +625,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                         >
                                                                             <IconFileText className="h-5 w-5" />
                                                                         </div>
-                                                                        <div>
+                                                                        <div className="min-w-0 flex-1">
                                                                             <div className="flex items-center gap-2">
                                                                                 <span className="font-medium">Versi {version.version}</span>
                                                                                 {isLatest && (
@@ -645,14 +645,17 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                                     </Badge>
                                                                                 )}
                                                                             </div>
-                                                                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground font-mono w-full">
-                                                                                <span className="truncate max-w-[150px] sm:max-w-[250px]">{version.nama_file}</span>
-                                                                                <span className="shrink-0">•</span>
-                                                                                <span className="shrink-0">{formatFileSize(version.size_file)}</span>
+                                                                            <p className="w-full text-sm [overflow-wrap:anywhere]" title={version.nama_file}>
+                                                                                {version.nama_file}
+                                                                            </p>
+                                                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                                                                <span>{formatFileSize(version.size_file)}</span>
+                                                                                <span>•</span>
+                                                                                <span>{formatDate(version.tgl_upload)}</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex gap-2">
+                                                                    <div className="flex w-full shrink-0 justify-end gap-2">
                                                                         {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                             version.tipe_file.toLowerCase() === 'application/pdf') && (
                                                                                 <Button
@@ -941,7 +944,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
+                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
                                 <div className="space-y-1">
                                     <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
@@ -1174,12 +1177,12 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                     {/* Standalone PDF Viewer Preview Dialog */}
                     <Dialog open={isPDFViewerOpen} onOpenChange={setIsPDFViewerOpen}>
-                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col p-0">
+                        <DialogContent className="flex h-[90vh] max-h-[90dvh] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0">
                             <DialogHeader className="shrink-0 border-b p-4">
                                 <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">{pdfViewerFileName}</DialogDescription>
                             </DialogHeader>
-                            <div className="flex-1 overflow-auto p-4">
+                            <div className="min-h-0 flex-1 overflow-auto overscroll-contain p-2 sm:p-4">
                                 {pdfViewerFileUrl && (
                                     <PDFViewer fileUrl={pdfViewerFileUrl} fileName={pdfViewerFileName} showControls={true} height="100%" />
                                 )}
