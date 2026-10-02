@@ -172,6 +172,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [bulkComment, setBulkComment] = useState('');
     const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
     const [bulkPreviewApprovalId, setBulkPreviewApprovalId] = useState<number | null>(null);
+    const [bulkMobileTab, setBulkMobileTab] = useState<'form' | 'preview'>('form');
 
     // Preview Dialog states
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -1061,7 +1062,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-6xl xl:max-w-7xl flex-col overflow-hidden p-0 rounded-2xl">
+                        <DialogContent className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh] w-full sm:w-[96vw] max-w-6xl xl:max-w-7xl flex-col overflow-hidden p-0 rounded-none sm:rounded-2xl">
                             <DialogHeader className="shrink-0 border-b bg-muted/20 px-4 py-3 sm:px-6 sm:py-4">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
@@ -1077,9 +1078,37 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 </div>
                             </DialogHeader>
 
+                            {/* Mobile Tab Switcher (< lg only) */}
+                            <div className="flex border-b bg-muted/30 p-1.5 lg:hidden shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setBulkMobileTab('form')}
+                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                                        bulkMobileTab === 'form'
+                                            ? 'bg-background text-foreground shadow-xs font-bold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    <IconPencil className="h-3.5 w-3.5" />
+                                    <span>Persetujuan ({selectedApprovalIds.length})</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setBulkMobileTab('preview')}
+                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                                        bulkMobileTab === 'preview'
+                                            ? 'bg-background text-foreground shadow-xs font-bold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    <IconEye className="h-3.5 w-3.5" />
+                                    <span>Pratinjau PDF</span>
+                                </button>
+                            </div>
+
                             <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
                                 {/* Left Side: Embedded Document Preview ("ketika di pencet bulk approval juga ada") */}
-                                <div className="flex flex-1 flex-col min-h-0 min-w-0 border-b lg:border-b-0 lg:border-r bg-muted/10 overflow-hidden">
+                                <div className={`flex flex-1 flex-col min-h-0 min-w-0 border-b lg:border-b-0 lg:border-r bg-muted/10 overflow-hidden ${bulkMobileTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
                                     <div className="flex shrink-0 items-center justify-between border-b bg-background/90 px-4 py-2.5 backdrop-blur-xs">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <IconEye className="h-4 w-4 shrink-0 text-primary" />
@@ -1123,42 +1152,71 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 </div>
 
                                 {/* Right Side: Approval Controls */}
-                                <div className="flex w-full shrink-0 flex-col justify-between overflow-hidden bg-background lg:w-[420px] xl:w-[460px]">
+                                <div className={`flex w-full min-h-0 shrink-0 flex-col justify-between overflow-hidden bg-background lg:w-[420px] xl:w-[460px] ${bulkMobileTab === 'form' ? 'flex flex-1' : 'hidden lg:flex'}`}>
                                     <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
                                         {/* List Tile Dokumen yang Dipilih */}
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                                Dokumen yang Dipilih ({selectedApprovalIds.length})
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                                    Dokumen yang Dipilih ({selectedApprovalIds.length})
+                                                </Label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setBulkMobileTab('preview')}
+                                                    className="lg:hidden text-[11px] font-semibold text-primary flex items-center gap-1 hover:underline"
+                                                >
+                                                    <IconEye className="h-3 w-3" />
+                                                    Lihat Pratinjau
+                                                </button>
+                                            </div>
                                             <div className="space-y-1.5 rounded-lg border bg-muted/20 p-1.5 max-h-48 overflow-y-auto">
                                                 {selectedApprovalsList.map((a) => {
                                                     const isActive = a.id === (bulkPreviewApprovalId || selectedApprovalsList[0]?.id);
                                                     return (
-                                                        <button
+                                                        <div
                                                             key={a.id}
-                                                            type="button"
-                                                            onClick={() => setBulkPreviewApprovalId(a.id)}
-                                                            className={`w-full flex items-center gap-2.5 rounded-md border px-3 py-2 text-left text-xs transition-all ${
+                                                            className={`w-full flex items-center gap-2 rounded-md border px-2.5 py-1.5 sm:px-3 sm:py-2 text-left text-xs transition-all ${
                                                                 isActive
                                                                     ? 'border-primary bg-primary/10 shadow-xs'
                                                                     : 'border-transparent bg-background hover:border-border hover:bg-muted/50'
                                                             }`}
                                                         >
-                                                            <IconFileText className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                            <span className={`font-mono font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                                                                {a.dokumen.nomor_dokumen || a.dokumen.judul_dokumen}
-                                                            </span>
-                                                            {a.dokumen.transaksi && (
-                                                                <Badge variant="outline" className="ml-auto shrink-0 border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">
-                                                                    {a.dokumen.transaksi.kode_transaksi}
-                                                                </Badge>
-                                                            )}
-                                                            {isActive && (
-                                                                <span className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground">
-                                                                    Pratinjau
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setBulkPreviewApprovalId(a.id)}
+                                                                className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                                                            >
+                                                                <IconFileText className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                                <span className={`font-mono font-semibold truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                                                                    {a.dokumen.nomor_dokumen || a.dokumen.judul_dokumen}
                                                                 </span>
-                                                            )}
-                                                        </button>
+                                                                {a.dokumen.transaksi && (
+                                                                    <Badge variant="outline" className="shrink-0 border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">
+                                                                        {a.dokumen.transaksi.kode_transaksi}
+                                                                    </Badge>
+                                                                )}
+                                                            </button>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                {isActive && (
+                                                                    <span className="hidden sm:inline-flex rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground">
+                                                                        Aktif
+                                                                    </span>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setBulkPreviewApprovalId(a.id);
+                                                                        setBulkMobileTab('preview');
+                                                                    }}
+                                                                    className="lg:hidden text-[10px] font-semibold text-primary flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20"
+                                                                    title="Buka pratinjau dokumen ini"
+                                                                >
+                                                                    <IconEye className="h-3 w-3" />
+                                                                    <span>PDF</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
@@ -1315,25 +1373,38 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                     </div>
 
                                     {/* Footer Action Buttons */}
-                                    <div className="flex shrink-0 items-center justify-end gap-2 border-t bg-muted/10 p-3 sm:p-4">
+                                    <div className="flex shrink-0 items-center justify-between gap-2 border-t bg-muted/10 p-3 sm:p-4">
                                         <Button
                                             type="button"
                                             variant="outline"
                                             onClick={() => setIsBulkModalOpen(false)}
                                             disabled={isBulkSubmitting}
-                                            className="font-sans"
+                                            className="font-sans text-xs sm:text-sm h-9"
                                         >
                                             Batal
                                         </Button>
-                                        <Button
-                                            type="button"
-                                            onClick={handleBulkApproveSubmit}
-                                            disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
-                                            className="font-sans"
-                                        >
-                                            <IconCheck className="mr-2 h-4 w-4" />
-                                            {isBulkSubmitting ? 'Memproses Persetujuan...' : `Setujui ${selectedApprovalIds.length} Dokumen`}
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            {bulkMobileTab === 'form' && (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    onClick={() => setBulkMobileTab('preview')}
+                                                    className="lg:hidden font-sans text-xs h-9"
+                                                >
+                                                    <IconEye className="mr-1 h-3.5 w-3.5" />
+                                                    Pratinjau
+                                                </Button>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                onClick={handleBulkApproveSubmit}
+                                                disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
+                                                className="font-sans text-xs sm:text-sm h-9"
+                                            >
+                                                <IconCheck className="mr-1.5 h-4 w-4" />
+                                                {isBulkSubmitting ? 'Memproses...' : `Setujui (${selectedApprovalIds.length})`}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1360,11 +1431,11 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 }
                             }}
                         >
-                            <DialogContent className="flex h-[90dvh] max-h-[90dvh] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0">
-                                <DialogHeader className="shrink-0 border-b p-4">
+                            <DialogContent className="flex h-[100dvh] sm:h-[90dvh] max-h-[100dvh] sm:max-h-[90dvh] w-full sm:max-w-[90vw] flex-col overflow-hidden rounded-none sm:rounded-2xl p-0">
+                                <DialogHeader className="shrink-0 border-b p-3 sm:p-4">
                                     <div className="space-y-1">
-                                        <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
-                                        <DialogDescription className="font-sans">
+                                        <DialogTitle className="font-serif text-base sm:text-lg">Preview Dokumen</DialogTitle>
+                                        <DialogDescription className="font-sans text-xs line-clamp-1">
                                             {previewFileName || previewApproval.dokumen_version?.nama_file || previewApproval.dokumen.judul_dokumen}
                                         </DialogDescription>
                                         {previewApproval.approval_status !== 'pending' && (
@@ -1380,7 +1451,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                     </div>
                                 </DialogHeader>
 
-                                <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+                                <div className="flex min-h-0 flex-1 overflow-hidden">
                                     {/* PDF Preview with Placement */}
                                     {previewFileUrl && (
                                         <SignaturePlacementDialog
