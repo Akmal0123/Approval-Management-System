@@ -160,48 +160,48 @@ export default function AdminDashboard({ stats, recent_documents, recent_activit
                                 </div>
 
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-4 sm:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Pending Reviews</p>
-                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.pending_reviews ?? 0}</p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0 space-y-1 sm:space-y-2">
+                                                    <p className="font-sans text-sm font-medium leading-tight text-muted-foreground">Pending Reviews</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.pending_reviews ?? 0}</p>
                                                 </div>
-                                                <Clock className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
+                                                <div className="shrink-0 rounded-full bg-orange-500/10 p-2.5 sm:p-3"><Clock className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" /></div>
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-4 sm:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Approved Today</p>
-                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.approved_today ?? 0}</p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0 space-y-1 sm:space-y-2">
+                                                    <p className="font-sans text-sm font-medium leading-tight text-muted-foreground">Approved Today</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.approved_today ?? 0}</p>
                                                 </div>
-                                                <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-green-500" />
+                                                <div className="shrink-0 rounded-full bg-green-500/10 p-2.5 sm:p-3"><CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" /></div>
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-4 sm:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Total Documents</p>
-                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.total_documents ?? 0}</p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0 space-y-1 sm:space-y-2">
+                                                    <p className="font-sans text-sm font-medium leading-tight text-muted-foreground">Total Documents</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.total_documents ?? 0}</p>
                                                 </div>
-                                                <FileText className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500" />
+                                                <div className="shrink-0 rounded-full bg-blue-500/10 p-2.5 sm:p-3"><FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" /></div>
                                             </div>
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-4 sm:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Active Users</p>
-                                                    <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">{stats?.active_users ?? 0}</p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0 space-y-1 sm:space-y-2">
+                                                    <p className="font-sans text-sm font-medium leading-tight text-muted-foreground">Active Users</p>
+                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats?.active_users ?? 0}</p>
                                                 </div>
-                                                <IconUsers className="h-7 w-7 sm:h-8 sm:w-8 text-purple-500" />
+                                                <div className="shrink-0 rounded-full bg-purple-500/10 p-2.5 sm:p-3"><IconUsers className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" /></div>
                                             </div>
                                         </CardContent>
                                     </Card>

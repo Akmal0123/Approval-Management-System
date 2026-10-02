@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
@@ -601,7 +600,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                         ) : (
                                                             <span className="font-sans text-xs text-muted-foreground flex items-center gap-1.5">
                                                                 <IconClock className="h-3.5 w-3.5 text-amber-500" />
-                                                                Centang checklist pada tabel samping kiri nomor untuk persetujuan massal ({eligibleApprovals.length} dokumen menunggu)
+                                                                Pilih dokumen untuk persetujuan massal ({eligibleApprovals.length} dokumen menunggu)
                                                             </span>
                                                         )}
                                                     </div>
@@ -655,179 +654,147 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 </div>
                                             ) : (
                                                 <>
-                                                <div className="hidden rounded-md border bg-card lg:block">
-                                                    <Table>
-                                                        <TableHeader className="bg-muted/50">
-                                                            <TableRow>
-                                                                <TableHead className="w-10 text-center">
-                                                                    <div className="flex items-center justify-center">
-                                                                        <Checkbox
-                                                                            checked={
-                                                                                isAllSelected
-                                                                                    ? true
-                                                                                    : isSomeSelected
-                                                                                        ? "indeterminate"
-                                                                                        : false
-                                                                            }
-                                                                            disabled={eligibleApprovals.length === 0}
-                                                                            onCheckedChange={handleSelectAll}
-                                                                            aria-label="Pilih semua dokumen yang dapat disetujui"
-                                                                        />
-                                                                    </div>
-                                                                </TableHead>
-                                                                <TableHead className="w-10 text-center font-sans font-semibold text-xs">#</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Dokumen</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Perusahaan / Pengaju</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Nominal</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Jenis Transaksi</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Status</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Keterangan</TableHead>
-                                                                <TableHead className="font-sans font-semibold text-xs">Tanggal</TableHead>
-                                                                <TableHead className="text-right font-sans font-semibold text-xs">Aksi</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {approvalsData.map((approval, index) => {
-                                                                const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
-                                                                const isSelected = selectedApprovalIds.includes(approval.id);
+                                                <div className="hidden gap-4 lg:grid lg:grid-cols-2">
+                                                    <div className="col-span-2 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                                                        <Checkbox
+                                                            checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                                                            disabled={eligibleApprovals.length === 0}
+                                                            onCheckedChange={handleSelectAll}
+                                                            aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                        />
+                                                        <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
+                                                    </div>
 
-                                                                return (
-                                                                    <TableRow
-                                                                        key={approval.id}
-                                                                        className={`group transition-colors ${updatedApprovalIds.has(approval.id)
-                                                                            ? 'bg-green-50 dark:bg-green-950/20'
-                                                                            : isSelected
-                                                                                ? 'bg-primary/5'
-                                                                                : ''
-                                                                            }`}
-                                                                    >
-                                                                        <TableCell className="w-10 text-center py-3">
-                                                                            <div className="flex items-center justify-center">
-                                                                                <Checkbox
-                                                                                    checked={isSelected}
-                                                                                    disabled={!isEligible}
-                                                                                    onCheckedChange={() => toggleSelectApproval(approval.id)}
-                                                                                    aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
-                                                                                />
-                                                                            </div>
-                                                                        </TableCell>
-                                                                        <TableCell className="text-center font-sans font-medium text-muted-foreground text-xs">
-                                                                            {index + 1 + (approvals.current_page - 1) * approvals.per_page}
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3">
-                                                                            <div className="space-y-1">
-                                                                                <h4 className="font-sans text-sm leading-tight font-semibold text-foreground">
-                                                                                    {approval.dokumen.judul_dokumen}
-                                                                                </h4>
-                                                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                                                    <Badge
-                                                                                        variant="secondary"
-                                                                                        className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
-                                                                                    >
-                                                                                        {approval.dokumen.nomor_dokumen}
-                                                                                    </Badge>
-                                                                                    {approval.masterflow_step && (
-                                                                                        <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
-                                                                                            Step {approval.masterflow_step.step_order}:{' '}
-                                                                                            {approval.masterflow_step.step_name}
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                                {approval.tgl_deadline && (
-                                                                                    <div
-                                                                                        className={`flex items-center gap-1 font-sans text-[11px] ${isOverdue(approval.tgl_deadline) ? 'text-red-600' : 'text-muted-foreground'}`}
-                                                                                    >
-                                                                                        <IconClock className="h-3 w-3" />
-                                                                                        <span>Terlambat {formatDate(approval.tgl_deadline)}</span>
-                                                                                        {isOverdue(approval.tgl_deadline) && (
-                                                                                            <Badge
-                                                                                                variant="outline"
-                                                                                                className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700"
-                                                                                            >
-                                                                                                Terlambat
-                                                                                            </Badge>
-                                                                                        )}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3">
-                                                                            <div className="space-y-1 font-sans">
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                                                    <span className="text-sm font-medium">
-                                                                                        {approval.dokumen.aplikasi?.name || '-'}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-1.5 text-muted-foreground">
-                                                                                    <IconUser className="h-3.5 w-3.5 shrink-0" />
-                                                                                    <span className="text-xs">{approval.dokumen.user?.name || '-'}</span>
-                                                                                </div>
-                                                                            </div>
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3">
-                                                                            <span className="font-sans text-sm font-semibold text-green-600">
-                                                                                {formatCurrency(approval.dokumen.nominal)}
+                                                    {approvalsData.map((approval, index) => {
+                                                        const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
+                                                        const isSelected = selectedApprovalIds.includes(approval.id);
+                                                        const overdue = isOverdue(approval.tgl_deadline);
+
+                                                        return (
+                                                            <article
+                                                                key={approval.id}
+                                                                className={`min-w-0 space-y-4 rounded-lg border bg-card p-4 transition-colors ${
+                                                                    updatedApprovalIds.has(approval.id)
+                                                                        ? 'bg-green-50 dark:bg-green-950/20'
+                                                                        : isSelected
+                                                                          ? 'bg-primary/5'
+                                                                          : ''
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Checkbox
+                                                                            checked={isSelected}
+                                                                            disabled={!isEligible}
+                                                                            onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                            aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
+                                                                        />
+                                                                        <span className="font-sans text-xs font-medium text-muted-foreground">
+                                                                            #{index + 1 + (approvals.current_page - 1) * approvals.per_page}
+                                                                        </span>
+                                                                    </div>
+                                                                    {getStatusBadge(approval.approval_status)}
+                                                                </div>
+
+                                                                <div className="min-w-0 space-y-2">
+                                                                    <h3 className="break-words font-sans text-base font-semibold leading-tight text-foreground">
+                                                                        {approval.dokumen.judul_dokumen}
+                                                                    </h3>
+                                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                                        <Badge
+                                                                            variant="secondary"
+                                                                            className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
+                                                                        >
+                                                                            {approval.dokumen.nomor_dokumen}
+                                                                        </Badge>
+                                                                        {approval.masterflow_step && (
+                                                                            <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
+                                                                                Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}
                                                                             </span>
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3">
-                                                                            <div className="flex flex-col items-start gap-1">
-                                                                                {approval.dokumen.transaksi ? (
-                                                                                    <>
-                                                                                        <Badge
-                                                                                            variant="outline"
-                                                                                            className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
-                                                                                        >
-                                                                                            {approval.dokumen.transaksi.kode_transaksi}
-                                                                                        </Badge>
-                                                                                        <span className="font-sans text-xs text-muted-foreground">
-                                                                                            {approval.dokumen.transaksi.nama_transaksi}
-                                                                                        </span>
-                                                                                    </>
-                                                                                ) : (
-                                                                                    <span className="text-xs text-muted-foreground">-</span>
-                                                                                )}
-                                                                            </div>
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3">{getStatusBadge(approval.approval_status)}</TableCell>
-                                                                        <TableCell className="max-w-[180px] py-3">
-                                                                            <p
-                                                                                className="line-clamp-2 font-sans text-xs text-muted-foreground"
-                                                                                title={approval.dokumen.deskripsi}
-                                                                            >
-                                                                                {approval.dokumen.deskripsi || '-'}
-                                                                            </p>
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3 font-sans text-xs whitespace-nowrap text-muted-foreground">
-                                                                            {formatDate(approval.dokumen.tgl_pengajuan)}
-                                                                        </TableCell>
-                                                                        <TableCell className="py-3 text-right">
-                                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                                <Button
+                                                                        )}
+                                                                    </div>
+                                                                    {approval.tgl_deadline && (
+                                                                        <div className={`flex flex-wrap items-center gap-1 font-sans text-xs ${overdue ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                                                            <IconClock className="h-3.5 w-3.5 shrink-0" />
+                                                                            <span>{overdue ? 'Terlambat' : 'Deadline'} {formatDate(approval.tgl_deadline)}</span>
+                                                                            {overdue && (
+                                                                                <Badge variant="outline" className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700">
+                                                                                    Terlambat
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="grid min-w-0 grid-cols-2 gap-3 border-t pt-3 font-sans">
+                                                                    <div className="min-w-0 space-y-1">
+                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Perusahaan / Pengaju</p>
+                                                                        <div className="flex min-w-0 items-center gap-1.5">
+                                                                            <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                            <span className="min-w-0 break-words text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</span>
+                                                                        </div>
+                                                                        <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                                                                            <IconUser className="h-3.5 w-3.5 shrink-0" />
+                                                                            <span className="min-w-0 break-words text-xs">{approval.dokumen.user?.name || '-'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="min-w-0 space-y-1">
+                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Nominal</p>
+                                                                        <p className="break-words text-sm font-semibold text-green-600">{formatCurrency(approval.dokumen.nominal)}</p>
+                                                                    </div>
+                                                                    <div className="col-span-2 min-w-0 space-y-1">
+                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Jenis Transaksi</p>
+                                                                        {approval.dokumen.transaksi ? (
+                                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                                <Badge
                                                                                     variant="outline"
-                                                                                    size="sm"
-                                                                                    onClick={() => handleOpenPreview(approval)}
-                                                                                    className="h-8 font-sans text-xs"
-                                                                                    title="Preview dokumen"
+                                                                                    className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
                                                                                 >
-                                                                                    <IconEye className="mr-1 h-3.5 w-3.5" />
-                                                                                    Preview
-                                                                                </Button>
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    onClick={() => handleViewDetail(approval.id)}
-                                                                                    className="h-8 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
-                                                                                >
-                                                                                    Detail
-                                                                                </Button>
+                                                                                    {approval.dokumen.transaksi.kode_transaksi}
+                                                                                </Badge>
+                                                                                <span className="break-words text-xs text-muted-foreground">{approval.dokumen.transaksi.nama_transaksi}</span>
                                                                             </div>
-                                                                        </TableCell>
-                                                                    </TableRow>
-                                                                );
-                                                            })}
-                                                        </TableBody>
-                                                    </Table>
+                                                                        ) : (
+                                                                            <span className="text-xs text-muted-foreground">-</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="col-span-2 min-w-0 space-y-1">
+                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Tanggal Pengajuan</p>
+                                                                        <p className="text-xs text-muted-foreground">{formatDate(approval.dokumen.tgl_pengajuan)}</p>
+                                                                    </div>
+                                                                    <div className="col-span-2 min-w-0 space-y-1">
+                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Keterangan</p>
+                                                                        <p className="break-words text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+                                                                            {approval.dokumen.deskripsi || '-'}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex justify-end gap-2 border-t pt-3">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleOpenPreview(approval)}
+                                                                        className="font-sans text-xs"
+                                                                        title="Preview dokumen"
+                                                                    >
+                                                                        <IconEye className="mr-1.5 h-3.5 w-3.5" />
+                                                                        Preview
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => handleViewDetail(approval.id)}
+                                                                        className="border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
+                                                                        title="Detail approval"
+                                                                    >
+                                                                        <IconFileText className="mr-1.5 h-3.5 w-3.5" />
+                                                                        Detail
+                                                                    </Button>
+                                                                </div>
+                                                            </article>
+                                                        );
+                                                    })}
                                                 </div>
 
                                                 {/* ===== MOBILE: daftar card (hanya tampil di bawah lg) ===== */}
@@ -937,10 +904,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                             {formatCurrency(approval.dokumen.nominal)}
                                                                         </p>
                                                                     </div>
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-[10px] text-muted-foreground uppercase">Tanggal</p>
-                                                                        <p className="text-xs text-muted-foreground">{formatDate(approval.dokumen.tgl_pengajuan)}</p>
-                                                                    </div>
                                                                     <div className="col-span-2 min-w-0">
                                                                         <p className="mb-1 text-[10px] text-muted-foreground uppercase">Jenis Transaksi</p>
                                                                         {approval.dokumen.transaksi ? (
@@ -958,15 +921,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                         ) : (
                                                                             <span className="text-xs text-muted-foreground">-</span>
                                                                         )}
-                                                                    </div>
-                                                                    <div className="col-span-2 min-w-0">
-                                                                        <p className="text-[10px] text-muted-foreground uppercase">Keterangan</p>
-                                                                        <p
-                                                                            className="line-clamp-2 text-xs break-words text-muted-foreground"
-                                                                            title={approval.dokumen.deskripsi}
-                                                                        >
-                                                                            {approval.dokumen.deskripsi || '-'}
-                                                                        </p>
                                                                     </div>
                                                                 </div>
 
