@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Check, Copy, GripHorizontal, QrCode, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Copy, GripHorizontal, Maximize2, Minimize2, QrCode, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
@@ -33,6 +33,7 @@ interface Props {
     isEmbedded?: boolean;
     readOnly?: boolean;
     defaultActiveApprovalId?: number | string;
+    hideSidebar?: boolean;
 }
 
 export interface SignaturePosition {
@@ -56,6 +57,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     isEmbedded = false,
     readOnly = false,
     defaultActiveApprovalId,
+    hideSidebar = false,
 }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -63,6 +65,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                setIsFullscreen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFullscreen]);
 
     // Positions map: approval_id -> SignaturePosition
     const [positions, setPositions] = useState<Record<string | number, SignaturePosition>>({});
@@ -822,6 +835,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const innerContent = (
         <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
             {/* Sidebar Configuration */}
+            {!hideSidebar && (
             <div className="flex max-h-[22vh] w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3 md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4">
                 <div>
                     <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
@@ -1180,6 +1194,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         </Button>
                     </div>
 
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5"
+                        onClick={() => setIsFullscreen(true)}
+                        title="Tampilkan Dokumen Layar Penuh"
+                    >
+                        <Maximize2 className="h-4 w-4" />
+                        <span>Layar Penuh (Fullscreen)</span>
+                    </Button>
+
                     {!readOnly && (
                         <Button
                             type="button"
@@ -1192,17 +1218,26 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     )}
                 </div>
             </div>
+            )}
 
             {/* PDF Viewer Area */}
             <div
                 ref={viewerRef}
-                className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-100 p-2 md:p-8"
+                className={isFullscreen
+                    ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-2 sm:p-4"
+                    : "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-100 p-2 md:p-8"}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
             >
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-background/90 px-2 py-1.5 md:hidden">
-                    <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-3 py-2 rounded-t-lg backdrop-blur-xs">
+                    {/* Left: Zoom Controls + Fullscreen Title */}
+                    <div className="flex items-center gap-1.5">
+                        {isFullscreen && (
+                            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary mr-1">
+                                Layar Penuh
+                            </span>
+                        )}
                         <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.max(0.45, s - 0.2))} title="Zoom Out" aria-label="Zoom out">
                             <ZoomOut className="h-4 w-4" />
                         </Button>
@@ -1211,6 +1246,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             <ZoomIn className="h-4 w-4" />
                         </Button>
                     </div>
+
+                    {/* Center: Page Navigation */}
                     <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1 || loading}>
                             Prev
@@ -1221,6 +1258,35 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages || loading}>
                             Next
                         </Button>
+                    </div>
+
+                    {/* Right: Fullscreen / Close Fullscreen Button */}
+                    <div className="flex items-center gap-1.5">
+                        {isFullscreen ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsFullscreen(false)}
+                                className="h-8 gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 font-semibold px-2.5 text-xs"
+                                title="Tutup Layar Penuh (Esc)"
+                            >
+                                <X className="h-4 w-4" />
+                                <span>Tutup Fullscreen</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsFullscreen(true)}
+                                className="h-8 gap-1.5 px-2.5 text-xs font-medium"
+                                title="Tampilkan Dokumen Layar Penuh"
+                            >
+                                <Maximize2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Fullscreen</span>
+                            </Button>
+                        )}
                     </div>
                 </div>
 
