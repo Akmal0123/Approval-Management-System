@@ -120,7 +120,7 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
                                 {((statistics.pending_approvals ?? 0) > 0 || (statistics.processed_approvals ?? 0) > 0) && (
                                     <>
                                         <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Approval Tasks</h2>
-                                        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
                                             <Card className="border-orange-200 bg-orange-50/50">
                                                 <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
@@ -166,7 +166,7 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
 
                                 <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Documents</h2>
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                                     <Card className="border-border bg-card">
                                         <CardContent className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between">

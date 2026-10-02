@@ -1330,9 +1330,9 @@ export default function UserDokumen() {
                                 </div>
 
                                 {/* Stats Cards */}
-                                <div className="grid gap-4 md:grid-cols-4">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</p>
@@ -1343,7 +1343,7 @@ export default function UserDokumen() {
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Draft</p>
@@ -1354,7 +1354,7 @@ export default function UserDokumen() {
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</p>
@@ -1365,7 +1365,7 @@ export default function UserDokumen() {
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
@@ -1551,7 +1551,7 @@ export default function UserDokumen() {
                                             </CardContent>
                                         </Card>
                                         {/* ===== MOBILE: daftar card ===== */}
-                                        <div className="space-y-3 lg:hidden">
+                                        <div className="grid grid-cols-2 gap-3 lg:hidden">
                                             {filteredDokumen.length > 0 ? (
                                                 filteredDokumen.map((doc, index) => (
                                                     <div
@@ -1602,7 +1602,7 @@ export default function UserDokumen() {
                                                         </div>
 
                                                         {/* Masterflow, current step, tanggal */}
-                                                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 font-sans">
+                                                        <div className="grid grid-cols-1 gap-y-2 border-t pt-3 font-sans">
                                                             <div className="min-w-0">
                                                                 <p className="text-[10px] text-muted-foreground uppercase">Masterflow</p>
                                                                 <p className="text-xs font-medium break-words">{doc.masterflow?.name || '-'}</p>
@@ -1613,7 +1613,7 @@ export default function UserDokumen() {
                                                                     {new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}
                                                                 </p>
                                                             </div>
-                                                            <div className="col-span-2 min-w-0">
+                                                            <div className="min-w-0">
                                                                 <p className="text-[10px] text-muted-foreground uppercase">Current Step</p>
                                                                 {doc.detailed_status?.current_step_description ? (
                                                                     <p className="text-xs break-words text-muted-foreground">
@@ -1665,7 +1665,7 @@ export default function UserDokumen() {
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="rounded-xl border bg-card py-8 text-center font-sans text-sm text-gray-500">
+                                                <div className="col-span-2 rounded-xl border bg-card py-8 text-center font-sans text-sm text-gray-500">
                                                     {searchQuery || statusFilter !== 'all'
                                                         ? 'Tidak ada dokumen yang sesuai dengan filter'
                                                         : 'Belum ada dokumen. Klik "Buat Dokumen" untuk memulai.'}
