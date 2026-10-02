@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Check, Copy, GripHorizontal, QrCode, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Copy, GripHorizontal, Maximize2, Minimize2, QrCode, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
@@ -33,6 +33,7 @@ interface Props {
     isEmbedded?: boolean;
     readOnly?: boolean;
     defaultActiveApprovalId?: number | string;
+    hideSidebar?: boolean;
 }
 
 export interface SignaturePosition {
@@ -56,6 +57,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     isEmbedded = false,
     readOnly = false,
     defaultActiveApprovalId,
+    hideSidebar = false,
 }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -63,6 +65,19 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    // Mobile tab state for the preview dialog
+    const [mobilePanelTab, setMobilePanelTab] = useState<'pdf' | 'info'>('pdf');
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                setIsFullscreen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFullscreen]);
 
     // Positions map: approval_id -> SignaturePosition
     const [positions, setPositions] = useState<Record<string | number, SignaturePosition>>({});
@@ -96,6 +111,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         if (open || isEmbedded) {
             setLoading(true);
             setError(null);
+            setMobilePanelTab('pdf'); // Always start on PDF tab when dialog opens/file changes
             if (dokumenId) {
                 fetchExistingPositions();
             } else {
@@ -821,8 +837,42 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     const innerContent = (
         <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
+
+            {/* ===== MOBILE TAB SWITCHER (< md only, when sidebar is visible) ===== */}
+            {!hideSidebar && (
+                <div className="flex shrink-0 border-b bg-muted/30 px-1.5 pt-1.5 pb-0 md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setMobilePanelTab('pdf')}
+                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${
+                            mobilePanelTab === 'pdf'
+                                ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        📄 PDF Dokumen
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMobilePanelTab('info')}
+                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${
+                            mobilePanelTab === 'info'
+                                ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        👥 Info Approver
+                    </button>
+                </div>
+            )}
+
             {/* Sidebar Configuration */}
-            <div className="flex max-h-[22vh] w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3 md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4">
+            {!hideSidebar && (
+            <div className={`
+                w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3
+                md:flex md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4
+                ${ mobilePanelTab === 'info' ? 'flex max-h-[calc(100%-42px)]' : 'hidden' }
+            `}>
                 <div>
                     <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
                     <div className="space-y-3">
@@ -1180,6 +1230,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         </Button>
                     </div>
 
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5"
+                        onClick={() => setIsFullscreen(true)}
+                        title="Tampilkan Dokumen Layar Penuh"
+                    >
+                        <Maximize2 className="h-4 w-4" />
+                        <span>Layar Penuh (Fullscreen)</span>
+                    </Button>
+
                     {!readOnly && (
                         <Button
                             type="button"
@@ -1192,39 +1254,91 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     )}
                 </div>
             </div>
+            )}
 
             {/* PDF Viewer Area */}
             <div
                 ref={viewerRef}
-                className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-100 p-2 md:p-8"
+                className={isFullscreen
+                    ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-1 sm:p-4"
+                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 md:p-6 min-h-0 min-w-0 flex-1 ${
+                        !hideSidebar && mobilePanelTab === 'info'
+                            ? 'hidden md:flex'
+                            : 'flex'
+                    }`}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
             >
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-background/90 px-2 py-1.5 md:hidden">
-                    <div className="flex items-center gap-1">
-                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.max(0.45, s - 0.2))} title="Zoom Out" aria-label="Zoom out">
-                            <ZoomOut className="h-4 w-4" />
+                <div className="flex shrink-0 items-center justify-between gap-1.5 sm:gap-2 border-b bg-background/95 px-2 sm:px-3 py-1.5 sm:py-2 rounded-t-lg backdrop-blur-xs">
+                    {/* Left: Zoom Controls + Fullscreen Title */}
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                        {isFullscreen && (
+                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary mr-1">
+                                Layar Penuh
+                            </span>
+                        )}
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0" onClick={() => setScale((s) => Math.max(0.35, s - 0.15))} title="Zoom Out" aria-label="Zoom out">
+                            <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
-                        <span className="min-w-10 text-center text-xs font-medium">{Math.round(scale * 100)}%</span>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.min(2.0, s + 0.2))} title="Zoom In" aria-label="Zoom in">
-                            <ZoomIn className="h-4 w-4" />
+                        <span className="min-w-8 sm:min-w-10 text-center text-[11px] sm:text-xs font-medium">{Math.round(scale * 100)}%</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0" onClick={() => setScale((s) => Math.min(2.5, s + 0.15))} title="Zoom In" aria-label="Zoom in">
+                            <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                     </div>
-                    <div className="flex items-center gap-1">
-                        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1 || loading}>
+
+                    {/* Center: Page Navigation */}
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5 sm:h-8 sm:px-2 text-[11px] sm:text-xs" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1 || loading}>
                             Prev
                         </Button>
-                        <span className="min-w-12 text-center text-xs font-medium text-muted-foreground">
+                        <span className="min-w-10 sm:min-w-12 text-center text-[11px] sm:text-xs font-medium text-muted-foreground">
                             {currentPage}/{numPages || '-'}
                         </span>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages || loading}>
+                        <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5 sm:h-8 sm:px-2 text-[11px] sm:text-xs" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages || loading}>
                             Next
                         </Button>
                     </div>
+
+                    {/* Right: Fullscreen / Close Fullscreen Button */}
+                    <div className="flex items-center gap-1">
+                        {isFullscreen ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsFullscreen(false)}
+                                className="h-7 sm:h-8 gap-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 font-semibold px-2 sm:px-2.5 text-[11px] sm:text-xs"
+                                title="Tutup Layar Penuh (Esc)"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                                <span>Tutup<span className="hidden sm:inline"> Fullscreen</span></span>
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setIsFullscreen(true);
+                                    if (window.innerWidth < 768) {
+                                        setScale(Math.max(0.45, Math.min(1.0, (window.innerWidth - 24) / 595)));
+                                    }
+                                }}
+                                className="h-7 sm:h-8 gap-1 px-2 sm:px-2.5 text-[11px] sm:text-xs font-medium"
+                                title="Tampilkan Dokumen Layar Penuh"
+                            >
+                                <Maximize2 className="h-3.5 w-3.5" />
+                                <span>Fullscreen</span>
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
-                <div ref={pagesViewportRef} className="relative flex min-h-0 min-w-0 flex-1 overflow-auto">
+                <div
+                    ref={pagesViewportRef}
+                    className="relative flex min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain"
+                >
                     {loading && (
                         <div className="flex h-full min-h-[300px] w-full items-center justify-center">
                             <div className="text-center">
@@ -1250,7 +1364,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex w-full flex-col items-center gap-4"
+                            className="flex w-max min-w-full flex-col items-center gap-4"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;

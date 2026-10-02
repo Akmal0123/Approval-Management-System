@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
@@ -1330,9 +1329,9 @@ export default function UserDokumen() {
                                 </div>
 
                                 {/* Stats Cards */}
-                                <div className="grid gap-4 md:grid-cols-4">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</p>
@@ -1343,7 +1342,7 @@ export default function UserDokumen() {
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Draft</p>
@@ -1354,7 +1353,7 @@ export default function UserDokumen() {
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</p>
@@ -1365,7 +1364,7 @@ export default function UserDokumen() {
                                         </CardContent>
                                     </Card>
                                     <Card className="border-border bg-card">
-                                        <CardContent className="p-6">
+                                        <CardContent className="p-4 md:p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
@@ -1423,133 +1422,107 @@ export default function UserDokumen() {
                                         </div>
                                     ) : (
                                         <>
-                                        <Card className="hidden border-border bg-card lg:block">
-                                            <CardContent className="p-0">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead className="w-16 font-sans">No</TableHead>
-                                                            <TableHead className="min-w-64 font-sans">Judul Dokumen</TableHead>
-                                                            <TableHead className="w-48 font-sans">Masterflow</TableHead>
-                                                            <TableHead className="w-40 font-sans">Status</TableHead>
-                                                            <TableHead className="min-w-64 font-sans">Current Step</TableHead>
-                                                            <TableHead className="w-40 font-sans">Tanggal Pengajuan</TableHead>
-                                                            <TableHead className="w-32 text-right font-sans">Aksi</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {filteredDokumen.length > 0 ? (
-                                                            filteredDokumen.map((doc, index) => (
-                                                                <TableRow
-                                                                    key={doc.id}
-                                                                    className={`transition-all duration-500 ${updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
-                                                                        }`}
-                                                                >
-                                                                    <TableCell className="font-mono">{index + 1}</TableCell>
-                                                                    <TableCell className="font-sans">
-                                                                        <div className="flex flex-col gap-1.5">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <span className="font-medium text-foreground">{doc.judul_dokumen}</span>
-                                                                                {doc.nomor_dokumen && (
-                                                                                    <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
-                                                                                        {doc.nomor_dokumen}
-                                                                                    </Badge>
-                                                                                )}
-                                                                                {doc.transaksi && (
-                                                                                    <Badge className="bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 text-[10px] font-mono">
-                                                                                        {doc.transaksi.kode_transaksi}
-                                                                                    </Badge>
-                                                                                )}
-                                                                                {doc.aplikasi && (
-                                                                                    <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                                                                        {doc.aplikasi.name}
-                                                                                    </span>
-                                                                                )}
-                                                                                {Number(doc.nominal || 0) > 0 && (
-                                                                                    <span className="text-[11px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
-                                                                                        Rp {Number(doc.nominal).toLocaleString('id-ID')}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            {doc.deskripsi && (
-                                                                                <span className="text-xs text-muted-foreground">
-                                                                                    {doc.deskripsi.substring(0, 80)}
-                                                                                    {doc.deskripsi.length > 80 ? '...' : ''}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                    <TableCell className="font-sans">{doc.masterflow?.name || '-'}</TableCell>
-                                                                    <TableCell className="font-sans">{getStatusBadge(doc.status)}</TableCell>
-                                                                    <TableCell className="font-sans">
-                                                                        {doc.detailed_status?.current_step_description ? (
-                                                                            <div className="flex flex-col gap-1">
-                                                                                <span className="text-xs text-muted-foreground">
-                                                                                    {doc.detailed_status.current_step_description}
-                                                                                </span>
-                                                                            </div>
-                                                                        ) : doc.detailed_status?.is_fully_approved ? (
-                                                                            <span className="text-xs font-medium text-green-600">
-                                                                                ✓ Semua sudah approve
-                                                                            </span>
-                                                                        ) : doc.detailed_status?.is_rejected ? (
-                                                                            <span className="text-xs font-medium text-red-600">✗ Ditolak</span>
-                                                                        ) : (
-                                                                            <span className="text-xs text-gray-400">-</span>
-                                                                        )}
-                                                                    </TableCell>
-                                                                    <TableCell className="font-sans">
-                                                                        {new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <div className="flex justify-end gap-2">
-                                                                            <Link href={`/dokumen/${doc.id}`}>
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
-                                                                                >
-                                                                                    <Eye className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </Link>
-                                                                            {doc.status === 'draft' && (
-                                                                                <>
-                                                                                    <Link href={`/dokumen/${doc.id}/edit`}>
-                                                                                        <Button
-                                                                                            variant="outline"
-                                                                                            size="sm"
-                                                                                            className="h-8 w-8 border-green-300 p-0 text-green-600 hover:bg-green-50"
-                                                                                        >
-                                                                                            <IconEdit className="h-4 w-4" />
-                                                                                        </Button>
-                                                                                    </Link>
-                                                                                    <Button
-                                                                                        variant="outline"
-                                                                                        size="sm"
-                                                                                        onClick={() => handleDelete(doc)}
-                                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
-                                                                                    >
-                                                                                        <IconTrash className="h-4 w-4" />
-                                                                                    </Button>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))
-                                                        ) : (
-                                                            <TableRow>
-                                                                <TableCell colSpan={7} className="py-8 text-center font-sans text-gray-500">
-                                                                    {searchQuery || statusFilter !== 'all'
-                                                                        ? 'Tidak ada dokumen yang sesuai dengan filter'
-                                                                        : 'Belum ada dokumen. Klik "Buat Dokumen" untuk memulai.'}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )}
-                                                    </TableBody>
-                                                </Table>
-                                            </CardContent>
-                                        </Card>
+                                        <div className="hidden gap-4 lg:grid lg:grid-cols-2">
+                                            {filteredDokumen.length > 0 ? (
+                                                filteredDokumen.map((doc, index) => (
+                                                    <Card
+                                                        key={doc.id}
+                                                        className={`min-w-0 border-border bg-card transition-colors ${
+                                                            updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/20' : ''
+                                                        }`}
+                                                    >
+                                                        <CardContent className="space-y-4 p-4">
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="font-mono text-xs font-medium text-muted-foreground">#{index + 1}</span>
+                                                                {getStatusBadge(doc.status)}
+                                                            </div>
+
+                                                            <div className="min-w-0 space-y-2">
+                                                                <h3 className="break-words font-sans text-base font-semibold leading-tight text-foreground">
+                                                                    {doc.judul_dokumen}
+                                                                </h3>
+                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                    {doc.nomor_dokumen && (
+                                                                        <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                                                                            {doc.nomor_dokumen}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {doc.transaksi && (
+                                                                        <Badge className="border-emerald-300 bg-emerald-100 font-mono text-[10px] text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+                                                                            {doc.transaksi.kode_transaksi}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {doc.aplikasi && (
+                                                                        <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                                                            {doc.aplikasi.name}
+                                                                        </span>
+                                                                    )}
+                                                                    {Number(doc.nominal || 0) > 0 && (
+                                                                        <span className="rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">
+                                                                            Rp {Number(doc.nominal).toLocaleString('id-ID')}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {doc.deskripsi && (
+                                                                    <p className="line-clamp-2 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]" title={doc.deskripsi}>
+                                                                        {doc.deskripsi}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="grid min-w-0 grid-cols-2 gap-3 border-t pt-3 font-sans">
+                                                                <div className="min-w-0 space-y-1">
+                                                                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Masterflow</p>
+                                                                    <p className="break-words text-sm">{doc.masterflow?.name || '-'}</p>
+                                                                </div>
+                                                                <div className="min-w-0 space-y-1">
+                                                                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Tanggal Pengajuan</p>
+                                                                    <p className="text-sm text-muted-foreground">{new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}</p>
+                                                                </div>
+                                                                <div className="col-span-2 min-w-0 space-y-1">
+                                                                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Current Step</p>
+                                                                    {doc.detailed_status?.current_step_description ? (
+                                                                        <p className="break-words text-sm text-muted-foreground">{doc.detailed_status.current_step_description}</p>
+                                                                    ) : doc.detailed_status?.is_fully_approved ? (
+                                                                        <span className="text-sm font-medium text-green-600">Semua sudah approve</span>
+                                                                    ) : doc.detailed_status?.is_rejected ? (
+                                                                        <span className="text-sm font-medium text-red-600">Ditolak</span>
+                                                                    ) : (
+                                                                        <span className="text-sm text-muted-foreground">-</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex justify-end gap-2 border-t pt-3">
+                                                                <Link href={`/dokumen/${doc.id}`}>
+                                                                    <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-blue-600" title="Lihat dokumen" aria-label="Lihat dokumen">
+                                                                        <Eye className="h-4 w-4" />
+                                                                    </Button>
+                                                                </Link>
+                                                                {doc.status === 'draft' && (
+                                                                    <>
+                                                                        <Link href={`/dokumen/${doc.id}/edit`}>
+                                                                            <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-green-600" title="Edit dokumen" aria-label="Edit dokumen">
+                                                                                <IconEdit className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </Link>
+                                                                        <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="h-8 w-8 p-0 text-red-600" title="Hapus dokumen" aria-label="Hapus dokumen">
+                                                                            <IconTrash className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))
+                                            ) : (
+                                                <div className="col-span-2 rounded-lg border bg-card py-8 text-center font-sans text-sm text-muted-foreground">
+                                                    {searchQuery || statusFilter !== 'all'
+                                                        ? 'Tidak ada dokumen yang sesuai dengan filter'
+                                                        : 'Belum ada dokumen. Klik "Buat Dokumen" untuk memulai.'}
+                                                </div>
+                                            )}
+                                        </div>
                                         {/* ===== MOBILE: daftar card ===== */}
                                         <div className="space-y-3 lg:hidden">
                                             {filteredDokumen.length > 0 ? (
@@ -1603,7 +1576,7 @@ export default function UserDokumen() {
 
                                                         {/* Masterflow, current step, tanggal */}
                                                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 font-sans">
-                                                            <div className="min-w-0">
+                                                            <div className="col-span-2 min-w-0">
                                                                 <p className="text-[10px] text-muted-foreground uppercase">Masterflow</p>
                                                                 <p className="text-xs font-medium break-words">{doc.masterflow?.name || '-'}</p>
                                                             </div>
@@ -1613,7 +1586,7 @@ export default function UserDokumen() {
                                                                     {new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}
                                                                 </p>
                                                             </div>
-                                                            <div className="col-span-2 min-w-0">
+                                                            <div className="min-w-0">
                                                                 <p className="text-[10px] text-muted-foreground uppercase">Current Step</p>
                                                                 {doc.detailed_status?.current_step_description ? (
                                                                     <p className="text-xs break-words text-muted-foreground">
@@ -2429,7 +2402,7 @@ export default function UserDokumen() {
 
                                             <div className="space-y-3">
                                                 {formData.custom_approvers.map((approver, index) => (
-                                                    <div key={index} className="grid grid-cols-[80px_1fr_100px_40px] items-start gap-3">
+                                                    <div key={index} className="grid grid-cols-[32px_minmax(0,1fr)_72px_32px] items-start gap-2 sm:grid-cols-[80px_minmax(0,1fr)_100px_40px] sm:gap-3">
                                                         {/* Step Order */}
                                                         <div className="flex items-center justify-center pt-2">
                                                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
@@ -2438,19 +2411,19 @@ export default function UserDokumen() {
                                                         </div>
 
                                                         {/* Email Input */}
-                                                        <div className="flex flex-col gap-1">
+                                                        <div className="flex min-w-0 flex-col gap-1">
                                                             <span className="text-xs text-muted-foreground">Email Approver</span>
                                                             <Input
                                                                 type="email"
                                                                 value={approver.email}
                                                                 onChange={(e) => handleCustomApproverChange(index, 'email', e.target.value)}
                                                                 placeholder="approver@example.com"
-                                                                className="font-sans"
+                                                                className="min-w-0 font-sans"
                                                             />
                                                         </div>
 
                                                         {/* Order Input */}
-                                                        <div className="flex flex-col gap-1">
+                                                        <div className="flex min-w-0 flex-col gap-1">
                                                             <span className="text-xs text-muted-foreground">Tingkat</span>
                                                             <Input
                                                                 type="number"

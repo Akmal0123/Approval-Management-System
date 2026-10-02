@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Download, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Download, Maximize2, Minimize2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 // Configure PDF.js worker
@@ -29,6 +29,29 @@ export default function PDFViewer({
     const [scale, setScale] = useState<number>(1.0);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    const viewerRef = useRef<HTMLDivElement>(null);
+    const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+    const hasAutoFit = useRef(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                setIsFullscreen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFullscreen]);
+
+    useEffect(() => {
+        hasAutoFit.current = false;
+        setPageNumber(1);
+        setScale(1.0);
+        pageRefs.current = {};
+        setLoading(true);
+        setError(null);
+    }, [fileUrl]);
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
@@ -42,11 +65,21 @@ export default function PDFViewer({
         setLoading(false);
     }
 
+    const onPageLoadSuccess = (page: any) => {
+        if (hasAutoFit.current || window.innerWidth >= 768) return;
+
+        const pageWidth = page.getViewport({ scale: 1 }).width;
+        const availableWidth = (viewerRef.current?.clientWidth ?? 0) - 32;
+        if (pageWidth > 0 && availableWidth > 0) {
+            setScale(Math.min(1, Math.max(0.3, availableWidth / pageWidth)));
+            hasAutoFit.current = true;
+        }
+    };
+
     const changePage = (offset: number) => {
-        setPageNumber((prevPageNumber) => {
-            const newPageNumber = prevPageNumber + offset;
-            return Math.min(Math.max(1, newPageNumber), numPages);
-        });
+        const targetPage = Math.min(Math.max(1, pageNumber + offset), numPages);
+        setPageNumber(targetPage);
+        pageRefs.current[targetPage]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     const previousPage = () => changePage(-1);
@@ -57,7 +90,7 @@ export default function PDFViewer({
     };
 
     const zoomOut = () => {
-        setScale((prevScale) => Math.max(prevScale - 0.2, 0.5));
+        setScale((prevScale) => Math.max(prevScale - 0.2, 0.3));
     };
 
     const resetZoom = () => {
@@ -65,11 +98,23 @@ export default function PDFViewer({
     };
 
     return (
-        <div className="space-y-4">
+        <div className={isFullscreen ? "fixed inset-0 z-[99999] flex flex-col bg-background p-3 sm:p-4 shadow-2xl" : "flex h-full min-h-0 min-w-0 flex-col gap-3 sm:gap-4"}>
             {/* Controls */}
             {showControls && (
-                <Card className="p-4">
-                    <div className="flex flex-wrap items-center justify-center gap-4">
+                <Card className="shrink-0 p-2 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                        {/* Title when Fullscreen */}
+                        {isFullscreen && (
+                            <div className="flex items-center gap-2 max-w-[280px] sm:max-w-md truncate">
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                    Layar Penuh
+                                </span>
+                                <span className="truncate text-xs sm:text-sm font-medium text-foreground" title={fileName}>
+                                    {fileName}
+                                </span>
+                            </div>
+                        )}
+
                         {/* Page Navigation */}
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="sm" onClick={previousPage} disabled={pageNumber <= 1 || loading}>
@@ -84,7 +129,7 @@ export default function PDFViewer({
                         </div>
 
                         {/* Zoom Controls */}
-                        <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-normal">
+                        <div className="flex items-center justify-center gap-2">
                             <Button variant="outline" size="sm" onClick={zoomOut} disabled={scale <= 0.5 || loading}>
                                 <ZoomOut className="h-4 w-4" />
                             </Button>
@@ -92,19 +137,45 @@ export default function PDFViewer({
                             <Button variant="outline" size="sm" onClick={zoomIn} disabled={scale >= 3.0 || loading}>
                                 <ZoomIn className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" onClick={resetZoom} disabled={loading}>
+                            <Button variant="outline" size="sm" onClick={resetZoom} disabled={loading} className="hidden sm:inline-flex">
                                 Reset
                             </Button>
                         </div>
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2">
-                            {onFullscreen && (
-                                <Button variant="outline" size="sm" onClick={onFullscreen}>
-                                    <Maximize2 className="mr-2 h-4 w-4" />
-                                    Fullscreen
+                            {isFullscreen ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsFullscreen(false)}
+                                    className="gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 font-semibold"
+                                    title="Tutup Layar Penuh (Esc)"
+                                >
+                                    <X className="h-4 w-4" />
+                                    <span>Tutup Fullscreen</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (onFullscreen) {
+                                            onFullscreen();
+                                        } else {
+                                            setIsFullscreen(true);
+                                        }
+                                    }}
+                                    className="gap-1.5"
+                                    title="Tampilkan Layar Penuh"
+                                >
+                                    <Maximize2 className="h-4 w-4" />
+                                    <span>Fullscreen</span>
                                 </Button>
                             )}
+
                             {onDownload && (
                                 <Button variant="outline" size="sm" onClick={onDownload}>
                                     <Download className="mr-2 h-4 w-4" />
@@ -117,7 +188,19 @@ export default function PDFViewer({
             )}
 
             {/* PDF Viewer */}
-            <div className="overflow-auto rounded-lg border border-border bg-muted/30" style={{ height }}>
+            <div
+                ref={viewerRef}
+                className="min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain rounded-lg border border-border bg-muted/30"
+                style={{ height: isFullscreen ? 'calc(100vh - 90px)' : height, maxHeight: '100%' }}
+                onScroll={() => {
+                    const viewportTop = viewerRef.current?.getBoundingClientRect().top ?? 0;
+                    const visiblePage = Object.entries(pageRefs.current).find(([, element]) => {
+                        if (!element) return false;
+                        return element.getBoundingClientRect().bottom > viewportTop + 16;
+                    });
+                    if (visiblePage) setPageNumber(Number(visiblePage[0]));
+                }}
+            >
                 {loading && (
                     <div className="flex h-full items-center justify-center">
                         <div className="text-center">
@@ -139,16 +222,36 @@ export default function PDFViewer({
                 )}
 
                 {!error && (
-                    <div className="flex justify-center p-4">
+                    <div className="flex min-w-max justify-center p-4">
                         <Document
                             file={fileUrl}
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex justify-center"
+                            className="flex w-max min-w-full flex-col items-center gap-4"
                         >
-                            <Page pageNumber={pageNumber} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} className="shadow-lg" />
+                            {Array.from({ length: numPages }, (_, index) => {
+                                const page = index + 1;
+                                return (
+                                    <div
+                                        key={page}
+                                        ref={(element) => {
+                                            pageRefs.current[page] = element;
+                                        }}
+                                        className="flex w-full shrink-0 justify-center"
+                                    >
+                                        <Page
+                                            pageNumber={page}
+                                            scale={scale}
+                                            renderTextLayer={false}
+                                            renderAnnotationLayer={false}
+                                            className="shadow-lg"
+                                            onLoadSuccess={onPageLoadSuccess}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </Document>
                     </div>
                 )}

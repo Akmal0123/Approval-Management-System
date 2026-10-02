@@ -1031,15 +1031,15 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                                                         return (
                                                             <div
                                                                 key={version.id}
-                                                                className={`flex items-center justify-between p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
+                                                                className={`flex flex-col gap-2 p-4 ${isLatest ? 'bg-blue-50/30' : 'hover:bg-muted/30'}`}
                                                             >
-                                                                <div className="flex min-w-0 flex-1 items-center gap-4">
+                                                                <div className="flex w-full min-w-0 items-start gap-4">
                                                                     <div
                                                                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${isLatest ? 'border-blue-200 bg-blue-100 text-blue-700' : 'bg-background text-muted-foreground'}`}
                                                                     >
                                                                         <IconFileText className="h-5 w-5" />
                                                                     </div>
-                                                                    <div>
+                                                                    <div className="min-w-0 flex-1">
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="font-medium">Versi {version.version}</span>
                                                                             {isLatest && (
@@ -1060,8 +1060,10 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
+                                                                        <p className="w-full text-sm [overflow-wrap:anywhere]" title={version.nama_file}>
+                                                                            {version.nama_file}
+                                                                        </p>
                                                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                                                                            <span className="max-w-[220px] truncate sm:max-w-[320px]">{version.nama_file}</span>
                                                                             <span>•</span>
                                                                             <span>{formatFileSize(version.size_file)}</span>
                                                                             <span>•</span>
@@ -1069,7 +1071,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex gap-1">
+                                                                <div className="flex w-full shrink-0 justify-end gap-1">
                                                                     {(version.tipe_file.toLowerCase() === 'pdf' ||
                                                                         version.tipe_file.toLowerCase() === 'application/pdf') && (
                                                                             <>
