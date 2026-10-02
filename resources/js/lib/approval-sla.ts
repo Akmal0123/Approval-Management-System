@@ -205,16 +205,8 @@ export function getDurationColorClass(durationMs: number | null): {
             bg: 'bg-amber-50 dark:bg-amber-950/40',
             border: 'border-amber-200 dark:border-amber-800',
         };
-    } else if (hours < 8) {
-        // Mendekati batas hari kerja — orange
-        return {
-            text: 'text-orange-700 dark:text-orange-400',
-            icon: 'text-orange-500',
-            bg: 'bg-orange-50 dark:bg-orange-950/40',
-            border: 'border-orange-200 dark:border-orange-800',
-        };
     } else {
-        // Melebihi 1 hari kerja / SLA — merah
+        // H-2 (6 jam ke atas) — merah
         return {
             text: 'text-red-700 dark:text-red-400',
             icon: 'text-red-500',

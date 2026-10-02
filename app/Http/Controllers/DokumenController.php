@@ -1506,9 +1506,10 @@ class DokumenController extends Controller
         }
 
         if (!$txData) {
+            $dummySamples = array_column(DummyTransactionService::getSamples(), 'code');
             $samples = array_merge(
                 ['PO-2026-0001', 'PR-2026-0001', 'PO-2026-0002', 'PR-2026-0002'],
-                DummyTransactionService::getSamples()
+                $dummySamples
             );
             return response()->json([
                 'status' => 'error',

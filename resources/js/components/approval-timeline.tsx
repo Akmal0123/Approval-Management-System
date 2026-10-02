@@ -367,9 +367,14 @@ export function ApprovalTimeline({
 
                                             {/* Approval Duration (SLA per step) */}
                                             {duration && (
-                                                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                                                    <Timer className={`h-3 w-3 shrink-0 ${durationColor.icon}`} />
-                                                    <span className={`font-medium ${durationColor.text}`}>Durasi approval: {duration}</span>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+                                                    <Timer className="h-3 w-3 shrink-0" />
+                                                    <span>
+                                                        Durasi approval:{' '}
+                                                        <span className={`font-medium ${durationColor.text}`}>
+                                                            {duration}
+                                                        </span>
+                                                    </span>
                                                 </div>
                                             )}
 
@@ -377,7 +382,12 @@ export function ApprovalTimeline({
                                             {durationFromUpload && (
                                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
                                                     <Timer className="h-3 w-3 shrink-0" />
-                                                    <span>Durasi dari dokumen diupload: <span className="font-medium text-foreground">{durationFromUpload}</span></span>
+                                                    <span>
+                                                        Durasi dari dokumen diupload:{' '}
+                                                        <span className={`font-medium ${durationColor.text}`}>
+                                                            {durationFromUpload}
+                                                        </span>
+                                                    </span>
                                                 </div>
                                             )}
 
