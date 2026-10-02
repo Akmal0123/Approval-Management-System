@@ -523,11 +523,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         </div>
 
                                         {approval.dokumen.deskripsi && (
-                                            <div className="space-y-1.5">
+                                            <div className="min-w-0 space-y-1.5">
                                                 <Label className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                                                     Deskripsi
                                                 </Label>
-                                                <div className="rounded-md bg-muted/30 p-4 text-sm leading-relaxed text-foreground">
+                                                <div className="min-w-0 max-w-full rounded-md bg-muted/30 p-4 text-sm leading-relaxed break-words text-foreground [overflow-wrap:anywhere]">
                                                     {approval.dokumen.deskripsi}
                                                 </div>
                                             </div>
