@@ -19,7 +19,6 @@ $kernel->bootstrap();
 
 use App\Services\AmsJwtService;
 use App\Services\FastifyIntegrationService;
-use App\Services\TransactionTemplatePdfService;
 use Illuminate\Support\Facades\Http;
 
 $fastifyUrl = rtrim(config('services.fastify.url', 'http://localhost:5000'), '/');
@@ -197,11 +196,9 @@ try {
     assertTest("PO data has 'nominal' > 0", ($poData['nominal'] ?? 0) > 0, "Rp " . number_format($poData['nominal'] ?? 0));
     assertTest("PO data has 'vendor'", !empty($poData['vendor']), $poData['vendor'] ?? '');
     assertTest("PO data has 'items' array", is_array($poData['items'] ?? null) && count($poData['items']) > 0, count($poData['items']) . " item(s)");
-    assertTest("PO data has 'totals' structure", isset($poData['totals']['subtotal']) && isset($poData['totals']['total']));
-
-    // Generate PDF using TransactionTemplatePdfService in AMS
-    $pdfBinary = TransactionTemplatePdfService::generate($poData, 'S');
-    assertTest("TransactionTemplatePdfService generates PO PDF binary", !empty($pdfBinary) && str_starts_with($pdfBinary, '%PDF'), strlen($pdfBinary) . " bytes");
+    // Fetch PO PDF generated directly by Fastify Microservice
+    $pdfBinary = FastifyIntegrationService::getPurchaseOrderPdf('PO-2026-0001');
+    assertTest("Fastify microservice delivers PO PDF binary", !empty($pdfBinary) && str_starts_with($pdfBinary, '%PDF'), strlen($pdfBinary ?? '') . " bytes");
 } catch (\Throwable $e) {
     assertTest("PO transformation test", false, $e->getMessage());
 }
@@ -219,9 +216,9 @@ try {
     assertTest("PR data has 'gudang'", !empty($prData['gudang']), $prData['gudang'] ?? '');
     assertTest("PR data has 'items' array", is_array($prData['items'] ?? null) && count($prData['items']) > 0, count($prData['items']) . " item(s)");
 
-    // Generate PDF using TransactionTemplatePdfService in AMS
-    $pdfBinaryPR = TransactionTemplatePdfService::generate($prData, 'S');
-    assertTest("TransactionTemplatePdfService generates PR PDF binary", !empty($pdfBinaryPR) && str_starts_with($pdfBinaryPR, '%PDF'), strlen($pdfBinaryPR) . " bytes");
+    // Fetch PR PDF generated directly by Fastify Microservice
+    $pdfBinaryPR = FastifyIntegrationService::getPurchaseRequestPdf('PR-2026-0001');
+    assertTest("Fastify microservice delivers PR PDF binary", !empty($pdfBinaryPR) && str_starts_with($pdfBinaryPR, '%PDF'), strlen($pdfBinaryPR ?? '') . " bytes");
 } catch (\Throwable $e) {
     assertTest("PR transformation test", false, $e->getMessage());
 }
