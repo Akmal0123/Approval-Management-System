@@ -150,6 +150,11 @@ const userNavMain = [
         url: '/approvals',
         icon: CheckSquareIcon,
     },
+    {
+        title: 'My Workflow',
+        url: '/admin/my-workflows',
+        icon: FolderKanbanIcon,
+    },
 ];
 
 interface PageProps {

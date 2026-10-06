@@ -375,7 +375,37 @@ class PdfSignatureService
             $nodeScriptPath = base_path('scripts/sign-pdf.cjs');
 
             // Execute node script
-            $process = new \Symfony\Component\Process\Process(['node', $nodeScriptPath, $tempConfigFile]);
+            // On Windows, PHP (when run via artisan serve) may not pass all environment variables
+            // to child processes. Node.js requires SystemRoot (and other Windows env vars) to
+            // initialize its crypto module (CSPRNG). Without it, Node crashes with exit code 134.
+            // We build the env array explicitly to ensure these critical vars are always present.
+            $nodeEnv = [];
+            // Start with the full current process environment
+            foreach (array_merge($_ENV, $_SERVER) as $key => $value) {
+                if (is_string($value) && !str_starts_with($key, 'HTTP_')) {
+                    $nodeEnv[$key] = $value;
+                }
+            }
+            // Ensure critical Windows environment variables are set
+            $criticalVars = ['SystemRoot', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'PATH', 'PATHEXT', 'ComSpec', 'windir'];
+            foreach ($criticalVars as $varName) {
+                if (!isset($nodeEnv[$varName])) {
+                    $val = getenv($varName);
+                    if ($val !== false) {
+                        $nodeEnv[$varName] = $val;
+                    }
+                }
+            }
+            // Hard-code SystemRoot fallback if still missing (always C:\Windows on Windows)
+            if (!isset($nodeEnv['SystemRoot']) || empty($nodeEnv['SystemRoot'])) {
+                $nodeEnv['SystemRoot'] = 'C:\\Windows';
+            }
+
+            $process = new \Symfony\Component\Process\Process(
+                ['node', $nodeScriptPath, $tempConfigFile],
+                null,
+                $nodeEnv
+            );
             // Increase timeout for large PDFs
             $process->setTimeout(60);
             $process->run();

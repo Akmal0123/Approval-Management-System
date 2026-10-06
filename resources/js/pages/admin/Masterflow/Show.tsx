@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { IconArrowLeft, IconBuilding, IconCheck, IconEdit, IconSettings, IconUser, IconX } from '@tabler/icons-react';
 
 import { AppSidebar } from '@/components/app-sidebar';
@@ -61,6 +61,12 @@ interface Props {
 }
 
 export default function Show({ masterflow, company }: Props) {
+    const { auth } = usePage().props as any;
+    
+    // Check if user is Admin or Super Admin
+    const roleName = auth?.context?.role?.role_name || '';
+    const isAdmin = roleName.toLowerCase() === 'admin' || roleName.toLowerCase() === 'super admin';
+
     return (
         <>
             <Head title={`Detail Masterflow - ${masterflow.name}`} />
@@ -85,13 +91,15 @@ export default function Show({ masterflow, company }: Props) {
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap items-center justify-end gap-2">
-                                        <Link href={route('admin.masterflows.edit', masterflow.id)}>
-                                            <Button className="font-sans">
-                                                <IconEdit className="mr-2 h-4 w-4" />
-                                                Edit Masterflow
-                                            </Button>
-                                        </Link>
-                                        <Link href={route('admin.masterflows.index')}>
+                                        {isAdmin && (
+                                            <Link href={route('admin.masterflows.edit', masterflow.id)}>
+                                                <Button className="font-sans">
+                                                    <IconEdit className="mr-2 h-4 w-4" />
+                                                    Edit Masterflow
+                                                </Button>
+                                            </Link>
+                                        )}
+                                        <Link href={isAdmin ? route('admin.masterflows.index') : route('admin.my-workflows')}>
                                             <Button variant="outline" className="font-sans">
                                                 <IconArrowLeft className="mr-2 h-4 w-4" />
                                                 Kembali

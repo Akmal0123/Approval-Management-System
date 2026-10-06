@@ -32,7 +32,7 @@ export default function MyWorkflows({ masterflows, auth }: Props) {
             <AppSidebar variant="inset" />
             <SidebarInset>
                 <SiteHeader breadcrumbs={breadcrumbs} />
-                
+
                 <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6 max-w-7xl mx-auto w-full">
                     <div className="space-y-1">
                         <h1 className="font-serif text-2xl font-bold tracking-tight text-foreground">
@@ -42,7 +42,7 @@ export default function MyWorkflows({ masterflows, auth }: Props) {
                             Masterflow/workflow yang dimiliki atau ditugaskan kepada Anda di dalam context saat ini.
                         </p>
                     </div>
-                    
+
                     {masterflows && masterflows.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {masterflows.map((masterflow) => (

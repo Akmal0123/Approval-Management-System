@@ -98,7 +98,7 @@ export default function SuperAdminDashboard() {
                                 {/* Stats Cards */}
                                 <div>
                                     {isLoading ? (
-                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
                                             {[...Array(3)].map((_, i) => (
                                                 <Card key={i} className="border-border bg-card">
                                                     <CardContent className="p-4 sm:p-6">
@@ -114,13 +114,13 @@ export default function SuperAdminDashboard() {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
                                             <Card className="border-border bg-card transition-shadow hover:shadow-md">
                                                 <CardContent className="p-4 sm:p-6">
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1 sm:space-y-2">
                                                             <p className="font-sans text-sm font-medium text-muted-foreground">Total Users</p>
-                                                            <p className="font-sans text-2xl sm:text-3xl font-bold text-foreground">
+                                                            <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">
                                                                 {dashboardData?.stats.total_users ?? 0}
                                                             </p>
                                                         </div>
@@ -135,7 +135,7 @@ export default function SuperAdminDashboard() {
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1 sm:space-y-2">
                                                             <p className="font-sans text-sm font-medium text-muted-foreground">All Documents</p>
-                                                            <p className="font-sans text-2xl sm:text-3xl font-bold text-foreground">
+                                                            <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">
                                                                 {dashboardData?.stats.total_documents ?? 0}
                                                             </p>
                                                         </div>
@@ -150,7 +150,7 @@ export default function SuperAdminDashboard() {
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1 sm:space-y-2">
                                                             <p className="font-sans text-sm font-medium text-muted-foreground">Pending Reviews</p>
-                                                            <p className="font-sans text-2xl sm:text-3xl font-bold text-foreground">
+                                                            <p className="font-sans text-xl sm:text-2xl font-bold text-foreground">
                                                                 {dashboardData?.stats.pending_approvals ?? 0}
                                                             </p>
                                                         </div>
@@ -170,7 +170,7 @@ export default function SuperAdminDashboard() {
                                         <h2 className="font-sans text-xl sm:text-2xl font-bold text-foreground">Management Modules</h2>
                                         <p className="font-sans text-xs sm:text-sm text-muted-foreground">Kelola semua komponen sistem</p>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                                         {/* User Roles Management */}
                                         <Link href="/super-admin/role-management">
                                             <Card className="group h-full cursor-pointer border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg">
@@ -183,7 +183,7 @@ export default function SuperAdminDashboard() {
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-primary">
+                                                                <span className="font-sans text-xl sm:text-2xl font-bold text-primary">
                                                                     {dashboardData?.stats.total_roles ?? 0}
                                                                 </span>
                                                             )}
@@ -211,7 +211,7 @@ export default function SuperAdminDashboard() {
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                                                <span className="font-sans text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
                                                                     {dashboardData?.stats.total_companies ?? 0}
                                                                 </span>
                                                             )}
@@ -239,7 +239,7 @@ export default function SuperAdminDashboard() {
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                                                <span className="font-sans text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
                                                                     {dashboardData?.stats.total_jabatans ?? 0}
                                                                 </span>
                                                             )}
@@ -267,7 +267,7 @@ export default function SuperAdminDashboard() {
                                                             {isLoading ? (
                                                                 <div className="h-8 w-12 animate-pulse rounded bg-muted"></div>
                                                             ) : (
-                                                                <span className="font-sans text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
+                                                                <span className="font-sans text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
                                                                     {dashboardData?.stats.total_aplikasis ?? 0}
                                                                 </span>
                                                             )}

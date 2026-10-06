@@ -175,3 +175,13 @@
         transform: translateX(0);
     }
 }
+
+body > div[style*='z-index: 200000'] > iframe {
+    border-radius: 1rem !important;
+}
+
+@media (max-width: 640px) {
+    body > div[style*='z-index: 200000'] {
+        padding: 5vh 4vw !important;
+    }
+}

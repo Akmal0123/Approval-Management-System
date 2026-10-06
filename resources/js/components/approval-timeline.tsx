@@ -318,9 +318,9 @@ export function ApprovalTimeline({
 
                                         {/* Content */}
                                         <div className="min-w-0 flex-1 space-y-1.5 pt-1">
-                                            <div className="flex min-w-0 items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <div className="truncate font-sans text-sm font-semibold sm:text-base">
+                                            <div className="flex min-w-0 flex-col items-start gap-1.5">
+                                                <div className="w-full min-w-0">
+                                                    <div className="whitespace-normal break-words font-sans text-sm font-semibold sm:text-base">
                                                         {app.masterflow_step?.step_name ||
                                                             (isCustomApproval
                                                                 ? `Custom Approver ${
@@ -330,7 +330,7 @@ export function ApprovalTimeline({
                                                                   }`
                                                                 : 'Approval Step')}
                                                     </div>
-                                                    <div className="truncate text-xs font-medium text-foreground sm:text-sm">
+                                                    <div className="whitespace-normal break-words text-xs font-medium text-foreground sm:text-sm">
                                                         {app.user?.name ||
                                                             app.user?.email ||
                                                             app.approver_email ||
@@ -367,9 +367,14 @@ export function ApprovalTimeline({
 
                                             {/* Approval Duration (SLA per step) */}
                                             {duration && (
-                                                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                                                    <Timer className={`h-3 w-3 shrink-0 ${durationColor.icon}`} />
-                                                    <span className={`font-medium ${durationColor.text}`}>Durasi approval: {duration}</span>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+                                                    <Timer className="h-3 w-3 shrink-0" />
+                                                    <span>
+                                                        Durasi approval:{' '}
+                                                        <span className={`font-medium ${durationColor.text}`}>
+                                                            {duration}
+                                                        </span>
+                                                    </span>
                                                 </div>
                                             )}
 
@@ -377,7 +382,12 @@ export function ApprovalTimeline({
                                             {durationFromUpload && (
                                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
                                                     <Timer className="h-3 w-3 shrink-0" />
-                                                    <span>Durasi dari dokumen diupload: <span className="font-medium text-foreground">{durationFromUpload}</span></span>
+                                                    <span>
+                                                        Durasi dari dokumen diupload:{' '}
+                                                        <span className={`font-medium ${durationColor.text}`}>
+                                                            {durationFromUpload}
+                                                        </span>
+                                                    </span>
                                                 </div>
                                             )}
 
