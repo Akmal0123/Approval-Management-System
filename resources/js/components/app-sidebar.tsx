@@ -111,6 +111,11 @@ const adminNavMain = [
         icon: FolderKanbanIcon,
     },
     {
+        title: 'Aplikasi Management',
+        url: '/admin/aplikasi-management',
+        icon: GlobeIcon,
+    },
+    {
         title: 'Transaksi Management',
         url: '/admin/transaksi-management',
         icon: LayersIcon,
@@ -121,6 +126,7 @@ const adminNavMain = [
         icon: FolderKanbanIcon,
     },
 ];
+
 
 // User Menu Items
 const userNavMain = [
