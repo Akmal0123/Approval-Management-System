@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+﻿import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -37,37 +37,85 @@ export default function ContextSwitcher() {
     const [isOpen, setIsOpen] = useState(false);
 
     const currentContext = context?.current;
-    const availableContexts = context?.available || [];
+    const availableContexts = Array.isArray(context?.available) ? context.available : [];
     const isSuperAdmin = context?.is_super_admin || false;
 
-    // Debug logging - see ALL props
-    console.log('ContextSwitcher Full Debug:', {
-        allProps: pageData.props,
-        context: context,
-        currentContext,
-        availableContexts,
-        availableContextsLength: availableContexts.length,
-        isSuperAdmin,
-    });
+    // Group contexts by company
+    const groupedContexts = availableContexts.reduce((acc, ctx) => {
+        const companyId = ctx?.company?.id || 0;
+        if (!acc[companyId]) {
+            acc[companyId] = {
+                company: ctx?.company,
+                contexts: [],
+                primaryContextId: ctx?.id,
+            };
+        }
+        acc[companyId].contexts.push(ctx);
+        return acc;
+    }, {} as Record<number, { company: Context['company']; contexts: Context[]; primaryContextId: number }>);
 
-    // Show switcher if user has more than 1 context OR is super admin
-    // Only hide completely if no context and no available contexts
+    const companyGroups = Object.values(groupedContexts);
+
+    // Hide completely if no context and no available contexts
     if (availableContexts.length === 0 && !currentContext) {
         return null;
     }
 
-    // If only one context and not super admin, show static badge
-    if (!isSuperAdmin && availableContexts.length <= 1) {
+    // Helper to group a company's contexts by Application
+    const renderAppGroups = (contexts: Context[]) => {
+        const appsGroup = contexts.reduce((acc, ctx) => {
+            const appId = ctx.aplikasi?.id || 0;
+            if (!acc[appId]) {
+                acc[appId] = {
+                    aplikasi: ctx.aplikasi,
+                    contexts: [],
+                };
+            }
+            acc[appId].contexts.push(ctx);
+            return acc;
+        }, {} as Record<number, { aplikasi: Context['aplikasi']; contexts: Context[] }>);
+
         return (
-            <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-                <Building2 className="h-4 w-4" />
-                <span className="max-w-[160px] truncate">{currentContext?.company?.name || 'No Company'}</span>
+            <div className="flex flex-col gap-2.5">
+                {Object.values(appsGroup).map((group, idx) => (
+                    <div key={`app-group-${idx}`} className="flex flex-col gap-1">
+                        {group.aplikasi && (
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                                <AppWindow className="h-3.5 w-3.5 text-muted-foreground" />
+                                {group.aplikasi.name}
+                            </div>
+                        )}
+                        <div className="ml-5 flex flex-wrap gap-1.5">
+                            {group.contexts.map((ctx) => (
+                                <div key={ctx.id} className="flex flex-wrap gap-1">
+                                    {ctx.jabatan && (
+                                        <Badge variant="outline" className="flex items-center gap-1 text-[10px] px-1.5 py-0 h-5 bg-background">
+                                            <Briefcase className="h-3 w-3 text-muted-foreground" />
+                                            {ctx.jabatan.name}
+                                        </Badge>
+                                    )}
+                                    {ctx.role && (
+                                        <Badge
+                                            variant={ctx.role.name.toLowerCase().includes('admin') ? 'default' : 'secondary'}
+                                            className="text-[10px] px-1.5 py-0 h-5"
+                                        >
+                                            {ctx.role.name}
+                                        </Badge>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
         );
-    }
+    };
 
     const handleSwitchContext = async (contextId: number) => {
-        if (contextId === currentContext?.id) {
+        const targetGroup = companyGroups.find((g) => g.contexts.some((c) => c.id === contextId));
+        const currentGroup = currentContext ? companyGroups.find((g) => g.contexts.some((c) => c.id === currentContext.id)) : null;
+
+        if (targetGroup && currentGroup && targetGroup.company?.id === currentGroup.company?.id) {
             setIsOpen(false);
             return;
         }
@@ -85,7 +133,6 @@ export default function ContextSwitcher() {
                     },
                 },
             );
-            // Redirect to dashboard - the backend will redirect to the correct dashboard based on new context's role
             router.visit('/dashboard');
         } catch (error) {
             console.error('Failed to switch context:', error);
@@ -96,10 +143,7 @@ export default function ContextSwitcher() {
     };
 
     const formatContextLabel = (ctx: Context) => {
-        const parts: string[] = [];
-        if (ctx.company?.name) parts.push(ctx.company.name);
-        if (ctx.aplikasi?.name) parts.push(ctx.aplikasi.name);
-        return parts.length > 0 ? parts.join(' - ') : 'Unknown Context';
+        return ctx?.company?.name || 'Unknown Context';
     };
 
     return (
@@ -125,43 +169,31 @@ export default function ContextSwitcher() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
 
-                {availableContexts.length === 0 ? (
+                {companyGroups.length === 0 ? (
                     <div className="px-2 py-4 text-center text-sm text-muted-foreground">No contexts available</div>
                 ) : (
-                    availableContexts.map((ctx) => (
-                        <DropdownMenuItem
-                            key={ctx.id}
-                            onClick={() => handleSwitchContext(ctx.id)}
-                            className="flex cursor-pointer flex-col items-start gap-1 py-2"
-                        >
-                            <div className="flex w-full items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium">{ctx.company?.name || 'No Company'}</span>
+                    companyGroups.map((group) => {
+                        const isCurrentCompany = currentContext?.company?.id === group.company?.id;
+
+                        return (
+                            <DropdownMenuItem
+                                key={group.company?.id || 'unknown'}
+                                onClick={() => handleSwitchContext(group.primaryContextId)}
+                                className="flex cursor-pointer flex-col items-start gap-1 py-2"
+                            >
+                                <div className="flex w-full items-center justify-between pb-1">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">{group.company?.name || 'No Company'}</span>
+                                    </div>
+                                    {isCurrentCompany && <Check className="h-4 w-4 text-primary" />}
                                 </div>
-                                {ctx.id === currentContext?.id && <Check className="h-4 w-4 text-primary" />}
-                            </div>
-                            <div className="ml-6 flex flex-wrap gap-1.5">
-                                {ctx.aplikasi && (
-                                    <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                                        <AppWindow className="h-3 w-3" />
-                                        {ctx.aplikasi.name}
-                                    </Badge>
-                                )}
-                                {ctx.jabatan && (
-                                    <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                                        <Briefcase className="h-3 w-3" />
-                                        {ctx.jabatan.name}
-                                    </Badge>
-                                )}
-                                {ctx.role && (
-                                    <Badge variant={ctx.role.name.toLowerCase().includes('admin') ? 'default' : 'secondary'} className="text-xs">
-                                        {ctx.role.name}
-                                    </Badge>
-                                )}
-                            </div>
-                        </DropdownMenuItem>
-                    ))
+                                <div className="ml-6 mt-1">
+                                    {renderAppGroups(group.contexts)}
+                                </div>
+                            </DropdownMenuItem>
+                        );
+                    })
                 )}
             </DropdownMenuContent>
         </DropdownMenu>

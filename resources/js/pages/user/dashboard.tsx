@@ -166,48 +166,48 @@ export default function UserDashboard({ user, statistics, recent_documents, avai
 
                                 <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Documents</h2>
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 sm:p-6">
+                                <div className="flex flex-wrap gap-3 sm:gap-4">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 sm:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-muted-foreground">My Pending Documents</p>
-                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.pending_documents || 0}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="My Pending Documents">My Pending Documents</p>
+                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.pending_documents || 0}</p>
                                                 </div>
-                                                <Clock className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
+                                                <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 sm:p-6">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 sm:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-muted-foreground">Approved Documents</p>
-                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.approved_documents || 0}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Approved Documents">Approved Documents</p>
+                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.approved_documents || 0}</p>
                                                 </div>
-                                                <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-green-500" />
+                                                <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 sm:p-6">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 sm:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-muted-foreground">Rejected Documents</p>
-                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.rejected_documents || 0}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Rejected Documents">Rejected Documents</p>
+                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.rejected_documents || 0}</p>
                                                 </div>
-                                                <XCircle className="h-7 w-7 sm:h-8 sm:w-8 text-red-500" />
+                                                <XCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 sm:p-6">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 sm:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-muted-foreground">Total Submitted</p>
-                                                    <p className="text-xl sm:text-2xl font-bold text-foreground">{statistics?.total_submitted || 0}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Total Submitted">Total Submitted</p>
+                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.total_submitted || 0}</p>
                                                 </div>
-                                                <FileText className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500" />
+                                                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
                                             </div>
                                         </CardContent>
                                     </Card>

@@ -1329,48 +1329,48 @@ export default function UserDokumen() {
                                 </div>
 
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
+                                <div className="flex flex-wrap gap-3 sm:gap-4">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 md:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.total}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground">Total Dokumen</p>
+                                                    <p className="font-sans text-lg font-bold text-foreground">{stats.total}</p>
                                                 </div>
-                                                <FileTextIcon className="h-8 w-8 text-blue-500" />
+                                                <FileTextIcon className="h-5 w-5 text-blue-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 md:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Draft</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.draft}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground">Draft</p>
+                                                    <p className="font-sans text-lg font-bold text-foreground">{stats.draft}</p>
                                                 </div>
-                                                <UserIcon className="h-8 w-8 text-gray-400" />
+                                                <UserIcon className="h-5 w-5 text-gray-400" />
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 md:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.submitted}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Menunggu Persetujuan">Menunggu Persetujuan</p>
+                                                    <p className="font-sans text-lg font-bold text-foreground">{stats.submitted}</p>
                                                 </div>
-                                                <CalendarIcon className="h-8 w-8 text-orange-500" />
+                                                <CalendarIcon className="h-5 w-5 text-orange-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
+                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
+                                        <CardContent className="p-3 md:p-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.approved}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground">Disetujui</p>
+                                                    <p className="font-sans text-lg font-bold text-foreground">{stats.approved}</p>
                                                 </div>
-                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                                <CheckCircle2 className="h-5 w-5 text-green-500" />
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1422,7 +1422,7 @@ export default function UserDokumen() {
                                         </div>
                                     ) : (
                                         <>
-                                        <div className="hidden gap-4 lg:grid lg:grid-cols-2">
+                                        <div className="hidden gap-4 lg:grid lg:grid-cols-3">
                                             {filteredDokumen.length > 0 ? (
                                                 filteredDokumen.map((doc, index) => (
                                                     <Card
