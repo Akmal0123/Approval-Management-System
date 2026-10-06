@@ -654,8 +654,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 </div>
                                             ) : (
                                                 <>
-                                                <div className="hidden gap-4 lg:grid lg:grid-cols-2">
-                                                    <div className="col-span-2 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                                                <div className="hidden gap-4 lg:grid lg:grid-cols-3">
+                                                    <div className="col-span-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
                                                         <Checkbox
                                                             checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
                                                             disabled={eligibleApprovals.length === 0}
