@@ -3,12 +3,12 @@ import { NotificationListener } from '@/components/NotificationListener';
 import { SiteHeader } from '@/components/site-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import UserDocumentTable from '@/components/user-document-table';
 import { Head, Link } from '@inertiajs/react';
-import { IconClock, IconFileText, IconUpload, IconUser } from '@tabler/icons-react';
-import { CheckCircle2, Clock, FilePlus, FileText, FileUp, PenSquare, Plus, XCircle } from 'lucide-react';
+import { IconArrowRight, IconClock, IconUpload, IconUser } from '@tabler/icons-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock, FilePlus, FileText, FileUp, PenSquare, Workflow, XCircle } from 'lucide-react';
+import { useState } from 'react';
 
 interface UserDashboardProps {
     user: {
@@ -30,7 +30,7 @@ interface UserDashboardProps {
         pending_approvals?: number;
         processed_approvals?: number;
     };
-    recent_documents: Array<{
+    recent_documents?: Array<{
         id: number;
         name: string;
         status: string;
@@ -53,254 +53,356 @@ interface UserDashboardProps {
         user_name: string;
         document_name: string;
     }>;
+    current_context?: {
+        company: string;
+        aplikasi: string;
+        role: string;
+    };
 }
 
-export default function UserDashboard({ user, statistics, recent_documents, available_masterflows, recent_activity = [] }: UserDashboardProps) {
+export default function UserDashboard({ user, statistics, available_masterflows = [], recent_activity = [] }: UserDashboardProps) {
+    const ITEMS_PER_PAGE = 3;
+    const [wfPage, setWfPage] = useState(1);
+    const [activityPage, setActivityPage] = useState(1);
+
+    const totalWfPages = Math.ceil((available_masterflows?.length || 0) / ITEMS_PER_PAGE);
+    const currentWfs = (available_masterflows || []).slice((wfPage - 1) * ITEMS_PER_PAGE, wfPage * ITEMS_PER_PAGE);
+
+    const totalActivityPages = Math.ceil((recent_activity?.length || 0) / ITEMS_PER_PAGE);
+    const currentActivity = (recent_activity || []).slice((activityPage - 1) * ITEMS_PER_PAGE, activityPage * ITEMS_PER_PAGE);
+
     const getActivityIcon = (action: string) => {
         switch (action) {
             case 'approved':
-                return <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-500" />;
+                return <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500 shrink-0" />;
             case 'rejected':
-                return <XCircle className="mt-0.5 h-4 w-4 text-red-500" />;
+                return <XCircle className="mt-0.5 h-4 w-4 text-red-500 shrink-0" />;
             case 'submitted':
-                return <FileUp className="mt-0.5 h-4 w-4 text-orange-500" />;
+                return <FileUp className="mt-0.5 h-4 w-4 text-amber-500 shrink-0" />;
             case 'created':
-                return <FilePlus className="mt-0.5 h-4 w-4 text-blue-500" />;
+                return <FilePlus className="mt-0.5 h-4 w-4 text-blue-500 shrink-0" />;
             case 'revised':
-                return <PenSquare className="mt-0.5 h-4 w-4 text-purple-500" />;
+                return <PenSquare className="mt-0.5 h-4 w-4 text-purple-500 shrink-0" />;
             default:
-                return <Clock className="mt-0.5 h-4 w-4 text-gray-500" />;
+                return <Clock className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />;
         }
     };
+
+    const hasApprovalDuties = ((statistics?.pending_approvals ?? 0) > 0 || (statistics?.processed_approvals ?? 0) > 0);
+
     return (
         <>
             <Head title="User Dashboard" />
             <SidebarProvider>
                 <NotificationListener />
                 <AppSidebar variant="inset" />
-                <SidebarInset>
+                <SidebarInset className="min-h-svh lg:max-h-screen lg:overflow-hidden">
                     <SiteHeader />
-                    <div className="flex flex-1 flex-col">
-                        <div className="@container/main flex flex-1 flex-col gap-2 px-4 py-4 md:px-6 md:py-6 lg:px-8">
-                            <div className="space-y-6 md:space-y-8">
-                                {/* Header Section */}
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="space-y-1">
-                                        <h1 className="flex items-center gap-2 font-serif text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                                            <IconUser className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+                    <div className="flex flex-1 flex-col overflow-y-auto lg:overflow-hidden lg:h-[calc(100vh-3rem)]">
+                        <div className="flex flex-1 flex-col gap-2.5 sm:gap-3 p-3 sm:p-4 lg:px-6 lg:py-3.5 lg:h-full lg:min-h-0">
+                            {/* Header Section */}
+                            <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b pb-2 sm:pb-2.5">
+                                <div className="space-y-0.5">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h1 className="flex items-center gap-2 font-serif text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                                            <IconUser className="h-5 w-5 text-primary shrink-0" />
                                             <span>Welcome back, {user?.name}</span>
                                         </h1>
-                                        <div className="space-y-1">
-                                            <p className="text-xs sm:text-sm text-muted-foreground">Track and manage your document submissions.</p>
-                                            <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                                                <span className="flex items-center gap-1">
-                                                    <strong>Company:</strong> {user?.company || 'No Company Assigned'}
-                                                </span>
-                                                <span>•</span>
-                                                <span className="flex items-center gap-1">
-                                                    <strong>Position:</strong> {user?.jabatan || 'No Position Assigned'}
-                                                </span>
-                                            </div>
+                                        <Badge variant="outline" className="text-[11px] font-normal">
+                                            {user?.role || 'User'} Access
+                                        </Badge>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                        <span>Track & manage document submissions</span>
+                                        <span>•</span>
+                                        <span>Company: <strong className="text-foreground font-medium">{user?.company || 'No Company Assigned'}</strong></span>
+                                        <span>•</span>
+                                        <span>Position: <strong className="text-foreground font-medium">{user?.jabatan || 'No Position Assigned'}</strong></span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Link href="/dokumen">
+                                        <Button size="sm" className="h-7 sm:h-8 text-xs">
+                                            <IconUpload className="mr-1.5 h-3.5 w-3.5" />
+                                            Upload Document
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {/* Approver Duties Alert (if any) */}
+                            {hasApprovalDuties && (
+                                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                                            <Clock className="h-3.5 w-3.5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-950 dark:text-amber-200">
+                                                Approval Tasks
+                                            </p>
+                                            <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80">
+                                                <span className="font-semibold text-amber-900 dark:text-amber-200">{statistics.pending_approvals || 0}</span> documents awaiting review • <span className="font-medium">{statistics.processed_approvals || 0}</span> processed
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="outline" className="text-xs">
-                                            {user?.role} Access
-                                        </Badge>
-                                        <Link href="/dokumen">
-                                            <Button size="sm" className="flex">
-                                                <IconUpload className="mr-2 h-4 w-4" />
-                                                Upload Document
+                                    <div className="flex items-center gap-1.5">
+                                        {(statistics?.pending_approvals ?? 0) > 0 && (
+                                            <Link href="/approvals">
+                                                <Button size="sm" className="h-6.5 text-[11px] bg-amber-600 text-white hover:bg-amber-700">
+                                                    Review ({statistics.pending_approvals})
+                                                    <IconArrowRight className="ml-1 h-3 w-3" />
+                                                </Button>
+                                            </Link>
+                                        )}
+                                        <Link href="/approvals?status=approved">
+                                            <Button variant="outline" size="sm" className="h-6.5 text-[11px] border-amber-300/60 bg-white/70 hover:bg-amber-100/50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                                                History
                                             </Button>
                                         </Link>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Approver Stats - Show if user has approval duties */}
-                                {((statistics.pending_approvals ?? 0) > 0 || (statistics.processed_approvals ?? 0) > 0) && (
-                                    <>
-                                        <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Approval Tasks</h2>
-                                        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
-                                            <Card className="border-orange-200 bg-orange-50/50">
-                                                <CardContent className="p-4 sm:p-6">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="space-y-1">
-                                                            <p className="text-sm font-medium text-orange-900">Pending Approvals</p>
-                                                            <p className="text-2xl sm:text-3xl font-bold text-orange-700">{statistics.pending_approvals || 0}</p>
+                            {/* Statistics Cards */}
+                            <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+                                <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                    <CardContent className="p-2.5 sm:p-3 sm:px-3.5">
+                                        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate" title="My Pending Documents">
+                                                    Pending Documents
+                                                </p>
+                                                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-0.5">
+                                                    {statistics?.pending_documents || 0}
+                                                </p>
+                                            </div>
+                                            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                                <Clock className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                    <CardContent className="p-2.5 sm:p-3 sm:px-3.5">
+                                        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate" title="Approved Documents">
+                                                    Approved Documents
+                                                </p>
+                                                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-0.5">
+                                                    {statistics?.approved_documents || 0}
+                                                </p>
+                                            </div>
+                                            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                                <CheckCircle2 className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                    <CardContent className="p-2.5 sm:p-3 sm:px-3.5">
+                                        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate" title="Rejected Documents">
+                                                    Rejected Documents
+                                                </p>
+                                                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-0.5">
+                                                    {statistics?.rejected_documents || 0}
+                                                </p>
+                                            </div>
+                                            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                                                <XCircle className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                    <CardContent className="p-2.5 sm:p-3 sm:px-3.5">
+                                        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate" title="Total Submitted">
+                                                    Total Submitted
+                                                </p>
+                                                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-0.5">
+                                                    {statistics?.total_submitted || 0}
+                                                </p>
+                                            </div>
+                                            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                                <FileText className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Content Grid: Workflows & Activity */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 flex-1 lg:min-h-0">
+                                {/* Available Workflows */}
+                                <Card className="flex flex-col border-border/60 shadow-sm justify-between flex-1 lg:min-h-0">
+                                    <div className="flex flex-col lg:min-h-0">
+                                        <CardHeader className="shrink-0 flex flex-row items-center justify-between border-b py-2 px-3 sm:px-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                    <Workflow className="h-3.5 w-3.5" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xs sm:text-sm font-semibold text-foreground">Available Workflows</CardTitle>
+                                                    <CardDescription className="text-[11px] text-muted-foreground">Document workflows for your role</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2 lg:overflow-y-auto">
+                                            {currentWfs && currentWfs.length > 0 ? (
+                                                currentWfs.map((masterflow) => (
+                                                    <div
+                                                        key={masterflow.id}
+                                                        className="group flex items-center justify-between gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-2 sm:p-2.5 hover:bg-muted/40 transition-colors"
+                                                    >
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <h4 className="text-xs sm:text-sm font-medium text-foreground truncate">{masterflow.name}</h4>
+                                                                <Badge variant="secondary" className="text-[9px] sm:text-[10px] font-normal px-1.5 py-0 shrink-0">
+                                                                    {masterflow.steps_count} steps
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="line-clamp-1 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
+                                                                {masterflow.description || 'No description available'}
+                                                            </p>
                                                         </div>
-                                                        <IconFileText className="h-7 w-7 sm:h-8 sm:w-8 text-orange-500" />
-                                                    </div>
-                                                    <div className="mt-4">
-                                                        <Link href="/approvals">
-                                                            <Button size="sm" className="w-full bg-orange-600 text-white hover:bg-orange-700">
-                                                                Review Documents
+                                                        <Link href={`/dokumen?masterflow_id=${masterflow.id}`}>
+                                                            <Button size="sm" variant="outline" className="h-6 sm:h-6.5 px-2.5 text-xs shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                                                Use
                                                             </Button>
                                                         </Link>
                                                     </div>
-                                                </CardContent>
-                                            </Card>
-                                            <Card className="border-blue-200 bg-blue-50/50">
-                                                <CardContent className="p-4 sm:p-6">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="space-y-1">
-                                                            <p className="text-sm font-medium text-blue-900">Processed Approvals</p>
-                                                            <p className="text-2xl sm:text-3xl font-bold text-blue-700">{statistics.processed_approvals || 0}</p>
-                                                        </div>
-                                                        <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500" />
-                                                    </div>
-                                                    <div className="mt-4">
-                                                        <Link href="/approvals?status=approved">
-                                                            <Button
-                                                                size="sm"
-                                                                className="w-full bg-blue-600 text-white hover:bg-blue-700"
-                                                            >
-                                                                View History
-                                                            </Button>
-                                                        </Link>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </div>
-                                    </>
-                                )}
-
-                                <h2 className="mb-2 font-serif text-base sm:text-lg font-semibold text-foreground">My Documents</h2>
-                                {/* Stats Cards */}
-                                <div className="flex flex-wrap gap-3 sm:gap-4">
-                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
-                                        <CardContent className="p-3 sm:p-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="My Pending Documents">My Pending Documents</p>
-                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.pending_documents || 0}</p>
+                                                ))
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
+                                                    <Workflow className="h-7 w-7 opacity-40 mb-1.5" />
+                                                    <p className="text-xs">No workflows available for your company.</p>
                                                 </div>
-                                                <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
-                                            </div>
+                                            )}
                                         </CardContent>
-                                    </Card>
-                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
-                                        <CardContent className="p-3 sm:p-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Approved Documents">Approved Documents</p>
-                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.approved_documents || 0}</p>
-                                                </div>
-                                                <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
-                                        <CardContent className="p-3 sm:p-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Rejected Documents">Rejected Documents</p>
-                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.rejected_documents || 0}</p>
-                                                </div>
-                                                <XCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                    <Card className="border-border bg-card w-[calc(50%-6px)] sm:w-[220px]">
-                                        <CardContent className="p-3 sm:p-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-medium text-muted-foreground truncate max-w-[100px]" title="Total Submitted">Total Submitted</p>
-                                                    <p className="text-lg sm:text-xl font-bold text-foreground">{statistics?.total_submitted || 0}</p>
-                                                </div>
-                                                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-
-                                {/* My Documents */}
-                                <div className="grid gap-6 lg:grid-cols-3">
-                                    {/* Documents Table - Takes 2/3 of the space */}
-                                    <div className="space-y-4 lg:col-span-2">
-                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                            <h2 className="font-serif text-lg font-semibold text-foreground">My Documents</h2>
-                                            <div className="flex gap-2">
-                                                <Link href="/dokumen">
-                                                    <Button variant="outline" size="sm" className="sm:hidden">
-                                                        <Plus className="h-4 w-4" />
+                                    </div>
+                                    {totalWfPages > 1 && (
+                                        <div className="shrink-0 flex items-center justify-between border-t px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/10">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Halaman {wfPage} dari {totalWfPages}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 text-xs"
+                                                    disabled={wfPage === 1}
+                                                    onClick={() => setWfPage((prev) => Math.max(prev - 1, 1))}
+                                                >
+                                                    <ChevronLeft className="h-3 w-3" />
+                                                </Button>
+                                                {Array.from({ length: totalWfPages }, (_, i) => i + 1).map((page) => (
+                                                    <Button
+                                                        key={page}
+                                                        variant={wfPage === page ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        className="h-6 min-w-6 px-1.5 text-xs"
+                                                        onClick={() => setWfPage(page)}
+                                                    >
+                                                        {page}
                                                     </Button>
-                                                </Link>
-                                                <Link href="/dokumen">
-                                                    <Button size="sm" className="hidden sm:flex">
-                                                        <IconUpload className="mr-2 h-4 w-4" />
-                                                        Upload New
-                                                    </Button>
-                                                </Link>
+                                                ))}
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 text-xs"
+                                                    disabled={wfPage === totalWfPages}
+                                                    onClick={() => setWfPage((prev) => Math.min(prev + 1, totalWfPages))}
+                                                >
+                                                    <ChevronRight className="h-3 w-3" />
+                                                </Button>
                                             </div>
                                         </div>
-                                        <UserDocumentTable documents={recent_documents} />
-                                    </div>
+                                    )}
+                                </Card>
 
-                                    {/* Sidebar - Takes 1/3 of the space */}
-                                    <div className="space-y-6">
-                                        {/* Recent Activity */}
-                                        <Card className="border-border bg-card">
-                                            <CardHeader>
-                                                <CardTitle className="flex items-center gap-2 text-base font-medium text-foreground">
-                                                    <IconClock className="h-4 w-4" />
-                                                    Recent Activity
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-3">
-                                                {recent_activity && recent_activity.length > 0 ? (
-                                                    recent_activity.map((activity) => (
-                                                        <div key={activity.id} className="flex items-start space-x-3">
-                                                            <div className="flex-shrink-0">{getActivityIcon(activity.action)}</div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="text-sm font-medium text-foreground">{activity.description}</p>
-                                                                <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
-                                                            </div>
+                                {/* Recent Activity */}
+                                <Card className="flex flex-col border-border/60 shadow-sm justify-between flex-1 lg:min-h-0">
+                                    <div className="flex flex-col lg:min-h-0">
+                                        <CardHeader className="shrink-0 flex flex-row items-center justify-between border-b py-2 px-3 sm:px-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                    <IconClock className="h-3.5 w-3.5" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xs sm:text-sm font-semibold text-foreground">Recent Activity</CardTitle>
+                                                    <CardDescription className="text-[11px] text-muted-foreground">Document submissions & reviews</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-2.5 sm:p-3 space-y-1.5 sm:space-y-2 lg:overflow-y-auto">
+                                            {currentActivity && currentActivity.length > 0 ? (
+                                                currentActivity.map((activity) => (
+                                                    <div
+                                                        key={activity.id}
+                                                        className="flex items-start gap-2.5 rounded-lg border border-border/40 p-2 sm:p-2.5 hover:bg-muted/30 transition-colors"
+                                                    >
+                                                        <div className="mt-0.5 shrink-0">{getActivityIcon(activity.action)}</div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-medium text-foreground leading-snug">{activity.description}</p>
+                                                            <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">{activity.timestamp}</p>
                                                         </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="py-4 text-center text-sm text-muted-foreground">No recent activity.</div>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-
-                                        {/* Available Workflows */}
-                                        {available_masterflows && available_masterflows.length > 0 && (
-                                            <Card className="border-border bg-card">
-                                                <CardHeader>
-                                                    <CardTitle className="flex items-center gap-2 text-base font-medium text-foreground">
-                                                        <IconFileText className="h-4 w-4" />
-                                                        Available Workflows
-                                                    </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="space-y-3">
-                                                    {available_masterflows.slice(0, 3).map((masterflow) => (
-                                                        <div key={masterflow.id} className="rounded-md border border-border p-3">
-                                                            <div className="space-y-1">
-                                                                <h4 className="text-sm font-medium text-foreground">{masterflow.name}</h4>
-                                                                <p className="line-clamp-2 text-xs text-muted-foreground">
-                                                                    {masterflow.description || 'No description available'}
-                                                                </p>
-                                                                <div className="flex items-center justify-between pt-1">
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        {masterflow.steps_count} steps
-                                                                    </span>
-                                                                    <Button variant="outline" size="sm" className="h-6 px-2 text-xs">
-                                                                        Use
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                    {available_masterflows.length > 3 && (
-                                                        <Button variant="outline" size="sm" className="w-full text-xs">
-                                                            View All ({available_masterflows.length} workflows)
-                                                        </Button>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
+                                                    <IconClock className="h-7 w-7 opacity-40 mb-1.5" />
+                                                    <p className="text-xs">No recent activity.</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
                                     </div>
-                                </div>
+                                    {totalActivityPages > 1 && (
+                                        <div className="shrink-0 flex items-center justify-between border-t px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/10">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Halaman {activityPage} dari {totalActivityPages}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 text-xs"
+                                                    disabled={activityPage === 1}
+                                                    onClick={() => setActivityPage((prev) => Math.max(prev - 1, 1))}
+                                                >
+                                                    <ChevronLeft className="h-3 w-3" />
+                                                </Button>
+                                                {Array.from({ length: totalActivityPages }, (_, i) => i + 1).map((page) => (
+                                                    <Button
+                                                        key={page}
+                                                        variant={activityPage === page ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        className="h-6 min-w-6 px-1.5 text-xs"
+                                                        onClick={() => setActivityPage(page)}
+                                                    >
+                                                        {page}
+                                                    </Button>
+                                                ))}
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 text-xs"
+                                                    disabled={activityPage === totalActivityPages}
+                                                    onClick={() => setActivityPage((prev) => Math.min(prev + 1, totalActivityPages))}
+                                                >
+                                                    <ChevronRight className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
                             </div>
                         </div>
                     </div>
