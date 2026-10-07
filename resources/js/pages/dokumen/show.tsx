@@ -274,7 +274,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
         fetchMasterflows();
 
         // Real-time updates dengan Laravel Reverb (via Echo)
-        if (typeof window !== 'undefined' && window.Echo && dokumen.id) {
+        if (typeof window !== 'undefined' && window.Echo && dokumen?.id) {
             console.log('📡 Setting up real-time listener for dokumen:', dokumen.id);
 
             const channelName = `dokumen.${dokumen.id}`;
@@ -283,7 +283,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                 console.log('📡 Real-time update received:', event);
 
                 // Update dokumen state dengan data terbaru
-                if (event.dokumen && event.dokumen.id === dokumen.id) {
+                if (event.dokumen && event.dokumen.id === dokumen?.id) {
                     setDokumen(event.dokumen);
 
                     // Tampilkan notifikasi toast
@@ -297,11 +297,11 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                 window.Echo.leave(channelName);
             };
         }
-    }, [dokumen.id]);
+    }, [dokumen?.id]);
 
     // Calculate approval progress
     const getApprovalProgress = () => {
-        if (!dokumen.approvals || dokumen.approvals.length === 0) {
+        if (!dokumen?.approvals || dokumen.approvals.length === 0) {
             return { percentage: 0, approved: 0, total: 0, pending: 0, rejected: 0 };
         }
 
@@ -315,7 +315,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
     };
 
     const progress = getApprovalProgress();
-    const isCustomApproval = !dokumen.masterflow_id;
+    const isCustomApproval = !dokumen?.masterflow_id;
 
     // Get status badge
     const getStatusBadge = (status: string) => {
@@ -416,6 +416,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
 
     // Handle edit
     const handleEdit = () => {
+        if (!dokumen) return;
         if (dokumen.status !== 'draft' && dokumen.status !== 'rejected') {
             showToast.error('❌ Hanya dokumen dengan status Draft atau Rejected yang dapat diedit.');
             return;
@@ -459,7 +460,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
         try {
             const response = await api.get(`/masterflows/${masterflowId}/steps`);
             const masterflowWithSteps = {
-                ...dokumen.masterflow,
+                ...dokumen?.masterflow,
                 steps: response.data.steps || [],
             };
             setSelectedMasterflow(masterflowWithSteps as Masterflow);
@@ -480,7 +481,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
             setAvailableApprovers(approversData);
 
             // Populate existing approvers
-            if (dokumen.approvals) {
+            if (dokumen?.approvals) {
                 const existingApprovers: Record<number, number> = {};
                 dokumen.approvals.forEach((approval) => {
                     if (approval.masterflow_step_id && approval.user_id) {
@@ -632,7 +633,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                 submitData.append('file', formData.file);
             }
 
-            router.post(`/api/dokumen/${dokumen.id}`, submitData, {
+            router.post(`/api/dokumen/${dokumen?.id}`, submitData, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -656,6 +657,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
 
     // Handle delete
     const handleDelete = () => {
+        if (!dokumen) return;
         if (dokumen.status !== 'draft') {
             showToast.error('❌ Hanya dokumen dengan status Draft yang dapat dihapus.');
             return;
@@ -666,7 +668,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
     // Confirm delete
     const confirmDelete = async () => {
         try {
-            await api.delete(`/dokumen/${dokumen.id}`);
+            await api.delete(`/dokumen/${dokumen?.id}`);
             showToast.success('🎉 Dokumen berhasil dihapus!');
             router.visit('/user/dokumen');
         } catch (error: any) {
@@ -677,7 +679,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
     // Handle preview document
     const handlePreview = (version: DokumenVersion) => {
         // Use streaming endpoint for on-demand signature rendering
-        const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
+        const fileUrl = `/api/dokumen/${dokumen?.id}/signed-pdf/${version.id}`;
         const fileType = version.tipe_file.toLowerCase();
         const isPDF = fileType === 'pdf' || fileType === 'application/pdf';
 
@@ -693,6 +695,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
 
     // Handle submit for approval (untuk draft dokumen)
     const handleSubmitForApproval = () => {
+        if (!dokumen) return;
         if (dokumen.status !== 'draft') {
             showToast.error('❌ Hanya dokumen draft yang dapat disubmit.');
             return;
@@ -705,7 +708,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
         setIsSubmitting(true);
 
         router.post(
-            `/api/dokumen/${dokumen.id}/submit`,
+            `/api/dokumen/${dokumen?.id}/submit`,
             {},
             {
                 preserveState: false, // Force full reload to get fresh data
@@ -726,6 +729,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
 
     // Handle upload revision for rejected document
     const handleUploadRevision = () => {
+        if (!dokumen) return;
         if (dokumen.status !== 'rejected' && dokumen.status !== 'needs_revision') {
             showToast.error('❌ Hanya dokumen yang memerlukan revisi atau di-reject yang dapat direvisi.');
             return;
@@ -780,7 +784,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                 formData.append('comment', revisionComment);
             }
 
-            const response = await api.post(`/dokumen/${dokumen.id}/upload-revision`, formData, {
+            const response = await api.post(`/dokumen/${dokumen?.id}/upload-revision`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -809,13 +813,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
 
     // Download file - uses on-demand signature generation
     const handleDownload = (versionId?: number) => {
-        const url = versionId ? `/api/dokumen/${dokumen.id}/download/${versionId}` : `/api/dokumen/${dokumen.id}/download`;
+        const url = versionId ? `/api/dokumen/${dokumen?.id}/download/${versionId}` : `/api/dokumen/${dokumen?.id}/download`;
         window.location.href = url;
     };
 
     // Print file - opens PDF in new tab and triggers print
     const handlePrint = (version: DokumenVersion) => {
-        const fileUrl = `/api/dokumen/${dokumen.id}/signed-pdf/${version.id}`;
+        const fileUrl = `/api/dokumen/${dokumen?.id}/signed-pdf/${version.id}`;
         const printWindow = window.open(fileUrl, '_blank');
         if (printWindow) {
             printWindow.addEventListener('load', () => {
@@ -904,7 +908,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                                     <span>Detail</span>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-3">
-                                    <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">{dokumen?.judul_dokumen}</h1>
+                                    <h1 className="text-3xl font-bold tracking-tight text-foreground">{dokumen?.judul_dokumen}</h1>
                                     {getStatusBadge(dokumen?.status || 'draft')}
                                     {dokumen?.tipe_dokumen === 'transaksi' && (
                                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">

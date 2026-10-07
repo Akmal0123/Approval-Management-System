@@ -500,7 +500,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                         <div className="@container/main flex flex-1 flex-col gap-6 p-6" style={{ transition: 'all 0.3s ease' }}>
                             {/* Header */}
                             <div className="space-y-2">
-                                <h1 className="font-serif text-3xl font-bold">Approval Dokumen</h1>
+                                <h1 className="text-3xl font-bold">Approval Dokumen</h1>
                                 <p className="font-sans text-muted-foreground">Kelola persetujuan dokumen yang memerlukan tindakan Anda</p>
                             </div>
 

@@ -11,12 +11,6 @@ import { IconEdit, IconPlus, IconShield, IconTrash } from '@tabler/icons-react';
 import { Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-// Extend window type for Echo
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -142,7 +136,7 @@ export default function RoleManagement({ roles: initialRoles = [] }: RoleManagem
                     <div className="px-4 py-6 lg:px-6">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-1">
-                                <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-gray-900">
+                                <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-gray-900">
                                     <IconShield className="h-6 w-6 text-primary" />
                                     Role Management
                                 </h1>

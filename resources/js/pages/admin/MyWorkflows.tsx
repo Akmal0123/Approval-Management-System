@@ -35,7 +35,7 @@ export default function MyWorkflows({ masterflows, auth }: Props) {
 
                 <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6 max-w-7xl mx-auto w-full">
                     <div className="space-y-1">
-                        <h1 className="font-serif text-2xl font-bold tracking-tight text-foreground">
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
                             My Workflows
                         </h1>
                         <p className="text-sm text-muted-foreground">

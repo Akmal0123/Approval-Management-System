@@ -24,12 +24,6 @@ import { IconEdit, IconPlus, IconShield, IconTrash, IconUsers } from '@tabler/ic
 import { Activity, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-// Extend window type for Echo
-declare global {
-    interface Window {
-        Echo?: any;
-    }
-}
 
 interface UserRole {
     id: number;
@@ -267,7 +261,7 @@ export default function UserRolesManagement() {
                     <div className="px-4 py-6 lg:px-6">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-1">
-                                <h1 className="flex items-center gap-2 font-serif text-2xl font-bold tracking-tight text-gray-900">
+                                <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-gray-900">
                                     <IconShield className="h-6 w-6 text-primary" />
                                     User Roles Management
                                 </h1>

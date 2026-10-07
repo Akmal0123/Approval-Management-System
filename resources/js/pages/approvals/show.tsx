@@ -448,7 +448,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                     <span>Detail</span>
                                 </div>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                                    <h1 className="font-serif text-2xl leading-tight font-bold tracking-tight text-foreground sm:text-3xl">
+                                    <h1 className="text-2xl leading-tight font-bold tracking-tight text-foreground sm:text-3xl">
                                         {approval.dokumen.judul_dokumen}
                                     </h1>
                                     <div className="shrink-0">{getStatusBadge(approval.approval_status)}</div>

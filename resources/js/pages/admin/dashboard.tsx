@@ -137,7 +137,7 @@ export default function AdminDashboard({ stats, recent_documents, recent_activit
                                 {/* Header Section */}
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="space-y-1">
-                                        <h1 className="flex items-center gap-2 font-serif text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                                        <h1 className="flex items-center gap-2 text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                                             <IconSparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
                                             <span>Admin Dashboard</span>
                                         </h1>
