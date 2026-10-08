@@ -661,6 +661,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             disabled={eligibleApprovals.length === 0}
                                                             onCheckedChange={handleSelectAll}
                                                             aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                            className="cursor-pointer"
                                                         />
                                                         <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
                                                     </div>
@@ -806,6 +807,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             disabled={eligibleApprovals.length === 0}
                                                             onCheckedChange={handleSelectAll}
                                                             aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                            className="cursor-pointer"
                                                         />
                                                         <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
                                                     </div>
