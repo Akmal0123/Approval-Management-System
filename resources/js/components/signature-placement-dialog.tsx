@@ -1340,7 +1340,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     className="relative flex min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain"
                 >
                     {loading && (
-                        <div className="flex h-full min-h-[300px] w-full items-center justify-center">
+                        <div className="absolute inset-0 flex items-center justify-center">
                             <div className="text-center">
                                 <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                                 <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
