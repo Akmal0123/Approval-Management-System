@@ -192,26 +192,26 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'draw' | 'saved')}>
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1">
-                    <TabsTrigger value="draw" className="h-auto py-2.5 text-center font-sans leading-tight whitespace-normal">
-                        <IconPencil className="mr-2 hidden h-4 w-4 shrink-0 sm:inline" />
-                        <span>Gambar Tanda Tangan</span>
+                <TabsList className="grid h-9 w-full grid-cols-2 gap-1 p-1">
+                    <TabsTrigger value="draw" className="h-7 text-xs font-medium font-sans flex items-center justify-center gap-1.5">
+                        <IconPencil className="h-3.5 w-3.5 shrink-0" />
+                        <span>Gambar</span>
                     </TabsTrigger>
-                    <TabsTrigger value="saved" className="h-auto py-2.5 text-center font-sans leading-tight whitespace-normal">
-                        <IconUpload className="mr-2 hidden h-4 w-4 shrink-0 sm:inline" />
-                        <span>Tanda Tangan Tersimpan</span>
+                    <TabsTrigger value="saved" className="h-7 text-xs font-medium font-sans flex items-center justify-center gap-1.5">
+                        <IconUpload className="h-3.5 w-3.5 shrink-0" />
+                        <span>Tersimpan</span>
                     </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="draw" className="space-y-4">
-                    <div className="space-y-2">
-                        <Label className="font-sans">Gambar tanda tangan Anda di dalam area 1:1 di bawah ini</Label>
-                        <Card>
-                            <CardContent className="p-4">
+                <TabsContent value="draw" className="space-y-3 mt-2">
+                    <div className="space-y-1.5">
+                        <Label className="font-sans text-xs text-muted-foreground">Gambar tanda tangan Anda (Format 1:1)</Label>
+                        <Card className="overflow-hidden">
+                            <CardContent className="p-3">
                                 <div className="flex justify-center">
-                                    <div className="w-full max-w-[280px]">
+                                    <div className="w-full max-w-[220px]">
                                         <canvas
                                             ref={canvasRef}
                                             width={400}
@@ -227,10 +227,10 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                                         />
                                     </div>
                                 </div>
-                                <div className="mt-3 flex items-center justify-between">
-                                    <span className="text-[11px] text-muted-foreground">Format 1:1 (400 × 400 px)</span>
-                                    <Button type="button" variant="outline" size="sm" onClick={clearCanvas} className="font-sans">
-                                        <IconTrash className="mr-2 h-4 w-4" />
+                                <div className="mt-2.5 flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">400 × 400 px</span>
+                                    <Button type="button" variant="ghost" size="sm" onClick={clearCanvas} className="font-sans text-xs h-7 px-2 text-muted-foreground hover:text-red-600">
+                                        <IconTrash className="mr-1 h-3.5 w-3.5" />
                                         Hapus
                                     </Button>
                                 </div>
@@ -238,39 +238,39 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                         </Card>
                     </div>
 
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <div className="flex items-center gap-2 pt-1">
                         {onCancel && (
-                            <Button type="button" variant="outline" onClick={onCancel} className="font-sans">
+                            <Button type="button" variant="outline" onClick={onCancel} className="flex-1 font-sans text-xs h-8">
                                 Batal
                             </Button>
                         )}
-                        <Button type="button" onClick={handleUseDrawnSignature} className="font-sans">
-                            Gunakan Tanda Tangan Ini
+                        <Button type="button" onClick={handleUseDrawnSignature} className="flex-1 font-sans text-xs h-8">
+                            Gunakan
                         </Button>
                     </div>
                 </TabsContent>
 
-                <TabsContent value="saved" className="space-y-4">
+                <TabsContent value="saved" className="space-y-3 mt-2">
                     {signatures.length === 0 ? (
                         <Card>
-                            <CardContent className="flex flex-col items-center justify-center py-8">
-                                <div className="mb-3 rounded-full bg-muted p-3">
-                                    <IconSignature className="h-6 w-6 text-muted-foreground" />
+                            <CardContent className="flex flex-col items-center justify-center py-5 px-3 text-center">
+                                <div className="mb-2 rounded-full bg-muted p-2.5">
+                                    <IconSignature className="h-5 w-5 text-muted-foreground" />
                                 </div>
-                                <h3 className="font-serif text-base font-semibold">Belum ada tanda tangan tersimpan</h3>
-                                <p className="mt-1 max-w-xs text-center font-sans text-xs text-muted-foreground">
-                                    Anda belum memiliki tanda tangan yang tersimpan. Buat tanda tangan di halaman{' '}
+                                <h3 className="font-serif text-sm font-semibold">Belum ada tanda tangan tersimpan</h3>
+                                <p className="mt-1 font-sans text-xs text-muted-foreground leading-relaxed">
+                                    Buat tanda tangan di halaman{' '}
                                     <a href="/profile" className="font-medium text-primary underline hover:text-primary/80">
                                         Profile
                                     </a>{' '}
-                                    atau gambar manual pada tab sebelah.
+                                    atau gambar manual.
                                 </p>
-                                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                                    <Button type="button" variant="outline" size="sm" className="font-sans text-xs" onClick={() => setSelectedTab('draw')}>
+                                <div className="mt-3 flex flex-col gap-2 w-full">
+                                    <Button type="button" variant="outline" size="sm" className="font-sans text-xs h-8 w-full" onClick={() => setSelectedTab('draw')}>
                                         <IconPencil className="mr-1.5 h-3.5 w-3.5" />
                                         Gambar Manual
                                     </Button>
-                                    <Button type="button" variant="default" size="sm" className="font-sans text-xs" asChild>
+                                    <Button type="button" variant="default" size="sm" className="font-sans text-xs h-8 w-full" asChild>
                                         <a href="/profile">
                                             <IconSignature className="mr-1.5 h-3.5 w-3.5" />
                                             Kelola di Profile
@@ -281,34 +281,34 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                         </Card>
                     ) : (
                         <div className="space-y-2">
-                            <Label className="font-sans">Pilih tanda tangan yang akan digunakan (1:1)</Label>
-                            <div className="grid gap-3 sm:grid-cols-2">
+                            <Label className="font-sans text-xs text-muted-foreground">Pilih tanda tangan (1:1)</Label>
+                            <div className="grid gap-2 grid-cols-2 max-h-48 overflow-y-auto p-0.5">
                                 {signatures.map((signature) => (
                                     <Card
                                         key={signature.id}
                                         className={`cursor-pointer transition-all ${
                                             selectedSignature?.id === signature.id
-                                                ? 'border-primary ring-2 ring-primary ring-offset-2'
+                                                ? 'border-primary ring-2 ring-primary ring-offset-1'
                                                 : 'hover:border-gray-400'
                                         }`}
                                         onClick={() => setSelectedSignature(signature)}
                                     >
-                                        <CardContent className="p-3">
-                                            <div className="relative flex aspect-square w-full items-center justify-center rounded border bg-white p-2">
+                                        <CardContent className="p-2">
+                                            <div className="relative flex aspect-square w-full items-center justify-center rounded border bg-white p-1.5">
                                                 <img
                                                     src={`/signatures/${signature.id}/file`}
                                                     alt="Signature"
                                                     className="max-h-full max-w-full object-contain"
                                                 />
                                                 {signature.is_default && (
-                                                    <div className="absolute top-1.5 right-1.5">
-                                                        <span className="rounded bg-primary px-1.5 py-0.5 font-sans text-[10px] text-white">Default</span>
+                                                    <div className="absolute top-1 right-1">
+                                                        <span className="rounded bg-primary px-1 py-0.2 font-sans text-[9px] text-white">Default</span>
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="mt-2 text-center">
-                                                <p className="font-sans text-[11px] text-muted-foreground">
-                                                    {signature.signature_type === 'manual' ? 'Tanda tangan manual' : 'Tanda tangan upload'}
+                                            <div className="mt-1 text-center">
+                                                <p className="font-sans text-[10px] text-muted-foreground truncate">
+                                                    {signature.signature_type === 'manual' ? 'Manual' : 'Upload'}
                                                 </p>
                                             </div>
                                         </CardContent>
@@ -319,14 +319,14 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                     )}
 
                     {signatures.length > 0 && (
-                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <div className="flex items-center gap-2 pt-1">
                             {onCancel && (
-                                <Button type="button" variant="outline" onClick={onCancel} className="font-sans">
+                                <Button type="button" variant="outline" onClick={onCancel} className="flex-1 font-sans text-xs h-8">
                                     Batal
                                 </Button>
                             )}
-                            <Button type="button" onClick={handleUseSavedSignature} disabled={!selectedSignature} className="font-sans">
-                                Gunakan Tanda Tangan Ini
+                            <Button type="button" onClick={handleUseSavedSignature} disabled={!selectedSignature} className="flex-1 font-sans text-xs h-8">
+                                Gunakan
                             </Button>
                         </div>
                     )}

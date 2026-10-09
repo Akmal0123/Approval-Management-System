@@ -26,6 +26,8 @@ import {
     IconEye,
     IconFileText,
     IconFilter,
+    IconLayoutGrid,
+    IconList,
     IconPencil,
     IconSearch,
     IconUser,
@@ -161,6 +163,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [approvalsData, setApprovalsData] = useState<DokumenApproval[]>(approvals.data);
     const [statsData, setStatsData] = useState<Stats>(stats);
     const [updatedApprovalIds, setUpdatedApprovalIds] = useState<Set<number>>(new Set());
+    const [approvalsViewMode, setApprovalsViewMode] = useState<'card' | 'table'>('card');
 
     // Bulk approval states
     const [selectedApprovalIds, setSelectedApprovalIds] = useState<number[]>([]);
@@ -558,6 +561,33 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 </SelectContent>
                                             </Select>
                                         </div>
+                                        {/* View Mode Toggle */}
+                                        <div className="flex items-center rounded-lg border bg-muted/40 p-1 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => setApprovalsViewMode('card')}
+                                                title="Tampilan Card"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
+                                                    approvalsViewMode === 'card'
+                                                        ? 'bg-background text-primary shadow-sm'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                <IconLayoutGrid className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setApprovalsViewMode('table')}
+                                                title="Tampilan Tabel"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
+                                                    approvalsViewMode === 'table'
+                                                        ? 'bg-background text-primary shadow-sm'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                <IconList className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </form>
 
                                     {/* Tabs */}
@@ -654,6 +684,96 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 </div>
                                             ) : (
                                                 <>
+                                                {/* ===== DESKTOP TABLE VIEW ===== */}
+                                                {approvalsViewMode === 'table' ? (
+                                                    <div className="hidden lg:block">
+                                                        <div className="mb-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                                                            <Checkbox
+                                                                checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                                                                disabled={eligibleApprovals.length === 0}
+                                                                onCheckedChange={handleSelectAll}
+                                                                aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                            />
+                                                            <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
+                                                        </div>
+                                                        <div className="overflow-hidden rounded-xl border">
+                                                            <table className="w-full text-sm font-sans">
+                                                                <thead className="bg-muted/50 text-left">
+                                                                    <tr>
+                                                                        <th className="px-4 py-3 w-8"></th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide w-8">#</th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Dokumen</th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Status</th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Pengaju</th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Nominal</th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Tgl Pengajuan</th>
+                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide text-right">Aksi</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-border bg-card">
+                                                                    {approvalsData.map((approval, index) => {
+                                                                        const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
+                                                                        const isSelected = selectedApprovalIds.includes(approval.id);
+                                                                        const overdue = isOverdue(approval.tgl_deadline);
+                                                                        return (
+                                                                            <tr
+                                                                                key={approval.id}
+                                                                                className={`transition-colors hover:bg-muted/30 ${
+                                                                                    updatedApprovalIds.has(approval.id) ? 'bg-green-50 dark:bg-green-950/10' : isSelected ? 'bg-primary/5' : ''
+                                                                                }`}
+                                                                            >
+                                                                                <td className="px-4 py-3">
+                                                                                    <Checkbox
+                                                                                        checked={isSelected}
+                                                                                        disabled={!isEligible}
+                                                                                        onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                        aria-label={`Pilih ${approval.dokumen.judul_dokumen}`}
+                                                                                    />
+                                                                                </td>
+                                                                                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{index + 1 + (approvals.current_page - 1) * approvals.per_page}</td>
+                                                                                <td className="px-4 py-3 max-w-xs">
+                                                                                    <div className="space-y-1">
+                                                                                        <p className="font-semibold text-foreground leading-tight line-clamp-1" title={approval.dokumen.judul_dokumen}>{approval.dokumen.judul_dokumen}</p>
+                                                                                        <div className="flex flex-wrap items-center gap-1">
+                                                                                            <Badge variant="secondary" className="bg-green-100 px-1 py-0 font-mono text-[10px] text-green-800">{approval.dokumen.nomor_dokumen}</Badge>
+                                                                                            {approval.masterflow_step && (
+                                                                                                <span className="rounded bg-muted px-1 py-0 font-sans text-[10px] text-muted-foreground">Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}</span>
+                                                                                            )}
+                                                                                            {overdue && (
+                                                                                                <Badge variant="outline" className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700">Terlambat</Badge>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="px-4 py-3">{getStatusBadge(approval.approval_status)}</td>
+                                                                                <td className="px-4 py-3">
+                                                                                    <div className="space-y-0.5">
+                                                                                        <p className="text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</p>
+                                                                                        <p className="text-xs text-muted-foreground">{approval.dokumen.user?.name || '-'}</p>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="px-4 py-3">
+                                                                                    <span className="font-mono text-xs font-semibold text-green-600">{formatCurrency(approval.dokumen.nominal)}</span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(approval.dokumen.tgl_pengajuan)}</td>
+                                                                                <td className="px-4 py-3">
+                                                                                    <div className="flex items-center justify-end gap-1.5">
+                                                                                        <Button variant="outline" size="sm" onClick={() => handleOpenPreview(approval)} className="h-7 px-2 font-sans text-xs" title="Preview">
+                                                                                            <IconEye className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                        <Button variant="outline" size="sm" onClick={() => handleViewDetail(approval.id)} className="h-7 px-2 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary" title="Detail">
+                                                                                            <IconFileText className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                ) : (
                                                 <div className="hidden gap-4 lg:grid lg:grid-cols-3">
                                                     <div className="col-span-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
                                                         <Checkbox
@@ -796,8 +916,9 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                         );
                                                     })}
                                                 </div>
+                                                )}
 
-                                                {/* ===== MOBILE: daftar card (hanya tampil di bawah lg) ===== */}
+                                            {/* ===== MOBILE: daftar card (hanya tampil di bawah lg) ===== */}
                                                 <div className="space-y-3 lg:hidden">
                                                     {/* Pilih semua (sama logikanya dengan header tabel) */}
                                                     <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
@@ -1016,7 +1137,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh] w-full sm:w-[96vw] max-w-6xl xl:max-w-7xl flex-col overflow-hidden p-0 rounded-none sm:rounded-2xl">
+                        <DialogContent className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh] w-full sm:w-[96vw] max-w-6xl xl:max-w-7xl 2xl:max-w-[1450px] flex-col overflow-hidden p-0 rounded-none sm:rounded-2xl">
                             <DialogHeader className="shrink-0 border-b bg-muted/20 px-4 py-3 sm:px-6 sm:py-4">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
@@ -1106,8 +1227,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 </div>
 
                                 {/* Right Side: Approval Controls */}
-                                <div className={`flex w-full min-h-0 shrink-0 flex-col justify-between overflow-hidden bg-background lg:w-[420px] xl:w-[460px] ${bulkMobileTab === 'form' ? 'flex flex-1' : 'hidden lg:flex'}`}>
-                                    <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+                                <div className={`w-full min-h-0 flex-col justify-between overflow-hidden bg-background lg:w-[320px] xl:w-[340px] lg:flex-none lg:shrink-0 ${bulkMobileTab === 'form' ? 'flex flex-1 lg:flex-none' : 'hidden lg:flex'}`}>
+                                    <div className="flex-1 space-y-3.5 overflow-y-auto p-3.5 sm:p-4 pb-6">
                                         {/* List Tile Dokumen yang Dipilih */}
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
@@ -1183,7 +1304,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                                 Metode Tanda Tangan
                                             </Label>
-                                            <div className="grid grid-cols-2 gap-2.5">
+                                            <div className="grid grid-cols-2 gap-2">
                                                 <Button
                                                     type="button"
                                                     variant={bulkSignatureMethod === 'original' ? 'default' : 'outline'}
@@ -1191,7 +1312,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                         setBulkSignatureMethod('original');
                                                         setShowBulkSignaturePad(false);
                                                     }}
-                                                    className="w-full text-xs font-medium"
+                                                    className="w-full text-xs font-medium px-1.5 py-2 h-auto text-center"
                                                 >
                                                     Tanda Tangan Asli
                                                 </Button>
@@ -1202,7 +1323,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                         setBulkSignatureMethod('qr');
                                                         setShowBulkSignaturePad(false);
                                                     }}
-                                                    className="w-full text-xs font-medium"
+                                                    className="w-full text-xs font-medium px-1.5 py-2 h-auto text-center"
                                                 >
                                                     Tanda Tangan QR Code
                                                 </Button>
@@ -1267,7 +1388,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="rounded-lg border bg-background p-3">
+                                                <div className="bg-background">
                                                     <SignaturePad
                                                         onSignatureComplete={(sig) => {
                                                             setBulkSignatureData(sig);
