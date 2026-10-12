@@ -7,6 +7,7 @@ use App\Http\Controllers\DokumenController;
 use App\Http\Controllers\DokumenVersionController;
 use App\Http\Controllers\DokumenApprovalController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ReportController;
 use App\Models\Masterflow;
 use App\Services\ContextService;
 use Illuminate\Support\Facades\Route;
@@ -93,7 +94,7 @@ Route::middleware(['auth', 'check.role:Super Admin'])->group(function () {
     })->name('super-admin.user-management');
 });
 
-// Transaksi Management Routes (Super Admin & Admin)
+// Transaksi & Aplikasi Management Routes (Super Admin & Admin)
 Route::middleware(['auth', 'check.role:Admin,Super Admin'])->group(function () {
     Route::get('/super-admin/transaksi-management', function () {
         return Inertia::render('super-admin/transaksi-management');
@@ -102,6 +103,10 @@ Route::middleware(['auth', 'check.role:Admin,Super Admin'])->group(function () {
     Route::get('/admin/transaksi-management', function () {
         return Inertia::render('super-admin/transaksi-management');
     })->name('admin.transaksi-management');
+
+    Route::get('/admin/aplikasi-management', function () {
+        return Inertia::render('admin/aplikasi-management');
+    })->name('admin.aplikasi-management');
 });
 
 // Admin Routes  
@@ -142,6 +147,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dokumen', function () {
         return Inertia::render('dokumen/index');
     })->name('dokumen.page');
+
+    // Report Route
+    Route::get('/report', [\App\Http\Controllers\ReportController::class, 'index'])->name('report.index');
 
     // Document API endpoints with /api prefix to avoid conflicts with page routes
     Route::prefix('api/dokumen')->group(function () {

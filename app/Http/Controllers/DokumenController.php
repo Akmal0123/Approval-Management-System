@@ -25,7 +25,6 @@ use Inertia\Inertia;
 use App\Services\ContextService;
 use App\Services\PdfSignatureService;
 use App\Services\DummyTransactionService;
-use App\Services\TransactionTemplatePdfService;
 use App\Services\FastifyIntegrationService;
 
 class DokumenController extends Controller
@@ -1518,15 +1517,24 @@ class DokumenController extends Controller
             ], 404);
         }
 
-        // Generate the PDF template dynamically via TransactionTemplatePdfService
-        $pdfBinary = TransactionTemplatePdfService::generate($txData, 'S');
-        $pdfBase64 = base64_encode($pdfBinary);
+        // Ambil file PDF yang sudah jadi langsung dari Fastify Microservice
+        $pdfBinary = null;
+        if ($source === 'external-inventory-system') {
+            $pdfBinary = FastifyIntegrationService::getDocumentPdf($keyword);
+        }
+
+        // Jika belum ada binary atau fallback dummy, minta Fastify generate dari data JSON
+        if (!$pdfBinary && $txData) {
+            $pdfBinary = FastifyIntegrationService::generatePdf($txData);
+        }
+
+        $pdfBase64 = $pdfBinary ? base64_encode($pdfBinary) : '';
 
         // Map data to return
         $filename = ($txData['kode'] ?? 'dokumen') . '.pdf';
         $message = $source === 'external-inventory-system'
             ? "Data transaksi dan template PDF berhasil ditarik dari External Inventory System via Fastify (JWT Protected)"
-            : 'Data transaksi dan file PDF berhasil ditarik';
+            : 'Data transaksi dan file PDF berhasil ditarik via Fastify Microservice';
 
         return response()->json([
             'status' => 'success',

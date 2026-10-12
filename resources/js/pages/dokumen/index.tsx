@@ -1329,48 +1329,56 @@ export default function UserDokumen() {
                                 </div>
 
                                 {/* Stats Cards */}
-                                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Total Dokumen</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.total}</p>
+                                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                    <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                        <CardContent className="p-3.5 sm:p-4">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground truncate" title="Total Dokumen">Total Dokumen</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total}</p>
                                                 </div>
-                                                <FileTextIcon className="h-8 w-8 text-blue-500" />
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                                    <FileTextIcon className="h-5 w-5" />
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Draft</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.draft}</p>
+                                    <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                        <CardContent className="p-3.5 sm:p-4">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground truncate" title="Draft">Draft</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.draft}</p>
                                                 </div>
-                                                <UserIcon className="h-8 w-8 text-gray-400" />
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-500/10 text-gray-600 dark:text-gray-400">
+                                                    <UserIcon className="h-5 w-5" />
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Menunggu Persetujuan</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.submitted}</p>
+                                    <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                        <CardContent className="p-3.5 sm:p-4">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground truncate" title="Menunggu Persetujuan">Menunggu Persetujuan</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.submitted}</p>
                                                 </div>
-                                                <CalendarIcon className="h-8 w-8 text-orange-500" />
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                                    <CalendarIcon className="h-5 w-5" />
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    <Card className="border-border bg-card">
-                                        <CardContent className="p-4 md:p-6">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-sans text-sm font-medium text-muted-foreground">Disetujui</p>
-                                                    <p className="font-sans text-2xl font-bold text-foreground">{stats.approved}</p>
+                                    <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+                                        <CardContent className="p-3.5 sm:p-4">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-sans text-xs font-medium text-muted-foreground truncate" title="Disetujui">Disetujui</p>
+                                                    <p className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.approved}</p>
                                                 </div>
-                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                                    <CheckCircle2 className="h-5 w-5" />
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1422,7 +1430,7 @@ export default function UserDokumen() {
                                         </div>
                                     ) : (
                                         <>
-                                        <div className="hidden gap-4 lg:grid lg:grid-cols-2">
+                                        <div className="hidden gap-4 lg:grid lg:grid-cols-3">
                                             {filteredDokumen.length > 0 ? (
                                                 filteredDokumen.map((doc, index) => (
                                                     <Card

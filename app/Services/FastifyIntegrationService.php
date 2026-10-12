@@ -64,7 +64,7 @@ class FastifyIntegrationService
 
     /**
      * Ambil data dokumen tunggal (PO / PR) dari External Inventory System via Fastify,
-     * sudah ditransformasikan agar siap digunakan oleh AMS dan TransactionTemplatePdfService.
+     * sudah ditransformasikan agar siap digunakan oleh AMS.
      */
     public static function getDocument(string $keyword): ?array
     {
@@ -165,6 +165,69 @@ class FastifyIntegrationService
             }
         } catch (\Throwable $e) {
             Log::warning("FastifyIntegrationService::getPurchaseOrderPdf('{$idOrNumber}') failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Ambil stream biner PDF Purchase Request dari External Inventory System via Fastify.
+     */
+    public static function getPurchaseRequestPdf(string $idOrNumber): ?string
+    {
+        try {
+            $url = self::getBaseUrl() . '/api/v1/integration/purchase-requests/' . rawurlencode(trim($idOrNumber)) . '/pdf';
+            $response = Http::timeout(10)
+                ->withHeaders(self::getHeaders(['integration:purchase-request:read']))
+                ->get($url);
+
+            if ($response->successful()) {
+                return $response->body();
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::getPurchaseRequestPdf('{$idOrNumber}') failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Ambil file PDF dokumen (PO atau PR) langsung dari Fastify Microservice.
+     */
+    public static function getDocumentPdf(string $keyword): ?string
+    {
+        try {
+            $url = self::getBaseUrl() . '/api/v1/integration/document/' . rawurlencode(trim($keyword)) . '/pdf';
+            $response = Http::timeout(10)
+                ->withHeaders(self::getHeaders())
+                ->get($url);
+
+            if ($response->successful()) {
+                return $response->body();
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::getDocumentPdf('{$keyword}') failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Kirim data JSON transaksi ke Fastify Microservice untuk diubah menjadi file PDF jadi.
+     */
+    public static function generatePdf(array $txData): ?string
+    {
+        try {
+            $url = self::getBaseUrl() . '/api/v1/integration/pdf/generate';
+            $response = Http::timeout(10)
+                ->withHeaders(self::getHeaders())
+                ->post($url, ['data' => $txData]);
+
+            if ($response->successful()) {
+                return $response->body();
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::generatePdf failed: " . $e->getMessage());
         }
 
         return null;

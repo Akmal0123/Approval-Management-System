@@ -31,6 +31,6 @@ class UsersRolesSeeder extends Seeder
             ],
         ];
 
-        DB::table('usersroles')->insert($roles);
+        DB::table('usersroles')->insertOrIgnore($roles);
     }
 }

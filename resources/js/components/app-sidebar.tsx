@@ -10,6 +10,7 @@ import {
     ShieldIcon,
     UserIcon,
     UsersIcon,
+    PieChartIcon,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -40,6 +41,11 @@ const superAdminNavMain = [
         title: 'Persetujuan Dokumen',
         url: '/approvals',
         icon: CheckSquareIcon,
+    },
+    {
+        title: 'Report',
+        url: '/report',
+        icon: PieChartIcon,
     },
     {
         title: 'Masterflow Management',
@@ -106,9 +112,19 @@ const adminNavMain = [
         icon: CheckSquareIcon,
     },
     {
+        title: 'Report',
+        url: '/report',
+        icon: PieChartIcon,
+    },
+    {
         title: 'Masterflow Management',
         url: '/admin/masterflows',
         icon: FolderKanbanIcon,
+    },
+    {
+        title: 'Aplikasi Management',
+        url: '/admin/aplikasi-management',
+        icon: GlobeIcon,
     },
     {
         title: 'Transaksi Management',
@@ -121,6 +137,7 @@ const adminNavMain = [
         icon: FolderKanbanIcon,
     },
 ];
+
 
 // User Menu Items
 const userNavMain = [
@@ -143,6 +160,11 @@ const userNavMain = [
         title: 'Persetujuan Dokumen',
         url: '/approvals',
         icon: CheckSquareIcon,
+    },
+    {
+        title: 'Report',
+        url: '/report',
+        icon: PieChartIcon,
     },
     {
         title: 'My Workflow',

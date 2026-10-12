@@ -190,28 +190,28 @@ export function getDurationColorClass(durationMs: number | null): {
     const hours = durationMs / (1000 * 60 * 60);
 
     if (hours < 2) {
-        // Cepat, aman — hijau
+        // Cepat — biru
         return {
-            text: 'text-emerald-700 dark:text-emerald-400',
-            icon: 'text-emerald-500',
-            bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-            border: 'border-emerald-200 dark:border-emerald-800',
+            text: 'text-blue-600 dark:text-blue-400',
+            icon: 'text-muted-foreground',
+            bg: 'bg-blue-50 dark:bg-blue-950/40',
+            border: 'border-blue-200 dark:border-blue-800',
         };
     } else if (hours < 6) {
-        // Normal, masih aman — amber/kuning
+        // Normal — hijau
         return {
-            text: 'text-amber-700 dark:text-amber-400',
-            icon: 'text-amber-500',
-            bg: 'bg-amber-50 dark:bg-amber-950/40',
-            border: 'border-amber-200 dark:border-amber-800',
+            text: 'text-green-600 dark:text-green-400',
+            icon: 'text-muted-foreground',
+            bg: 'bg-green-50 dark:bg-green-950/40',
+            border: 'border-green-200 dark:border-green-800',
         };
     } else {
-        // H-2 (6 jam ke atas) — merah
+        // Lambat — abu2 gelap
         return {
-            text: 'text-red-700 dark:text-red-400',
-            icon: 'text-red-500',
-            bg: 'bg-red-50 dark:bg-red-950/40',
-            border: 'border-red-200 dark:border-red-800',
+            text: 'text-gray-700 dark:text-gray-400',
+            icon: 'text-muted-foreground',
+            bg: 'bg-gray-100 dark:bg-gray-800/40',
+            border: 'border-gray-300 dark:border-gray-700',
         };
     }
 }

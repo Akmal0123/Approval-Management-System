@@ -352,13 +352,7 @@ export function ApprovalTimeline({
                                                     <IconClock className="h-3 w-3 shrink-0" />
                                                     <span>
                                                         {isCompleted ? 'Disetujui' : 'Ditolak'} pada{' '}
-                                                        <span className={`font-medium ${
-                                                            isCompleted
-                                                                ? 'text-emerald-600 dark:text-emerald-400'
-                                                                : isRejected
-                                                                ? 'text-red-500 dark:text-red-400'
-                                                                : ''
-                                                        }`}>
+                                                        <span className="font-medium text-red-500 dark:text-red-400">
                                                             {formatDateTime(app.tgl_approve)}
                                                         </span>
                                                     </span>
@@ -384,7 +378,7 @@ export function ApprovalTimeline({
                                                     <Timer className="h-3 w-3 shrink-0" />
                                                     <span>
                                                         Durasi dari dokumen diupload:{' '}
-                                                        <span className={`font-medium ${durationColor.text}`}>
+                                                        <span className="font-medium text-green-800 dark:text-green-500">
                                                             {durationFromUpload}
                                                         </span>
                                                     </span>
@@ -553,13 +547,7 @@ export function ApprovalTimeline({
                                                                     {getStatusBadge(isSkipped ? 'skipped' : app.approval_status)}
                                                                     {app.tgl_approve && (
                                                                         <span className="text-[10px] text-muted-foreground">
-                                                                            <span className={`font-medium ${
-                                                                                app.approval_status === 'approved' || app.approval_status === 'skipped'
-                                                                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                                                                    : app.approval_status === 'rejected'
-                                                                                    ? 'text-red-500 dark:text-red-400'
-                                                                                    : ''
-                                                                            }`}>
+                                                                            <span className="font-medium text-red-500 dark:text-red-400">
                                                                                 {formatDateTime(app.tgl_approve)}
                                                                             </span>
                                                                         </span>
@@ -575,7 +563,7 @@ export function ApprovalTimeline({
                                                                     {durationFromUpload && (
                                                                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                                                             <Timer className="h-2.5 w-2.5 shrink-0" />
-                                                                            <span>Dari upload: <span className="font-medium text-foreground">{durationFromUpload}</span></span>
+                                                                            <span>Dari upload: <span className="font-medium text-green-800 dark:text-green-500">{durationFromUpload}</span></span>
                                                                         </span>
                                                                     )}
                                                                     {currentApprovalId !== undefined &&
