@@ -1,4 +1,4 @@
-﻿import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -8,7 +8,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { AppWindow, Briefcase, Building2, Check, ChevronDown, Loader2, Shield } from 'lucide-react';
 import { useState } from 'react';
@@ -112,33 +112,25 @@ export default function ContextSwitcher() {
     };
 
     const handleSwitchContext = async (contextId: number) => {
-        const targetGroup = companyGroups.find((g) => g.contexts.some((c) => c.id === contextId));
-        const currentGroup = currentContext ? companyGroups.find((g) => g.contexts.some((c) => c.id === currentContext.id)) : null;
-
-        if (targetGroup && currentGroup && targetGroup.company?.id === currentGroup.company?.id) {
+        // Jika sudah di context yang sama, tidak perlu switch
+        if (currentContext?.id === contextId) {
             setIsOpen(false);
             return;
         }
 
         setIsLoading(true);
+        setIsOpen(false);
         try {
-            await axios.post(
-                '/contexts/switch',
-                { context_id: contextId },
-                {
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                    },
-                },
-            );
-            router.visit('/dashboard');
-        } catch (error) {
+            const response = await axios.post('/contexts/switch', { context_id: contextId });
+            if (response.data?.success) {
+                window.location.reload();
+            }
+        } catch (error: unknown) {
             console.error('Failed to switch context:', error);
-        } finally {
             setIsLoading(false);
-            setIsOpen(false);
+            const axiosError = error as { response?: { data?: { error?: string } } };
+            const message = axiosError?.response?.data?.error || 'Gagal mengganti company. Coba lagi.';
+            alert(message);
         }
     };
 
