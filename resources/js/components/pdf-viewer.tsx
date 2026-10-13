@@ -190,7 +190,7 @@ export default function PDFViewer({
             {/* PDF Viewer */}
             <div
                 ref={viewerRef}
-                className="min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain rounded-lg border border-border bg-muted/30"
+                className="relative min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain rounded-lg border border-border bg-muted/30"
                 style={{ height: isFullscreen ? 'calc(100vh - 90px)' : height, maxHeight: '100%' }}
                 onScroll={() => {
                     const viewportTop = viewerRef.current?.getBoundingClientRect().top ?? 0;
@@ -202,7 +202,7 @@ export default function PDFViewer({
                 }}
             >
                 {loading && (
-                    <div className="flex h-full items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-center">
                             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                             <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
