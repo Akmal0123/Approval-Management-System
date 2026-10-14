@@ -79,49 +79,49 @@ export default function AdminDashboard({ stats, recent_documents = [], recent_ac
         const config: Record<string, { label: string; className: string; icon: any }> = {
             draft: {
                 label: 'Draft',
-                className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300',
+                className: 'bg-white dark:bg-white text-gray-800 dark:text-gray-800 border-gray-300 dark:border-gray-300',
                 icon: IconFileText,
             },
             pending: {
                 label: 'Menunggu',
-                className: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-950/40 dark:text-yellow-300',
+                className: 'bg-white dark:bg-white text-yellow-800 dark:text-yellow-800 border-yellow-300 dark:border-yellow-300',
                 icon: IconClock,
             },
             under_review: {
                 label: 'Sedang Direview',
-                className: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300',
+                className: 'bg-white dark:bg-white text-blue-800 dark:text-blue-800 border-blue-300 dark:border-blue-300',
                 icon: IconClock,
             },
             in_review: {
                 label: 'Dalam Review',
-                className: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300',
+                className: 'bg-white dark:bg-white text-blue-800 dark:text-blue-800 border-blue-300 dark:border-blue-300',
                 icon: IconClock,
             },
             approved: {
                 label: 'Disetujui',
-                className: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950/40 dark:text-green-300',
+                className: 'bg-white dark:bg-white text-green-800 dark:text-green-800 border-green-300 dark:border-green-300',
                 icon: IconCheck,
             },
             rejected: {
                 label: 'Ditolak',
-                className: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300',
+                className: 'bg-white dark:bg-white text-red-800 dark:text-red-800 border-red-300 dark:border-red-300',
                 icon: IconX,
             },
             revision_requested: {
                 label: 'Revisi Diminta',
-                className: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300',
+                className: 'bg-white dark:bg-white text-orange-800 dark:text-orange-800 border-orange-300 dark:border-orange-300',
                 icon: IconClock,
             },
             completed: {
                 label: 'Selesai',
-                className: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950/40 dark:text-green-300',
+                className: 'bg-white dark:bg-white text-green-800 dark:text-green-800 border-green-300 dark:border-green-300',
                 icon: IconCheck,
             },
         };
 
         const defaultConfig = {
             label: status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-            className: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300',
+            className: 'bg-white dark:bg-white text-gray-800 dark:text-gray-800 border-gray-300 dark:border-gray-300',
             icon: IconFileText,
         };
         const { label, className, icon: Icon } = config[status] || defaultConfig;

@@ -130,40 +130,6 @@ export default function UserDashboard({ user, statistics, available_masterflows 
                                 </div>
                             </div>
 
-                            {/* Approver Duties Alert (if any) */}
-                            {hasApprovalDuties && (
-                                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                                            <Clock className="h-3.5 w-3.5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-amber-950 dark:text-amber-200">
-                                                Approval Tasks
-                                            </p>
-                                            <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80">
-                                                <span className="font-semibold text-amber-900 dark:text-amber-200">{statistics.pending_approvals || 0}</span> documents awaiting review • <span className="font-medium">{statistics.processed_approvals || 0}</span> processed
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        {(statistics?.pending_approvals ?? 0) > 0 && (
-                                            <Link href="/approvals">
-                                                <Button size="sm" className="h-6.5 text-[11px] bg-amber-600 text-white hover:bg-amber-700">
-                                                    Review ({statistics.pending_approvals})
-                                                    <IconArrowRight className="ml-1 h-3 w-3" />
-                                                </Button>
-                                            </Link>
-                                        )}
-                                        <Link href="/approvals?status=approved">
-                                            <Button variant="outline" size="sm" className="h-6.5 text-[11px] border-amber-300/60 bg-white/70 hover:bg-amber-100/50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                                                History
-                                            </Button>
-                                        </Link>
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Statistics Cards */}
                             <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
                                 <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">

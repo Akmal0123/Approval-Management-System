@@ -1261,7 +1261,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 ref={viewerRef}
                 className={isFullscreen
                     ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-1 sm:p-4"
-                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 md:p-6 min-h-0 min-w-0 flex-1 ${
+                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2.5' : 'md:p-6'} min-h-0 min-w-0 flex-1 ${
                         !hideSidebar && mobilePanelTab === 'info'
                             ? 'hidden md:flex'
                             : 'flex'

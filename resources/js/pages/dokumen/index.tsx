@@ -15,7 +15,7 @@ import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconAlertCircle, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
-import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, SearchIcon, UserIcon } from 'lucide-react';
+import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, LayoutGrid, List, SearchIcon, UserIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -215,6 +215,7 @@ export default function UserDokumen() {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [dokumenViewMode, setDokumenViewMode] = useState<'card' | 'table'>('card');
     const [selectedMasterflow, setSelectedMasterflow] = useState<Masterflow | null>(null);
     const [availableApprovers, setAvailableApprovers] = useState<Record<number, UserOption[]>>({});
     const [stepModes, setStepModes] = useState<Record<number, 'single' | 'group'>>({});
@@ -308,13 +309,17 @@ export default function UserDokumen() {
 
     // Filter Masterflow sesuai Transaksi yang dipilih
     const filteredMasterflows = React.useMemo(() => {
+        if (docTypeMode === 'manual') {
+            return [];
+        }
         if (!formData.transaksi_id) {
-            return masterflows;
+            return [];
         }
         const transId = Number(formData.transaksi_id);
-        const matched = masterflows.filter((mf) => Number(mf.transaksi_id) === transId);
-        return matched.length > 0 ? matched : masterflows;
-    }, [masterflows, formData.transaksi_id]);
+        return masterflows.filter(
+            (mf) => Number(mf.transaksi_id) === transId || Number((mf as any).transaksi?.id) === transId
+        );
+    }, [masterflows, formData.transaksi_id, docTypeMode]);
 
     // Fetch dokumen from backend
     const fetchDokumen = async () => {
@@ -1385,7 +1390,7 @@ export default function UserDokumen() {
                                 </div>
 
                                 {/* Search and Filter */}
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="relative flex-1">
                                         <SearchIcon className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
@@ -1395,32 +1400,51 @@ export default function UserDokumen() {
                                             className="pl-10 font-sans"
                                         />
                                     </div>
-                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                        <SelectTrigger className="w-[180px] font-sans">
-                                            <SelectValue placeholder="Filter Status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all" className="font-sans">
-                                                Semua Status
-                                            </SelectItem>
-                                            <SelectItem value="draft" className="font-sans">
-                                                Draft
-                                            </SelectItem>
-                                            <SelectItem value="submitted" className="font-sans">
-                                                Submitted
-                                            </SelectItem>
-                                            <SelectItem value="approved" className="font-sans">
-                                                Approved
-                                            </SelectItem>
-                                            <SelectItem value="rejected" className="font-sans">
-                                                Rejected
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="flex items-center gap-2">
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger className="w-[160px] font-sans">
+                                                <SelectValue placeholder="Filter Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all" className="font-sans">Semua Status</SelectItem>
+                                                <SelectItem value="draft" className="font-sans">Draft</SelectItem>
+                                                <SelectItem value="submitted" className="font-sans">Submitted</SelectItem>
+                                                <SelectItem value="approved" className="font-sans">Approved</SelectItem>
+                                                <SelectItem value="rejected" className="font-sans">Rejected</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {/* View Mode Toggle */}
+                                        <div className="flex items-center rounded-lg border bg-muted/40 p-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setDokumenViewMode('card')}
+                                                title="Tampilan Card"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
+                                                    dokumenViewMode === 'card'
+                                                        ? 'bg-background text-primary shadow-sm'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                <LayoutGrid className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDokumenViewMode('table')}
+                                                title="Tampilan Tabel"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
+                                                    dokumenViewMode === 'table'
+                                                        ? 'bg-background text-primary shadow-sm'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                <List className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Documents Table */}
-                                <div className="space-y-6">
+                                {/* Documents List */}
+                                <div className="space-y-4">
                                     {isLoading ? (
                                         <div className="flex items-center justify-center py-12">
                                             <div className="text-center">
@@ -1430,6 +1454,91 @@ export default function UserDokumen() {
                                         </div>
                                     ) : (
                                         <>
+                                        {/* ===== DESKTOP TABLE VIEW ===== */}
+                                        {dokumenViewMode === 'table' ? (
+                                            <div className="hidden lg:block">
+                                                {filteredDokumen.length === 0 ? (
+                                                    <div className="rounded-lg border bg-card py-10 text-center font-sans text-sm text-muted-foreground">
+                                                        {searchQuery || statusFilter !== 'all' ? 'Tidak ada dokumen yang sesuai dengan filter' : 'Belum ada dokumen. Klik "Buat Dokumen" untuk memulai.'}
+                                                    </div>
+                                                ) : (
+                                                    <div className="overflow-hidden rounded-xl border">
+                                                        <table className="w-full text-sm font-sans">
+                                                            <thead className="bg-muted/50 text-left">
+                                                                <tr>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide w-8">#</th>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Dokumen</th>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Status</th>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Masterflow</th>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Tgl Pengajuan</th>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Nominal</th>
+                                                                    <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide text-right">Aksi</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-border bg-card">
+                                                                {filteredDokumen.map((doc, index) => (
+                                                                    <tr
+                                                                        key={doc.id}
+                                                                        className={`transition-colors hover:bg-muted/30 ${
+                                                                            updatedDokumenIds.has(doc.id) ? 'bg-green-50 dark:bg-green-950/10' : ''
+                                                                        }`}
+                                                                    >
+                                                                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{index + 1}</td>
+                                                                        <td className="px-4 py-3">
+                                                                            <div className="space-y-1">
+                                                                                <p className="font-semibold text-foreground leading-tight line-clamp-1" title={doc.judul_dokumen}>{doc.judul_dokumen}</p>
+                                                                                <div className="flex flex-wrap items-center gap-1">
+                                                                                    {doc.nomor_dokumen && (
+                                                                                        <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground px-1 py-0">{doc.nomor_dokumen}</Badge>
+                                                                                    )}
+                                                                                    {doc.transaksi && (
+                                                                                        <Badge className="border-emerald-300 bg-emerald-100 font-mono text-[10px] text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 px-1 py-0">{doc.transaksi.kode_transaksi}</Badge>
+                                                                                    )}
+                                                                                    {doc.aplikasi && (
+                                                                                        <span className="rounded bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">{doc.aplikasi.name}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3">{getStatusBadge(doc.status)}</td>
+                                                                        <td className="px-4 py-3 text-sm text-muted-foreground">{doc.masterflow?.name || '-'}</td>
+                                                                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{new Date(doc.tgl_pengajuan).toLocaleDateString('id-ID')}</td>
+                                                                        <td className="px-4 py-3">
+                                                                            {Number(doc.nominal || 0) > 0 ? (
+                                                                                <span className="font-mono text-xs font-semibold text-primary">Rp {Number(doc.nominal).toLocaleString('id-ID')}</span>
+                                                                            ) : (
+                                                                                <span className="text-xs text-muted-foreground">-</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                                <Link href={`/dokumen/${doc.id}`}>
+                                                                                    <Button variant="outline" size="sm" className="h-7 w-7 p-0 text-blue-600" title="Lihat dokumen">
+                                                                                        <Eye className="h-3.5 w-3.5" />
+                                                                                    </Button>
+                                                                                </Link>
+                                                                                {doc.status === 'draft' && (
+                                                                                    <>
+                                                                                        <Link href={`/dokumen/${doc.id}/edit`}>
+                                                                                            <Button variant="outline" size="sm" className="h-7 w-7 p-0 text-green-600" title="Edit dokumen">
+                                                                                                <IconEdit className="h-3.5 w-3.5" />
+                                                                                            </Button>
+                                                                                        </Link>
+                                                                                        <Button variant="outline" size="sm" onClick={() => handleDelete(doc)} className="h-7 w-7 p-0 text-red-600" title="Hapus dokumen">
+                                                                                            <IconTrash className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
                                         <div className="hidden gap-4 lg:grid lg:grid-cols-3">
                                             {filteredDokumen.length > 0 ? (
                                                 filteredDokumen.map((doc, index) => (
@@ -1531,6 +1640,7 @@ export default function UserDokumen() {
                                                 </div>
                                             )}
                                         </div>
+                                        )}
                                         {/* ===== MOBILE: daftar card ===== */}
                                         <div className="space-y-3 lg:hidden">
                                             {filteredDokumen.length > 0 ? (
@@ -2132,12 +2242,21 @@ export default function UserDokumen() {
                                                 <SelectValue placeholder="Pilih masterflow" />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                {docTypeMode !== 'manual' && !formData.transaksi_id && (
+                                                    <SelectItem value="__no_transaksi__" disabled className="font-sans text-muted-foreground italic">
+                                                        Pilih tipe transaksi terlebih dahulu
+                                                    </SelectItem>
+                                                )}
+                                                {docTypeMode !== 'manual' && formData.transaksi_id && filteredMasterflows.length === 0 && (
+                                                    <SelectItem value="__no_masterflow__" disabled className="font-sans text-muted-foreground italic">
+                                                        Tidak ada masterflow untuk transaksi ini
+                                                    </SelectItem>
+                                                )}
                                                 {docTypeMode !== 'manual' &&
-                                                    masterflows.map((mf) => (
+                                                    filteredMasterflows.map((mf) => (
                                                         <SelectItem key={mf.id} value={mf.id.toString()} className="font-sans">
                                                             <div className="flex items-center gap-2">
                                                                 <span>{mf.name}</span>
-                                                                
                                                             </div>
                                                         </SelectItem>
                                                     ))}
