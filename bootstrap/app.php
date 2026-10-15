@@ -29,8 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'check.role' => \App\Http\Middleware\CheckUserRole::class,
-            'auth.jwt'   => \App\Http\Middleware\JwtAuthenticate::class,
+            'check.role'        => \App\Http\Middleware\CheckUserRole::class,
+            'auth.jwt'          => \App\Http\Middleware\JwtAuthenticate::class,
+            'auth.microservice' => \App\Http\Middleware\VerifyMicroserviceToken::class,
         ]);
 
         $middleware->api(prepend: [

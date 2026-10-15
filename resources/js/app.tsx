@@ -22,6 +22,17 @@ axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 axios.defaults.withCredentials = true;
 axios.defaults.baseURL = window.location.origin;
 
+// Set CSRF token from cookie (Laravel XSRF-TOKEN)
+const xsrfToken = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('XSRF-TOKEN='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+if (xsrfToken) {
+    axios.defaults.headers.common['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
+}
+
 // Bootstrap Laravel Echo untuk Reverb (Pusher)
 window.Pusher = Pusher;
 

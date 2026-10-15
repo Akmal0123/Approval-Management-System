@@ -112,3 +112,10 @@ Route::middleware('auth.jwt')->prefix('v1')->group(function () {
     Route::get('/user/statistics', [UserDashboardController::class, 'getStatisticsApi']);
     Route::get('/user/recent-documents', [UserDashboardController::class, 'getRecentDocumentsApi']);
 });
+
+// Internal Microservice Sync Endpoints (Dipanggil oleh microservice-lookup)
+Route::prefix('v1/internal/sync')->middleware('auth.microservice')->group(function () {
+    Route::get('/user/check', [\App\Http\Controllers\API\InternalSyncController::class, 'checkUser']);
+    Route::post('/user', [\App\Http\Controllers\API\InternalSyncController::class, 'provisionUser']);
+    Route::post('/document', [\App\Http\Controllers\API\InternalSyncController::class, 'createDraftDocument']);
+});

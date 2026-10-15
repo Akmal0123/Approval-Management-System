@@ -548,6 +548,13 @@ class DokumenApprovalController extends Controller
                 'status_current' => 'rejected',
             ]);
 
+            // Sync status ke EIS via microservice-lookup
+            \App\Services\FastifyIntegrationService::updateEisStatus(
+                $approval->dokumen->nomor_dokumen,
+                'rejected',
+                $validated['alasan_reject'] ?? null
+            );
+
             // Add comment
             \App\Models\Comment::create([
                 'dokumen_id' => $approval->dokumen_id,
@@ -796,6 +803,12 @@ class DokumenApprovalController extends Controller
                 'status_current' => 'rejected',
             ]);
             Log::info('Document rejected - at least one approval is rejected');
+
+            \App\Services\FastifyIntegrationService::updateEisStatus(
+                $dokumen->nomor_dokumen,
+                'rejected',
+                'Dokumen ditolak di alur persetujuan'
+            );
             return;
         }
 
@@ -806,6 +819,13 @@ class DokumenApprovalController extends Controller
                 'status' => 'approved',
                 'status_current' => 'fully_approved',
             ]);
+
+            // Sync status ke EIS via microservice-lookup
+            \App\Services\FastifyIntegrationService::updateEisStatus(
+                $dokumen->nomor_dokumen,
+                'approved',
+                'Dokumen disetujui sepenuhnya di AMS'
+            );
 
             // Send email notification to document owner
             $dokumenWithUser = $dokumen->fresh(['user']);

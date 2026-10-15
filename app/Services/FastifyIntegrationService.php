@@ -232,4 +232,33 @@ class FastifyIntegrationService
 
         return null;
     }
+
+    /**
+     * Kirim pembaruan status dokumen (PO/PR) dari AMS ke EIS melalui microservice-lookup.
+     */
+    public static function updateEisStatus(string $nomorDokumen, string $status, ?string $notes = null): ?array
+    {
+        try {
+            $url = self::getBaseUrl() . '/api/v1/integration/sync/status';
+            $response = Http::timeout(10)
+                ->withHeaders(self::getHeaders())
+                ->post($url, [
+                    'nomor_dokumen' => $nomorDokumen,
+                    'status' => $status,
+                    'notes' => $notes,
+                ]);
+
+            if ($response->successful() && $response->json('success')) {
+                Log::info("Status dokumen '{$nomorDokumen}' berhasil disinkronkan ke EIS via Fastify: {$status}");
+                return $response->json('data');
+            } else {
+                Log::warning("Gagal update status EIS via Fastify [{$nomorDokumen}]: " . $response->body());
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::updateEisStatus('{$nomorDokumen}', '{$status}') failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
 }
+
