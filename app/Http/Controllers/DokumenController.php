@@ -49,11 +49,26 @@ class DokumenController extends Controller
             $companyId = $this->contextService->getCurrentCompanyId();
             $aplikasiId = $this->contextService->getCurrentAplikasiId();
 
-            if ($companyId) {
-                $query->where('company_id', $companyId);
-            }
-            if ($aplikasiId) {
-                $query->where('aplikasi_id', $aplikasiId);
+            if ($request->filled('my_documents')) {
+                if ($companyId) {
+                    $query->where(function ($q) use ($companyId) {
+                        $q->where('company_id', $companyId)
+                            ->orWhere('user_id', Auth::id());
+                    });
+                }
+                if ($aplikasiId) {
+                    $query->where(function ($q) use ($aplikasiId) {
+                        $q->where('aplikasi_id', $aplikasiId)
+                            ->orWhere('user_id', Auth::id());
+                    });
+                }
+            } else {
+                if ($companyId) {
+                    $query->where('company_id', $companyId);
+                }
+                if ($aplikasiId) {
+                    $query->where('aplikasi_id', $aplikasiId);
+                }
             }
         }
 
@@ -106,11 +121,26 @@ class DokumenController extends Controller
             $companyId = $this->contextService->getCurrentCompanyId();
             $aplikasiId = $this->contextService->getCurrentAplikasiId();
 
-            if ($companyId) {
-                $query->where('company_id', $companyId);
-            }
-            if ($aplikasiId) {
-                $query->where('aplikasi_id', $aplikasiId);
+            if ($request->filled('my_documents')) {
+                if ($companyId) {
+                    $query->where(function ($q) use ($companyId) {
+                        $q->where('company_id', $companyId)
+                            ->orWhere('user_id', Auth::id());
+                    });
+                }
+                if ($aplikasiId) {
+                    $query->where(function ($q) use ($aplikasiId) {
+                        $q->where('aplikasi_id', $aplikasiId)
+                            ->orWhere('user_id', Auth::id());
+                    });
+                }
+            } else {
+                if ($companyId) {
+                    $query->where('company_id', $companyId);
+                }
+                if ($aplikasiId) {
+                    $query->where('aplikasi_id', $aplikasiId);
+                }
             }
         }
 
