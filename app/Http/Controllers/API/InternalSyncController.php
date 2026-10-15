@@ -44,17 +44,21 @@ class InternalSyncController extends Controller
         $user = $query->first();
 
         if ($user) {
+            $hasAuth = $user->userAuths && $user->userAuths->isNotEmpty();
             $auth = $user->userAuths->first();
             return response()->json([
                 'success' => true,
-                'exists' => true,
+                'exists' => $hasAuth,
+                'registered_in_ams' => true,
+                'has_authorization' => $hasAuth,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $auth?->role?->role_name ?? 'User',
-                    'company_id' => $auth?->company_id ?? 1,
-                    'aplikasi_id' => $auth?->aplikasi_id ?? 1,
+                    'has_authorization' => $hasAuth,
+                    'role' => $auth?->role?->role_name ?? null,
+                    'company_id' => $auth?->company_id ?? null,
+                    'aplikasi_id' => $auth?->aplikasi_id ?? null,
                 ],
             ]);
         }
@@ -96,7 +100,7 @@ class InternalSyncController extends Controller
         if ($existing) {
             return response()->json([
                 'success' => true,
-                'message' => 'User sudah ada di AMS.',
+                'message' => 'User sudah ada di AMS (menunggu konfirmasi otorisasi dari Superadmin).',
                 'already_exists' => true,
                 'user' => $existing->load(['profile', 'userAuths']),
             ]);
@@ -121,29 +125,18 @@ class InternalSyncController extends Controller
                 'phone_number' => '-',
             ]);
 
-            // Buat Otorisasi User (Role User / Staff)
-            $auth = UsersAuth::create([
-                'user_id' => $userId,
-                'role_id' => 3, // Role 'User'
-                'company_id' => 1,
-                'jabatan_id' => 1,
-                'aplikasi_id' => 1,
-            ]);
-
-            // Set default context
-            DB::table('users')->where('id', $userId)->update([
-                'last_context_id' => $auth->id,
-            ]);
+            // Catatan: Otorisasi (UsersAuth) sengaja dikosongkan agar akun menunggu konfirmasi dari Superadmin
+            // last_context_id juga tetap null sampai Superadmin mengisi otorisasi
 
             DB::commit();
 
             $freshUser = User::with(['profile', 'userAuths.role', 'userAuths.company'])->find($userId);
 
-            Log::info("User EIS '{$email}' berhasil disinkronisasi ke AMS User Management (ID: {$userId})");
+            Log::info("User EIS '{$email}' berhasil disinkronisasi ke AMS User Management dengan otorisasi kosong (ID: {$userId})");
 
             return response()->json([
                 'success' => true,
-                'message' => 'User berhasil didaftarkan ke User Management Superadmin AMS.',
+                'message' => 'User berhasil didaftarkan ke User Management Superadmin AMS dengan otorisasi kosong (menunggu konfirmasi Superadmin).',
                 'already_exists' => false,
                 'user' => $freshUser,
             ], 201);
