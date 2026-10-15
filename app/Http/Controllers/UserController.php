@@ -259,13 +259,21 @@ class UserController extends Controller
             // Delete existing user auths and create new ones
             $user->userAuths()->delete();
 
+            $firstAuthId = null;
             foreach ($request->user_auths as $authData) {
-                $user->userAuths()->create([
+                $newAuth = $user->userAuths()->create([
                     'role_id' => $authData['role_id'],
                     'company_id' => $authData['company_id'],
                     'jabatan_id' => $authData['jabatan_id'],
                     'aplikasi_id' => $authData['aplikasi_id'],
                 ]);
+                if (!$firstAuthId) {
+                    $firstAuthId = $newAuth->id;
+                }
+            }
+
+            if ((!$user->last_context_id || $hadNoAuths) && $firstAuthId) {
+                $user->update(['last_context_id' => $firstAuthId]);
             }
 
             DB::commit();
