@@ -2092,7 +2092,7 @@ export default function UserDokumen() {
                                                                 size="sm"
                                                                 variant="secondary"
                                                                 onClick={openSignatureDialog}
-                                                                className="h-7 text-xs font-sans gap-1 cursor-pointer"
+                                                                className="h-7 text-xs font-sans gap-1 cursor-pointer border border-border/50 hover:bg-primary/15 hover:border-primary/40 hover:text-primary transition-all duration-200 hover:shadow-xs"
                                                             >
                                                                 <IconEdit className="h-3.5 w-3.5" />
                                                                 Atur Posisi Tanda Tangan
@@ -2336,7 +2336,7 @@ export default function UserDokumen() {
                                                                         <div className="flex items-center justify-between">
                                                                             <span className="text-xs text-muted-foreground">Jabatan</span>
                                                                             {stepMin && (
-                                                                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200">
+                                                                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800">
                                                                                     ≥ Rp {Number(stepMin).toLocaleString('id-ID')}
                                                                                 </span>
                                                                             )}
@@ -2620,7 +2620,7 @@ export default function UserDokumen() {
                                                 variant="secondary"
                                                 onClick={openSignatureDialog}
                                                 disabled={isSubmitting || !formData.file}
-                                                className="w-full font-sans text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 sm:w-auto"
+                                                className="w-full font-sans sm:w-auto cursor-pointer border border-border/50 hover:bg-primary/15 hover:border-primary/40 hover:text-primary transition-all duration-200 hover:shadow-xs"
                                             >
                                                 <IconEdit className="mr-2 h-4 w-4" />
                                                 Atur Posisi Tanda Tangan
