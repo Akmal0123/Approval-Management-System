@@ -105,6 +105,36 @@ export interface FormData {
     signature_positions: any[] | null;
 }
 
+interface TabSnapshot {
+    nomor_dokumen: string;
+    judul_dokumen: string;
+    nominal?: string | number;
+    nominal_transaksi?: string;
+    tgl_pengajuan: string;
+    tgl_deadline: string;
+    deskripsi: string;
+    file: File | null;
+    localFileUrl: string | null;
+    signature_positions: any[] | null;
+    masterflow_id: number | '' | 'custom';
+    approvers: Record<number, number | ''>;
+    custom_approvers: CustomApprover[];
+    step_approvers: Record<number, StepApprovers>;
+    selectedMasterflow: Masterflow | null;
+    availableApprovers: Record<number, UserOption[]>;
+    stepModes: Record<number, 'single' | 'group'>;
+    transaksi_id?: string | number;
+    externalDocKeyword?: string;
+    externalFetchSuccess?: {
+        nomor_dokumen: string;
+        judul: string;
+        nominal: number;
+        items_count: number;
+        filename: string;
+        source?: string;
+    } | null;
+}
+
 export interface CreateDocumentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -177,6 +207,10 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
         filename: string;
         source?: string;
     } | null>(null);
+
+    const [manualNomorDokumen, setManualNomorDokumen] = useState<string>(() => generateDocumentNumber());
+    const [manualSnapshot, setManualSnapshot] = useState<TabSnapshot | null>(null);
+    const [transaksiSnapshot, setTransaksiSnapshot] = useState<TabSnapshot | null>(null);
 
     // Determine user profile & accessible aplikasis
     const isSuperAdmin = Boolean(
@@ -441,10 +475,25 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
             URL.revokeObjectURL(localFileUrl);
             setLocalFileUrl(null);
         }
+        if (manualSnapshot?.localFileUrl && manualSnapshot.localFileUrl !== localFileUrl) {
+            URL.revokeObjectURL(manualSnapshot.localFileUrl);
+        }
+        if (
+            transaksiSnapshot?.localFileUrl &&
+            transaksiSnapshot.localFileUrl !== localFileUrl &&
+            transaksiSnapshot.localFileUrl !== manualSnapshot?.localFileUrl
+        ) {
+            URL.revokeObjectURL(transaksiSnapshot.localFileUrl);
+        }
+        setManualSnapshot(null);
+        setTransaksiSnapshot(null);
+
+        const generatedManualNum = generateDocumentNumber();
+        setManualNomorDokumen(generatedManualNum);
 
         const newFormData: FormData = {
             ...initialFormData,
-            nomor_dokumen: generateDocumentNumber(),
+            nomor_dokumen: generatedManualNum,
             tgl_pengajuan: new Date().toISOString().split('T')[0],
             custom_approvers: [{ email: '', order: 1 }],
             company_id: '',
@@ -474,8 +523,177 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
     useEffect(() => {
         if (open) {
             resetAndInitForm();
+        } else {
+            if (localFileUrl) {
+                URL.revokeObjectURL(localFileUrl);
+                setLocalFileUrl(null);
+            }
+            if (manualSnapshot?.localFileUrl) {
+                URL.revokeObjectURL(manualSnapshot.localFileUrl);
+            }
+            if (transaksiSnapshot?.localFileUrl) {
+                URL.revokeObjectURL(transaksiSnapshot.localFileUrl);
+            }
+            setManualSnapshot(null);
+            setTransaksiSnapshot(null);
         }
     }, [open]);
+
+    // Handle switching between Dokumen Manual and Dokumen Transaksi tabs
+    const handleTabChange = (newMode: 'manual' | 'transaksi') => {
+        if (newMode === docTypeMode) return;
+
+        if (docTypeMode === 'manual' && newMode === 'transaksi') {
+            // 1. Simpan snapshot form manual saat ini
+            const currentManualSnapshot: TabSnapshot = {
+                nomor_dokumen: formData.nomor_dokumen || manualNomorDokumen,
+                judul_dokumen: formData.judul_dokumen,
+                nominal: formData.nominal,
+                nominal_transaksi: formData.nominal_transaksi,
+                tgl_pengajuan: formData.tgl_pengajuan,
+                tgl_deadline: formData.tgl_deadline,
+                deskripsi: formData.deskripsi,
+                file: formData.file,
+                localFileUrl: localFileUrl,
+                signature_positions: formData.signature_positions,
+                masterflow_id: formData.masterflow_id,
+                approvers: formData.approvers,
+                custom_approvers: formData.custom_approvers,
+                step_approvers: formData.step_approvers,
+                selectedMasterflow: selectedMasterflow,
+                availableApprovers: availableApprovers,
+                stepModes: stepModes,
+                transaksi_id: formData.transaksi_id,
+            };
+            setManualSnapshot(currentManualSnapshot);
+
+            // 2. Terapkan state dokumen transaksi (restore jika ada, atau reset bersih)
+            if (transaksiSnapshot) {
+                setFormData((prev) => ({
+                    ...prev,
+                    tipe_dokumen: 'transaksi',
+                    nomor_dokumen: transaksiSnapshot.nomor_dokumen,
+                    judul_dokumen: transaksiSnapshot.judul_dokumen,
+                    nominal: transaksiSnapshot.nominal !== undefined ? transaksiSnapshot.nominal : '',
+                    nominal_transaksi: transaksiSnapshot.nominal_transaksi || '',
+                    tgl_pengajuan: transaksiSnapshot.tgl_pengajuan,
+                    tgl_deadline: transaksiSnapshot.tgl_deadline,
+                    deskripsi: transaksiSnapshot.deskripsi,
+                    file: transaksiSnapshot.file,
+                    signature_positions: transaksiSnapshot.signature_positions,
+                    masterflow_id: transaksiSnapshot.masterflow_id,
+                    approvers: transaksiSnapshot.approvers,
+                    custom_approvers: transaksiSnapshot.custom_approvers,
+                    step_approvers: transaksiSnapshot.step_approvers,
+                    transaksi_id: transaksiSnapshot.transaksi_id !== undefined ? transaksiSnapshot.transaksi_id : prev.transaksi_id,
+                }));
+                setLocalFileUrl(transaksiSnapshot.localFileUrl);
+                setSelectedMasterflow(transaksiSnapshot.selectedMasterflow);
+                setAvailableApprovers(transaksiSnapshot.availableApprovers);
+                setStepModes(transaksiSnapshot.stepModes);
+                setExternalDocKeyword(transaksiSnapshot.externalDocKeyword || '');
+                setExternalFetchSuccess(transaksiSnapshot.externalFetchSuccess || null);
+            } else {
+                setFormData((prev) => ({
+                    ...prev,
+                    tipe_dokumen: 'transaksi',
+                    nomor_dokumen: '',
+                    judul_dokumen: '',
+                    nominal: '',
+                    nominal_transaksi: '',
+                    file: null,
+                    signature_positions: null,
+                    deskripsi: '',
+                    masterflow_id: '',
+                    approvers: {},
+                    custom_approvers: [{ email: '', order: 1 }],
+                    step_approvers: {},
+                }));
+                setLocalFileUrl(null);
+                setSelectedMasterflow(null);
+                setAvailableApprovers({});
+                setStepModes({});
+                setExternalDocKeyword('');
+                setExternalFetchSuccess(null);
+            }
+
+            setDocTypeMode('transaksi');
+        } else if (docTypeMode === 'transaksi' && newMode === 'manual') {
+            // 1. Simpan snapshot form transaksi saat ini (termasuk data hasil tarik data)
+            const currentTransaksiSnapshot: TabSnapshot = {
+                nomor_dokumen: formData.nomor_dokumen,
+                judul_dokumen: formData.judul_dokumen,
+                nominal: formData.nominal,
+                nominal_transaksi: formData.nominal_transaksi,
+                tgl_pengajuan: formData.tgl_pengajuan,
+                tgl_deadline: formData.tgl_deadline,
+                deskripsi: formData.deskripsi,
+                file: formData.file,
+                localFileUrl: localFileUrl,
+                signature_positions: formData.signature_positions,
+                masterflow_id: formData.masterflow_id,
+                approvers: formData.approvers,
+                custom_approvers: formData.custom_approvers,
+                step_approvers: formData.step_approvers,
+                selectedMasterflow: selectedMasterflow,
+                availableApprovers: availableApprovers,
+                stepModes: stepModes,
+                transaksi_id: formData.transaksi_id,
+                externalDocKeyword: externalDocKeyword,
+                externalFetchSuccess: externalFetchSuccess,
+            };
+            setTransaksiSnapshot(currentTransaksiSnapshot);
+
+            // 2. Terapkan state dokumen manual (reset isian transaksi, gunakan nomor dokumen manual auto-generated)
+            if (manualSnapshot) {
+                setFormData((prev) => ({
+                    ...prev,
+                    tipe_dokumen: 'manual',
+                    nomor_dokumen: manualSnapshot.nomor_dokumen || manualNomorDokumen,
+                    judul_dokumen: manualSnapshot.judul_dokumen,
+                    nominal: manualSnapshot.nominal !== undefined ? manualSnapshot.nominal : '',
+                    nominal_transaksi: manualSnapshot.nominal_transaksi || '',
+                    tgl_pengajuan: manualSnapshot.tgl_pengajuan,
+                    tgl_deadline: manualSnapshot.tgl_deadline,
+                    deskripsi: manualSnapshot.deskripsi,
+                    file: manualSnapshot.file,
+                    signature_positions: manualSnapshot.signature_positions,
+                    masterflow_id: manualSnapshot.masterflow_id === 'custom' ? 'custom' : '',
+                    approvers: manualSnapshot.approvers,
+                    custom_approvers: manualSnapshot.custom_approvers,
+                    step_approvers: manualSnapshot.step_approvers,
+                    transaksi_id: manualSnapshot.transaksi_id !== undefined ? manualSnapshot.transaksi_id : '',
+                }));
+                setLocalFileUrl(manualSnapshot.localFileUrl);
+                setSelectedMasterflow(manualSnapshot.selectedMasterflow);
+                setAvailableApprovers(manualSnapshot.availableApprovers);
+                setStepModes(manualSnapshot.stepModes);
+            } else {
+                setFormData((prev) => ({
+                    ...prev,
+                    tipe_dokumen: 'manual',
+                    nomor_dokumen: manualNomorDokumen,
+                    judul_dokumen: '',
+                    nominal: '',
+                    nominal_transaksi: '',
+                    file: null,
+                    signature_positions: null,
+                    deskripsi: '',
+                    masterflow_id: '',
+                    approvers: {},
+                    custom_approvers: [{ email: '', order: 1 }],
+                    step_approvers: {},
+                    transaksi_id: '',
+                }));
+                setLocalFileUrl(null);
+                setSelectedMasterflow(null);
+                setAvailableApprovers({});
+                setStepModes({});
+            }
+
+            setDocTypeMode('manual');
+        }
+    };
 
     // Handle form input changes
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -893,19 +1111,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                         ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
                                         : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
                                 }`}
-                                onClick={() => {
-                                    setDocTypeMode('manual');
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        tipe_dokumen: 'manual',
-                                        masterflow_id: prev.masterflow_id === 'custom' ? 'custom' : '',
-                                        approvers: prev.masterflow_id === 'custom' ? prev.approvers : {},
-                                    }));
-                                    if (formData.masterflow_id !== 'custom') {
-                                        setSelectedMasterflow(null);
-                                        setAvailableApprovers({});
-                                    }
-                                }}
+                                onClick={() => handleTabChange('manual')}
                             >
                                 Dokumen Manual
                             </button>
@@ -916,13 +1122,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                         ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
                                         : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
                                 }`}
-                                onClick={() => {
-                                    setDocTypeMode('transaksi');
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        tipe_dokumen: 'transaksi',
-                                    }));
-                                }}
+                                onClick={() => handleTabChange('transaksi')}
                             >
                                 Dokumen Transaksi
                             </button>
@@ -1218,11 +1418,15 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                             onChange={handleFileChange}
                                             className={errors.file ? 'border-red-500 font-sans bg-background' : 'font-sans bg-background'}
                                         />
-                                        {errors.file && <p className="text-sm text-red-500">{errors.file}</p>}
+                                        {formData.file && (
+                                            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                                                ✓ File terpilih: <strong>{formData.file.name}</strong>
+                                            </p>
+                                        )}
+                                        {errors.file && <p className="text-sm text-red-500">{Array.isArray(errors.file) ? errors.file[0] : errors.file}</p>}
                                         <p className="text-xs text-muted-foreground mt-1">
                                             📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF. (Max 10MB)
                                         </p>
-                                        {errors.file && <p className="text-sm text-red-500">{errors.file[0]}</p>}
                                     </div>
                                 </div>
                             )}
@@ -1239,7 +1443,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                         value={formData.nomor_dokumen}
                                         onChange={handleInputChange}
                                         className="font-mono"
-                                        placeholder="Auto-generated"
+                                        placeholder={docTypeMode === 'transaksi' ? 'Otomatis dari Tarik Data' : 'Auto-generated'}
                                         readOnly
                                     />
                                 </div>
