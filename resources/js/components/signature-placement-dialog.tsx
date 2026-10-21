@@ -847,22 +847,20 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     <button
                         type="button"
                         onClick={() => setMobilePanelTab('pdf')}
-                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${
-                            mobilePanelTab === 'pdf'
+                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'pdf'
                                 ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
                                 : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                            }`}
                     >
                         📄 PDF Dokumen
                     </button>
                     <button
                         type="button"
                         onClick={() => setMobilePanelTab('info')}
-                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${
-                            mobilePanelTab === 'info'
+                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'info'
                                 ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
                                 : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                            }`}
                     >
                         👥 Info Approver
                     </button>
@@ -871,397 +869,391 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
             {/* Sidebar Configuration */}
             {!hideSidebar && (
-            <div className={`
+                <div className={`
                 w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3
                 md:flex md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4
-                ${ mobilePanelTab === 'info' ? 'flex max-h-[calc(100%-42px)]' : 'hidden' }
+                ${mobilePanelTab === 'info' ? 'flex max-h-[calc(100%-42px)]' : 'hidden'}
             `}>
-                <div>
-                    <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
-                    <div className="space-y-3">
-                        {approvals.map((approval) => {
-                            const pos = positions[approval.id];
-                            const isActive = activeApprovalId === approval.id;
-                            const isCurrentPage = pos?.page === currentPage;
-                            const isApproved = approval.approval_status === 'approved';
-                            const isQr = approval.signature_method === 'qr';
-                            
+                    <div>
+                        <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
+                        <div className="space-y-3">
+                            {approvals.map((approval) => {
+                                const pos = positions[approval.id];
+                                const isActive = activeApprovalId === approval.id;
+                                const isCurrentPage = pos?.page === currentPage;
+                                const isApproved = approval.approval_status === 'approved';
+                                const isQr = approval.signature_method === 'qr';
 
-                            return (
-                                <div
-                                    key={approval.id}
-                                    className={`cursor-pointer rounded-lg border p-3 text-sm transition-colors ${isActive ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted/50'}`}
-                                    onClick={() => {
-                                        setActiveApprovalId(approval.id);
-                                        if (pos && pos.page !== currentPage) {
-                                            goToPage(pos.page);
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center justify-between gap-2 font-medium">
-                                        <div className="flex items-center gap-1.5 truncate">
-                                            {isQr && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />}
-                                            <span className="truncate">{approval.step_name || 'Approval'}</span>
+
+                                return (
+                                    <div
+                                        key={approval.id}
+                                        className={`cursor-pointer rounded-lg border p-3 text-sm transition-colors ${isActive ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted/50'}`}
+                                        onClick={() => {
+                                            setActiveApprovalId(approval.id);
+                                            if (pos && pos.page !== currentPage) {
+                                                goToPage(pos.page);
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between gap-2 font-medium">
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                {isQr && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />}
+                                                <span className="truncate">{approval.step_name || 'Approval'}</span>
+                                            </div>
+                                            {isApproved ? (
+                                                <span className="shrink-0 rounded-full border border-green-200 bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 uppercase">
+                                                    Stamped
+                                                </span>
+                                            ) : isQr ? (
+                                                <span className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 uppercase">
+                                                    QR Code
+                                                </span>
+                                            ) : (
+                                                <span className="shrink-0 rounded-full border border-blue-200 bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 uppercase">
+                                                    Pending
+                                                </span>
+                                            )}
                                         </div>
-                                        {isApproved ? (
-                                            <span className="shrink-0 rounded-full border border-green-200 bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 uppercase">
-                                                Stamped
-                                            </span>
-                                        ) : isQr ? (
-                                            <span className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 uppercase">
-                                                QR Code
-                                            </span>
-                                        ) : (
-                                            <span className="shrink-0 rounded-full border border-blue-200 bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 uppercase">
-                                                Pending
-                                            </span>
+                                        <div className="truncate text-xs text-muted-foreground">{approval.user?.name || approval.approver_email}</div>
+
+                                        {pos && (
+                                            <>
+                                                <div className="mt-1 text-xs text-muted-foreground">
+                                                    Ukuran: {Math.round(pos.width)} x {Math.round(pos.height)} mm
+                                                </div>
+                                                <div className="mt-2 flex items-center justify-between">
+                                                    <span
+                                                        className={`rounded-full px-2 py-0.5 text-xs ${isCurrentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
+                                                    >
+                                                        Hal. {pos.page}
+                                                    </span>
+
+                                                    {!isCurrentPage && !readOnly && !isApproved && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 px-2 text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                moveToPage(approval.id, currentPage);
+                                                            }}
+                                                        >
+                                                            Pindah ke sini
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </>
                                         )}
                                     </div>
-                                    <div className="truncate text-xs text-muted-foreground">{approval.user?.name || approval.approver_email}</div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                                    {pos && (
-                                        <>
-                                            <div className="mt-1 text-xs text-muted-foreground">
-                                                Ukuran: {Math.round(pos.width)} x {Math.round(pos.height)} mm
-                                            </div>
-                                            <div className="mt-2 flex items-center justify-between">
-                                                <span
-                                                    className={`rounded-full px-2 py-0.5 text-xs ${isCurrentPage ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
-                                                >
-                                                    Hal. {pos.page}
-                                                </span>
+                    {/* QR Code Section */}
+                    <div className="border-t pt-4">
+                        <div className="mb-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                    <QrCode className="h-4 w-4 text-amber-600" />
+                                    <span>QR Code Dokumen</span>
+                                </div>
+                                {activeQrPositions.length > 0 && (
+                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                                        {activeQrPositions.length} Hal.
+                                    </span>
+                                )}
+                            </div>
+                        </div>
 
-                                                {!isCurrentPage && !readOnly && !isApproved && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 px-2 text-xs"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            moveToPage(approval.id, currentPage);
+                        <div className="flex flex-col gap-3">
+                            {/* Master Toggle */}
+                            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium select-none">
+                                <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
+                                    checked={isQrActive}
+                                    disabled={readOnly}
+                                    onChange={(e) => {
+                                        if (readOnly) return;
+                                        if (e.target.checked) {
+                                            toggleQrForPage(currentPage);
+                                        } else {
+                                            removeAllQrCodes();
+                                        }
+                                    }}
+                                />
+                                <span>Aktifkan QR Code Dokumen</span>
+                            </label>
+
+                            {isQrActive && (
+                                <div className="space-y-3 rounded-lg border bg-background p-3 text-xs">
+                                    {/* Quick Selection Presets */}
+                                    <div>
+                                        <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                                            <span>Pilih Cepat:</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={readOnly}
+                                                className="h-6 px-1 text-[11px]"
+                                                onClick={enableAllPages}
+                                                title="Beri QR code di semua halaman"
+                                            >
+                                                Semua Hal.
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={readOnly}
+                                                className="h-6 px-1 text-[11px]"
+                                                onClick={() => {
+                                                    if (readOnly) return;
+                                                    removeAllQrCodes();
+                                                    toggleQrForPage(1);
+                                                }}
+                                                title="Hanya halaman 1"
+                                            >
+                                                Hal. 1 Saja
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={readOnly}
+                                                className="h-6 px-1 text-[11px]"
+                                                onClick={() => {
+                                                    if (readOnly) return;
+                                                    const lastPage = numPages > 0 ? numPages : 1;
+                                                    removeAllQrCodes();
+                                                    toggleQrForPage(lastPage);
+                                                }}
+                                                title="Hanya halaman terakhir"
+                                            >
+                                                Hal. Akhir
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Custom Pages Selection Chips */}
+                                    <div>
+                                        <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                                            <span>Pilih Halaman QR:</span>
+                                            <span className="font-semibold text-amber-600">
+                                                {activeQrPositions.length} terpilih
+                                            </span>
+                                        </div>
+                                        <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-md border bg-muted/20 p-1.5">
+                                            {availablePages.map((p) => {
+                                                const isSelected = activeQrPages.has(p);
+                                                const isCurrent = p === currentPage;
+                                                return (
+                                                    <button
+                                                        key={p}
+                                                        type="button"
+                                                        disabled={readOnly}
+                                                        onClick={() => toggleQrForPage(p)}
+                                                        className={`relative flex h-7 min-w-[32px] items-center justify-center rounded px-1.5 text-xs font-semibold transition-all ${isSelected
+                                                                ? 'bg-amber-500 text-white shadow-xs hover:bg-amber-600'
+                                                                : 'border border-gray-200 bg-white text-gray-700 hover:bg-amber-50'
+                                                            } ${isCurrent ? 'ring-2 ring-primary ring-offset-1 font-bold' : ''}`}
+                                                        title={`Halaman ${p}${isSelected ? ' (QR Aktif - klik untuk menghapus)' : ' (Klik untuk menambahkan QR)'}`}
+                                                    >
+                                                        {p}
+                                                        {isSelected && <Check className="ml-0.5 h-3 w-3" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Sync Position Tool */}
+                                    {activeQrPositions.length > 1 && !readOnly && (
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
+                                            className="h-7 w-full gap-1.5 bg-amber-100/80 text-[11px] font-medium text-amber-900 hover:bg-amber-200/80"
+                                            onClick={() => {
+                                                const sourceId = isQrCodeId(activeApprovalId)
+                                                    ? String(activeApprovalId)
+                                                    : activeQrPositions[0].id;
+                                                syncPositionToAllQrPages(sourceId);
+                                            }}
+                                            title="Samakan posisi X, Y, dan ukuran QR dari halaman yang aktif ke semua halaman QR lainnya"
+                                        >
+                                            <Copy className="h-3.5 w-3.5" />
+                                            <span>Samakan Posisi ke Semua Hal.</span>
+                                        </Button>
+                                    )}
+
+                                    {/* List of active QR code items */}
+                                    <div className="space-y-1.5">
+                                        <div className="text-[11px] font-medium text-muted-foreground">
+                                            Daftar Posisi ({activeQrPositions.length}):
+                                        </div>
+                                        <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                                            {activeQrPositions.map((qr) => {
+                                                const isCurrent = qr.page === currentPage;
+                                                const isActive = activeApprovalId === qr.id;
+                                                return (
+                                                    <div
+                                                        key={qr.id}
+                                                        className={`cursor-pointer rounded-md border p-2 text-xs transition-colors ${isActive
+                                                                ? 'border-amber-500 bg-amber-500/10'
+                                                                : 'bg-background hover:bg-muted/50'
+                                                            }`}
+                                                        onClick={() => {
+                                                            setActiveApprovalId(qr.id);
+                                                            if (qr.page !== currentPage) {
+                                                                goToPage(qr.page);
+                                                            }
                                                         }}
                                                     >
-                                                        Pindah ke sini
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                                                        <div className="flex items-center justify-between font-medium">
+                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                                                                <span className="font-semibold text-amber-950">
+                                                                    QR Code - Hal. {qr.page}
+                                                                </span>
+                                                            </div>
+                                                            {!readOnly && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        toggleQrForPage(qr.page);
+                                                                    }}
+                                                                    title={`Hapus QR Code di halaman ${qr.page}`}
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
 
-                {/* QR Code Section */}
-                <div className="border-t pt-4">
-                    <div className="mb-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                <QrCode className="h-4 w-4 text-amber-600" />
-                                <span>QR Code Dokumen</span>
-                            </div>
-                            {activeQrPositions.length > 0 && (
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                                    {activeQrPositions.length} Hal.
-                                </span>
+                                                        <div className="mt-1 text-[11px] text-muted-foreground">
+                                                            Ukuran: {Math.round(qr.width)} x {Math.round(qr.height)} mm
+                                                        </div>
+
+                                                        <div className="mt-1.5 flex items-center justify-between">
+                                                            <span
+                                                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isCurrent
+                                                                        ? 'bg-green-100 text-green-700'
+                                                                        : 'bg-gray-100 text-gray-700'
+                                                                    }`}
+                                                            >
+                                                                {isCurrent ? 'Halaman Ini' : `Hal. ${qr.page}`}
+                                                            </span>
+
+                                                            {!isCurrent && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-5 px-1.5 text-[10px]"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        goToPage(qr.page);
+                                                                        setActiveApprovalId(qr.id);
+                                                                    }}
+                                                                >
+                                                                    Lihat Halaman
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                            QR Code mengarahkan langsung ke halaman approval: <span className="font-mono text-amber-700 font-semibold">/approvals/{dokumenId || ':id'}</span>
-                        </p>
                     </div>
 
-                    <div className="flex flex-col gap-3">
-                        {/* Master Toggle */}
-                        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium select-none">
-                            <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
-                                checked={isQrActive}
-                                disabled={readOnly}
-                                onChange={(e) => {
-                                    if (readOnly) return;
-                                    if (e.target.checked) {
-                                        toggleQrForPage(currentPage);
-                                    } else {
-                                        removeAllQrCodes();
-                                    }
-                                }}
-                            />
-                            <span>Aktifkan QR Code Dokumen</span>
-                        </label>
+                    {/* Kontrol Tampilan & Simpan Posisi */}
+                    <div className="hidden space-y-3 border-t pt-4 md:block">
+                        <div className="text-sm font-semibold">Kontrol Tampilan</div>
 
-                        {isQrActive && (
-                            <div className="space-y-3 rounded-lg border bg-background p-3 text-xs">
-                                {/* Quick Selection Presets */}
-                                <div>
-                                    <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-                                        <span>Pilih Cepat:</span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-1">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={readOnly}
-                                            className="h-6 px-1 text-[11px]"
-                                            onClick={enableAllPages}
-                                            title="Beri QR code di semua halaman"
-                                        >
-                                            Semua Hal.
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={readOnly}
-                                            className="h-6 px-1 text-[11px]"
-                                            onClick={() => {
-                                                if (readOnly) return;
-                                                removeAllQrCodes();
-                                                toggleQrForPage(1);
-                                            }}
-                                            title="Hanya halaman 1"
-                                        >
-                                            Hal. 1 Saja
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={readOnly}
-                                            className="h-6 px-1 text-[11px]"
-                                            onClick={() => {
-                                                if (readOnly) return;
-                                                const lastPage = numPages > 0 ? numPages : 1;
-                                                removeAllQrCodes();
-                                                toggleQrForPage(lastPage);
-                                            }}
-                                            title="Hanya halaman terakhir"
-                                        >
-                                            Hal. Akhir
-                                        </Button>
-                                    </div>
-                                </div>
+                        <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+                                title="Zoom Out"
+                            >
+                                <ZoomOut className="h-4 w-4" />
+                            </Button>
+                            <span className="text-sm font-medium">{Math.round(scale * 100)}%</span>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setScale((s) => Math.min(2.0, s + 0.2))}
+                                title="Zoom In"
+                            >
+                                <ZoomIn className="h-4 w-4" />
+                            </Button>
+                        </div>
 
-                                {/* Custom Pages Selection Chips */}
-                                <div>
-                                    <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-                                        <span>Pilih Halaman QR:</span>
-                                        <span className="font-semibold text-amber-600">
-                                            {activeQrPositions.length} terpilih
-                                        </span>
-                                    </div>
-                                    <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-md border bg-muted/20 p-1.5">
-                                        {availablePages.map((p) => {
-                                            const isSelected = activeQrPages.has(p);
-                                            const isCurrent = p === currentPage;
-                                            return (
-                                                <button
-                                                    key={p}
-                                                    type="button"
-                                                    disabled={readOnly}
-                                                    onClick={() => toggleQrForPage(p)}
-                                                    className={`relative flex h-7 min-w-[32px] items-center justify-center rounded px-1.5 text-xs font-semibold transition-all ${
-                                                        isSelected
-                                                            ? 'bg-amber-500 text-white shadow-xs hover:bg-amber-600'
-                                                            : 'border border-gray-200 bg-white text-gray-700 hover:bg-amber-50'
-                                                    } ${isCurrent ? 'ring-2 ring-primary ring-offset-1 font-bold' : ''}`}
-                                                    title={`Halaman ${p}${isSelected ? ' (QR Aktif - klik untuk menghapus)' : ' (Klik untuk menambahkan QR)'}`}
-                                                >
-                                                    {p}
-                                                    {isSelected && <Check className="ml-0.5 h-3 w-3" />}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                        <div className="flex items-center justify-between gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => goToPage(currentPage - 1)}
+                                disabled={currentPage <= 1 || loading}
+                            >
+                                Prev
+                            </Button>
+                            <span className="flex-1 text-center text-xs font-medium text-muted-foreground">
+                                Hal {currentPage}/{numPages || '-'}
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => goToPage(currentPage + 1)}
+                                disabled={currentPage >= numPages || loading}
+                            >
+                                Next
+                            </Button>
+                        </div>
 
-                                {/* Sync Position Tool */}
-                                {activeQrPositions.length > 1 && !readOnly && (
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        size="sm"
-                                        className="h-7 w-full gap-1.5 bg-amber-100/80 text-[11px] font-medium text-amber-900 hover:bg-amber-200/80"
-                                        onClick={() => {
-                                            const sourceId = isQrCodeId(activeApprovalId)
-                                                ? String(activeApprovalId)
-                                                : activeQrPositions[0].id;
-                                            syncPositionToAllQrPages(sourceId);
-                                        }}
-                                        title="Samakan posisi X, Y, dan ukuran QR dari halaman yang aktif ke semua halaman QR lainnya"
-                                    >
-                                        <Copy className="h-3.5 w-3.5" />
-                                        <span>Samakan Posisi ke Semua Hal.</span>
-                                    </Button>
-                                )}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-1.5"
+                            onClick={() => setIsFullscreen(true)}
+                            title="Tampilkan Dokumen Layar Penuh"
+                        >
+                            <Maximize2 className="h-4 w-4" />
+                            <span>Layar Penuh (Fullscreen)</span>
+                        </Button>
 
-                                {/* List of active QR code items */}
-                                <div className="space-y-1.5">
-                                    <div className="text-[11px] font-medium text-muted-foreground">
-                                        Daftar Posisi ({activeQrPositions.length}):
-                                    </div>
-                                    <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
-                                        {activeQrPositions.map((qr) => {
-                                            const isCurrent = qr.page === currentPage;
-                                            const isActive = activeApprovalId === qr.id;
-                                            return (
-                                                <div
-                                                    key={qr.id}
-                                                    className={`cursor-pointer rounded-md border p-2 text-xs transition-colors ${
-                                                        isActive
-                                                            ? 'border-amber-500 bg-amber-500/10'
-                                                            : 'bg-background hover:bg-muted/50'
-                                                    }`}
-                                                    onClick={() => {
-                                                        setActiveApprovalId(qr.id);
-                                                        if (qr.page !== currentPage) {
-                                                            goToPage(qr.page);
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="flex items-center justify-between font-medium">
-                                                        <div className="flex items-center gap-1.5 truncate">
-                                                            <span className="h-2 w-2 rounded-full bg-amber-500" />
-                                                            <span className="font-semibold text-amber-950">
-                                                                QR Code - Hal. {qr.page}
-                                                            </span>
-                                                        </div>
-                                                        {!readOnly && (
-                                                            <button
-                                                                type="button"
-                                                                className="rounded p-0.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    toggleQrForPage(qr.page);
-                                                                }}
-                                                                title={`Hapus QR Code di halaman ${qr.page}`}
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="mt-1 text-[11px] text-muted-foreground">
-                                                        Ukuran: {Math.round(qr.width)} x {Math.round(qr.height)} mm
-                                                    </div>
-
-                                                    <div className="mt-1.5 flex items-center justify-between">
-                                                        <span
-                                                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                                                isCurrent
-                                                                    ? 'bg-green-100 text-green-700'
-                                                                    : 'bg-gray-100 text-gray-700'
-                                                            }`}
-                                                        >
-                                                            {isCurrent ? 'Halaman Ini' : `Hal. ${qr.page}`}
-                                                        </span>
-
-                                                        {!isCurrent && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-5 px-1.5 text-[10px]"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    goToPage(qr.page);
-                                                                    setActiveApprovalId(qr.id);
-                                                                }}
-                                                            >
-                                                                Lihat Halaman
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
+                        {!readOnly && (
+                            <Button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving || loading}
+                                className="w-full bg-primary text-white hover:bg-primary/90 mt-1"
+                            >
+                                {saving ? 'Menyimpan...' : 'Simpan Posisi'}
+                            </Button>
                         )}
                     </div>
                 </div>
-
-                {/* Kontrol Tampilan & Simpan Posisi */}
-                <div className="hidden space-y-3 border-t pt-4 md:block">
-                    <div className="text-sm font-semibold">Kontrol Tampilan</div>
-
-                    <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
-                            title="Zoom Out"
-                        >
-                            <ZoomOut className="h-4 w-4" />
-                        </Button>
-                        <span className="text-sm font-medium">{Math.round(scale * 100)}%</span>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setScale((s) => Math.min(2.0, s + 0.2))}
-                            title="Zoom In"
-                        >
-                            <ZoomIn className="h-4 w-4" />
-                        </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => goToPage(currentPage - 1)}
-                            disabled={currentPage <= 1 || loading}
-                        >
-                            Prev
-                        </Button>
-                        <span className="flex-1 text-center text-xs font-medium text-muted-foreground">
-                            Hal {currentPage}/{numPages || '-'}
-                        </span>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => goToPage(currentPage + 1)}
-                            disabled={currentPage >= numPages || loading}
-                        >
-                            Next
-                        </Button>
-                    </div>
-
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5"
-                        onClick={() => setIsFullscreen(true)}
-                        title="Tampilkan Dokumen Layar Penuh"
-                    >
-                        <Maximize2 className="h-4 w-4" />
-                        <span>Layar Penuh (Fullscreen)</span>
-                    </Button>
-
-                    {!readOnly && (
-                        <Button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving || loading}
-                            className="w-full bg-primary text-white hover:bg-primary/90 mt-1"
-                        >
-                            {saving ? 'Menyimpan...' : 'Simpan Posisi'}
-                        </Button>
-                    )}
-                </div>
-            </div>
             )}
 
             {/* PDF Viewer Area */}
@@ -1269,10 +1261,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 ref={viewerRef}
                 className={isFullscreen
                     ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-1 sm:p-4"
-                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2.5' : 'md:p-6'} min-h-0 min-w-0 flex-1 ${
-                        !hideSidebar && mobilePanelTab === 'info'
-                            ? 'hidden md:flex'
-                            : 'flex'
+                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2.5' : 'md:p-6'} min-h-0 min-w-0 flex-1 ${!hideSidebar && mobilePanelTab === 'info'
+                        ? 'hidden md:flex'
+                        : 'flex'
                     }`}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
