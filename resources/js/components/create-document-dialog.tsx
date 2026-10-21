@@ -139,7 +139,26 @@ export interface CreateDocumentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess?: () => void;
+    editDokumen?: any | null;
 }
+
+export const isDokumenTransaksi = (doc: any): boolean => {
+    if (!doc) return false;
+    const tipe = String(doc.tipe_dokumen || '').toLowerCase().trim();
+    if (tipe === 'transaksi' || tipe === 'purchase_request' || tipe === 'purchase_order') {
+        return true;
+    }
+    if (tipe === 'manual') {
+        return false;
+    }
+    return Boolean(
+        doc.transaksi_id ||
+        doc.transaksi ||
+        doc.aplikasi_id ||
+        doc.aplikasi ||
+        (doc.nomor_dokumen && /^(PO|PR|RQE|CCA)/i.test(doc.nomor_dokumen))
+    );
+};
 
 const initialFormData: FormData = {
     nomor_dokumen: '',
@@ -171,7 +190,8 @@ const generateDocumentNumber = () => {
     return `${year}${month}${random}`;
 };
 
-export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDocumentDialogProps) {
+export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokumen }: CreateDocumentDialogProps) {
+    const isEditing = Boolean(editDokumen && editDokumen.id);
     const { auth, context } = usePage().props as any;
 
     const [companies, setCompanies] = useState<any[]>([]);
@@ -183,7 +203,9 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
     const [isLoadingAplikasi, setIsLoadingAplikasi] = useState(false);
     const [isLoadingTransaksi, setIsLoadingTransaksi] = useState(false);
 
-    const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>('manual');
+    const [docTypeMode, setDocTypeMode] = useState<'manual' | 'transaksi'>(() => {
+        return editDokumen && isDokumenTransaksi(editDokumen) ? 'transaksi' : 'manual';
+    });
     const [masterflows, setMasterflows] = useState<Masterflow[]>([]);
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -420,6 +442,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
 
                 setFormData((prev) => ({
                     ...prev,
+                    tipe_dokumen: 'transaksi',
                     nomor_dokumen: data.nomor_dokumen || prev.nomor_dokumen,
                     judul_dokumen: data.judul || prev.judul_dokumen,
                     nominal: data.nominal !== undefined && data.nominal !== null ? String(data.nominal) : prev.nominal,
@@ -463,13 +486,11 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
 
     // Reset & init form whenever dialog opens
     const resetAndInitForm = async () => {
-        try {
-            await fetch('/sanctum/csrf-cookie', {
-                credentials: 'include',
-            });
-        } catch (error) {
+        fetch('/sanctum/csrf-cookie', {
+            credentials: 'include',
+        }).catch((error) => {
             console.warn('Failed to refresh CSRF token:', error);
-        }
+        });
 
         if (localFileUrl) {
             URL.revokeObjectURL(localFileUrl);
@@ -520,24 +541,260 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
         fetchMasterflows(initCompanyId);
     };
 
+    // Initialize form when in Edit Mode
+    const initEditForm = async (doc: any) => {
+        // Fire-and-forget CSRF refresh without blocking state initialization
+        fetch('/sanctum/csrf-cookie', {
+            credentials: 'include',
+        }).catch((error) => {
+            console.warn('Failed to refresh CSRF token:', error);
+        });
+
+        if (localFileUrl && !localFileUrl.startsWith('/api/')) {
+            URL.revokeObjectURL(localFileUrl);
+        }
+        setManualSnapshot(null);
+        setTransaksiSnapshot(null);
+        setErrors({});
+
+        // Synchronously set tab mode based on doc.tipe_dokumen
+        const isTx = isDokumenTransaksi(doc);
+        setDocTypeMode(isTx ? 'transaksi' : 'manual');
+
+        fetchCompanies();
+
+        const compId = doc.company_id
+            ? String(doc.company_id)
+            : (doc.company?.id ? String(doc.company.id) : (currentContextCompanyId ? String(currentContextCompanyId) : ''));
+        setSelectedCompanyId(compId);
+
+        if (compId) {
+            loadAplikasiByCompany(compId);
+            fetchMasterflows(compId);
+        } else {
+            fetchMasterflows();
+        }
+
+        const appId = doc.aplikasi_id ? String(doc.aplikasi_id) : (doc.aplikasi?.id ? String(doc.aplikasi.id) : '');
+        setSelectedAplikasiId(appId);
+
+        if (appId) {
+            setIsLoadingTransaksi(true);
+            api.get(`/aplikasis/${appId}/transaksis`)
+                .then((res) => {
+                    setTransaksis(res.data.transaksis || res.data.data || res.data || []);
+                })
+                .catch((err) => console.error('Error fetching transaksis:', err))
+                .finally(() => setIsLoadingTransaksi(false));
+        } else {
+            setTransaksis([]);
+        }
+
+        // Set local file preview to the existing server signed-pdf endpoint
+        const latestVer = doc.latestVersion || doc.latest_version || (doc.versions && doc.versions.length > 0 ? doc.versions[0] : null);
+        if (latestVer) {
+            setLocalFileUrl(`/api/dokumen/${doc.id}/signed-pdf/${latestVer.id}`);
+        } else {
+            setLocalFileUrl(null);
+        }
+
+        // External transaction doc keyword & status
+        if (isTx) {
+            setExternalDocKeyword(doc.nomor_dokumen || '');
+            setExternalFetchSuccess({
+                nomor_dokumen: doc.nomor_dokumen || '',
+                judul: doc.judul_dokumen || '',
+                nominal: Number(doc.nominal || 0),
+                items_count: 1,
+                filename: latestVer?.nama_file || `${doc.nomor_dokumen}.pdf`,
+                source: 'microservice-lookup',
+            });
+        } else {
+            setExternalDocKeyword('');
+            setExternalFetchSuccess(null);
+        }
+
+        setManualNomorDokumen(doc.nomor_dokumen || '');
+
+        const formattedPengajuan = doc.tgl_pengajuan
+            ? String(doc.tgl_pengajuan).split('T')[0]
+            : new Date().toISOString().split('T')[0];
+        const formattedDeadline = doc.tgl_deadline
+            ? String(doc.tgl_deadline).split('T')[0]
+            : '';
+
+        const initialDocForm: FormData = {
+            nomor_dokumen: doc.nomor_dokumen || '',
+            judul_dokumen: doc.judul_dokumen || '',
+            company_id: compId,
+            aplikasi_id: appId,
+            transaksi_id: doc.transaksi_id ? String(doc.transaksi_id) : '',
+            tipe_dokumen: isTx ? 'transaksi' : 'manual',
+            nominal: doc.nominal !== undefined && doc.nominal !== null ? String(doc.nominal) : '',
+            nominal_transaksi: doc.nominal !== undefined && doc.nominal !== null ? String(doc.nominal) : '',
+            masterflow_id: doc.masterflow_id ? Number(doc.masterflow_id) : (isTx ? '' : 'custom'),
+            tgl_pengajuan: formattedPengajuan,
+            tgl_deadline: formattedDeadline,
+            deskripsi: doc.deskripsi || '',
+            file: null,
+            approvers: {},
+            custom_approvers: (doc.approvals && doc.approvals.length > 0 && !doc.masterflow_id)
+                ? doc.approvals.map((a: any, idx: number) => ({
+                    email: a.approver_email || a.user?.email || '',
+                    order: a.approval_order || idx + 1,
+                }))
+                : [{ email: '', order: 1 }],
+            step_approvers: {},
+            signature_positions: null,
+        };
+
+        setFormData(initialDocForm);
+
+        // Fetch signature positions from API or doc.signaturePositions
+        let rawPositions: any[] = doc.signature_positions || doc.signaturePositions || [];
+        if (rawPositions.length === 0 && doc.id) {
+            try {
+                const posRes = await api.get(`/dokumen/${doc.id}/signature-positions`);
+                if (posRes.data?.positions) {
+                    rawPositions = posRes.data.positions;
+                }
+            } catch (e) {
+                console.error('Error fetching signature positions:', e);
+            }
+        }
+
+        // Map positions to frontend IDs
+        const approvalsList: any[] = doc.approvals || [];
+        const mappedPositions = rawPositions.map((pos: any, idx: number) => {
+            const approvalId = pos.dokumen_approval_id;
+            if (!approvalId || String(approvalId).startsWith('qr_code')) {
+                return {
+                    ...pos,
+                    dokumen_approval_id: `qr_code_page_${pos.page || idx + 1}`,
+                };
+            }
+            const matchApp = approvalsList.find((a: any) => Number(a.id) === Number(approvalId));
+            if (matchApp) {
+                if (doc.masterflow_id && matchApp.masterflow_step_id) {
+                    if (matchApp.group_index || matchApp.jenis_group) {
+                        return {
+                            ...pos,
+                            dokumen_approval_id: `group_${matchApp.masterflow_step_id}`,
+                        };
+                    } else {
+                        return {
+                            ...pos,
+                            dokumen_approval_id: `step_${matchApp.masterflow_step_id}_user_${matchApp.user_id}`,
+                        };
+                    }
+                } else {
+                    const customIdx = approvalsList.indexOf(matchApp);
+                    return {
+                        ...pos,
+                        dokumen_approval_id: `custom_${customIdx >= 0 ? customIdx : 0}`,
+                    };
+                }
+            }
+            return pos;
+        });
+
+        setFormData((prev) => ({
+            ...prev,
+            signature_positions: mappedPositions.length > 0 ? mappedPositions : null,
+        }));
+
+        // Load masterflow steps if masterflow_id is present
+        if (isTx && doc.masterflow_id) {
+            const mfId = Number(doc.masterflow_id);
+            try {
+                const response = await api.get(`/masterflows/${mfId}/steps`);
+                const masterflowWithSteps = {
+                    ...(doc.masterflow || {}),
+                    id: mfId,
+                    name: doc.masterflow?.name || '',
+                    steps: response.data.steps || [],
+                };
+                setSelectedMasterflow(masterflowWithSteps);
+
+                const approversData: Record<number, UserOption[]> = {};
+                for (const step of response.data.steps || []) {
+                    if (step.jabatan_id) {
+                        try {
+                            const usersResponse = await api.get(`/users-by-jabatan/${step.jabatan_id}`);
+                            approversData[step.id] = usersResponse.data || [];
+                        } catch (err) {
+                            approversData[step.id] = [];
+                        }
+                    }
+                }
+                setAvailableApprovers(approversData);
+
+                // Map approvals to single or group approvers
+                const stepApproversMap: Record<number, StepApprovers> = {};
+                const singleApproversMap: Record<number, number | ''> = {};
+                const stepModesMap: Record<number, 'single' | 'group'> = {};
+
+                (response.data.steps || []).forEach((step: any) => {
+                    const matchingApprovals = approvalsList.filter(
+                        (a) => Number(a.masterflow_step_id) === Number(step.id)
+                    );
+                    if (matchingApprovals.length > 0) {
+                        const firstApp = matchingApprovals[0];
+                        const isGroup = Boolean(
+                            firstApp.group_index ||
+                            firstApp.jenis_group ||
+                            matchingApprovals.length > 1
+                        );
+                        if (isGroup) {
+                            stepModesMap[step.id] = 'group';
+                            stepApproversMap[step.id] = {
+                                userIds: matchingApprovals.map((a) => Number(a.user_id)).filter(Boolean),
+                                jenisGroup: firstApp.jenis_group || 'all_required',
+                            };
+                        } else {
+                            stepModesMap[step.id] = 'single';
+                            singleApproversMap[step.id] = firstApp.user_id ? Number(firstApp.user_id) : '';
+                        }
+                    } else {
+                        stepModesMap[step.id] = 'single';
+                        singleApproversMap[step.id] = '';
+                    }
+                });
+
+                setStepModes(stepModesMap);
+                setFormData((prev) => ({
+                    ...prev,
+                    approvers: singleApproversMap,
+                    step_approvers: stepApproversMap,
+                }));
+            } catch (err) {
+                console.error('Error fetching masterflow steps for edit:', err);
+            }
+        }
+    };
+
     useEffect(() => {
         if (open) {
-            resetAndInitForm();
-        } else {
-            if (localFileUrl) {
-                URL.revokeObjectURL(localFileUrl);
-                setLocalFileUrl(null);
+            if (editDokumen) {
+                initEditForm(editDokumen);
+            } else {
+                resetAndInitForm();
             }
-            if (manualSnapshot?.localFileUrl) {
+        } else {
+            if (localFileUrl && !localFileUrl.startsWith('/api/')) {
+                URL.revokeObjectURL(localFileUrl);
+            }
+            setLocalFileUrl(null);
+            if (manualSnapshot?.localFileUrl && !manualSnapshot.localFileUrl.startsWith('/api/')) {
                 URL.revokeObjectURL(manualSnapshot.localFileUrl);
             }
-            if (transaksiSnapshot?.localFileUrl) {
+            if (transaksiSnapshot?.localFileUrl && !transaksiSnapshot.localFileUrl.startsWith('/api/')) {
                 URL.revokeObjectURL(transaksiSnapshot.localFileUrl);
             }
             setManualSnapshot(null);
             setTransaksiSnapshot(null);
         }
-    }, [open]);
+    }, [open, editDokumen]);
 
     // Handle switching between Dokumen Manual and Dokumen Transaksi tabs
     const handleTabChange = (newMode: 'manual' | 'transaksi') => {
@@ -597,7 +854,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                 setFormData((prev) => ({
                     ...prev,
                     tipe_dokumen: 'transaksi',
-                    nomor_dokumen: '',
+                    nomor_dokumen: editDokumen?.nomor_dokumen || '',
                     judul_dokumen: '',
                     nominal: '',
                     nominal_transaksi: '',
@@ -672,7 +929,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                 setFormData((prev) => ({
                     ...prev,
                     tipe_dokumen: 'manual',
-                    nomor_dokumen: manualNomorDokumen,
+                    nomor_dokumen: editDokumen?.nomor_dokumen || manualNomorDokumen,
                     judul_dokumen: '',
                     nominal: '',
                     nominal_transaksi: '',
@@ -926,7 +1183,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
     };
 
     const openSignatureDialog = () => {
-        if (!formData.file || !localFileUrl) {
+        if (!formData.file && !localFileUrl) {
             showToast.error('Silakan upload file PDF terlebih dahulu.');
             return;
         }
@@ -977,7 +1234,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
         setSignatureDialogOpen(true);
     };
 
-    // Submit form to create document
+    // Submit form to create/edit document
     const handleSubmit = async (e: React.FormEvent, type: 'draft' | 'submit') => {
         e.preventDefault();
         setSubmitType(type);
@@ -991,7 +1248,11 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
 
             await new Promise((resolve) => setTimeout(resolve, 100));
 
+            const isEditingDoc = Boolean(editDokumen && editDokumen.id);
             const submitData = new FormData();
+            if (isEditingDoc) {
+                submitData.append('_method', 'PUT');
+            }
             submitData.append('nomor_dokumen', formData.nomor_dokumen);
             submitData.append('judul_dokumen', formData.judul_dokumen);
             submitData.append('nominal', formData.nominal ? String(formData.nominal) : '0');
@@ -1025,7 +1286,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                     submitData.append(`custom_approvers[${index}][email]`, approver.email);
                     submitData.append(`custom_approvers[${index}][order]`, approver.order.toString());
                 });
-            } else {
+            } else if (formData.masterflow_id) {
                 submitData.append('masterflow_id', formData.masterflow_id.toString());
 
                 Object.entries(formData.step_approvers).forEach(([stepId, stepApprover]) => {
@@ -1044,13 +1305,18 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                 });
             }
 
-            router.post('/api/dokumen', submitData, {
+            const targetUrl = isEditingDoc ? `/api/dokumen/${editDokumen.id}` : '/api/dokumen';
+
+            router.post(targetUrl, submitData, {
                 forceFormData: true,
                 preserveState: true,
                 preserveScroll: false,
                 onSuccess: () => {
-                    const message =
-                        type === 'draft'
+                    const message = isEditingDoc
+                        ? type === 'draft'
+                            ? `📝 Dokumen "${formData.judul_dokumen}" berhasil diperbarui sebagai draft!`
+                            : `🎉 Dokumen "${formData.judul_dokumen}" berhasil disubmit untuk approval!`
+                        : type === 'draft'
                             ? `📝 Dokumen "${formData.judul_dokumen}" berhasil disimpan sebagai draft!`
                             : `🎉 Dokumen "${formData.judul_dokumen}" berhasil disubmit untuk approval!`;
                     showToast.success(message);
@@ -1070,7 +1336,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                             : validationErrors[firstField]
                         : null;
                     const errorMessage =
-                        validationErrors.error || firstErrorMsg || 'Failed to create document. Please check the form.';
+                        validationErrors.error || firstErrorMsg || (isEditingDoc ? 'Gagal mengupdate dokumen. Silakan periksa form.' : 'Failed to create document. Please check the form.');
                     showToast.error(`❌ ${errorMessage}`);
                 },
                 onFinish: () => {
@@ -1084,7 +1350,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
             if (error.response?.status === 419) {
                 showToast.error('❌ Session expired. Please refresh the page and try again.');
             } else {
-                showToast.error(`❌ Failed to save document. ${error.response?.data?.message || error.message}`);
+                showToast.error(`❌ Gagal menyimpan dokumen. ${error.response?.data?.message || error.message}`);
             }
         }
     };
@@ -1096,9 +1362,11 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                 <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-[800px] sm:rounded-2xl">
                     <form onSubmit={(e) => e.preventDefault()}>
                         <DialogHeader>
-                            <DialogTitle className="font-serif">Buat Dokumen Baru</DialogTitle>
+                            <DialogTitle className="font-serif">{isEditing ? 'Edit Dokumen Draft' : 'Buat Dokumen Baru'}</DialogTitle>
                             <DialogDescription className="font-sans">
-                                Isi form di bawah untuk membuat dokumen baru. Klik simpan setelah selesai.
+                                {isEditing
+                                    ? 'Perbarui informasi dan alur persetujuan dokumen draft Anda di bawah ini.'
+                                    : 'Isi form di bawah untuk membuat dokumen baru. Klik simpan setelah selesai.'}
                             </DialogDescription>
                         </DialogHeader>
 
@@ -1409,7 +1677,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                 <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
                                     <div className="grid gap-2">
                                         <Label htmlFor="file" className="font-sans font-semibold">
-                                            Upload File <span className="text-red-500">*</span>
+                                            Upload File {isEditing ? <span className="text-xs font-normal text-muted-foreground">(Opsional jika tidak ingin mengganti file)</span> : <span className="text-red-500">*</span>}
                                         </Label>
                                         <Input
                                             id="file"
@@ -1418,11 +1686,15 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                             onChange={handleFileChange}
                                             className={errors.file ? 'border-red-500 font-sans bg-background' : 'font-sans bg-background'}
                                         />
-                                        {formData.file && (
+                                        {formData.file ? (
                                             <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                                                 ✓ File terpilih: <strong>{formData.file.name}</strong>
                                             </p>
-                                        )}
+                                        ) : isEditing && localFileUrl ? (
+                                            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                                                ✓ Menggunakan file PDF draft yang tersimpan di server
+                                            </p>
+                                        ) : null}
                                         {errors.file && <p className="text-sm text-red-500">{Array.isArray(errors.file) ? errors.file[0] : errors.file}</p>}
                                         <p className="text-xs text-muted-foreground mt-1">
                                             📄 <strong>Hanya file PDF yang diterima.</strong> Sistem tanda tangan digital hanya mendukung format PDF. (Max 10MB)
@@ -1918,12 +2190,12 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                 >
                                     Batal
                                 </Button>
-                                {(docTypeMode === 'manual' || (docTypeMode === 'transaksi' && formData.file)) && (
+                                {(docTypeMode === 'manual' || (docTypeMode === 'transaksi' && (formData.file || localFileUrl))) && (
                                     <Button
                                         type="button"
                                         variant="secondary"
                                         onClick={openSignatureDialog}
-                                        disabled={isSubmitting || !formData.file}
+                                        disabled={isSubmitting || (!formData.file && !localFileUrl)}
                                         className="w-full font-sans sm:w-auto cursor-pointer border border-border/50 hover:bg-primary/15 hover:border-primary/40 hover:text-primary transition-all duration-200 hover:shadow-xs"
                                     >
                                         <IconEdit className="mr-2 h-4 w-4" />
@@ -1947,7 +2219,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess }: CreateDo
                                     ) : (
                                         <>
                                             <IconFileText className="mr-2 h-4 w-4" />
-                                            Simpan sebagai Draft
+                                            {isEditing ? 'Simpan Perubahan Draft' : 'Simpan sebagai Draft'}
                                         </>
                                     )}
                                 </Button>
