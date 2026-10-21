@@ -35,7 +35,10 @@ return [
         //         'https://hr-system.perusahaan.com',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x, 100.x.x.x) and localhost with any port
+        '#^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|100\.\d+\.\d+\.\d+)(:\d+)?$#',
+    ],
 
     // '*' sudah mencakup Authorization, Content-Type, Accept, X-Requested-With
     'allowed_headers' => ['*'],

@@ -36,10 +36,16 @@ if (xsrfToken) {
 // Bootstrap Laravel Echo untuk Reverb (Pusher)
 window.Pusher = Pusher;
 
+// Dynamically determine WebSocket host: use current window hostname if available, fallback to env or 127.0.0.1
+const reverbWsHost =
+    typeof window !== 'undefined' && window.location.hostname
+        ? window.location.hostname
+        : (import.meta.env.VITE_REVERB_HOST || '127.0.0.1');
+
 window.Echo = new Echo({
     broadcaster: 'reverb',
     key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST || '127.0.0.1',
+    wsHost: reverbWsHost,
     wsPort: import.meta.env.VITE_REVERB_PORT ? Number(import.meta.env.VITE_REVERB_PORT) : 8080,
     wssPort: import.meta.env.VITE_REVERB_PORT ? Number(import.meta.env.VITE_REVERB_PORT) : 8080,
     forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
@@ -51,7 +57,7 @@ window.Echo = new Echo({
 
 console.log('📡 Laravel Echo initialized with Reverb:', {
     broadcaster: 'reverb',
-    wsHost: import.meta.env.VITE_REVERB_HOST || '127.0.0.1',
+    wsHost: reverbWsHost,
     wsPort: import.meta.env.VITE_REVERB_PORT || 8080,
     appKey: import.meta.env.VITE_REVERB_APP_KEY,
     scheme: import.meta.env.VITE_REVERB_SCHEME || 'http',

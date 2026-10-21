@@ -13,7 +13,29 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Custom Vite resolver for local network & localhost access
+        $this->app->singleton(\Illuminate\Foundation\Vite::class, function () {
+            return new class extends \Illuminate\Foundation\Vite {
+                protected function hotAsset($asset)
+                {
+                    $url = rtrim(file_get_contents($this->hotFile()));
+                    try {
+                        $requestHost = request()->hasHeader('host') ? request()->getHost() : null;
+                    } catch (\Throwable) {
+                        $requestHost = null;
+                    }
+
+                    if ($requestHost) {
+                        $parsed = parse_url($url);
+                        $port = isset($parsed['port']) ? ':' . $parsed['port'] : ':5173';
+                        $scheme = $parsed['scheme'] ?? 'http';
+                        return "{$scheme}://{$requestHost}{$port}/{$asset}";
+                    }
+
+                    return $url . '/' . $asset;
+                }
+            };
+        });
     }
 
     /**
