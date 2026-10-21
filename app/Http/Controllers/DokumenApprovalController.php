@@ -164,13 +164,88 @@ class DokumenApprovalController extends Controller
     }
 
     /**
-     * Display the specified approval.
+     * Display the specified approval or document approval page.
+     * Supports both document ID (from QR code) and approval ID.
      */
-    public function show(DokumenApproval $approval)
+    public function show(Request $request, $id)
     {
-        // Ensure user can access this approval
-        if ($approval->user_id !== Auth::id()) {
-            abort(403, 'Anda tidak memiliki akses ke approval ini.');
+        $userId = Auth::id();
+        $user = Auth::user();
+        $userEmail = $user?->email;
+
+        $dokumen = null;
+        $approval = null;
+
+        // 1. Try to find as Dokumen (e.g. from QR code: /approvals/{dokumen_id})
+        $possibleDokumen = Dokumen::find($id);
+        if ($possibleDokumen) {
+            $isAssignedToDoc = ($possibleDokumen->user_id === $userId) ||
+                $possibleDokumen->approvals()->where(function ($q) use ($userId, $userEmail) {
+                    $q->where('user_id', $userId);
+                    if ($userEmail) {
+                        $q->orWhere('approver_email', $userEmail);
+                    }
+                })->exists();
+
+            if ($isAssignedToDoc || $this->contextService->isSuperAdmin()) {
+                $dokumen = $possibleDokumen;
+                // Find approval record for current user if they are an approver
+                $approval = $dokumen->approvals()
+                    ->where(function ($q) use ($userId, $userEmail) {
+                        $q->where('user_id', $userId);
+                        if ($userEmail) {
+                            $q->orWhere('approver_email', $userEmail);
+                        }
+                    })
+                    ->orderByRaw("CASE WHEN approval_status = 'pending' THEN 0 ELSE 1 END")
+                    ->orderBy('approval_order')
+                    ->first();
+            }
+        }
+
+        // 2. If not resolved via Dokumen ID, try finding as DokumenApproval ID
+        if (!$dokumen) {
+            $possibleApproval = DokumenApproval::find($id);
+            if ($possibleApproval) {
+                $approval = $possibleApproval;
+                $dokumen = $approval->dokumen;
+            }
+        }
+
+        // If neither exists, throw 404
+        if (!$dokumen) {
+            abort(404, 'Unauthorized');
+        }
+
+        // 3. Strict authorization: Only assigned users (uploader and approvers)
+        $isUploader = ($dokumen->user_id === $userId);
+        $isApprover = $dokumen->approvals()
+            ->where(function ($q) use ($userId, $userEmail) {
+                $q->where('user_id', $userId);
+                if ($userEmail) {
+                    $q->orWhere('approver_email', $userEmail);
+                }
+            })
+            ->exists();
+
+        $isSuperAdmin = $this->contextService->isSuperAdmin();
+
+        if (!$isUploader && !$isApprover && !$isSuperAdmin) {
+            abort(404, 'Unauthorized');
+        }
+
+        // If current user is the uploader (or superadmin) and not an approver in the workflow:
+        if (!$approval) {
+            // Pick active pending approval, or first approval for displaying document & workflow
+            $approval = $dokumen->approvals()
+                ->orderByRaw("CASE WHEN approval_status = 'pending' THEN 0 ELSE 1 END")
+                ->orderBy('approval_order')
+                ->first();
+
+            // If the document has no approvals at all (e.g. draft):
+            if (!$approval) {
+                return redirect()->route('dokumen.detail', $dokumen->id);
+            }
         }
 
         $approval->load([
@@ -184,15 +259,18 @@ class DokumenApprovalController extends Controller
         ]);
 
         // Get all approvals for this document to show workflow progress
-        $allApprovals = DokumenApproval::where('dokumen_id', $approval->dokumen_id)
+        $allApprovals = DokumenApproval::where('dokumen_id', $dokumen->id)
             ->with(['user.profile', 'masterflowStep.jabatan'])
-            ->orderBy('masterflow_step_id')
+            ->orderBy('approval_order')
             ->get();
+
+        $canApprove = ($approval->user_id === $userId || ($userEmail && $approval->approver_email === $userEmail))
+            && $approval->canCurrentlyApprove();
 
         return Inertia::render('approvals/show', [
             'approval' => $approval,
             'allApprovals' => $allApprovals,
-            'canApprove' => $approval->canCurrentlyApprove(),
+            'canApprove' => $canApprove,
         ]);
     }
 

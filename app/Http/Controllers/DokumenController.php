@@ -593,6 +593,10 @@ class DokumenController extends Controller
      */
     public function show(Request $request, Dokumen $dokumen)
     {
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(404, 'Unauthorized');
+        }
+
         // Debug log
         Log::info('Show dokumen', [
             'dokumen_id' => $dokumen->id,
@@ -1602,7 +1606,7 @@ class DokumenController extends Controller
         }
 
         if (!$this->canAccessDokumen($dokumen)) {
-            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+            abort(404, 'Unauthorized');
         }
 
         // Check if original file exists
@@ -1666,7 +1670,7 @@ class DokumenController extends Controller
         }
 
         if (!$this->canAccessDokumen($dokumen)) {
-            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+            abort(404, 'Unauthorized');
         }
 
         // Check if original file exists
@@ -1730,29 +1734,31 @@ class DokumenController extends Controller
      */
     private function canAccessDokumen(\App\Models\Dokumen $dokumen)
     {
-        if ($this->contextService->isSuperAdmin()) {
-            return true;
-        }
-
         $userId = \Illuminate\Support\Facades\Auth::id();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $userEmail = $user?->email;
 
-        // Is creator?
+        // Is creator / uploader?
         if ($dokumen->user_id === $userId) {
             return true;
         }
 
         // Is approver?
-        $isApprover = $dokumen->approvals()->where('user_id', $userId)->exists();
+        $isApprover = $dokumen->approvals()
+            ->where(function ($q) use ($userId, $userEmail) {
+                $q->where('user_id', $userId);
+                if ($userEmail) {
+                    $q->orWhere('approver_email', $userEmail);
+                }
+            })
+            ->exists();
+
         if ($isApprover) {
             return true;
         }
 
-        // Or Admin in the same context
-        $context = $this->contextService->getContext();
-        if ($context && $context->role && strtolower($context->role->role_name) === 'admin') {
-            if ($dokumen->company_id === $context->company_id && $dokumen->aplikasi_id === $context->aplikasi_id) {
-                return true;
-            }
+        if ($this->contextService->isSuperAdmin()) {
+            return true;
         }
 
         return false;

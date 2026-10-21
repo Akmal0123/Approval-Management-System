@@ -791,7 +791,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     }}
                     onPointerDown={isQrEditable ? (e) => handlePointerDown(e, qrId, pageNumber) : undefined}
                 >
-                    <div className="pointer-events-none flex flex-col items-center gap-1 p-1.5 text-amber-700">
+                    <div className="pointer-events-none flex flex-col items-center gap-0.5 p-1 text-amber-700">
                         <span className="text-center text-[8px] font-bold tracking-wider uppercase sm:text-[9px]">
                             QR Code (Hal. {qrPos.page})
                         </span>
@@ -819,6 +819,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                 <path d="M17 12v.01" />
                             </svg>
                         </div>
+                        <span className="font-mono text-[7px] text-amber-800 font-medium truncate max-w-full">
+                            /approvals/{dokumenId || ':id'}
+                        </span>
                     </div>
 
                     {/* Resize Handle */}
@@ -952,16 +955,21 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                 {/* QR Code Section */}
                 <div className="border-t pt-4">
-                    <div className="mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-sm font-semibold">
-                            <QrCode className="h-4 w-4 text-amber-600" />
-                            <span>QR Code Dokumen</span>
+                    <div className="mb-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                <QrCode className="h-4 w-4 text-amber-600" />
+                                <span>QR Code Dokumen</span>
+                            </div>
+                            {activeQrPositions.length > 0 && (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                                    {activeQrPositions.length} Hal.
+                                </span>
+                            )}
                         </div>
-                        {activeQrPositions.length > 0 && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                                {activeQrPositions.length} Hal.
-                            </span>
-                        )}
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                            QR Code mengarahkan langsung ke halaman approval: <span className="font-mono text-amber-700 font-semibold">/approvals/{dokumenId || ':id'}</span>
+                        </p>
                     </div>
 
                     <div className="flex flex-col gap-3">
