@@ -2,11 +2,16 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Check, Copy, GripHorizontal, Maximize2, Minimize2, QrCode, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import { Check, Copy, ExternalLink, GripHorizontal, Maximize2, Minimize2, QrCode, RefreshCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure PDF.js worker using locally hosted worker (no unpkg.com dependency)
+if (typeof window !== 'undefined') {
+    pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.mjs?v=${pdfjs.version}`;
+} else {
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+}
 
 export const isQrCodeId = (id: string | number | null | undefined): boolean =>
     typeof id === 'string' && id.startsWith('qr_code');
@@ -68,6 +73,96 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
     // Mobile tab state for the preview dialog
     const [mobilePanelTab, setMobilePanelTab] = useState<'pdf' | 'info'>('pdf');
+
+    // Authenticated blob state
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+    const [fetchLoading, setFetchLoading] = useState<boolean>(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState<number>(0);
+
+    const loadPdfBlob = useCallback(() => {
+        let isCancelled = false;
+        let createdBlobUrl: string | null = null;
+
+        if (!fileUrl) {
+            setBlobUrl(null);
+            setFetchLoading(false);
+            setFetchError(null);
+            return () => {};
+        }
+
+        // Direct blob or data URL
+        if (fileUrl.startsWith('blob:') || fileUrl.startsWith('data:')) {
+            setBlobUrl(fileUrl);
+            setFetchLoading(false);
+            setFetchError(null);
+            return () => {};
+        }
+
+        setFetchLoading(true);
+        setFetchError(null);
+
+        const fullUrl = fileUrl.startsWith('http')
+            ? fileUrl
+            : `${window.location.origin}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+
+        fetch(fullUrl, {
+            credentials: 'include',
+            headers: {
+                Accept: 'application/pdf, */*',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    let errorMsg = '';
+                    try {
+                        const json = await response.json();
+                        errorMsg = json.message || json.error;
+                    } catch {
+                        // ignore
+                    }
+
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error(errorMsg || 'Sesi login tidak valid atau Anda tidak memiliki izin untuk melihat dokumen ini.');
+                    }
+                    if (response.status === 404) {
+                        throw new Error(errorMsg || 'File dokumen tidak ditemukan di server.');
+                    }
+                    throw new Error(errorMsg || `Gagal mengambil dokumen (HTTP status ${response.status}).`);
+                }
+                return response.blob();
+            })
+            .then((blob) => {
+                if (isCancelled) return;
+                if (blob.size === 0) {
+                    throw new Error('Dokumen PDF kosong (0 bytes).');
+                }
+                createdBlobUrl = URL.createObjectURL(blob);
+                setBlobUrl(createdBlobUrl);
+                setFetchLoading(false);
+            })
+            .catch((err: any) => {
+                if (isCancelled) return;
+                console.error('Error fetching PDF blob in SignaturePlacementDialog:', err);
+                setFetchError(err.message || 'Gagal memuat dokumen PDF.');
+                setFetchLoading(false);
+            });
+
+        return () => {
+            isCancelled = true;
+            if (createdBlobUrl) {
+                URL.revokeObjectURL(createdBlobUrl);
+            }
+        };
+    }, [fileUrl]);
+
+    useEffect(() => {
+        const cleanup = loadPdfBlob();
+        return () => {
+            if (cleanup) cleanup();
+        };
+    }, [loadPdfBlob, reloadKey]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -276,8 +371,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     }
 
     function onDocumentLoadError(error: Error) {
-        console.error('Error loading PDF:', error);
-        setError('Gagal memuat dokumen PDF. Silakan coba lagi.');
+        console.error('Error loading PDF in SignaturePlacementDialog:', error);
+        setError('Gagal merender dokumen PDF di browser. Silakan coba lagi atau gunakan tombol Buka Langsung.');
         setLoading(false);
     }
 
@@ -1338,27 +1433,65 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     ref={pagesViewportRef}
                     className="relative flex min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain"
                 >
-                    {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center">
+                    {(fetchLoading || loading) && !(fetchError || error) && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-xs">
+                            <div className="text-center p-4">
                                 <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
-                                <p className="mt-2 text-sm text-muted-foreground">Memuat dokumen...</p>
+                                <p className="mt-2 text-sm text-muted-foreground font-medium">
+                                    {fetchLoading ? 'Mengunduh dokumen...' : 'Menyiapkan halaman PDF...'}
+                                </p>
                             </div>
                         </div>
                     )}
-                    {error && (
-                        <div className="flex h-full min-h-[300px] w-full items-center justify-center">
-                            <div className="text-center">
-                                <p className="text-sm text-red-600">{error}</p>
-                                <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>
-                                    Coba Lagi
-                                </Button>
+                    {(fetchError || error) && (
+                        <div className="flex h-full min-h-[300px] w-full items-center justify-center p-6">
+                            <div className="max-w-md text-center">
+                                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                                    <X className="h-6 w-6" />
+                                </div>
+                                <h4 className="font-semibold text-foreground text-sm sm:text-base">Gagal Membuka Dokumen</h4>
+                                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">{fetchError || error}</p>
+                                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setError(null);
+                                            setFetchError(null);
+                                            setLoading(true);
+                                            setFetchLoading(true);
+                                            setReloadKey((prev) => prev + 1);
+                                        }}
+                                        className="gap-1.5"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        Coba Lagi
+                                    </Button>
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => {
+                                            if (blobUrl) {
+                                                window.open(blobUrl, '_blank');
+                                            } else if (fileUrl) {
+                                                const fullUrl = fileUrl.startsWith('http')
+                                                    ? fileUrl
+                                                    : `${window.location.origin}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+                                                window.open(fullUrl, '_blank');
+                                            }
+                                        }}
+                                        className="gap-1.5"
+                                    >
+                                        <ExternalLink className="h-4 w-4" />
+                                        Buka Langsung PDF
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     )}
-                    {!error && (
+                    {!(fetchError || error) && blobUrl && (
                         <Document
-                            file={fileUrl}
+                            file={blobUrl}
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading=""
