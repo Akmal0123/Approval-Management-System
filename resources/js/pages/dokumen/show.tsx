@@ -1453,7 +1453,11 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                         open={isPlacementDialogOpen}
                         onOpenChange={setIsPlacementDialogOpen}
                         dokumenId={dokumen.id}
-                        fileUrl={dokumen.versions && dokumen.versions.length > 0 ? `/api/dokumen/${dokumen.id}/signed-pdf/${dokumen.versions[0].id}` : ''}
+                        fileUrl={(() => {
+                            if (!dokumen.versions || dokumen.versions.length === 0) return '';
+                            const sorted = [...dokumen.versions].sort((a, b) => new Date(b.tgl_upload).getTime() - new Date(a.tgl_upload).getTime());
+                            return `/api/dokumen/${dokumen.id}/signed-pdf/${sorted[0].id}`;
+                        })()}
                         approvals={sortedApprovals.filter(a => a.approval_status !== 'skipped')}
                     />
 
