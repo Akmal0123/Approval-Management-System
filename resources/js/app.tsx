@@ -6,7 +6,7 @@ import Echo from 'laravel-echo';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import Pusher from 'pusher-js';
 import { createRoot } from 'react-dom/client';
-import { Toaster } from 'react-hot-toast';
+import { toast, Toaster } from 'react-hot-toast';
 import { initializeTheme } from './hooks/use-appearance';
 
 // Extend Window interface for Pusher and Echo
@@ -131,6 +131,11 @@ router.on('before', (event) => {
             console.log('🔌 Adding X-Socket-ID to Inertia request:', socketId);
         }
     }
+});
+
+// Dismiss all active toasts and confirmation cards when navigating between pages
+router.on('navigate', () => {
+    toast.dismiss();
 });
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
