@@ -45,6 +45,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
 
     // Company Management  
     Route::apiResource('companies', CompanyController::class);
+    Route::post('/companies/{company}', [CompanyController::class, 'update']);
 
     // Jabatan Management
     Route::apiResource('jabatans', JabatanController::class);

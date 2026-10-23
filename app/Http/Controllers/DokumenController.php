@@ -625,6 +625,28 @@ class DokumenController extends Controller
             abort(404, 'Unauthorized');
         }
 
+        // If accessed directly from browser (not API/JSON), and the current user is an approver:
+        if (!$request->expectsJson() && !$request->wantsJson() && !$request->ajax() && !$request->is('api/*')) {
+            $user = Auth::user();
+            // If the user is not the document uploader, or has a pending approval:
+            if ($user && ($dokumen->user_id !== $user->id || $request->has('as_approval'))) {
+                $userApproval = $dokumen->approvals()
+                    ->where(function ($q) use ($user) {
+                        $q->where('user_id', $user->id);
+                        if ($user->email) {
+                            $q->orWhere('approver_email', $user->email);
+                        }
+                    })
+                    ->orderByRaw("CASE WHEN approval_status = 'pending' THEN 0 ELSE 1 END")
+                    ->orderBy('approval_order')
+                    ->first();
+
+                if ($userApproval) {
+                    return redirect()->route('approvals.show', $userApproval->id);
+                }
+            }
+        }
+
         // Debug log
         Log::info('Show dokumen', [
             'dokumen_id' => $dokumen->id,

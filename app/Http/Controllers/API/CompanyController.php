@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class CompanyController extends Controller
@@ -34,7 +35,15 @@ class CompanyController extends Controller
                 'address' => 'nullable|string',
                 'phone_number' => 'nullable|string|max:20',
                 'base_url' => 'nullable|url|max:255',
+                'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             ]);
+
+            if ($request->hasFile('logo')) {
+                $file = $request->file('logo');
+                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('company-logos', $filename, 'public');
+                $validated['logo'] = $path;
+            }
 
             $company = Company::create($validated);
 
@@ -49,7 +58,7 @@ class CompanyController extends Controller
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Something went wrong. Please try again.'
+                'message' => 'Something went wrong: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -86,7 +95,23 @@ class CompanyController extends Controller
                 'address' => 'nullable|string',
                 'phone_number' => 'nullable|string|max:20',
                 'base_url' => 'nullable|url|max:255',
+                'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             ]);
+
+            if ($request->hasFile('logo')) {
+                if ($company->logo && Storage::disk('public')->exists($company->logo)) {
+                    Storage::disk('public')->delete($company->logo);
+                }
+                $file = $request->file('logo');
+                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('company-logos', $filename, 'public');
+                $validated['logo'] = $path;
+            } elseif ($request->boolean('remove_logo')) {
+                if ($company->logo && Storage::disk('public')->exists($company->logo)) {
+                    Storage::disk('public')->delete($company->logo);
+                }
+                $validated['logo'] = null;
+            }
 
             $company->update($validated);
 
@@ -101,8 +126,8 @@ class CompanyController extends Controller
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Company not found or something went wrong'
-            ], 404);
+                'message' => 'Company not found or something went wrong: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -114,6 +139,10 @@ class CompanyController extends Controller
         try {
             $company = Company::findOrFail($id);
             $companyName = $company->name;
+
+            if ($company->logo && Storage::disk('public')->exists($company->logo)) {
+                Storage::disk('public')->delete($company->logo);
+            }
 
             $company->delete();
 

@@ -19,6 +19,16 @@ class Company extends Model
         'address',
         'phone_number',
         'base_url',
+        'logo',
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'logo_url',
     ];
 
     /**
@@ -30,4 +40,20 @@ class Company extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Get URL for company logo.
+     */
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (!$this->logo) {
+            return null;
+        }
+
+        if (filter_var($this->logo, FILTER_VALIDATE_URL)) {
+            return $this->logo;
+        }
+
+        return '/storage/' . ltrim($this->logo, '/');
+    }
 }
