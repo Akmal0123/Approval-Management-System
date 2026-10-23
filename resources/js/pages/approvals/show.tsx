@@ -944,86 +944,116 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[90vh] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0">
-                            <DialogHeader className="shrink-0 border-b p-4">
-                                <div className="space-y-1">
-                                    <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
-                                    <DialogDescription className="font-sans">
-                                        {previewFileName || approval.dokumen_version?.nama_file}
-                                    </DialogDescription>
+                        <DialogContent className="flex h-[92vh] max-h-[92dvh] w-[95vw] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 lg:h-[90vh] lg:max-h-[90dvh] lg:w-[95vw] lg:max-w-[1400px]">
+                            {/* Loading Overlay saat proses approval */}
+                            {approveForm.processing && (
+                                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 rounded-2xl bg-background/90 backdrop-blur-sm">
+                                    <div className="flex flex-col items-center gap-3 rounded-2xl border bg-background p-8 shadow-xl">
+                                        {/* Spinner */}
+                                        <div className="relative h-14 w-14">
+                                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary/20" />
+                                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary" style={{ animationDuration: '0.8s' }} />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="font-serif text-base font-semibold text-foreground">Memproses Persetujuan...</p>
+                                            <p className="mt-1 font-sans text-xs text-muted-foreground">
+                                                Mohon tunggu, dokumen sedang ditandatangani dan disimpan.
+                                            </p>
+                                        </div>
+                                        {/* Animated dots */}
+                                        <div className="flex gap-1">
+                                            <span className="h-2 w-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '0ms' }} />
+                                            <span className="h-2 w-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '150ms' }} />
+                                            <span className="h-2 w-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '300ms' }} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <DialogHeader className="shrink-0 border-b px-4 py-3">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    <div className="min-w-0">
+                                        <DialogTitle className="font-serif text-base">Preview Dokumen</DialogTitle>
+                                        <DialogDescription className="font-sans text-xs truncate">
+                                            {previewFileName || approval.dokumen_version?.nama_file}
+                                        </DialogDescription>
+                                    </div>
                                     {/* Show status info */}
                                     {approval.approval_status !== 'pending' && (
-                                        <div className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
-                                            Dokumen ini sudah {approval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
+                                        <div className="rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
+                                            Dokumen sudah {approval.approval_status === 'approved' ? 'disetujui' : 'ditolak'}.
                                         </div>
                                     )}
                                     {!canApprove && approval.approval_status === 'pending' && (
-                                        <div className="rounded-md bg-yellow-50 p-2 text-xs text-yellow-700">
-                                            Approval ini bukan untuk Anda atau sedang menunggu giliran.
+                                        <div className="rounded-md bg-yellow-50 px-2 py-1 text-xs text-yellow-700">
+                                            Bukan giliran Anda atau sedang menunggu.
                                         </div>
                                     )}
                                 </div>
                             </DialogHeader>
 
-                            <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4 lg:flex-row">
+                            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-4 lg:flex-row lg:overflow-hidden">
                                 {/* PDF Preview - Left Side */}
                                 {previewFileUrl && (
-                                    <SignaturePlacementDialog
-                                        open={isPreviewDialogOpen}
-                                        onOpenChange={setIsPreviewDialogOpen}
-                                        dokumenId={approval.dokumen.id}
-                                        fileUrl={previewFileUrl}
-                                        approvals={mappedApprovalsForPlacement}
-                                        defaultActiveApprovalId={approval.id}
-                                        onPositionsChange={setSignaturePositions}
-                                        onSaved={(positions) => setSignaturePositions(positions)}
-                                        isEmbedded={true}
-                                        readOnly={
-                                            !(
-                                                canApprove &&
-                                                approval.approval_status === 'pending' &&
-                                                (previewVersionId === approval.dokumen_version?.id || !previewVersionId)
-                                            )
-                                        }
-                                    />
+                                    <div className="h-[450px] shrink-0 sm:h-[520px] lg:h-full lg:min-h-0 lg:flex-1">
+                                        <SignaturePlacementDialog
+                                            open={isPreviewDialogOpen}
+                                            onOpenChange={setIsPreviewDialogOpen}
+                                            dokumenId={approval.dokumen.id}
+                                            fileUrl={previewFileUrl}
+                                            approvals={mappedApprovalsForPlacement}
+                                            defaultActiveApprovalId={approval.id}
+                                            onPositionsChange={setSignaturePositions}
+                                            onSaved={(positions) => setSignaturePositions(positions)}
+                                            isEmbedded={true}
+                                            readOnly={
+                                                !(
+                                                    canApprove &&
+                                                    approval.approval_status === 'pending' &&
+                                                    (previewVersionId === approval.dokumen_version?.id || !previewVersionId)
+                                                )
+                                            }
+                                        />
+                                    </div>
                                 )}
 
                                 {/* Signature Panel - Right Side - Only show for pending approvals that user can approve AND viewing current version */}
                                 {canApprove &&
                                     approval.approval_status === 'pending' &&
                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId) && (
-                                        <div className="w-full shrink-0 space-y-4 overflow-auto rounded-lg border bg-muted/20 p-4 lg:w-[400px]">
+                                        <div className="w-full shrink-0 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-3 lg:w-[300px] lg:min-w-[260px]">
                                             <div>
-                                                <h3 className="font-serif text-lg font-semibold">Tanda Tangan Persetujuan</h3>
-                                                <p className="font-sans text-sm text-muted-foreground">Tanda tangani dokumen untuk menyetujuinya</p>
+                                                <h3 className="font-serif text-base font-semibold leading-tight">Tanda Tangan Persetujuan</h3>
+                                                <p className="font-sans text-xs text-muted-foreground mt-0.5">Tanda tangani dokumen untuk menyetujuinya</p>
                                             </div>
 
                                             <Separator />
 
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                                                     Metode Tanda Tangan
                                                 </Label>
-                                                <div className="grid grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-2 gap-1.5">
                                                     <Button
                                                         type="button"
+                                                        size="sm"
                                                         variant={approveForm.data.signature_method === 'original' ? 'default' : 'outline'}
                                                         onClick={() => {
                                                             approveForm.setData('signature_method', 'original');
                                                         }}
-                                                        className="w-full text-xs font-medium"
+                                                        className="w-full text-xs font-medium h-8"
                                                     >
                                                         Tanda Tangan Asli
                                                     </Button>
                                                     <Button
                                                         type="button"
+                                                        size="sm"
                                                         variant={approveForm.data.signature_method === 'qr' ? 'default' : 'outline'}
                                                         onClick={() => {
                                                             approveForm.setData('signature_method', 'qr');
                                                         }}
-                                                        className="w-full text-xs font-medium"
+                                                        className="w-full text-xs font-medium h-8"
                                                     >
-                                                        Tanda Tangan QR Code
+                                                        QR Code
                                                     </Button>
                                                 </div>
                                             </div>
@@ -1032,22 +1062,23 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                                             {approveForm.data.signature_method === 'original' ? (
                                                 !showSignaturePad && !signatureData ? (
-                                                    <div className="space-y-3">
+                                                    <div className="space-y-2">
                                                         <Card className="border-dashed">
-                                                            <CardContent className="flex flex-col items-center justify-center py-8">
-                                                                <IconPencil className="h-12 w-12 text-muted-foreground" />
-                                                                <p className="mt-2 text-center font-sans text-sm text-muted-foreground">
+                                                            <CardContent className="flex flex-col items-center justify-center py-4 px-3">
+                                                                <IconPencil className="h-8 w-8 text-muted-foreground" />
+                                                                <p className="mt-1.5 text-center font-sans text-xs text-muted-foreground">
                                                                     Belum ada tanda tangan
                                                                 </p>
                                                             </CardContent>
                                                         </Card>
                                                         <Button
                                                             type="button"
+                                                            size="sm"
                                                             onClick={() => setShowSignaturePad(true)}
-                                                            className="w-full font-sans"
+                                                            className="w-full font-sans h-8 text-xs"
                                                             variant="outline"
                                                         >
-                                                            <IconPencil className="mr-2 h-4 w-4" />
+                                                            <IconPencil className="mr-1.5 h-3.5 w-3.5" />
                                                             Tambah Tanda Tangan
                                                         </Button>
                                                     </div>
@@ -1096,10 +1127,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     />
                                                 )
                                             ) : (
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     <Card className="border bg-white">
-                                                        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                                                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                                        <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center">
+                                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                                                                 <svg
                                                                     xmlns="http://www.w3.org/2000/svg"
                                                                     viewBox="0 0 24 24"
@@ -1108,7 +1139,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     strokeWidth="2"
                                                                     strokeLinecap="round"
                                                                     strokeLinejoin="round"
-                                                                    className="h-10 w-10"
+                                                                    className="h-6 w-6"
                                                                 >
                                                                     <rect x="3" y="3" width="18" height="18" rx="2" />
                                                                     <rect x="7" y="7" width="3" height="3" />
@@ -1117,10 +1148,9 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     <rect x="14" y="14" width="3" height="3" />
                                                                 </svg>
                                                             </div>
-                                                            <p className="mt-4 font-serif text-base font-semibold">Tanda Tangan QR Code Terpilih</p>
-                                                            <p className="mt-1 max-w-[280px] font-sans text-xs text-muted-foreground">
-                                                                Sistem akan menyematkan QR Code unik pada dokumen untuk verifikasi keaslian tanda
-                                                                tangan.
+                                                            <p className="mt-2 font-serif text-sm font-semibold">QR Code Terpilih</p>
+                                                            <p className="mt-0.5 font-sans text-xs text-muted-foreground">
+                                                                QR Code unik akan disisipkan pada dokumen.
                                                             </p>
                                                         </CardContent>
                                                     </Card>
@@ -1131,9 +1161,9 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <>
                                                     <Separator />
 
-                                                    <div className="space-y-3">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor="preview-comment" className="font-sans">
+                                                    <div className="space-y-2">
+                                                        <div className="space-y-1.5">
+                                                            <Label htmlFor="preview-comment" className="font-sans text-xs">
                                                                 Komentar (Opsional)
                                                             </Label>
                                                             <Textarea
@@ -1141,26 +1171,28 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 placeholder="Tambahkan komentar jika diperlukan..."
                                                                 value={approveForm.data.comment}
                                                                 onChange={(e) => approveForm.setData('comment', e.target.value)}
-                                                                className="font-sans"
-                                                                rows={3}
+                                                                className="font-sans text-sm"
+                                                                rows={2}
                                                             />
                                                         </div>
 
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-1.5">
                                                             <Button
                                                                 type="button"
+                                                                size="sm"
                                                                 onClick={handleApprove}
                                                                 disabled={approveForm.processing}
-                                                                className="w-full font-sans"
+                                                                className="w-full font-sans h-9"
                                                             >
-                                                                <IconCheck className="mr-2 h-4 w-4" />
+                                                                <IconCheck className="mr-1.5 h-3.5 w-3.5" />
                                                                 {approveForm.processing ? 'Memproses...' : 'Setujui Dokumen'}
                                                             </Button>
                                                             <Button
                                                                 type="button"
+                                                                size="sm"
                                                                 variant="outline"
                                                                 onClick={() => setIsPreviewDialogOpen(false)}
-                                                                className="w-full font-sans"
+                                                                className="w-full font-sans h-8 text-xs"
                                                                 disabled={approveForm.processing}
                                                             >
                                                                 Batal

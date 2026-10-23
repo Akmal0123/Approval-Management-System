@@ -398,17 +398,19 @@ export default function UserManagement() {
 
     // Delete user
     const handleDelete = async (user: User) => {
-        if (!confirm(`Are you sure you want to delete user "${user.name}"?`)) {
-            return;
-        }
-
-        try {
-            await api.delete(`/users/${user.id}`);
-            showToast.success(`🎉 User "${user.name}" deleted successfully!`);
-            fetchUsers();
-        } catch (error: any) {
-            showToast.error(`❌ Failed to delete user. ${error.response?.data?.message || error.message}`);
-        }
+        showToast.confirmDelete(
+            user.name,
+            async () => {
+                try {
+                    await api.delete(`/users/${user.id}`);
+                    showToast.success(`🎉 User "${user.name}" deleted successfully!`);
+                    fetchUsers();
+                } catch (error: any) {
+                    showToast.error(`❌ Failed to delete user. ${error.response?.data?.message || error.message}`);
+                }
+            },
+            'user',
+        );
     };
 
     return (

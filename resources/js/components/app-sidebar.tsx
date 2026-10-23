@@ -45,7 +45,19 @@ const superAdminNavMain = [
     {
         title: 'Report',
         url: '/report',
-        icon: PieChartIcon,
+        icon: FileTextIcon,
+        items: [
+            {
+                title: 'Unapprove Dokumen',
+                url: '/report/unapproved',
+                icon: FileTextIcon,
+            },
+            {
+                title: 'Rejected Document',
+                url: '/report/rejected',
+                icon: FileTextIcon,
+            },
+        ],
     },
     {
         title: 'Masterflow Management',
@@ -114,7 +126,19 @@ const adminNavMain = [
     {
         title: 'Report',
         url: '/report',
-        icon: PieChartIcon,
+        icon: FileTextIcon,
+        items: [
+            {
+                title: 'Unapprove Dokumen',
+                url: '/report/unapproved',
+                icon: FileTextIcon,
+            },
+            {
+                title: 'Rejected Document',
+                url: '/report/rejected',
+                icon: FileTextIcon,
+            },
+        ],
     },
     {
         title: 'Masterflow Management',
@@ -164,7 +188,19 @@ const userNavMain = [
     {
         title: 'Report',
         url: '/report',
-        icon: PieChartIcon,
+        icon: FileTextIcon,
+        items: [
+            {
+                title: 'Unapprove Dokumen',
+                url: '/report/unapproved',
+                icon: FileTextIcon,
+            },
+            {
+                title: 'Rejected Document',
+                url: '/report/rejected',
+                icon: FileTextIcon,
+            },
+        ],
     },
     {
         title: 'My Workflow',
