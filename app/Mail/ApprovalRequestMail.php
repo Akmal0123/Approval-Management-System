@@ -44,7 +44,7 @@ class ApprovalRequestMail extends Mailable implements ShouldQueue
                 'approval' => $this->approval,
                 'dokumen' => $this->approval->dokumen,
                 'stepName' => $this->approval->masterflowStep?->step_name ?? 'Approval',
-                'approvalUrl' => 'http://localhost:8000/api/dokumen/' . $this->approval->dokumen_id,
+                'approvalUrl' => rtrim(config('app.url'), '/') . '/approvals/' . $this->approval->id,
             ],
         );
     }

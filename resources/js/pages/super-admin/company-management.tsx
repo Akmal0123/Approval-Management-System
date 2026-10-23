@@ -11,9 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head } from '@inertiajs/react';
-import { IconBuilding, IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconBuilding, IconEdit, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react';
 import { Activity } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 declare global {
     interface Window {
@@ -27,6 +27,8 @@ interface Company {
     address: string | null;
     phone_number: string | null;
     base_url: string | null; 
+    logo: string | null;
+    logo_url: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -43,6 +45,10 @@ export default function SuperAdminCompanyManagement() {
         phone_number: '',
         base_url: '',
     });
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [removeLogo, setRemoveLogo] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch companies from API
     useEffect(() => {
@@ -95,16 +101,60 @@ export default function SuperAdminCompanyManagement() {
         }
     };
 
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+            showToast.error('❌ Ukuran file logo maksimal 2MB.');
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            return;
+        }
+
+        setLogoFile(file);
+        setLogoPreview(URL.createObjectURL(file));
+        setRemoveLogo(false);
+    };
+
+    const handleRemoveLogo = () => {
+        setLogoFile(null);
+        setLogoPreview(null);
+        setRemoveLogo(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
 
         try {
+            const data = new FormData();
+            data.append('name', formData.name);
+            data.append('address', formData.address || '');
+            data.append('phone_number', formData.phone_number || '');
+            data.append('base_url', formData.base_url || '');
+
+            if (logoFile) {
+                data.append('logo', logoFile);
+            }
+            if (removeLogo) {
+                data.append('remove_logo', '1');
+            }
+
             if (editingCompany) {
-                await api.put(`/companies/${editingCompany.id}`, formData);
+                data.append('_method', 'PUT');
+                await api.post(`/companies/${editingCompany.id}`, data, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
                 showToast.success(`🎉 Company "${formData.name}" updated successfully!`);
             } else {
-                await api.post('/companies', formData);
+                await api.post('/companies', data, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
                 showToast.success(`🎉 Company "${formData.name}" created successfully!`);
             }
 
@@ -125,6 +175,12 @@ export default function SuperAdminCompanyManagement() {
             phone_number: company.phone_number || '',
             base_url: company.base_url || '', 
         });
+        setLogoFile(null);
+        setLogoPreview(company.logo_url || null);
+        setRemoveLogo(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         setIsCreateModalOpen(true);
     };
 
@@ -147,6 +203,12 @@ export default function SuperAdminCompanyManagement() {
     const handleCreate = () => {
         setEditingCompany(null);
         setFormData({ name: '', address: '', phone_number: '', base_url: '' }); 
+        setLogoFile(null);
+        setLogoPreview(null);
+        setRemoveLogo(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         setIsCreateModalOpen(true);
     };
 
@@ -154,6 +216,12 @@ export default function SuperAdminCompanyManagement() {
         setIsCreateModalOpen(false);
         setEditingCompany(null);
         setFormData({ name: '', address: '', phone_number: '', base_url: '' }); 
+        setLogoFile(null);
+        setLogoPreview(null);
+        setRemoveLogo(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     if (loading) {
@@ -221,8 +289,19 @@ export default function SuperAdminCompanyManagement() {
                                                 companies.map((company, index) => (
                                                     <div key={company.id} className="space-y-3 border-b border-border pb-3 last:border-0 last:pb-0">
                                                         <div className="flex min-w-0 items-start justify-between gap-3">
-                                                            <div className="flex min-w-0 items-start gap-2">
-                                                                <span className="shrink-0 font-mono text-xs text-muted-foreground">{index + 1}</span>
+                                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                                <span className="mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">{index + 1}</span>
+                                                                {company.logo_url ? (
+                                                                    <img
+                                                                        src={company.logo_url}
+                                                                        alt={company.name}
+                                                                        className="h-8 w-8 shrink-0 rounded border border-border object-contain p-0.5 bg-white"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-dashed border-border bg-muted/40 text-muted-foreground">
+                                                                        <IconBuilding className="h-4 w-4" />
+                                                                    </div>
+                                                                )}
                                                                 <span className="min-w-0 break-words font-sans font-medium text-foreground">{company.name}</span>
                                                             </div>
                                                             <div className="flex shrink-0 gap-1">
@@ -297,7 +376,22 @@ export default function SuperAdminCompanyManagement() {
                                                     companies.map((company, index) => (
                                                         <TableRow key={company.id}>
                                                             <TableCell className="font-mono">{index + 1}</TableCell>
-                                                            <TableCell className="font-sans font-medium">{company.name}</TableCell>
+                                                            <TableCell className="font-sans font-medium">
+                                                                <div className="flex items-center gap-3">
+                                                                    {company.logo_url ? (
+                                                                        <img
+                                                                            src={company.logo_url}
+                                                                            alt={company.name}
+                                                                            className="h-8 w-8 shrink-0 rounded border border-border object-contain p-0.5 bg-white shadow-xs"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-dashed border-border bg-muted/40 text-muted-foreground">
+                                                                            <IconBuilding className="h-4 w-4" />
+                                                                        </div>
+                                                                    )}
+                                                                    <span className="min-w-0">{company.name}</span>
+                                                                </div>
+                                                            </TableCell>
                                                             <TableCell className="w-64 font-sans">
                                                                 {company.address ? (
                                                                     <div className="break-words whitespace-normal">{company.address}</div>
@@ -360,15 +454,15 @@ export default function SuperAdminCompanyManagement() {
 
                 {/* Create/Edit Modal */}
                 {isCreateModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                        <Card className="mx-4 w-full max-w-lg">
-                            <CardHeader>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <Card className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden">
+                            <CardHeader className="shrink-0">
                                 <CardTitle className="font-serif">{editingCompany ? 'Edit Master Company' : 'Tambah Master Company Baru'}</CardTitle>
                                 <CardDescription className="font-sans">
                                     {editingCompany ? 'Perbarui informasi master perusahaan' : 'Tambahkan master perusahaan baru ke sistem'}
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="overflow-y-auto pr-6">
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="name" className="font-sans">
@@ -383,6 +477,76 @@ export default function SuperAdminCompanyManagement() {
                                             required
                                         />
                                     </div>
+
+                                    {/* Upload Logo Perusahaan */}
+                                    <div className="space-y-2">
+                                        <Label className="font-sans">Logo Perusahaan (Opsional)</Label>
+                                        <div className="flex items-center gap-4 rounded-lg border border-border bg-muted/10 p-3">
+                                            {logoPreview ? (
+                                                <div className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white p-1 shadow-xs">
+                                                    <img
+                                                        src={logoPreview}
+                                                        alt="Logo Preview"
+                                                        className="h-full w-full rounded object-contain"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRemoveLogo}
+                                                        className="absolute inset-0 flex items-center justify-center rounded bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                                        title="Hapus Logo"
+                                                    >
+                                                        <IconTrash className="h-5 w-5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="flex h-20 w-20 shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 text-muted-foreground transition-colors hover:border-primary/60 hover:bg-muted/30"
+                                                >
+                                                    <IconUpload className="h-6 w-6" />
+                                                    <span className="mt-1 font-sans text-[10px]">Upload</span>
+                                                </div>
+                                            )}
+
+                                            <div className="min-w-0 flex-1 space-y-1.5 text-xs">
+                                                <input
+                                                    ref={fileInputRef}
+                                                    id="logo-upload"
+                                                    type="file"
+                                                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                                    onChange={handleLogoChange}
+                                                    className="hidden"
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="h-8 font-sans text-xs"
+                                                    >
+                                                        <IconUpload className="mr-1.5 h-3.5 w-3.5" />
+                                                        {logoPreview ? 'Ganti Logo' : 'Pilih Logo'}
+                                                    </Button>
+                                                    {logoPreview && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={handleRemoveLogo}
+                                                            className="h-8 font-sans text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                        >
+                                                            Hapus
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <p className="font-sans text-muted-foreground">
+                                                    Format: PNG, JPG, JPEG, WEBP, atau SVG. (Maks. 2MB)
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label htmlFor="address" className="font-sans">
                                             Alamat Perusahaan

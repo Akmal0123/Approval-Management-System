@@ -47,7 +47,7 @@ class DocumentRejectedMail extends Mailable implements ShouldQueue
                 'rejection' => $this->rejection,
                 'rejector' => $this->rejection->user,
                 'reason' => $this->rejection->alasan_reject,
-                'documentUrl' => 'http://localhost:8000/api/dokumen/' . $this->dokumen->id,
+                'documentUrl' => config('app.url') . '/dokumen/' . $this->dokumen->id,
             ],
         );
     }
