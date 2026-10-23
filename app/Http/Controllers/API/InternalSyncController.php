@@ -195,7 +195,7 @@ class InternalSyncController extends Controller
         $activeAuth = $user?->lastContext ?: $user?->userAuths?->first();
         $companyId = $activeAuth?->company_id ?? 1;
         $aplikasiId = $activeAuth?->aplikasi_id ?? 1;
-        $tipeDokumen = $request->input('tipe_dokumen') ?: (str_starts_with(strtoupper($nomorDokumen), 'PR') ? 'purchase_request' : 'purchase_order');
+        $tipeDokumen = 'transaksi';
 
         DB::beginTransaction();
         try {

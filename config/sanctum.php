@@ -15,12 +15,22 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s,%s,%s',
-        'localhost,localhost:3000,localhost:5173,localhost:8000',
-        '127.0.0.1,127.0.0.1:3000,127.0.0.1:5173,127.0.0.1:8000',
-        '::1',
-    ))),
+    'stateful' => array_values(array_filter(array_unique(array_merge(
+        explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
+            '%s,%s,%s',
+            'localhost,localhost:3000,localhost:5173,localhost:8000',
+            '127.0.0.1,127.0.0.1:3000,127.0.0.1:5173,127.0.0.1:8000',
+            '::1',
+        ))),
+        (function () {
+            try {
+                $host = request()->hasHeader('host') ? request()->getHost() : null;
+                return $host ? [$host, "{$host}:8000", "{$host}:5173"] : [];
+            } catch (\Throwable) {
+                return [];
+            }
+        })()
+    )))),
 
     /*
     |--------------------------------------------------------------------------

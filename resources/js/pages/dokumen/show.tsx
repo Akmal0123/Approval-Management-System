@@ -2,6 +2,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { NotificationListener } from '@/components/NotificationListener';
 import PDFViewer from '@/components/pdf-viewer';
 import SignaturePlacementDialog from '@/components/signature-placement-dialog';
+import { CreateDocumentDialog } from '@/components/create-document-dialog';
 import { SiteHeader } from '@/components/site-header';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -162,6 +163,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
     const [loadError, setLoadError] = useState<boolean>(false);
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -422,7 +424,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
             return;
         }
 
-        // Populate form with current dokumen data
+        // Dokumen Draft dibuka melalui CreateDocumentDialog
+        if (dokumen.status === 'draft') {
+            setIsCreateDialogOpen(true);
+            return;
+        }
+
+        // Populate form with current dokumen data for rejected
         setFormData({
             nomor_dokumen: dokumen.nomor_dokumen,
             judul_dokumen: dokumen.judul_dokumen,
@@ -1445,9 +1453,27 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                         open={isPlacementDialogOpen}
                         onOpenChange={setIsPlacementDialogOpen}
                         dokumenId={dokumen.id}
-                        fileUrl={dokumen.versions && dokumen.versions.length > 0 ? `/api/dokumen/${dokumen.id}/signed-pdf/${dokumen.versions[0].id}` : ''}
+                        fileUrl={(() => {
+                            if (!dokumen.versions || dokumen.versions.length === 0) return '';
+                            const sorted = [...dokumen.versions].sort((a, b) => new Date(b.tgl_upload).getTime() - new Date(a.tgl_upload).getTime());
+                            return `/api/dokumen/${dokumen.id}/signed-pdf/${sorted[0].id}`;
+                        })()}
                         approvals={sortedApprovals.filter(a => a.approval_status !== 'skipped')}
                     />
+
+                    {/* Create / Edit Document Dialog for Draft Documents */}
+                    {isCreateDialogOpen && dokumen && (
+                        <CreateDocumentDialog
+                            key={`edit-draft-${dokumen.id}-${dokumen.tipe_dokumen}`}
+                            open={isCreateDialogOpen}
+                            onOpenChange={setIsCreateDialogOpen}
+                            editDokumen={dokumen}
+                            onSuccess={() => {
+                                fetchDokumen();
+                                router.reload();
+                            }}
+                        />
+                    )}
                 </SidebarInset>
             </SidebarProvider>
         </>

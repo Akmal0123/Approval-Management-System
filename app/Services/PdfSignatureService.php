@@ -348,7 +348,7 @@ class PdfSignatureService
 
                 foreach ($qrPositions as $qrPosition) {
                     $qrCodesData[] = [
-                        'text' => url('/api/dokumen/' . $dokumen->id),
+                        'text' => url('/approvals/' . $dokumen->id),
                         'page' => (int)$qrPosition->page,
                         'x' => (float)$qrPosition->x,
                         'y' => (float)$qrPosition->y,
