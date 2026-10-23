@@ -69,6 +69,8 @@ class ReportController extends Controller
                         if ($statusCategory !== 'Revision') continue;
                     } elseif ($statusFilter === 'belum_approved') {
                         if ($statusCategory !== 'Belum Approved') continue;
+                    } elseif ($statusFilter === 'approved' || $statusFilter === 'approve') {
+                        if ($statusCategory !== 'Approved') continue;
                     } elseif ($statusFilter === 'others') {
                         if (in_array($statusCategory, ['Revision', 'Belum Approved'])) continue;
                     }
@@ -130,7 +132,7 @@ class ReportController extends Controller
                 ['value' => 'belum_approved', 'label' => 'Belum Approved'],
                 ['value' => 'waiting_approval', 'label' => 'Waiting Approval'],
                 ['value' => 'revision', 'label' => 'Revision'],
-                ['value' => 'others', 'label' => 'Others'],
+                ['value' => 'approved', 'label' => 'Approve'],
             ];
             $pageTitle = 'Unapprove Dokumen';
             $pageSubtitle = 'Laporan dokumen yang belum disetujui.';
@@ -213,6 +215,8 @@ class ReportController extends Controller
                         if ($statusCategory !== 'Revision') continue;
                     } elseif ($statusFilter === 'belum_approved') {
                         if ($statusCategory !== 'Belum Approved') continue;
+                    } elseif ($statusFilter === 'approved' || $statusFilter === 'approve') {
+                        if ($statusCategory !== 'Approved') continue;
                     } elseif ($statusFilter === 'others') {
                         if (in_array($statusCategory, ['Revision', 'Belum Approved'])) continue;
                     }
@@ -288,6 +292,8 @@ class ReportController extends Controller
                         if ($statusCategory !== 'Revision') continue;
                     } elseif ($statusFilter === 'belum_approved') {
                         if ($statusCategory !== 'Belum Approved') continue;
+                    } elseif ($statusFilter === 'approved' || $statusFilter === 'approve') {
+                        if ($statusCategory !== 'Approved') continue;
                     } elseif ($statusFilter === 'others') {
                         if (in_array($statusCategory, ['Revision', 'Belum Approved'])) continue;
                     }
@@ -333,6 +339,7 @@ class ReportController extends Controller
         } elseif ($request->filled('status') && $request->status !== 'all') {
             $statusMap = [
                 'approved' => 'Approved',
+                'approve' => 'Approve',
                 'belum_approved' => 'Belum Approved',
                 'waiting_approval' => 'Waiting Approval',
                 'rejected' => 'Rejected',
@@ -427,15 +434,24 @@ class ReportController extends Controller
 
         // 5. Filter by Report Type
         if ($reportType === 'unapproved') {
-            // Must NOT be fully approved and NOT rejected
-            $query->whereNotIn('status', ['approved', 'rejected'])
-                ->whereDoesntHave('approvals', function ($a) {
-                    $a->where('approval_status', 'rejected');
+            $st = strtolower($request->input('status', 'all'));
+            if ($st === 'approved' || $st === 'approve') {
+                // User specifically wants to see approved documents in unapproved report filter
+                $query->where(function ($q) {
+                    $q->where('status', 'approved')
+                        ->orWhere(function ($sub) {
+                            $sub->whereHas('approvals', fn($a) => $a->where('approval_status', 'approved'))
+                                ->whereDoesntHave('approvals', fn($a) => $a->whereIn('approval_status', ['pending', 'waiting', 'rejected', 'revision_requested']));
+                        });
                 });
+            } else {
+                // Must NOT be fully approved and NOT rejected
+                $query->whereNotIn('status', ['approved', 'rejected'])
+                    ->whereDoesntHave('approvals', function ($a) {
+                        $a->where('approval_status', 'rejected');
+                    });
 
-            // Sub-status filter within unapproved
-            if ($request->filled('status') && $request->status !== 'all') {
-                $st = strtolower($request->status);
+                // Sub-status filter within unapproved
                 if ($st === 'belum_approved') {
                     $query->whereIn('status', ['submitted', 'under_review', 'pending']);
                 } elseif ($st === 'waiting_approval') {
