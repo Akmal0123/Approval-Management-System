@@ -148,8 +148,12 @@ Route::middleware(['auth'])->group(function () {
         return Inertia::render('dokumen/index');
     })->name('dokumen.page');
 
-    // Report Route
+    // Report Routes
     Route::get('/report', [\App\Http\Controllers\ReportController::class, 'index'])->name('report.index');
+    Route::get('/report/unapproved', [\App\Http\Controllers\ReportController::class, 'unapproved'])->name('report.unapproved');
+    Route::get('/report/rejected', [\App\Http\Controllers\ReportController::class, 'rejected'])->name('report.rejected');
+    Route::get('/report/export/excel', [\App\Http\Controllers\ReportController::class, 'exportExcel'])->name('report.export.excel');
+    Route::get('/report/export/pdf', [\App\Http\Controllers\ReportController::class, 'exportPdf'])->name('report.export.pdf');
 
     // Document API endpoints with /api prefix to avoid conflicts with page routes
     Route::prefix('api/dokumen')->group(function () {
