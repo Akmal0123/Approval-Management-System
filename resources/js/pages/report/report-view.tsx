@@ -34,7 +34,9 @@ export interface ReportDoc {
 export interface GroupedData {
     [company: string]: {
         [aplikasi: string]: {
-            [transaksi: string]: ReportDoc[];
+            [transaksi: string]: {
+                [docType: string]: ReportDoc[];
+            };
         };
     };
 }
@@ -345,20 +347,22 @@ export default function ReportView({
 
         Object.entries(groupedData).forEach(([company, aplikasiGroup]) => {
             Object.entries(aplikasiGroup).forEach(([aplikasi, transaksiGroup]) => {
-                Object.entries(transaksiGroup).forEach(([transaksi, docs]) => {
-                    docs.forEach(doc => {
-                        rows.push([
-                            company,
-                            aplikasi,
-                            transaksi,
-                            doc.nomor_dokumen,
-                            `"${(doc.judul_dokumen || '').replace(/"/g, '""')}"`,
-                            doc.user,
-                            doc.nominal !== undefined && doc.nominal !== null ? String(doc.nominal) : '0',
-                            doc.status,
-                            doc.status_detail,
-                            doc.tgl_pengajuan || '-',
-                        ]);
+                Object.entries(transaksiGroup).forEach(([transaksi, docTypeGroup]) => {
+                    Object.entries(docTypeGroup).forEach(([_docType, docs]) => {
+                        docs.forEach(doc => {
+                            rows.push([
+                                company,
+                                aplikasi,
+                                transaksi,
+                                doc.nomor_dokumen,
+                                `"${(doc.judul_dokumen || '').replace(/"/g, '""')}"`,
+                                doc.user,
+                                doc.nominal !== undefined && doc.nominal !== null ? String(doc.nominal) : '0',
+                                doc.status,
+                                doc.status_detail,
+                                doc.tgl_pengajuan || '-',
+                            ]);
+                        });
                     });
                 });
             });
@@ -401,6 +405,15 @@ export default function ReportView({
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
 
+        // Deteksi apakah sedang dibuka di perangkat / layar mobile
+        const isMobileScreen = typeof window !== 'undefined' && (
+            window.innerWidth < 768 ||
+            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        );
+        if (isMobileScreen) {
+            params.append('is_mobile', '1');
+        }
+
         const url = `/report/export/pdf?${params.toString()}`;
         window.open(url, '_blank');
     };
@@ -409,8 +422,10 @@ export default function ReportView({
     let totalDocsCount = 0;
     Object.values(groupedData).forEach(appGroup => {
         Object.values(appGroup).forEach(transGroup => {
-            Object.values(transGroup).forEach(docs => {
-                totalDocsCount += docs.length;
+            Object.values(transGroup).forEach(docTypeGroup => {
+                Object.values(docTypeGroup).forEach(docs => {
+                    totalDocsCount += docs.length;
+                });
             });
         });
     });
@@ -655,25 +670,50 @@ export default function ReportView({
                                         </h3>
 
                                         <div className="flex flex-col gap-4 sm:gap-6">
-                                            {Object.entries(transaksiGroup).map(([transaksi, docs]) => (
+                                            {Object.entries(transaksiGroup).map(([transaksi, docTypeGroup]) => {
+                                                const totalTranDocs = Object.values(docTypeGroup).reduce((s, d) => s + d.length, 0);
+                                                return (
                                                 <div
                                                     key={transaksi}
                                                     className="pl-2.5 sm:pl-4 border-l-2 border-primary/30"
                                                 >
-                                                    <div className="mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                                    <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                                                         <h4 className="font-medium text-xs sm:text-sm">
                                                             Transaksi: {transaksi}
                                                         </h4>
                                                         <span className="text-[11px] sm:text-xs text-muted-foreground">
-                                                            {docs.length} dokumen
+                                                            {totalTranDocs} dokumen
                                                         </span>
                                                     </div>
-                                                    <PaginatedTable
-                                                        docs={docs}
-                                                        groupKey={`${company}-${aplikasi}-${transaksi}`}
-                                                    />
+
+                                                    {/* Doc type sub-groups: PO / PR / Lainnya */}
+                                                    <div className="flex flex-col gap-4">
+                                                        {Object.entries(docTypeGroup).map(([docType, docs]) => (
+                                                            <div key={docType}>
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <span
+                                                                        className={`inline-flex items-center px-3 py-0.5 rounded text-[11px] font-bold tracking-wide border ${
+                                                                            docType === 'PO'
+                                                                                ? 'bg-[#16a34a] text-white border-[#15803d]'
+                                                                                : docType === 'PR'
+                                                                                ? 'bg-[#16a34a] text-white border-[#15803d]'
+                                                                                : 'bg-gray-500 text-white border-gray-600'
+                                                                        }`}
+                                                                    >
+                                                                        {docType}
+                                                                    </span>
+                                                                    <span className="text-[11px] text-muted-foreground">{docs.length} dokumen</span>
+                                                                </div>
+                                                                <PaginatedTable
+                                                                    docs={docs}
+                                                                    groupKey={`${company}-${aplikasi}-${transaksi}-${docType}`}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))}

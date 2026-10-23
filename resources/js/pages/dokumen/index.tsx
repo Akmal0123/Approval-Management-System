@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import api from '@/lib/api';
+import { showSwalToast } from '@/lib/swalToast';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { IconAlertCircle, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';

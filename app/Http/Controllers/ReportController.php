@@ -81,6 +81,11 @@ class ReportController extends Controller
                 }
             }
 
+            // Determine doc type from nomor_dokumen prefix (PO, PR, etc.)
+            $nomorDokumen = $doc->nomor_dokumen ?? '';
+            $docTypePrefix = strtoupper(substr($nomorDokumen, 0, 2));
+            $docType = in_array($docTypePrefix, ['PO', 'PR']) ? $docTypePrefix : 'Lainnya';
+
             if (!isset($grouped[$companyName])) {
                 $grouped[$companyName] = [];
             }
@@ -90,8 +95,11 @@ class ReportController extends Controller
             if (!isset($grouped[$companyName][$aplikasiName][$transaksiName])) {
                 $grouped[$companyName][$aplikasiName][$transaksiName] = [];
             }
+            if (!isset($grouped[$companyName][$aplikasiName][$transaksiName][$docType])) {
+                $grouped[$companyName][$aplikasiName][$transaksiName][$docType] = [];
+            }
 
-            $grouped[$companyName][$aplikasiName][$transaksiName][] = [
+            $grouped[$companyName][$aplikasiName][$transaksiName][$docType][] = [
                 'id' => $doc->id,
                 'nomor_dokumen' => $doc->nomor_dokumen,
                 'judul_dokumen' => $doc->judul_dokumen,
@@ -101,6 +109,25 @@ class ReportController extends Controller
                 'tgl_pengajuan' => $doc->tgl_pengajuan ? $doc->tgl_pengajuan->format('Y-m-d') : null,
                 'user' => $doc->user ? $doc->user->name : 'Unknown',
             ];
+        }
+
+        // Sort doc types (PO first, PR second, others last) and sort docs within each group by nomor_dokumen
+        $docTypeOrder = ['PO' => 0, 'PR' => 1, 'Lainnya' => 99];
+        foreach ($grouped as $cName => $aplikasiGroups) {
+            foreach ($aplikasiGroups as $aName => $transaksiGroups) {
+                foreach ($transaksiGroups as $tName => $docTypeGroups) {
+                    // Sort doc types: PO → PR → Lainnya
+                    uksort($docTypeGroups, fn($a, $b) =>
+                        ($docTypeOrder[$a] ?? 99) - ($docTypeOrder[$b] ?? 99)
+                    );
+                    // Sort docs within each doc type by nomor_dokumen
+                    foreach ($docTypeGroups as $dt => $docs) {
+                        usort($docs, fn($a, $b) => strcmp($a['nomor_dokumen'], $b['nomor_dokumen']));
+                        $docTypeGroups[$dt] = $docs;
+                    }
+                    $grouped[$cName][$aName][$tName] = $docTypeGroups;
+                }
+            }
         }
 
         // Available companies & aplikasis for filters according to access rights
@@ -197,10 +224,16 @@ class ReportController extends Controller
         ];
 
         $rows = [];
+        $rawRows = [];
         foreach ($dokumen as $doc) {
             $companyName = $doc->company ? $doc->company->name : 'Unknown Company';
             $aplikasiName = $doc->aplikasi ? $doc->aplikasi->name : 'Unknown Aplikasi';
-            $transaksiName = $doc->transaksi ? $doc->transaksi->name : 'Unknown Transaksi';
+            $nomorDokumen = $doc->nomor_dokumen ?? '';
+            $docTypePrefix = strtoupper(substr($nomorDokumen, 0, 2));
+            $docType = in_array($docTypePrefix, ['PO', 'PR']) ? $docTypePrefix : 'Lainnya';
+            $transaksiName = ($doc->transaksi && $doc->transaksi->name && $doc->transaksi->name !== 'Unknown Transaksi')
+                ? $doc->transaksi->name
+                : ($docType !== 'Lainnya' ? $docType : '-');
             $statusCategory = $this->resolveStatusCategory($doc);
 
             if ($statusFilter !== 'all') {
@@ -225,17 +258,51 @@ class ReportController extends Controller
                 }
             }
 
+            $rawRows[] = [
+                'company' => $companyName,
+                'aplikasi' => $aplikasiName,
+                'transaksi' => $transaksiName,
+                'doc_type' => $docType,
+                'nomor_dokumen' => $doc->nomor_dokumen,
+                'judul_dokumen' => $doc->judul_dokumen,
+                'user' => $doc->user ? $doc->user->name : 'Unknown',
+                'nominal' => $doc->nominal ? (float)$doc->nominal : 0,
+                'status' => $statusCategory,
+                'status_detail' => $doc->status_current ?? $doc->status,
+                'tgl_pengajuan' => $doc->tgl_pengajuan ? $doc->tgl_pengajuan->format('Y-m-d') : '-',
+            ];
+        }
+
+        // Sort rows: company, aplikasi, doc_type (PO first, PR second, others last), nomor_dokumen
+        $docTypeOrder = ['PO' => 0, 'PR' => 1, 'Lainnya' => 99];
+        usort($rawRows, function ($a, $b) use ($docTypeOrder) {
+            $compCmp = strcmp($a['company'], $b['company']);
+            if ($compCmp !== 0) return $compCmp;
+
+            $appCmp = strcmp($a['aplikasi'], $b['aplikasi']);
+            if ($appCmp !== 0) return $appCmp;
+
+            $orderA = $docTypeOrder[$a['doc_type']] ?? 99;
+            $orderB = $docTypeOrder[$b['doc_type']] ?? 99;
+            if ($orderA !== $orderB) {
+                return $orderA - $orderB;
+            }
+
+            return strcmp($a['nomor_dokumen'] ?? '', $b['nomor_dokumen'] ?? '');
+        });
+
+        foreach ($rawRows as $r) {
             $rows[] = [
-                $companyName,
-                $aplikasiName,
-                $transaksiName,
-                $doc->nomor_dokumen,
-                $doc->judul_dokumen,
-                $doc->user ? $doc->user->name : 'Unknown',
-                $doc->nominal ? (float)$doc->nominal : 0,
-                $statusCategory,
-                $doc->status_current ?? $doc->status,
-                $doc->tgl_pengajuan ? $doc->tgl_pengajuan->format('Y-m-d') : '-',
+                $r['company'],
+                $r['aplikasi'],
+                $r['transaksi'],
+                $r['nomor_dokumen'],
+                $r['judul_dokumen'],
+                $r['user'],
+                $r['nominal'],
+                $r['status'],
+                $r['status_detail'],
+                $r['tgl_pengajuan'],
             ];
         }
 
@@ -275,7 +342,12 @@ class ReportController extends Controller
         foreach ($dokumen as $doc) {
             $companyName = $doc->company ? $doc->company->name : 'Unknown Company';
             $aplikasiName = $doc->aplikasi ? $doc->aplikasi->name : 'Unknown Aplikasi';
-            $transaksiName = $doc->transaksi ? $doc->transaksi->name : 'Unknown Transaksi';
+            $nomorDokumen = $doc->nomor_dokumen ?? '';
+            $docTypePrefix = strtoupper(substr($nomorDokumen, 0, 2));
+            $docType = in_array($docTypePrefix, ['PO', 'PR']) ? $docTypePrefix : 'Lainnya';
+            $transaksiName = ($doc->transaksi && $doc->transaksi->name && $doc->transaksi->name !== 'Unknown Transaksi')
+                ? $doc->transaksi->name
+                : ($docType !== 'Lainnya' ? $docType : '-');
             $statusCategory = $this->resolveStatusCategory($doc);
 
             if ($statusFilter !== 'all') {
@@ -304,6 +376,7 @@ class ReportController extends Controller
                 'company' => $companyName,
                 'aplikasi' => $aplikasiName,
                 'transaksi' => $transaksiName,
+                'doc_type' => $docType,
                 'nomor_dokumen' => $doc->nomor_dokumen,
                 'judul_dokumen' => $doc->judul_dokumen,
                 'user' => $doc->user ? $doc->user->name : 'Unknown',
@@ -313,6 +386,24 @@ class ReportController extends Controller
                 'tgl_pengajuan' => $doc->tgl_pengajuan ? $doc->tgl_pengajuan->format('Y-m-d') : '-',
             ];
         }
+
+        // Sort items: company, aplikasi, doc_type (PO first, PR second, others last), nomor_dokumen
+        $docTypeOrder = ['PO' => 0, 'PR' => 1, 'Lainnya' => 99];
+        usort($items, function ($a, $b) use ($docTypeOrder) {
+            $compCmp = strcmp($a['company'], $b['company']);
+            if ($compCmp !== 0) return $compCmp;
+
+            $appCmp = strcmp($a['aplikasi'], $b['aplikasi']);
+            if ($appCmp !== 0) return $appCmp;
+
+            $orderA = $docTypeOrder[$a['doc_type']] ?? 99;
+            $orderB = $docTypeOrder[$b['doc_type']] ?? 99;
+            if ($orderA !== $orderB) {
+                return $orderA - $orderB;
+            }
+
+            return strcmp($a['nomor_dokumen'] ?? '', $b['nomor_dokumen'] ?? '');
+        });
 
         // Determine filter labels for header box
         $companyLabel = 'Semua Company';
@@ -361,7 +452,14 @@ class ReportController extends Controller
             default => 'REPORT DOKUMEN',
         };
 
+        // Detect mobile device (via parameter or User-Agent header)
+        $isMobileParam = $request->input('is_mobile');
+        $userAgent = strtolower($request->header('User-Agent', ''));
+        $isMobile = ($isMobileParam === '1' || $isMobileParam === 'true') ||
+            (bool)preg_match('/(android|iphone|ipad|ipod|mobile|phone|blackberry|opera mini|iemobile)/i', $userAgent);
+
         $pdf = new ReportPdfService();
+        $pdf->setIsMobile($isMobile);
         $pdf->setFilterInfo($companyLabel, $aplikasiLabel, $statusLabel, $reportTitle, $periodeLabel);
         $pdf->renderContent($items);
 

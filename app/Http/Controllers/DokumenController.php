@@ -588,6 +588,34 @@ class DokumenController extends Controller
         }
     }
 
+
+    /**
+     * Inertia page for /dokumen/{id}.
+     *
+     * 1. If {id} is non-numeric (e.g. /dokumen/abc) -> standard 404 abort.
+     * 2. If {id} is numeric but NOT in DB           -> redirect back + flash toast error.
+     * 3. If {id} exists in DB                       -> render detail page via show().
+     */
+    public function showPage(Request $request, $dokumen)
+    {
+        // 1. Jika parameter mengandung huruf/string (non-numeric), tampilkan halaman standar 404 Not Found
+        if (!is_numeric($dokumen) || !ctype_digit((string) $dokumen)) {
+            abort(404);
+        }
+
+        // 2. Jika parameter berupa angka (numeric) namun datanya tidak ditemukan di database
+        $doc = Dokumen::find($dokumen);
+
+        if (!$doc) {
+            return redirect()
+                ->back(fallback: route('dokumen.page'))
+                ->with('error', 'Dokumen tidak ditemukan!');
+        }
+
+        // 3. Jika dokumen ditemukan, delegate ke show()
+        return $this->show($request, $doc);
+    }
+
     /**
      * Display the specified resource.
      */

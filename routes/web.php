@@ -173,8 +173,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Document detail page
-    Route::get('/dokumen/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])
-        ->where('dokumen', '[0-9]+')
+    Route::get('/dokumen/{id}', [\App\Http\Controllers\DokumenController::class, 'showPage'])
         ->name('dokumen.detail');
 });
 
