@@ -167,6 +167,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
 
     // Bulk approval states
     const [selectedApprovalIds, setSelectedApprovalIds] = useState<number[]>([]);
+    const [selectedApprovalsMap, setSelectedApprovalsMap] = useState<Record<number, DokumenApproval>>({});
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [bulkSignatureMethod, setBulkSignatureMethod] = useState<'original' | 'qr'>('original');
     const [bulkSignatureData, setBulkSignatureData] = useState<string | null>(null);
@@ -262,23 +263,74 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
         eligibleApprovals.length > 0 &&
         eligibleApprovals.every((a) => selectedApprovalIds.includes(a.id));
     const isSomeSelected =
-        selectedApprovalIds.length > 0 && !isAllSelected;
+        eligibleApprovals.some((a) => selectedApprovalIds.includes(a.id)) && !isAllSelected;
+
+    const selectedApprovalsOnCurrentPageCount = eligibleApprovals.filter((a) =>
+        selectedApprovalIds.includes(a.id)
+    ).length;
 
     // Handle single checkbox selection
-    const toggleSelectApproval = (id: number) => {
+    const toggleSelectApproval = (id: number, approvalObj?: DokumenApproval) => {
+        const doc = approvalObj || approvalsData.find((a) => a.id === id);
         setSelectedApprovalIds((prev) =>
             prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
         );
+        setSelectedApprovalsMap((prev) => {
+            const next = { ...prev };
+            if (next[id]) {
+                delete next[id];
+            } else if (doc) {
+                next[id] = doc;
+            }
+            return next;
+        });
     };
 
-    // Handle select all toggle
+    // Handle select all toggle for current page
     const handleSelectAll = (checked?: boolean | 'indeterminate') => {
+        const eligibleIds = eligibleApprovals.map((a) => a.id);
         if (isAllSelected) {
-            setSelectedApprovalIds([]);
+            // Uncheck only eligible items on current page, keeping items selected from other pages
+            setSelectedApprovalIds((prev) => prev.filter((id) => !eligibleIds.includes(id)));
+            setSelectedApprovalsMap((prev) => {
+                const next = { ...prev };
+                eligibleIds.forEach((id) => {
+                    delete next[id];
+                });
+                return next;
+            });
         } else {
-            setSelectedApprovalIds(eligibleApprovals.map((a) => a.id));
+            // Select all eligible items on current page, union with existing
+            setSelectedApprovalIds((prev) => Array.from(new Set([...prev, ...eligibleIds])));
+            setSelectedApprovalsMap((prev) => {
+                const next = { ...prev };
+                eligibleApprovals.forEach((a) => {
+                    next[a.id] = a;
+                });
+                return next;
+            });
         }
     };
+
+    // Clear all selections
+    const handleClearSelection = () => {
+        setSelectedApprovalIds([]);
+        setSelectedApprovalsMap({});
+        setBulkSignatureData(null);
+        setShowBulkSignaturePad(false);
+        setBulkComment('');
+    };
+
+    // Clear selection on Escape key
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && selectedApprovalIds.length > 0 && !isBulkModalOpen && !isPreviewDialogOpen) {
+                handleClearSelection();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedApprovalIds.length, isBulkModalOpen, isPreviewDialogOpen]);
 
     // Handle bulk approve submission
     const handleBulkApproveSubmit = () => {
@@ -305,10 +357,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                 preserveScroll: true,
                 onSuccess: () => {
                     showToast.success(`✅ Berhasil menyetujui ${selectedApprovalIds.length} dokumen!`);
-                    setSelectedApprovalIds([]);
-                    setBulkSignatureData(null);
-                    setBulkComment('');
-                    setShowBulkSignaturePad(false);
+                    handleClearSelection();
                     setIsBulkSubmitting(false);
                     setIsBulkModalOpen(false);
                     router.reload({ only: ['approvals', 'stats'] });
@@ -368,7 +417,9 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
         }
     }, [isBulkModalOpen, selectedApprovalIds, bulkPreviewApprovalId]);
 
-    const selectedApprovalsList = approvalsData.filter((a) => selectedApprovalIds.includes(a.id));
+    const selectedApprovalsList = selectedApprovalIds
+        .map((id) => selectedApprovalsMap[id] || approvalsData.find((a) => a.id === id))
+        .filter((a): a is DokumenApproval => Boolean(a));
     const currentBulkPreviewApproval =
         selectedApprovalsList.find((a) => a.id === bulkPreviewApprovalId) || selectedApprovalsList[0] || null;
     const bulkPreviewVersion = currentBulkPreviewApproval?.dokumen_version || currentBulkPreviewApproval?.dokumen?.latest_version;
@@ -427,7 +478,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     // Handle tab change
     const handleTabChange = (value: string) => {
         setSelectedTab(value);
-        setSelectedApprovalIds([]); // Reset selection on tab switch
+        handleClearSelection(); // Reset selection on tab switch
         handleFilterChange(selectedAplikasiId, selectedTransaksiId, search, value);
     };
 
@@ -499,6 +550,70 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                 <AppSidebar variant="inset" />
                 <SidebarInset>
                     <SiteHeader />
+
+                    {/* Bulk Selection Overlay Toolbar (Sticky at top of content, never covers sidebar, Chrome History style) */}
+                    {selectedApprovalIds.length > 0 && (
+                        <aside
+                            aria-label="Toolbar persetujuan massal"
+                            className="sticky top-0 z-30 w-full border-b border-primary/30 bg-background/95 backdrop-blur-md px-4 py-2.5 shadow-md transition-all duration-200 animate-in fade-in slide-in-from-top-2 lg:px-6"
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                {/* Left side: Deselect button & selection counter */}
+                                <div className="flex items-center gap-2.5 sm:gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={handleClearSelection}
+                                        className="h-8 w-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        title="Batal pilihan (Esc)"
+                                    >
+                                        <IconX className="h-4 w-4" />
+                                        <span className="sr-only">Batal pilihan</span>
+                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                                        <span className="font-sans text-xs sm:text-sm font-semibold text-foreground">
+                                            {selectedApprovalIds.length} dokumen terpilih
+                                        </span>
+                                        {selectedApprovalsOnCurrentPageCount > 0 && (
+                                            <span className="hidden font-sans text-xs text-muted-foreground md:inline">
+                                                ({selectedApprovalsOnCurrentPageCount} di halaman ini)
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right side: Action buttons */}
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleClearSelection}
+                                        className="hidden font-sans text-xs text-muted-foreground hover:text-destructive sm:inline-flex"
+                                    >
+                                        Batal Semua
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => {
+                                            if (selectedApprovalIds.length > 0) {
+                                                setBulkPreviewApprovalId(selectedApprovalIds[0]);
+                                            }
+                                            setIsBulkModalOpen(true);
+                                        }}
+                                        className="font-sans text-xs font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                    >
+                                        <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+                                        Bulk Approve ({selectedApprovalIds.length})
+                                    </Button>
+                                </div>
+                            </div>
+                        </aside>
+                    )}
+
                     <div className="flex flex-1 flex-col">
                         <div className="@container/main flex flex-1 flex-col gap-6 p-6" style={{ transition: 'all 0.3s ease' }}>
                             {/* Header */}
@@ -606,71 +721,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         </TabsList>
 
                                         <TabsContent value={selectedTab} className="mt-6 space-y-4">
-                                            {/* Toolbar Bulk Selection */}
-                                            {eligibleApprovals.length > 0 && (
-                                                <div
-                                                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5 transition-all ${selectedApprovalIds.length > 0
-                                                        ? 'border-primary/30 bg-primary/10 shadow-xs'
-                                                        : 'border-border/60 bg-muted/40'
-                                                        }`}
-                                                >
-                                                    <div className="flex items-center gap-2.5">
-                                                        {selectedApprovalIds.length > 0 ? (
-                                                            <>
-                                                                <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                                                                <span className="font-sans text-xs sm:text-sm font-semibold text-foreground">
-                                                                    {selectedApprovalIds.length} dokumen terpilih
-                                                                </span>
-                                                                <span className="font-sans text-xs text-muted-foreground hidden sm:inline">
-                                                                    (dari {eligibleApprovals.length} dokumen menunggu)
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="font-sans text-xs text-muted-foreground flex items-center gap-1.5">
-                                                                <IconClock className="h-3.5 w-3.5 text-amber-500" />
-                                                                Pilih dokumen untuk persetujuan massal ({eligibleApprovals.length} dokumen menunggu)
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            disabled={selectedApprovalIds.length === 0}
-                                                            onClick={() => {
-                                                                if (selectedApprovalIds.length > 0) {
-                                                                    setBulkPreviewApprovalId(selectedApprovalIds[0]);
-                                                                }
-                                                                setIsBulkModalOpen(true);
-                                                            }}
-                                                            className={`font-sans text-xs font-semibold shadow-xs transition-colors ${selectedApprovalIds.length > 0
-                                                                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                                                : 'opacity-50 cursor-not-allowed'
-                                                                }`}
-                                                        >
-                                                            <IconCheck className="mr-1.5 h-3.5 w-3.5" />
-                                                            Bulk Approve ({selectedApprovalIds.length})
-                                                        </Button>
-                                                        {selectedApprovalIds.length > 0 && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setSelectedApprovalIds([]);
-                                                                    setBulkSignatureData(null);
-                                                                    setShowBulkSignaturePad(false);
-                                                                    setBulkComment('');
-                                                                }}
-                                                                className="font-sans text-xs text-muted-foreground hover:text-destructive"
-                                                            >
-                                                                Batal
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
                                             {/* Approval Items List */}
                                             {approvalsData.length === 0 ? (
                                                 <div className="py-12 text-center">
@@ -723,7 +773,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                                         <Checkbox
                                                                                             checked={isSelected}
                                                                                             disabled={!isEligible}
-                                                                                            onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                            onCheckedChange={() => toggleSelectApproval(approval.id, approval)}
                                                                                             aria-label={`Pilih ${approval.dokumen.judul_dokumen}`}
                                                                                         />
                                                                                     </td>
@@ -803,7 +853,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                                 <Checkbox
                                                                                     checked={isSelected}
                                                                                     disabled={!isEligible}
-                                                                                    onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                    onCheckedChange={() => toggleSelectApproval(approval.id, approval)}
                                                                                     aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
                                                                                 />
                                                                                 <span className="font-sans text-xs font-medium text-muted-foreground">
@@ -950,7 +1000,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                             <Checkbox
                                                                                 checked={isSelected}
                                                                                 disabled={!isEligible}
-                                                                                onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                onCheckedChange={() => toggleSelectApproval(approval.id, approval)}
                                                                                 aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
                                                                             />
                                                                             <span className="font-sans text-xs font-medium text-muted-foreground">
@@ -1080,7 +1130,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                                 variant={link.active ? 'default' : 'outline'}
                                                                 size="sm"
                                                                 disabled={!link.url}
-                                                                onClick={() => link.url && router.visit(link.url)}
+                                                                onClick={() => link.url && router.visit(link.url, { preserveState: true, preserveScroll: true })}
                                                                 className="font-sans"
                                                                 dangerouslySetInnerHTML={{ __html: link.label }}
                                                             />
@@ -1093,7 +1143,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             variant="outline"
                                                             size="sm"
                                                             disabled={!approvals.links[0].url}
-                                                            onClick={() => approvals.links[0].url && router.visit(approvals.links[0].url)}
+                                                            onClick={() => approvals.links[0].url && router.visit(approvals.links[0].url, { preserveState: true, preserveScroll: true })}
                                                             className="font-sans"
                                                         >
                                                             ‹ Sebelumnya
@@ -1107,7 +1157,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             disabled={!approvals.links[approvals.links.length - 1].url}
                                                             onClick={() => {
                                                                 const url = approvals.links[approvals.links.length - 1].url;
-                                                                if (url) router.visit(url);
+                                                                if (url) router.visit(url, { preserveState: true, preserveScroll: true });
                                                             }}
                                                             className="font-sans"
                                                         >
