@@ -8,7 +8,6 @@ import Pusher from 'pusher-js';
 import { createRoot } from 'react-dom/client';
 import { toast, Toaster } from 'react-hot-toast';
 import { initializeTheme } from './hooks/use-appearance';
-import { showSwalToast } from './lib/swalToast';
 
 // Extend Window interface for Pusher and Echo
 declare global {
@@ -139,20 +138,7 @@ router.on('navigate', () => {
     toast.dismiss();
 });
 
-// Automatically trigger toasts for flash messages from Laravel
-const handleFlashMessages = (flash: any) => {
-    if (!flash) return;
-    if (flash.error) {
-        showSwalToast.error(flash.error);
-    } else if (flash.success) {
-        showSwalToast.success(flash.success);
-    }
-};
 
-router.on('success', (event) => {
-    const flash = (event.detail.page.props as any)?.flash;
-    handleFlashMessages(flash);
-});
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -161,10 +147,6 @@ createInertiaApp({
     resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
     setup({ el, App, props }) {
         const root = createRoot(el);
-
-        // Check flash on initial page load
-        const initialFlash = (props.initialPage?.props as any)?.flash;
-        handleFlashMessages(initialFlash);
 
         root.render(
             <>
