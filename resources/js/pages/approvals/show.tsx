@@ -30,7 +30,7 @@ import {
     IconUsers,
     IconX,
 } from '@tabler/icons-react';
-import { CheckCircle2Icon, Timer, XCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon, Loader2, Timer, XCircleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -119,6 +119,20 @@ interface Props {
     approval: DokumenApproval;
     allApprovals: DokumenApproval[];
     canApprove: boolean;
+}
+
+function ProcessingDots() {
+    const [dots, setDots] = useState('.');
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDots((prev) => (prev.length >= 3 ? '' : prev + '.'));
+        }, 350);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    return <span className="inline-block w-4 text-left whitespace-nowrap">{dots}</span>;
 }
 
 export default function ApproverShow({ approval, allApprovals, canApprove }: Props) {
@@ -937,6 +951,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                     <Dialog
                         open={isPreviewDialogOpen}
                         onOpenChange={(open) => {
+                            if (approveForm.processing) return;
                             setIsPreviewDialogOpen(open);
                             if (!open) {
                                 setShowSignaturePad(false);
@@ -945,30 +960,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                         }}
                     >
                         <DialogContent className="flex h-[92vh] max-h-[92dvh] w-[95vw] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 lg:h-[90vh] lg:max-h-[90dvh] lg:w-[95vw] lg:max-w-[1400px]">
-                            {/* Loading Overlay saat proses approval */}
-                            {approveForm.processing && (
-                                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 rounded-2xl bg-background/90 backdrop-blur-sm">
-                                    <div className="flex flex-col items-center gap-3 rounded-2xl border bg-background p-8 shadow-xl">
-                                        {/* Spinner */}
-                                        <div className="relative h-14 w-14">
-                                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-primary/20" />
-                                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary" style={{ animationDuration: '0.8s' }} />
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="font-serif text-base font-semibold text-foreground">Memproses Persetujuan...</p>
-                                            <p className="mt-1 font-sans text-xs text-muted-foreground">
-                                                Mohon tunggu, dokumen sedang ditandatangani dan disimpan.
-                                            </p>
-                                        </div>
-                                        {/* Animated dots */}
-                                        <div className="flex gap-1">
-                                            <span className="h-2 w-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '0ms' }} />
-                                            <span className="h-2 w-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '150ms' }} />
-                                            <span className="h-2 w-2 animate-bounce rounded-full bg-primary" style={{ animationDelay: '300ms' }} />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                             <DialogHeader className="shrink-0 border-b px-4 py-3">
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                     <div className="min-w-0">
@@ -1173,6 +1164,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 onChange={(e) => approveForm.setData('comment', e.target.value)}
                                                                 className="font-sans text-sm"
                                                                 rows={2}
+                                                                disabled={approveForm.processing}
                                                             />
                                                         </div>
 
@@ -1184,8 +1176,19 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 disabled={approveForm.processing}
                                                                 className="w-full font-sans h-9"
                                                             >
-                                                                <IconCheck className="mr-1.5 h-3.5 w-3.5" />
-                                                                {approveForm.processing ? 'Memproses...' : 'Setujui Dokumen'}
+                                                                {approveForm.processing ? (
+                                                                    <>
+                                                                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                                                        <span>
+                                                                            Memproses<ProcessingDots />
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+                                                                        Setujui Dokumen
+                                                                    </>
+                                                                )}
                                                             </Button>
                                                             <Button
                                                                 type="button"
