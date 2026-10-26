@@ -567,11 +567,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 type="button"
                                                 onClick={() => setApprovalsViewMode('card')}
                                                 title="Tampilan Card"
-                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
-                                                    approvalsViewMode === 'card'
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${approvalsViewMode === 'card'
                                                         ? 'bg-background text-primary shadow-sm'
                                                         : 'text-muted-foreground hover:text-foreground'
-                                                }`}
+                                                    }`}
                                             >
                                                 <IconLayoutGrid className="h-4 w-4" />
                                             </button>
@@ -579,11 +578,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 type="button"
                                                 onClick={() => setApprovalsViewMode('table')}
                                                 title="Tampilan Tabel"
-                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
-                                                    approvalsViewMode === 'table'
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${approvalsViewMode === 'table'
                                                         ? 'bg-background text-primary shadow-sm'
                                                         : 'text-muted-foreground hover:text-foreground'
-                                                }`}
+                                                    }`}
                                             >
                                                 <IconList className="h-4 w-4" />
                                             </button>
@@ -684,444 +682,440 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                 </div>
                                             ) : (
                                                 <>
-                                                {/* ===== DESKTOP TABLE VIEW ===== */}
-                                                {approvalsViewMode === 'table' ? (
-                                                    <div className="hidden lg:block">
-                                                        <div className="mb-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                                                    {/* ===== DESKTOP TABLE VIEW ===== */}
+                                                    {approvalsViewMode === 'table' ? (
+                                                        <div className="hidden lg:block">
+                                                            <div className="mb-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                                                                <Checkbox
+                                                                    checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                                                                    disabled={eligibleApprovals.length === 0}
+                                                                    onCheckedChange={handleSelectAll}
+                                                                    aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                                />
+                                                                <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
+                                                            </div>
+                                                            <div className="overflow-hidden rounded-xl border">
+                                                                <table className="w-full text-sm font-sans">
+                                                                    <thead className="bg-muted/50 text-left">
+                                                                        <tr>
+                                                                            <th className="px-4 py-3 w-8"></th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide w-8">#</th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Dokumen</th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Status</th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Pengaju</th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Nominal</th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Tgl Pengajuan</th>
+                                                                            <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide text-right">Aksi</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="divide-y divide-border bg-card">
+                                                                        {approvalsData.map((approval, index) => {
+                                                                            const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
+                                                                            const isSelected = selectedApprovalIds.includes(approval.id);
+                                                                            const overdue = isOverdue(approval.tgl_deadline);
+                                                                            return (
+                                                                                <tr
+                                                                                    key={approval.id}
+                                                                                    className={`transition-colors hover:bg-muted/30 ${updatedApprovalIds.has(approval.id) ? 'bg-green-50 dark:bg-green-950/10' : isSelected ? 'bg-primary/5' : ''
+                                                                                        }`}
+                                                                                >
+                                                                                    <td className="px-4 py-3">
+                                                                                        <Checkbox
+                                                                                            checked={isSelected}
+                                                                                            disabled={!isEligible}
+                                                                                            onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                            aria-label={`Pilih ${approval.dokumen.judul_dokumen}`}
+                                                                                        />
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{index + 1 + (approvals.current_page - 1) * approvals.per_page}</td>
+                                                                                    <td className="px-4 py-3 max-w-xs">
+                                                                                        <div className="space-y-1">
+                                                                                            <p className="font-semibold text-foreground leading-tight line-clamp-1" title={approval.dokumen.judul_dokumen}>{approval.dokumen.judul_dokumen}</p>
+                                                                                            <div className="flex flex-wrap items-center gap-1">
+                                                                                                <Badge variant="secondary" className="bg-green-100 px-1 py-0 font-mono text-[10px] text-green-800">{approval.dokumen.nomor_dokumen}</Badge>
+                                                                                                {approval.masterflow_step && (
+                                                                                                    <span className="rounded bg-muted px-1 py-0 font-sans text-[10px] text-muted-foreground">Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}</span>
+                                                                                                )}
+                                                                                                {overdue && (
+                                                                                                    <Badge variant="outline" className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700">Terlambat</Badge>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3">{getStatusBadge(approval.approval_status)}</td>
+                                                                                    <td className="px-4 py-3">
+                                                                                        <div className="space-y-0.5">
+                                                                                            <p className="text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</p>
+                                                                                            <p className="text-xs text-muted-foreground">{approval.dokumen.user?.name || '-'}</p>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3">
+                                                                                        <span className="font-mono text-xs font-semibold text-green-600">{formatCurrency(approval.dokumen.nominal)}</span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(approval.dokumen.tgl_pengajuan)}</td>
+                                                                                    <td className="px-4 py-3">
+                                                                                        <div className="flex items-center justify-end gap-1.5">
+                                                                                            <Button variant="outline" size="sm" onClick={() => handleOpenPreview(approval)} className="h-7 px-2 font-sans text-xs" title="Preview">
+                                                                                                <IconEye className="h-3.5 w-3.5" />
+                                                                                            </Button>
+                                                                                            <Button variant="outline" size="sm" onClick={() => handleViewDetail(approval.id)} className="h-7 px-2 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary" title="Detail">
+                                                                                                <IconFileText className="h-3.5 w-3.5" />
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="hidden gap-4 lg:grid lg:grid-cols-3">
+                                                            <div className="col-span-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                                                                <Checkbox
+                                                                    checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                                                                    disabled={eligibleApprovals.length === 0}
+                                                                    onCheckedChange={handleSelectAll}
+                                                                    aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                                    className="cursor-pointer"
+                                                                />
+                                                                <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
+                                                            </div>
+
+                                                            {approvalsData.map((approval, index) => {
+                                                                const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
+                                                                const isSelected = selectedApprovalIds.includes(approval.id);
+                                                                const overdue = isOverdue(approval.tgl_deadline);
+
+                                                                return (
+                                                                    <article
+                                                                        key={approval.id}
+                                                                        className={`min-w-0 space-y-4 rounded-lg border bg-card p-4 transition-colors ${updatedApprovalIds.has(approval.id)
+                                                                                ? 'bg-green-50 dark:bg-green-950/20'
+                                                                                : isSelected
+                                                                                    ? 'bg-primary/5'
+                                                                                    : ''
+                                                                            }`}
+                                                                    >
+                                                                        <div className="flex items-center justify-between gap-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Checkbox
+                                                                                    checked={isSelected}
+                                                                                    disabled={!isEligible}
+                                                                                    onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                    aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
+                                                                                />
+                                                                                <span className="font-sans text-xs font-medium text-muted-foreground">
+                                                                                    #{index + 1 + (approvals.current_page - 1) * approvals.per_page}
+                                                                                </span>
+                                                                            </div>
+                                                                            {getStatusBadge(approval.approval_status)}
+                                                                        </div>
+
+                                                                        <div className="min-w-0 space-y-2">
+                                                                            <h3 className="break-words font-sans text-base font-semibold leading-tight text-foreground">
+                                                                                {approval.dokumen.judul_dokumen}
+                                                                            </h3>
+                                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                                <Badge
+                                                                                    variant="secondary"
+                                                                                    className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
+                                                                                >
+                                                                                    {approval.dokumen.nomor_dokumen}
+                                                                                </Badge>
+                                                                                {approval.masterflow_step && (
+                                                                                    <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
+                                                                                        Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            {approval.tgl_deadline && (
+                                                                                <div className={`flex flex-wrap items-center gap-1 font-sans text-xs ${overdue ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                                                                    <IconClock className="h-3.5 w-3.5 shrink-0" />
+                                                                                    <span>{overdue ? 'Terlambat' : 'Deadline'} {formatDate(approval.tgl_deadline)}</span>
+                                                                                    {overdue && (
+                                                                                        <Badge variant="outline" className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700">
+                                                                                            Terlambat
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="grid min-w-0 grid-cols-2 gap-3 border-t pt-3 font-sans">
+                                                                            <div className="min-w-0 space-y-1">
+                                                                                <p className="text-[10px] font-medium uppercase text-muted-foreground">Perusahaan / Pengaju</p>
+                                                                                <div className="flex min-w-0 items-center gap-1.5">
+                                                                                    <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                                    <span className="min-w-0 break-words text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</span>
+                                                                                </div>
+                                                                                <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                                                                                    <IconUser className="h-3.5 w-3.5 shrink-0" />
+                                                                                    <span className="min-w-0 break-words text-xs">{approval.dokumen.user?.name || '-'}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="min-w-0 space-y-1">
+                                                                                <p className="text-[10px] font-medium uppercase text-muted-foreground">Nominal</p>
+                                                                                <p className="break-words text-sm font-semibold text-green-600">{formatCurrency(approval.dokumen.nominal)}</p>
+                                                                            </div>
+                                                                            <div className="col-span-2 min-w-0 space-y-1">
+                                                                                <p className="text-[10px] font-medium uppercase text-muted-foreground">Jenis Transaksi</p>
+                                                                                {approval.dokumen.transaksi ? (
+                                                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                                                        <Badge
+                                                                                            variant="outline"
+                                                                                            className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
+                                                                                        >
+                                                                                            {approval.dokumen.transaksi.kode_transaksi}
+                                                                                        </Badge>
+                                                                                        <span className="break-words text-xs text-muted-foreground">{approval.dokumen.transaksi.nama_transaksi}</span>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="col-span-2 min-w-0 space-y-1">
+                                                                                <p className="text-[10px] font-medium uppercase text-muted-foreground">Tanggal Pengajuan</p>
+                                                                                <p className="text-xs text-muted-foreground">{formatDate(approval.dokumen.tgl_pengajuan)}</p>
+                                                                            </div>
+                                                                            <div className="col-span-2 min-w-0 space-y-1">
+                                                                                <p className="text-[10px] font-medium uppercase text-muted-foreground">Keterangan</p>
+                                                                                <p className="break-words text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+                                                                                    {approval.dokumen.deskripsi || '-'}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex justify-end gap-2 border-t pt-3">
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => handleOpenPreview(approval)}
+                                                                                className="font-sans text-xs"
+                                                                                title="Preview dokumen"
+                                                                            >
+                                                                                <IconEye className="mr-1.5 h-3.5 w-3.5" />
+                                                                                Preview
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => handleViewDetail(approval.id)}
+                                                                                className="border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
+                                                                                title="Detail approval"
+                                                                            >
+                                                                                <IconFileText className="mr-1.5 h-3.5 w-3.5" />
+                                                                                Detail
+                                                                            </Button>
+                                                                        </div>
+                                                                    </article>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+
+                                                    {/* ===== MOBILE: daftar card (hanya tampil di bawah lg) ===== */}
+                                                    <div className="space-y-3 lg:hidden">
+                                                        {/* Pilih semua (sama logikanya dengan header tabel) */}
+                                                        <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
                                                             <Checkbox
                                                                 checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
                                                                 disabled={eligibleApprovals.length === 0}
                                                                 onCheckedChange={handleSelectAll}
                                                                 aria-label="Pilih semua dokumen yang dapat disetujui"
+                                                                className="cursor-pointer"
                                                             />
                                                             <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
                                                         </div>
-                                                        <div className="overflow-hidden rounded-xl border">
-                                                            <table className="w-full text-sm font-sans">
-                                                                <thead className="bg-muted/50 text-left">
-                                                                    <tr>
-                                                                        <th className="px-4 py-3 w-8"></th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide w-8">#</th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Dokumen</th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Status</th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Pengaju</th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Nominal</th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide">Tgl Pengajuan</th>
-                                                                        <th className="px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wide text-right">Aksi</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-border bg-card">
-                                                                    {approvalsData.map((approval, index) => {
-                                                                        const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
-                                                                        const isSelected = selectedApprovalIds.includes(approval.id);
-                                                                        const overdue = isOverdue(approval.tgl_deadline);
-                                                                        return (
-                                                                            <tr
-                                                                                key={approval.id}
-                                                                                className={`transition-colors hover:bg-muted/30 ${
-                                                                                    updatedApprovalIds.has(approval.id) ? 'bg-green-50 dark:bg-green-950/10' : isSelected ? 'bg-primary/5' : ''
-                                                                                }`}
+
+                                                        {approvalsData.map((approval, index) => {
+                                                            const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
+                                                            const isSelected = selectedApprovalIds.includes(approval.id);
+                                                            const overdue = isOverdue(approval.tgl_deadline);
+
+                                                            return (
+                                                                <div
+                                                                    key={approval.id}
+                                                                    className={`space-y-3 rounded-xl border bg-card p-3 transition-colors ${updatedApprovalIds.has(approval.id)
+                                                                            ? 'bg-green-50 dark:bg-green-950/20'
+                                                                            : isSelected
+                                                                                ? 'bg-primary/5'
+                                                                                : ''
+                                                                        }`}
+                                                                >
+                                                                    {/* Header: checkbox, nomor urut, status */}
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Checkbox
+                                                                                checked={isSelected}
+                                                                                disabled={!isEligible}
+                                                                                onCheckedChange={() => toggleSelectApproval(approval.id)}
+                                                                                aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
+                                                                            />
+                                                                            <span className="font-sans text-xs font-medium text-muted-foreground">
+                                                                                #{index + 1 + (approvals.current_page - 1) * approvals.per_page}
+                                                                            </span>
+                                                                        </div>
+                                                                        {getStatusBadge(approval.approval_status)}
+                                                                    </div>
+
+                                                                    {/* Dokumen */}
+                                                                    <div className="min-w-0 space-y-1">
+                                                                        <h4 className="font-sans text-sm leading-tight font-semibold break-words text-foreground">
+                                                                            {approval.dokumen.judul_dokumen}
+                                                                        </h4>
+                                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                                            <Badge
+                                                                                variant="secondary"
+                                                                                className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
                                                                             >
-                                                                                <td className="px-4 py-3">
-                                                                                    <Checkbox
-                                                                                        checked={isSelected}
-                                                                                        disabled={!isEligible}
-                                                                                        onCheckedChange={() => toggleSelectApproval(approval.id)}
-                                                                                        aria-label={`Pilih ${approval.dokumen.judul_dokumen}`}
-                                                                                    />
-                                                                                </td>
-                                                                                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{index + 1 + (approvals.current_page - 1) * approvals.per_page}</td>
-                                                                                <td className="px-4 py-3 max-w-xs">
-                                                                                    <div className="space-y-1">
-                                                                                        <p className="font-semibold text-foreground leading-tight line-clamp-1" title={approval.dokumen.judul_dokumen}>{approval.dokumen.judul_dokumen}</p>
-                                                                                        <div className="flex flex-wrap items-center gap-1">
-                                                                                            <Badge variant="secondary" className="bg-green-100 px-1 py-0 font-mono text-[10px] text-green-800">{approval.dokumen.nomor_dokumen}</Badge>
-                                                                                            {approval.masterflow_step && (
-                                                                                                <span className="rounded bg-muted px-1 py-0 font-sans text-[10px] text-muted-foreground">Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}</span>
-                                                                                            )}
-                                                                                            {overdue && (
-                                                                                                <Badge variant="outline" className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700">Terlambat</Badge>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </td>
-                                                                                <td className="px-4 py-3">{getStatusBadge(approval.approval_status)}</td>
-                                                                                <td className="px-4 py-3">
-                                                                                    <div className="space-y-0.5">
-                                                                                        <p className="text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</p>
-                                                                                        <p className="text-xs text-muted-foreground">{approval.dokumen.user?.name || '-'}</p>
-                                                                                    </div>
-                                                                                </td>
-                                                                                <td className="px-4 py-3">
-                                                                                    <span className="font-mono text-xs font-semibold text-green-600">{formatCurrency(approval.dokumen.nominal)}</span>
-                                                                                </td>
-                                                                                <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(approval.dokumen.tgl_pengajuan)}</td>
-                                                                                <td className="px-4 py-3">
-                                                                                    <div className="flex items-center justify-end gap-1.5">
-                                                                                        <Button variant="outline" size="sm" onClick={() => handleOpenPreview(approval)} className="h-7 px-2 font-sans text-xs" title="Preview">
-                                                                                            <IconEye className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                        <Button variant="outline" size="sm" onClick={() => handleViewDetail(approval.id)} className="h-7 px-2 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary" title="Detail">
-                                                                                            <IconFileText className="h-3.5 w-3.5" />
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        );
-                                                                    })}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                <div className="hidden gap-4 lg:grid lg:grid-cols-3">
-                                                    <div className="col-span-3 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-                                                        <Checkbox
-                                                            checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-                                                            disabled={eligibleApprovals.length === 0}
-                                                            onCheckedChange={handleSelectAll}
-                                                            aria-label="Pilih semua dokumen yang dapat disetujui"
-                                                            className="cursor-pointer"
-                                                        />
-                                                        <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
-                                                    </div>
-
-                                                    {approvalsData.map((approval, index) => {
-                                                        const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
-                                                        const isSelected = selectedApprovalIds.includes(approval.id);
-                                                        const overdue = isOverdue(approval.tgl_deadline);
-
-                                                        return (
-                                                            <article
-                                                                key={approval.id}
-                                                                className={`min-w-0 space-y-4 rounded-lg border bg-card p-4 transition-colors ${
-                                                                    updatedApprovalIds.has(approval.id)
-                                                                        ? 'bg-green-50 dark:bg-green-950/20'
-                                                                        : isSelected
-                                                                          ? 'bg-primary/5'
-                                                                          : ''
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center justify-between gap-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Checkbox
-                                                                            checked={isSelected}
-                                                                            disabled={!isEligible}
-                                                                            onCheckedChange={() => toggleSelectApproval(approval.id)}
-                                                                            aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
-                                                                        />
-                                                                        <span className="font-sans text-xs font-medium text-muted-foreground">
-                                                                            #{index + 1 + (approvals.current_page - 1) * approvals.per_page}
-                                                                        </span>
-                                                                    </div>
-                                                                    {getStatusBadge(approval.approval_status)}
-                                                                </div>
-
-                                                                <div className="min-w-0 space-y-2">
-                                                                    <h3 className="break-words font-sans text-base font-semibold leading-tight text-foreground">
-                                                                        {approval.dokumen.judul_dokumen}
-                                                                    </h3>
-                                                                    <div className="flex flex-wrap items-center gap-1.5">
-                                                                        <Badge
-                                                                            variant="secondary"
-                                                                            className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
-                                                                        >
-                                                                            {approval.dokumen.nomor_dokumen}
-                                                                        </Badge>
-                                                                        {approval.masterflow_step && (
-                                                                            <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
-                                                                                Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    {approval.tgl_deadline && (
-                                                                        <div className={`flex flex-wrap items-center gap-1 font-sans text-xs ${overdue ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                                                            <IconClock className="h-3.5 w-3.5 shrink-0" />
-                                                                            <span>{overdue ? 'Terlambat' : 'Deadline'} {formatDate(approval.tgl_deadline)}</span>
-                                                                            {overdue && (
-                                                                                <Badge variant="outline" className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700">
-                                                                                    Terlambat
-                                                                                </Badge>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-
-                                                                <div className="grid min-w-0 grid-cols-2 gap-3 border-t pt-3 font-sans">
-                                                                    <div className="min-w-0 space-y-1">
-                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Perusahaan / Pengaju</p>
-                                                                        <div className="flex min-w-0 items-center gap-1.5">
-                                                                            <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                                            <span className="min-w-0 break-words text-sm font-medium">{approval.dokumen.aplikasi?.name || '-'}</span>
-                                                                        </div>
-                                                                        <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                                                                            <IconUser className="h-3.5 w-3.5 shrink-0" />
-                                                                            <span className="min-w-0 break-words text-xs">{approval.dokumen.user?.name || '-'}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="min-w-0 space-y-1">
-                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Nominal</p>
-                                                                        <p className="break-words text-sm font-semibold text-green-600">{formatCurrency(approval.dokumen.nominal)}</p>
-                                                                    </div>
-                                                                    <div className="col-span-2 min-w-0 space-y-1">
-                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Jenis Transaksi</p>
-                                                                        {approval.dokumen.transaksi ? (
-                                                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
-                                                                                >
-                                                                                    {approval.dokumen.transaksi.kode_transaksi}
-                                                                                </Badge>
-                                                                                <span className="break-words text-xs text-muted-foreground">{approval.dokumen.transaksi.nama_transaksi}</span>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-xs text-muted-foreground">-</span>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="col-span-2 min-w-0 space-y-1">
-                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Tanggal Pengajuan</p>
-                                                                        <p className="text-xs text-muted-foreground">{formatDate(approval.dokumen.tgl_pengajuan)}</p>
-                                                                    </div>
-                                                                    <div className="col-span-2 min-w-0 space-y-1">
-                                                                        <p className="text-[10px] font-medium uppercase text-muted-foreground">Keterangan</p>
-                                                                        <p className="break-words text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
-                                                                            {approval.dokumen.deskripsi || '-'}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="flex justify-end gap-2 border-t pt-3">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleOpenPreview(approval)}
-                                                                        className="font-sans text-xs"
-                                                                        title="Preview dokumen"
-                                                                    >
-                                                                        <IconEye className="mr-1.5 h-3.5 w-3.5" />
-                                                                        Preview
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleViewDetail(approval.id)}
-                                                                        className="border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
-                                                                        title="Detail approval"
-                                                                    >
-                                                                        <IconFileText className="mr-1.5 h-3.5 w-3.5" />
-                                                                        Detail
-                                                                    </Button>
-                                                                </div>
-                                                            </article>
-                                                        );
-                                                    })}
-                                                </div>
-                                                )}
-
-                                            {/* ===== MOBILE: daftar card (hanya tampil di bawah lg) ===== */}
-                                                <div className="space-y-3 lg:hidden">
-                                                    {/* Pilih semua (sama logikanya dengan header tabel) */}
-                                                    <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-                                                        <Checkbox
-                                                            checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-                                                            disabled={eligibleApprovals.length === 0}
-                                                            onCheckedChange={handleSelectAll}
-                                                            aria-label="Pilih semua dokumen yang dapat disetujui"
-                                                            className="cursor-pointer"
-                                                        />
-                                                        <span className="font-sans text-xs font-medium text-muted-foreground">Pilih semua</span>
-                                                    </div>
-
-                                                    {approvalsData.map((approval, index) => {
-                                                        const isEligible = approval.approval_status === 'pending' && approval.can_approve !== false;
-                                                        const isSelected = selectedApprovalIds.includes(approval.id);
-                                                        const overdue = isOverdue(approval.tgl_deadline);
-
-                                                        return (
-                                                            <div
-                                                                key={approval.id}
-                                                                className={`space-y-3 rounded-xl border bg-card p-3 transition-colors ${
-                                                                    updatedApprovalIds.has(approval.id)
-                                                                        ? 'bg-green-50 dark:bg-green-950/20'
-                                                                        : isSelected
-                                                                        ? 'bg-primary/5'
-                                                                        : ''
-                                                                }`}
-                                                            >
-                                                                {/* Header: checkbox, nomor urut, status */}
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Checkbox
-                                                                            checked={isSelected}
-                                                                            disabled={!isEligible}
-                                                                            onCheckedChange={() => toggleSelectApproval(approval.id)}
-                                                                            aria-label={`Pilih dokumen ${approval.dokumen.judul_dokumen}`}
-                                                                        />
-                                                                        <span className="font-sans text-xs font-medium text-muted-foreground">
-                                                                            #{index + 1 + (approvals.current_page - 1) * approvals.per_page}
-                                                                        </span>
-                                                                    </div>
-                                                                    {getStatusBadge(approval.approval_status)}
-                                                                </div>
-
-                                                                {/* Dokumen */}
-                                                                <div className="min-w-0 space-y-1">
-                                                                    <h4 className="font-sans text-sm leading-tight font-semibold break-words text-foreground">
-                                                                        {approval.dokumen.judul_dokumen}
-                                                                    </h4>
-                                                                    <div className="flex flex-wrap items-center gap-1.5">
-                                                                        <Badge
-                                                                            variant="secondary"
-                                                                            className="bg-green-100 px-1.5 py-0 font-mono text-[10px] text-green-800 hover:bg-green-100"
-                                                                        >
-                                                                            {approval.dokumen.nomor_dokumen}
-                                                                        </Badge>
-                                                                        {approval.masterflow_step && (
-                                                                            <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
-                                                                                Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    {approval.tgl_deadline && (
-                                                                        <div
-                                                                            className={`flex flex-wrap items-center gap-1 font-sans text-[11px] ${
-                                                                                overdue ? 'text-red-600' : 'text-muted-foreground'
-                                                                            }`}
-                                                                        >
-                                                                            <IconClock className="h-3 w-3" />
-                                                                            <span>
-                                                                                {overdue ? 'Terlambat' : 'Deadline'} {formatDate(approval.tgl_deadline)}
-                                                                            </span>
-                                                                            {overdue && (
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700"
-                                                                                >
-                                                                                    Terlambat
-                                                                                </Badge>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Perusahaan / Pengaju */}
-                                                                <div className="space-y-1 font-sans">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                                        <span className="min-w-0 text-sm font-medium break-words">
-                                                                            {approval.dokumen.aplikasi?.name || '-'}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                                                                        <IconUser className="h-3.5 w-3.5 shrink-0" />
-                                                                        <span className="min-w-0 text-xs break-words">{approval.dokumen.user?.name || '-'}</span>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Nominal, Jenis Transaksi, Tanggal */}
-                                                                <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 font-sans">
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-[10px] text-muted-foreground uppercase">Nominal</p>
-                                                                        <p className="text-sm font-semibold text-green-600">
-                                                                            {formatCurrency(approval.dokumen.nominal)}
-                                                                        </p>
-                                                                    </div>
-                                                                    <div className="col-span-2 min-w-0">
-                                                                        <p className="mb-1 text-[10px] text-muted-foreground uppercase">Jenis Transaksi</p>
-                                                                        {approval.dokumen.transaksi ? (
-                                                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
-                                                                                >
-                                                                                    {approval.dokumen.transaksi.kode_transaksi}
-                                                                                </Badge>
-                                                                                <span className="text-xs break-words text-muted-foreground">
-                                                                                    {approval.dokumen.transaksi.nama_transaksi}
+                                                                                {approval.dokumen.nomor_dokumen}
+                                                                            </Badge>
+                                                                            {approval.masterflow_step && (
+                                                                                <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[10px] text-muted-foreground">
+                                                                                    Step {approval.masterflow_step.step_order}: {approval.masterflow_step.step_name}
                                                                                 </span>
+                                                                            )}
+                                                                        </div>
+                                                                        {approval.tgl_deadline && (
+                                                                            <div
+                                                                                className={`flex flex-wrap items-center gap-1 font-sans text-[11px] ${overdue ? 'text-red-600' : 'text-muted-foreground'
+                                                                                    }`}
+                                                                            >
+                                                                                <IconClock className="h-3 w-3" />
+                                                                                <span>
+                                                                                    {overdue ? 'Terlambat' : 'Deadline'} {formatDate(approval.tgl_deadline)}
+                                                                                </span>
+                                                                                {overdue && (
+                                                                                    <Badge
+                                                                                        variant="outline"
+                                                                                        className="border-red-300 bg-red-50 px-1 py-0 text-[10px] text-red-700"
+                                                                                    >
+                                                                                        Terlambat
+                                                                                    </Badge>
+                                                                                )}
                                                                             </div>
-                                                                        ) : (
-                                                                            <span className="text-xs text-muted-foreground">-</span>
                                                                         )}
                                                                     </div>
-                                                                </div>
 
-                                                                {/* Aksi */}
-                                                                <div className="grid grid-cols-2 gap-2">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleOpenPreview(approval)}
-                                                                        className="h-9 font-sans text-xs"
-                                                                        title="Preview dokumen"
-                                                                    >
-                                                                        <IconEye className="mr-1 h-3.5 w-3.5" />
-                                                                        Preview
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleViewDetail(approval.id)}
-                                                                        className="h-9 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
-                                                                    >
-                                                                        Detail
-                                                                    </Button>
+                                                                    {/* Perusahaan / Pengaju */}
+                                                                    <div className="space-y-1 font-sans">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <IconFileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                            <span className="min-w-0 text-sm font-medium break-words">
+                                                                                {approval.dokumen.aplikasi?.name || '-'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                                            <IconUser className="h-3.5 w-3.5 shrink-0" />
+                                                                            <span className="min-w-0 text-xs break-words">{approval.dokumen.user?.name || '-'}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Nominal, Jenis Transaksi, Tanggal */}
+                                                                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 font-sans">
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-[10px] text-muted-foreground uppercase">Nominal</p>
+                                                                            <p className="text-sm font-semibold text-green-600">
+                                                                                {formatCurrency(approval.dokumen.nominal)}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="col-span-2 min-w-0">
+                                                                            <p className="mb-1 text-[10px] text-muted-foreground uppercase">Jenis Transaksi</p>
+                                                                            {approval.dokumen.transaksi ? (
+                                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                                    <Badge
+                                                                                        variant="outline"
+                                                                                        className="border-blue-200 bg-blue-50 px-1.5 py-0 font-sans text-[11px] font-semibold text-blue-700"
+                                                                                    >
+                                                                                        {approval.dokumen.transaksi.kode_transaksi}
+                                                                                    </Badge>
+                                                                                    <span className="text-xs break-words text-muted-foreground">
+                                                                                        {approval.dokumen.transaksi.nama_transaksi}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span className="text-xs text-muted-foreground">-</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Aksi */}
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => handleOpenPreview(approval)}
+                                                                            className="h-9 font-sans text-xs"
+                                                                            title="Preview dokumen"
+                                                                        >
+                                                                            <IconEye className="mr-1 h-3.5 w-3.5" />
+                                                                            Preview
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => handleViewDetail(approval.id)}
+                                                                            className="h-9 border-primary/20 font-sans text-xs hover:bg-primary/5 hover:text-primary"
+                                                                        >
+                                                                            Detail
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </>
-                                        )}
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </>
+                                            )}
 
                                             {/* Pagination */}
-                                        {approvals.last_page > 1 && (
-                                            <>
-                                                {/* DESKTOP: pagination asli (hanya ditambah hidden lg:flex) */}
-                                                <div className="hidden items-center justify-center gap-2 pt-4 lg:flex">
-                                                    {approvals.links.map((link, index) => (
-                                                        <Button
-                                                            key={index}
-                                                            variant={link.active ? 'default' : 'outline'}
-                                                            size="sm"
-                                                            disabled={!link.url}
-                                                            onClick={() => link.url && router.visit(link.url)}
-                                                            className="font-sans"
-                                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                                        />
-                                                    ))}
-                                                </div>
+                                            {approvals.last_page > 1 && (
+                                                <>
+                                                    {/* DESKTOP: pagination asli (hanya ditambah hidden lg:flex) */}
+                                                    <div className="hidden items-center justify-center gap-2 pt-4 lg:flex">
+                                                        {approvals.links.map((link, index) => (
+                                                            <Button
+                                                                key={index}
+                                                                variant={link.active ? 'default' : 'outline'}
+                                                                size="sm"
+                                                                disabled={!link.url}
+                                                                onClick={() => link.url && router.visit(link.url)}
+                                                                className="font-sans"
+                                                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                                            />
+                                                        ))}
+                                                    </div>
 
-                                                {/* MOBILE: Sebelumnya / halaman / Berikutnya */}
-                                                <div className="flex items-center justify-between gap-2 pt-4 lg:hidden">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        disabled={!approvals.links[0].url}
-                                                        onClick={() => approvals.links[0].url && router.visit(approvals.links[0].url)}
-                                                        className="font-sans"
-                                                    >
-                                                        ‹ Sebelumnya
-                                                    </Button>
-                                                    <span className="font-sans text-sm text-muted-foreground">
-                                                        {approvals.current_page} / {approvals.last_page}
-                                                    </span>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        disabled={!approvals.links[approvals.links.length - 1].url}
-                                                        onClick={() => {
-                                                            const url = approvals.links[approvals.links.length - 1].url;
-                                                            if (url) router.visit(url);
-                                                        }}
-                                                        className="font-sans"
-                                                    >
-                                                        Berikutnya ›
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
+                                                    {/* MOBILE: Sebelumnya / halaman / Berikutnya */}
+                                                    <div className="flex items-center justify-between gap-2 pt-4 lg:hidden">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={!approvals.links[0].url}
+                                                            onClick={() => approvals.links[0].url && router.visit(approvals.links[0].url)}
+                                                            className="font-sans"
+                                                        >
+                                                            ‹ Sebelumnya
+                                                        </Button>
+                                                        <span className="font-sans text-sm text-muted-foreground">
+                                                            {approvals.current_page} / {approvals.last_page}
+                                                        </span>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={!approvals.links[approvals.links.length - 1].url}
+                                                            onClick={() => {
+                                                                const url = approvals.links[approvals.links.length - 1].url;
+                                                                if (url) router.visit(url);
+                                                            }}
+                                                            className="font-sans"
+                                                        >
+                                                            Berikutnya ›
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            )}
                                         </TabsContent>
                                     </Tabs>
                                 </CardContent>
@@ -1160,11 +1154,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 <button
                                     type="button"
                                     onClick={() => setBulkMobileTab('form')}
-                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
-                                        bulkMobileTab === 'form'
+                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${bulkMobileTab === 'form'
                                             ? 'bg-background text-foreground shadow-xs font-bold'
                                             : 'text-muted-foreground hover:text-foreground'
-                                    }`}
+                                        }`}
                                 >
                                     <IconPencil className="h-3.5 w-3.5" />
                                     <span>Persetujuan ({selectedApprovalIds.length})</span>
@@ -1172,11 +1165,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 <button
                                     type="button"
                                     onClick={() => setBulkMobileTab('preview')}
-                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
-                                        bulkMobileTab === 'preview'
+                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${bulkMobileTab === 'preview'
                                             ? 'bg-background text-foreground shadow-xs font-bold'
                                             : 'text-muted-foreground hover:text-foreground'
-                                    }`}
+                                        }`}
                                 >
                                     <IconEye className="h-3.5 w-3.5" />
                                     <span>Pratinjau PDF</span>
@@ -1252,11 +1244,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                     return (
                                                         <div
                                                             key={a.id}
-                                                            className={`w-full flex items-center gap-2 rounded-md border px-2.5 py-1.5 sm:px-3 sm:py-2 text-left text-xs transition-all ${
-                                                                isActive
+                                                            className={`w-full flex items-center gap-2 rounded-md border px-2.5 py-1.5 sm:px-3 sm:py-2 text-left text-xs transition-all ${isActive
                                                                     ? 'border-primary bg-primary/10 shadow-xs'
                                                                     : 'border-transparent bg-background hover:border-border hover:bg-muted/50'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             <button
                                                                 type="button"

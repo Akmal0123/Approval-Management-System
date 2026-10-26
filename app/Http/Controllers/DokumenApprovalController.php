@@ -405,29 +405,6 @@ class DokumenApprovalController extends Controller
 
         // Post-processing outside transaction to avoid blocking DB connections
         try {
-            // Embed signature into the physical file immediately
-            $pdfSignatureService = app(\App\Services\PdfSignatureService::class);
-            $version = $approval->dokumen->latestVersion;
-
-            if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && ($signaturePath || $signatureMethod === 'qr')) {
-                // Generate a PDF stream with just the current signature overlaid on the existing file
-                $pdfContent = $pdfSignatureService->generateSignedPdfStream(
-                    $version->file_url,
-                    collect([$approval->fresh()]),
-                    $approval->dokumen
-                );
-
-                // Overwrite original file
-                \Illuminate\Support\Facades\Storage::disk('local')->put($version->file_url, $pdfContent);
-
-                Log::info('Approval completed - signature embedded into physical file', [
-                    'signature_path' => $signaturePath,
-                    'signature_method' => $signatureMethod,
-                    'approval_id' => $approval->id,
-                    'dokumen_id' => $approval->dokumen_id,
-                ]);
-            }
-
             // Broadcast dokumen updated event for real-time updates (minimal payload)
             $dokumen = $approval->dokumen->fresh();
 
@@ -549,19 +526,8 @@ class DokumenApprovalController extends Controller
                 continue;
             }
 
-            // Embed physical signature/QR into PDF outside transaction
+            // Broadcast real-time events outside transaction
             try {
-                $version = $approval->dokumen->latestVersion;
-                if ($version && $version->file_url && strtolower($version->tipe_file) === 'pdf' && ($signaturePath || $signatureMethod === 'qr')) {
-                    $pdfContent = $pdfSignatureService->generateSignedPdfStream(
-                        $version->file_url,
-                        collect([$approval->fresh()]),
-                        $approval->dokumen
-                    );
-                    \Illuminate\Support\Facades\Storage::disk('local')->put($version->file_url, $pdfContent);
-                }
-
-                // Broadcast real-time events
                 $dokumen = $approval->dokumen->fresh();
                 broadcast(new DokumenUpdated($dokumen))->toOthers();
                 broadcast(new UserDokumenUpdated($dokumen))->toOthers();
@@ -626,12 +592,16 @@ class DokumenApprovalController extends Controller
                 'status_current' => 'rejected',
             ]);
 
-            // Sync status ke EIS via microservice-lookup
-            \App\Services\FastifyIntegrationService::updateEisStatus(
-                $approval->dokumen->nomor_dokumen,
-                'rejected',
-                $validated['alasan_reject'] ?? null
-            );
+            // Sync status ke EIS via microservice-lookup (asynchronous after response)
+            $nomorDokumen = $approval->dokumen->nomor_dokumen;
+            $alasanReject = $validated['alasan_reject'] ?? null;
+            dispatch(function () use ($nomorDokumen, $alasanReject) {
+                \App\Services\FastifyIntegrationService::updateEisStatus(
+                    $nomorDokumen,
+                    'rejected',
+                    $alasanReject
+                );
+            })->afterResponse();
 
             // Add comment
             \App\Models\Comment::create([
@@ -882,11 +852,15 @@ class DokumenApprovalController extends Controller
             ]);
             Log::info('Document rejected - at least one approval is rejected');
 
-            \App\Services\FastifyIntegrationService::updateEisStatus(
-                $dokumen->nomor_dokumen,
-                'rejected',
-                'Dokumen ditolak di alur persetujuan'
-            );
+            // Sync status ke EIS via microservice-lookup (asynchronous after response)
+            $nomorDokumen = $dokumen->nomor_dokumen;
+            dispatch(function () use ($nomorDokumen) {
+                \App\Services\FastifyIntegrationService::updateEisStatus(
+                    $nomorDokumen,
+                    'rejected',
+                    'Dokumen ditolak di alur persetujuan'
+                );
+            })->afterResponse();
             return;
         }
 
@@ -898,12 +872,15 @@ class DokumenApprovalController extends Controller
                 'status_current' => 'fully_approved',
             ]);
 
-            // Sync status ke EIS via microservice-lookup
-            \App\Services\FastifyIntegrationService::updateEisStatus(
-                $dokumen->nomor_dokumen,
-                'approved',
-                'Dokumen disetujui sepenuhnya di AMS'
-            );
+            // Sync status ke EIS via microservice-lookup (asynchronous after response)
+            $nomorDokumen = $dokumen->nomor_dokumen;
+            dispatch(function () use ($nomorDokumen) {
+                \App\Services\FastifyIntegrationService::updateEisStatus(
+                    $nomorDokumen,
+                    'approved',
+                    'Dokumen disetujui sepenuhnya di AMS'
+                );
+            })->afterResponse();
 
             // Send email notification to document owner
             $dokumenWithUser = $dokumen->fresh(['user']);

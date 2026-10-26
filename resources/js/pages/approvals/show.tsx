@@ -231,17 +231,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             positionsCount: signaturePositions.length,
         });
 
-        // Pre-save positions to API if available
-        if (signaturePositions && signaturePositions.length > 0 && approval.dokumen?.id) {
-            try {
-                await api.post(`/dokumen/${approval.dokumen.id}/signature-positions`, {
-                    positions: signaturePositions,
-                });
-            } catch (err) {
-                console.warn('Pre-saving positions via API encountered an issue:', err);
-            }
-        }
-
         // Set signature and signature_positions to form data
         approveForm.transform((data) => ({
             ...data,

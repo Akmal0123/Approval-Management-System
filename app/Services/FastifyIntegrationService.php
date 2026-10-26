@@ -240,7 +240,8 @@ class FastifyIntegrationService
     {
         try {
             $url = self::getBaseUrl() . '/api/v1/integration/sync/status';
-            $response = Http::timeout(10)
+            $response = Http::timeout(3)
+                ->connectTimeout(1)
                 ->withHeaders(self::getHeaders())
                 ->post($url, [
                     'nomor_dokumen' => $nomorDokumen,
