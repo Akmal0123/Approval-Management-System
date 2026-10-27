@@ -151,12 +151,16 @@ export const isDokumenTransaksi = (doc: any): boolean => {
     if (tipe === 'manual') {
         return false;
     }
+    const num = String(doc.nomor_dokumen || '').toUpperCase();
     return Boolean(
         doc.transaksi_id ||
         doc.transaksi ||
         doc.aplikasi_id ||
         doc.aplikasi ||
-        (doc.nomor_dokumen && /^(PO|PR|RQE|CCA)/i.test(doc.nomor_dokumen))
+        /^(PO|PR|RQE|CCA)/i.test(num) ||
+        num.includes('/PO/') ||
+        num.includes('/PR') ||
+        num.startsWith('TSPM')
     );
 };
 
@@ -421,18 +425,21 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
                 setLocalFileUrl(newFileUrl);
 
                 // Try to find matching transaksi_id if not selected yet
-                let matchedTransaksiId = formData.transaksi_id;
+                let matchedTransaksiId = data.transaksi_id ? String(data.transaksi_id) : formData.transaksi_id;
                 if (!matchedTransaksiId && transaksis.length > 0) {
                     const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
                     const appTrans = transaksis.filter((t) => !currentAppId || String(t.aplikasi_id) === currentAppId);
+                    const dnum = String(data.nomor_dokumen || query || '').toUpperCase();
+                    const dtype = (data.tipe || '').toUpperCase();
+                    const isDocPo = dtype === 'PO' || dnum.includes('/PO/') || dnum.startsWith('PO-') || /TSPM.*\/PO\//i.test(dnum);
+                    const isDocPr = dtype === 'PR' || dnum.includes('/PR') || dnum.startsWith('PR-') || /TSPM.*\/PR/i.test(dnum);
+
                     const found = appTrans.find((t) => {
                         const tk = t.kode_transaksi.toUpperCase();
-                        const dtype = (data.tipe || '').toUpperCase();
                         return (
-                            tk === dtype ||
-                            (dtype === 'PR' && (tk.includes('PR') || tk.includes('RQE'))) ||
-                            (dtype === 'PO' && (tk.includes('PO') || tk.includes('POE'))) ||
-                            (dtype === 'CCA' && (tk.includes('CCA') || tk.includes('NPK')))
+                            (isDocPo && (tk === 'PO' || tk.includes('PO') || tk.includes('POE'))) ||
+                            (isDocPr && (tk === 'PR' || tk.includes('PR') || tk.includes('RQE'))) ||
+                            tk === dtype
                         );
                     });
                     if (found) {

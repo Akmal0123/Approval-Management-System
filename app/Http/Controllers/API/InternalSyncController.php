@@ -197,6 +197,19 @@ class InternalSyncController extends Controller
         $aplikasiId = $activeAuth?->aplikasi_id ?? 1;
         $tipeDokumen = 'transaksi';
 
+        // Auto-identifikasi jenis transaksi dari nomor dokumen (PO atau PR)
+        $targetKode = Dokumen::identifyTransactionTypeFromNumber($nomorDokumen);
+        $transaksiId = $request->input('transaksi_id');
+        if (!$transaksiId && $targetKode) {
+            $transaksi = \App\Models\Transaksi::where('kode_transaksi', $targetKode)
+                ->when($aplikasiId, fn($q) => $q->orderByRaw('aplikasi_id = ? DESC', [$aplikasiId]))
+                ->first();
+            if ($transaksi) {
+                $transaksiId = $transaksi->id;
+                $aplikasiId = $transaksi->aplikasi_id ?? $aplikasiId;
+            }
+        }
+
         DB::beginTransaction();
         try {
             // Cek apakah dokumen sudah ada sebelumnya
@@ -210,6 +223,7 @@ class InternalSyncController extends Controller
                     'user_id' => $user->id,
                     'company_id' => $companyId,
                     'aplikasi_id' => $aplikasiId,
+                    'transaksi_id' => $transaksiId,
                     'tipe_dokumen' => $tipeDokumen,
                     'status' => 'draft',
                     'status_current' => 'draft',
@@ -217,11 +231,12 @@ class InternalSyncController extends Controller
                     'deskripsi' => $request->input('deskripsi', "Dokumen {$nomorDokumen} dari External Inventory System"),
                 ]);
             } else {
-                // Update dokumen existing agar tetap berstatus draft
+                // Update dokumen existing agar tetap berstatus draft dan transaksi_id terisi
                 $dokumen->update([
                     'judul_dokumen' => $request->input('judul_dokumen', $dokumen->judul_dokumen),
                     'nominal' => (float) ($request->input('nominal', $dokumen->nominal)),
                     'tipe_dokumen' => $tipeDokumen,
+                    'transaksi_id' => $transaksiId ?: $dokumen->transaksi_id,
                     'company_id' => $companyId,
                     'aplikasi_id' => $aplikasiId,
                     'status' => 'draft',

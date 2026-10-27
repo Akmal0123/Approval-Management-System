@@ -71,9 +71,12 @@ class FastifyIntegrationService
         $clean = trim($keyword);
         $upper = strtoupper($clean);
 
+        $isPo = str_contains($upper, '/PO/') || str_starts_with($upper, 'PO') || preg_match('/(^|\b|\/)PO(\/|\b|\d)/i', $upper);
+        $isPr = str_contains($upper, '/PR') || str_starts_with($upper, 'PR') || preg_match('/(^|\b|\/)PR(\/|\b|\d)/i', $upper);
+
         try {
             // Prioritaskan endpoint spesifik jika format jelas
-            if (str_starts_with($upper, 'PO')) {
+            if ($isPo) {
                 $url = self::getBaseUrl() . '/api/v1/integration/purchase-orders/' . rawurlencode($clean);
                 $res = Http::timeout(8)
                     ->withHeaders(self::getHeaders(['integration:purchase-order:read']))
@@ -81,7 +84,7 @@ class FastifyIntegrationService
                 if ($res->successful() && $res->json('success')) {
                     return $res->json('data');
                 }
-            } elseif (str_starts_with($upper, 'PR')) {
+            } elseif ($isPr) {
                 $url = self::getBaseUrl() . '/api/v1/integration/purchase-requests/' . rawurlencode($clean);
                 $res = Http::timeout(8)
                     ->withHeaders(self::getHeaders(['integration:purchase-request:read']))

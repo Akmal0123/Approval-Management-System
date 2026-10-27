@@ -214,7 +214,25 @@ class DokumenController extends Controller
         }
 
         $tipeDokumen = $request->input('tipe_dokumen', 'manual');
-        if ($request->filled('transaksi_id') || $tipeDokumen === 'transaksi') {
+        $transaksiId = $request->input('transaksi_id') ?: null;
+        $nomorDokumen = $request->input('nomor_dokumen', '');
+
+        // Auto-identifikasi jika nomor_dokumen adalah PO atau PR
+        if (!$transaksiId && $nomorDokumen) {
+            $detectedKode = Dokumen::identifyTransactionTypeFromNumber($nomorDokumen);
+            if ($detectedKode) {
+                $appId = $request->input('aplikasi_id', $context->aplikasi_id);
+                $tx = Transaksi::where('kode_transaksi', $detectedKode)
+                    ->when($appId, fn($q) => $q->orderByRaw('aplikasi_id = ? DESC', [$appId]))
+                    ->first();
+                if ($tx) {
+                    $transaksiId = $tx->id;
+                    $tipeDokumen = 'transaksi';
+                }
+            }
+        }
+
+        if ($transaksiId || $tipeDokumen === 'transaksi') {
             $tipeDokumen = 'transaksi';
         }
 
@@ -300,7 +318,7 @@ class DokumenController extends Controller
                 'user_id' => Auth::id(),
                 'company_id' => $companyId,
                 'aplikasi_id' => $aplikasiId,
-                'transaksi_id' => $request->input('transaksi_id') ?: null,
+                'transaksi_id' => $transaksiId ?: ($request->input('transaksi_id') ?: null),
                 'tipe_dokumen' => $tipeDokumen,
                 'masterflow_id' => $request->masterflow_id === 'custom' ? null : $validated['masterflow_id'],
                 'status' => $status,
@@ -1967,6 +1985,14 @@ class DokumenController extends Controller
             ? "Data transaksi dan template PDF berhasil ditarik dari External Inventory System via Fastify (JWT Protected)"
             : 'Data transaksi dan file PDF berhasil ditarik via Fastify Microservice';
 
+        // Auto-detect transaction type from keyword or nomor_dokumen
+        $docNum = $txData['nomor_dokumen'] ?? ($txData['kode'] ?? $keyword);
+        $detectedType = Dokumen::identifyTransactionTypeFromNumber($docNum) ?? ($txData['tipe'] ?? 'PR');
+
+        $matchedTransaksi = Transaksi::where('kode_transaksi', $detectedType)
+            ->when($request->input('aplikasi_id'), fn($q, $appId) => $q->orderByRaw('aplikasi_id = ? DESC', [$appId]))
+            ->first();
+
         return response()->json([
             'status' => 'success',
             'message' => $message,
@@ -1977,7 +2003,8 @@ class DokumenController extends Controller
                 'judul' => $txData['judul'] ?? '',
                 'nominal' => $txData['nominal'] ?? 0,
                 'tanggal' => $txData['tanggal'] ?? date('Y-m-d'),
-                'tipe' => $txData['tipe'] ?? 'PR',
+                'tipe' => $detectedType,
+                'transaksi_id' => $matchedTransaksi?->id,
                 'deskripsi' => $txData['deskripsi'] ?? '',
                 'vendor' => $txData['vendor'] ?? null,
                 'filename' => $filename,
@@ -1986,7 +2013,7 @@ class DokumenController extends Controller
                 'source' => $source,
             ],
             'samples' => array_merge(
-                ['PO-2026-0001', 'PR-2026-0001', 'PO-2026-0002', 'PR-2026-0002'],
+                ['TSPM/2014/11/PO/0001', 'TSPM10000/2014/09/PR0001', 'PO-2026-0001', 'PR-2026-0001'],
                 DummyTransactionService::getSamples()
             ),
         ]);

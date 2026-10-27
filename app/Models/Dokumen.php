@@ -58,6 +58,71 @@ class Dokumen extends Model
     ];
 
     /**
+     * Auto-identify transaction type (PO / PR) based on document number.
+     */
+    protected static function booted()
+    {
+        static::saving(function (Dokumen $dokumen) {
+            if (!$dokumen->transaksi_id && !empty($dokumen->nomor_dokumen)) {
+                $targetKode = static::identifyTransactionTypeFromNumber($dokumen->nomor_dokumen);
+                if ($targetKode) {
+                    $appId = $dokumen->aplikasi_id;
+                    $transaksi = Transaksi::where('kode_transaksi', $targetKode)
+                        ->when($appId, fn($q) => $q->orderByRaw('aplikasi_id = ? DESC', [$appId]))
+                        ->first();
+
+                    if ($transaksi) {
+                        $dokumen->transaksi_id = $transaksi->id;
+                        $dokumen->tipe_dokumen = 'transaksi';
+                        if (!$dokumen->aplikasi_id && $transaksi->aplikasi_id) {
+                            $dokumen->aplikasi_id = $transaksi->aplikasi_id;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Helper to detect whether a document number is PO or PR.
+     * Supports formats like:
+     * - PO: TSPM/2014/11/PO/0001, PO-2026-0001, POE-xxxx
+     * - PR: TSPM10000/2014/09/PR0001, PR-2026-0001, RQE-xxxx
+     */
+    public static function identifyTransactionTypeFromNumber(?string $nomorDokumen): ?string
+    {
+        if (empty($nomorDokumen)) {
+            return null;
+        }
+
+        $upper = strtoupper(trim($nomorDokumen));
+
+        // PO Detection: TSPM/.../PO/0001 or PO-2026-0001 or /PO/ or POE-
+        if (
+            str_contains($upper, '/PO/') ||
+            str_starts_with($upper, 'PO-') ||
+            str_starts_with($upper, 'POE-') ||
+            preg_match('/(^|\b|\/)PO(\/|\b|\d)/i', $upper) ||
+            preg_match('/TSPM.*\/PO\//i', $upper)
+        ) {
+            return 'PO';
+        }
+
+        // PR Detection: TSPM10000/.../PR0001 or PR-2026-0001 or /PR or RQE-
+        if (
+            str_contains($upper, '/PR') ||
+            str_starts_with($upper, 'PR-') ||
+            str_starts_with($upper, 'RQE-') ||
+            preg_match('/(^|\b|\/)PR(\/|\b|\d)/i', $upper) ||
+            preg_match('/TSPM.*\/PR/i', $upper)
+        ) {
+            return 'PR';
+        }
+
+        return null;
+    }
+
+    /**
      * Get the user who created this document.
      */
     public function user(): BelongsTo
