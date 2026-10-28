@@ -4,7 +4,7 @@ $app = require_once __DIR__.'/bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-$dokumen = App\Models\Dokumen::where('nomor_dokumen', '2026088114')->first();
+$dokumen = App\Models\Dokumen::has('approvals')->latest()->first() ?? App\Models\Dokumen::latest()->first();
 if ($dokumen) {
     echo "Dokumen ID: {$dokumen->id}\n";
     $approvedSignatures = $dokumen->approvals()->whereNotNull('signature_path')->get();

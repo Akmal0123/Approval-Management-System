@@ -1108,6 +1108,14 @@ class DokumenApprovalController extends Controller
             ]);
         }
 
+        $pdfSecurityService = app(\App\Services\PdfSecurityService::class);
+        $version = $approval->dokumenVersion ?? $approval->dokumen?->latestVersion;
+        $fullPath = ($version && $version->file_url && \Illuminate\Support\Facades\Storage::disk('local')->exists($version->file_url))
+            ? \Illuminate\Support\Facades\Storage::disk('local')->path($version->file_url)
+            : '';
+
+        $metadata = $pdfSecurityService->buildMetadata($approval->dokumen, collect([$approval]), $fullPath);
+
         return Inertia::render('verify/show', [
             'isValid' => true,
             'approval' => [
@@ -1118,6 +1126,10 @@ class DokumenApprovalController extends Controller
                 'signed_at' => $approval->tgl_approve->toIso8601String(),
                 'signature_method' => $approval->signature_method,
                 'download_url' => route('verify.signature.download', $token),
+                'authors' => $metadata['authors'],
+                'document_hash' => $metadata['document_hash'],
+                'cryptographic_seal' => $metadata['cryptographic_seal'],
+                'security_algorithm' => $metadata['algorithm'],
             ],
         ]);
     }

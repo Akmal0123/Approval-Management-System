@@ -1,4 +1,4 @@
-const { PDFDocument, StandardFonts } = require('pdf-lib');
+const { PDFDocument, StandardFonts, PDFName, PDFHexString } = require('pdf-lib');
 const fs = require('fs');
 
 async function run() {
@@ -153,6 +153,54 @@ async function run() {
             } catch (qrDocErr) {
                 console.error('Failed to embed document QR code:', qrDocErr.message);
             }
+        }
+
+        // Apply PDF Metadata and Cryptographic Security Attributes
+        if (inputData.metadata) {
+            const meta = inputData.metadata;
+
+            // Standard PDF metadata
+            if (meta.title) pdfDoc.setTitle(meta.title);
+            if (meta.authors || meta.author) pdfDoc.setAuthor(meta.authors || meta.author);
+            if (meta.subject) pdfDoc.setSubject(meta.subject);
+            if (meta.keywords && Array.isArray(meta.keywords)) {
+                pdfDoc.setKeywords(meta.keywords);
+            }
+            pdfDoc.setProducer('Approval Management System (AMS) Cryptographic Engine');
+            pdfDoc.setCreator('Approval Management System');
+
+            if (meta.creation_date) {
+                try {
+                    pdfDoc.setCreationDate(new Date(meta.creation_date));
+                } catch (e) {}
+            }
+            pdfDoc.setModificationDate(new Date());
+
+            // Set Custom Document Information Dictionary entries
+            // These will appear directly in PDF viewers' "Custom" properties (Adobe Acrobat, Foxit, etc.)
+            // and CLI inspection tools (exiftool, pdfinfo, python, etc.)
+            const infoDict = pdfDoc.getInfoDict();
+            const setCustomAttr = (key, val) => {
+                if (val !== undefined && val !== null && String(val).trim() !== '') {
+                    infoDict.set(PDFName.of(key), PDFHexString.fromText(String(val)));
+                }
+            };
+
+            // Exact attributes requested by user:
+            setCustomAttr('authors', meta.authors || 'Approval Management System');
+            setCustomAttr('signed by', meta.signed_by || '-');
+            setCustomAttr('signed at', meta.signed_at || '-');
+
+            // Standard PascalCase & canonical attributes for PDF inspection tools:
+            setCustomAttr('Author', meta.authors || 'Approval Management System');
+            setCustomAttr('SignedBy', meta.signed_by || '-');
+            setCustomAttr('SignedAt', meta.signed_at || '-');
+            setCustomAttr('DocumentNumber', meta.document_number || '');
+            setCustomAttr('DocumentHash', meta.document_hash || '');
+            setCustomAttr('CryptographicSeal', meta.cryptographic_seal || '');
+            setCustomAttr('SecurityAlgorithm', meta.algorithm || 'HMAC-SHA256 / SHA-256');
+            setCustomAttr('VerificationUrl', meta.verification_url || '');
+            setCustomAttr('SecurityNotice', meta.security_notice || 'Cryptographically sealed and verified by Approval Management System');
         }
 
         const signedBytes = await pdfDoc.save();

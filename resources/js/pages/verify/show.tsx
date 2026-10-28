@@ -14,6 +14,7 @@ import {
     IconCalendar,
     IconX,
     IconUser,
+    IconShieldLock,
 } from '@tabler/icons-react';
 
 interface VerifiedApproval {
@@ -24,6 +25,10 @@ interface VerifiedApproval {
     signed_at: string;
     signature_method: string;
     download_url: string;
+    authors?: string;
+    document_hash?: string;
+    cryptographic_seal?: string;
+    security_algorithm?: string;
 }
 
 interface Props {
@@ -190,6 +195,44 @@ export default function VerifyShow({ isValid, approval }: Props) {
                                             </Badge>
                                         </div>
                                     </div>
+
+                                    {/* Cryptographic Security Details */}
+                                    {approval.document_hash && (
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50 space-y-3 sm:col-span-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <IconShieldLock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                                        Keamanan & Integritas Kriptografi
+                                                    </span>
+                                                </div>
+                                                <Badge variant="outline" className="border-emerald-600/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]">
+                                                    HMAC-SHA256 Sealed
+                                                </Badge>
+                                            </div>
+
+                                            <div className="grid gap-2 text-xs">
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                                    <span className="text-muted-foreground">Author / Penerbit:</span>
+                                                    <span className="font-semibold text-foreground">{approval.authors || 'Approval Management System'}</span>
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-muted-foreground">Document SHA-256 Hash:</span>
+                                                    <code className="rounded bg-muted px-2 py-1 font-mono text-[11px] text-foreground break-all border border-border/50">
+                                                        {approval.document_hash}
+                                                    </code>
+                                                </div>
+                                                {approval.cryptographic_seal && (
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-muted-foreground">Cryptographic Digital Seal:</span>
+                                                        <code className="rounded bg-muted px-2 py-1 font-mono text-[11px] text-foreground break-all border border-border/50">
+                                                            {approval.cryptographic_seal}
+                                                        </code>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <Separator />

@@ -8,8 +8,13 @@ use Exception;
 
 class PdfSignatureService
 {
+    public function __construct(
+        protected ?PdfSecurityService $securityService = null
+    ) {
+        $this->securityService = $securityService ?? app(PdfSecurityService::class);
+    }
+    
     /**
-     * Add signature to PDF document
      *
      * @param string $pdfPath Path to the original PDF file
      * @param string $signaturePath Path to the signature image
@@ -361,13 +366,17 @@ class PdfSignatureService
             $tempConfigFile = tempnam(sys_get_temp_dir(), 'pdf_sig_config_') . '.json';
             $tempOutputFile = tempnam(sys_get_temp_dir(), 'pdf_sig_out_') . '.pdf';
 
+            // Build cryptographic seal and inspection metadata
+            $metadata = $this->securityService->buildMetadata($dokumen, $approvals, $fullPdfPath);
+
             // Write config to temp file
             $config = [
                 'pdfPath' => $fullPdfPath,
                 'outPath' => $tempOutputFile,
                 'signatures' => $signaturesData,
                 'qrCode' => $qrCodesData[0] ?? null,
-                'qrCodes' => $qrCodesData
+                'qrCodes' => $qrCodesData,
+                'metadata' => $metadata,
             ];
 
             file_put_contents($tempConfigFile, json_encode($config));

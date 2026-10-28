@@ -1838,6 +1838,11 @@ class DokumenController extends Controller
     private function generateTransactionPdf(Dokumen $dokumen, ?Transaksi $transaksi = null): string
     {
         $pdf = new \setasign\Fpdi\Fpdi();
+        $pdf->SetAuthor('Approval Management System');
+        $pdf->SetCreator('Approval Management System');
+        $pdf->SetTitle($dokumen->nomor_dokumen . ' - ' . $dokumen->judul_dokumen);
+        $pdf->SetSubject('Formulir Pengajuan Transaksi');
+        $pdf->SetKeywords('authors: Approval Management System, nomor_dokumen: ' . $dokumen->nomor_dokumen);
         $pdf->AddPage('P', 'A4');
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetAutoPageBreak(true, 15);
