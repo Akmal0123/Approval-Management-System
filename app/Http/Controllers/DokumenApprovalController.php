@@ -231,7 +231,7 @@ class DokumenApprovalController extends Controller
         $isSuperAdmin = $this->contextService->isSuperAdmin();
 
         if (!$isUploader && !$isApprover && !$isSuperAdmin) {
-            abort(404, 'Unauthorized');
+            abort(403, 'Anda tidak memiliki hak akses ke dokumen ini.');
         }
 
         // If current user is the uploader (or superadmin) and not an approver in the workflow:

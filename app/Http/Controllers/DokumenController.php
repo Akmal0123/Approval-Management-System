@@ -625,9 +625,7 @@ class DokumenController extends Controller
         $doc = Dokumen::find($dokumen);
 
         if (!$doc) {
-            return redirect()
-                ->back(fallback: route('dokumen.page'))
-                ->with('error', 'Dokumen tidak ditemukan!');
+            abort(404, 'Dokumen yang Anda cari tidak ditemukan atau telah dihapus.');
         }
 
         // 3. Jika dokumen ditemukan, delegate ke show()
@@ -640,7 +638,7 @@ class DokumenController extends Controller
     public function show(Request $request, Dokumen $dokumen)
     {
         if (!$this->canAccessDokumen($dokumen)) {
-            abort(404, 'Unauthorized');
+            abort(403, 'Anda tidak memiliki hak akses untuk melihat dokumen ini.');
         }
 
         // If accessed directly from browser (not API/JSON), and the current user is an approver:
@@ -1674,7 +1672,7 @@ class DokumenController extends Controller
         }
 
         if (!$this->canAccessDokumen($dokumen)) {
-            abort(404, 'Unauthorized');
+            abort(403, 'Anda tidak memiliki hak akses ke dokumen ini.');
         }
 
         // Check if original file exists
@@ -1738,7 +1736,7 @@ class DokumenController extends Controller
         }
 
         if (!$this->canAccessDokumen($dokumen)) {
-            abort(404, 'Unauthorized');
+            abort(403, 'Anda tidak memiliki hak akses ke dokumen ini.');
         }
 
         // Check if original file exists
