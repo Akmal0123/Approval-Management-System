@@ -1,8 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
-import { Check, Copy, ExternalLink, GripHorizontal, Maximize2, Minimize2, QrCode, RefreshCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, ChevronDown, Copy, ExternalLink, FileText, GripHorizontal, Maximize2, Minimize2, QrCode, RefreshCw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
@@ -26,6 +34,14 @@ interface Approval {
     signature_method?: string;
 }
 
+export interface BulkDocumentItem {
+    id: number | string;
+    title: string;
+    documentNumber?: string;
+    transactionCode?: string;
+    nominal?: number;
+}
+
 interface Props {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -39,6 +55,9 @@ interface Props {
     readOnly?: boolean;
     defaultActiveApprovalId?: number | string;
     hideSidebar?: boolean;
+    bulkDocuments?: BulkDocumentItem[];
+    selectedDocumentId?: number | string;
+    onDocumentSelect?: (id: number | string) => void;
 }
 
 export interface SignaturePosition {
@@ -63,6 +82,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     readOnly = false,
     defaultActiveApprovalId,
     hideSidebar = false,
+    bulkDocuments,
+    selectedDocumentId,
+    onDocumentSelect,
 }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -88,7 +110,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             setBlobUrl(null);
             setFetchLoading(false);
             setFetchError(null);
-            return () => {};
+            return () => { };
         }
 
         // Direct blob or data URL
@@ -96,7 +118,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             setBlobUrl(fileUrl);
             setFetchLoading(false);
             setFetchError(null);
-            return () => {};
+            return () => { };
         }
 
         setFetchLoading(true);
@@ -943,8 +965,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         type="button"
                         onClick={() => setMobilePanelTab('pdf')}
                         className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'pdf'
-                                ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
-                                : 'text-muted-foreground hover:text-foreground'
+                            ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
+                            : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         📄 PDF Dokumen
@@ -953,8 +975,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         type="button"
                         onClick={() => setMobilePanelTab('info')}
                         className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'info'
-                                ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
-                                : 'text-muted-foreground hover:text-foreground'
+                            ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
+                            : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         👥 Info Approver
@@ -970,6 +992,106 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 ${mobilePanelTab === 'info' ? 'flex max-h-[calc(100%-42px)]' : 'hidden'}
             `}>
                     <div>
+                        {/* Dropdown List Dokumen Khusus Skenario Bulk Approve */}
+                        {bulkDocuments && bulkDocuments.length > 0 && (() => {
+                            const currentDocId = selectedDocumentId ?? bulkDocuments[0]?.id;
+                            const currentDoc = bulkDocuments.find((d) => String(d.id) === String(currentDocId)) || bulkDocuments[0];
+                            const currentIdx = bulkDocuments.findIndex((d) => String(d.id) === String(currentDocId));
+
+                            return (
+                                <div className="mb-4 space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                            Pilih Dokumen
+                                        </label>
+                                        <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[9px] font-bold text-primary">
+                                            {currentIdx >= 0 ? currentIdx + 1 : 1} dari {bulkDocuments.length}
+                                        </span>
+                                    </div>
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="w-full justify-between h-auto py-2 px-2.5 text-left border-border bg-background hover:bg-muted/60 shadow-xs cursor-pointer group"
+                                            >
+                                                <div className="flex flex-col min-w-0 pr-2">
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                        <span className="font-mono text-xs font-bold truncate text-foreground">
+                                                            {currentDoc?.documentNumber || currentDoc?.title || 'Pilih Dokumen'}
+                                                        </span>
+                                                    </div>
+                                                    {currentDoc?.documentNumber && currentDoc?.title && (
+                                                        <span className="text-[11px] text-muted-foreground truncate pl-5">
+                                                            {currentDoc.title}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            align="start"
+                                            sideOffset={4}
+                                            className="w-[280px] sm:w-[300px] max-h-72 overflow-y-auto p-1.5 z-50 shadow-xl border bg-popover"
+                                        >
+                                            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
+                                                Daftar Dokumen Dipilih ({bulkDocuments.length})
+                                            </DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            {bulkDocuments.map((doc, idx) => {
+                                                const isSelected = String(doc.id) === String(currentDocId);
+                                                return (
+                                                    <DropdownMenuItem
+                                                        key={doc.id}
+                                                        onClick={() => {
+                                                            if (onDocumentSelect) {
+                                                                onDocumentSelect(doc.id);
+                                                            }
+                                                        }}
+                                                        className={`flex flex-col items-start gap-1 p-2 cursor-pointer rounded-md ${
+                                                            isSelected ? 'bg-primary/10 text-primary font-medium' : ''
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between w-full gap-2">
+                                                            <div className="flex items-center gap-1.5 truncate">
+                                                                <span className="font-sans text-[10px] font-bold text-muted-foreground">
+                                                                    #{idx + 1}
+                                                                </span>
+                                                                <span className="font-mono text-xs font-semibold truncate">
+                                                                    {doc.documentNumber || doc.title}
+                                                                </span>
+                                                            </div>
+                                                            {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                                        </div>
+                                                        {doc.documentNumber && doc.title && (
+                                                            <span className="text-[11px] text-muted-foreground truncate w-full pl-3.5">
+                                                                {doc.title}
+                                                            </span>
+                                                        )}
+                                                        <div className="flex items-center gap-2 pl-3.5 text-[10px]">
+                                                            {doc.transactionCode && (
+                                                                <span className="rounded bg-blue-100 text-blue-700 px-1 py-0.2 font-medium">
+                                                                    {doc.transactionCode}
+                                                                </span>
+                                                            )}
+                                                            {doc.nominal !== undefined && (
+                                                                <span className="text-green-600 font-mono font-medium">
+                                                                    Rp {Number(doc.nominal).toLocaleString('id-ID')}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </DropdownMenuItem>
+                                                );
+                                            })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            );
+                        })()}
+
                         <h3 className="mb-3 text-sm font-semibold">Daftar Approver</h3>
                         <div className="space-y-3">
                             {approvals.map((approval) => {
@@ -1154,8 +1276,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                         disabled={readOnly}
                                                         onClick={() => toggleQrForPage(p)}
                                                         className={`relative flex h-7 min-w-[32px] items-center justify-center rounded px-1.5 text-xs font-semibold transition-all ${isSelected
-                                                                ? 'bg-amber-500 text-white shadow-xs hover:bg-amber-600'
-                                                                : 'border border-gray-200 bg-white text-gray-700 hover:bg-amber-50'
+                                                            ? 'bg-amber-500 text-white shadow-xs hover:bg-amber-600'
+                                                            : 'border border-gray-200 bg-white text-gray-700 hover:bg-amber-50'
                                                             } ${isCurrent ? 'ring-2 ring-primary ring-offset-1 font-bold' : ''}`}
                                                         title={`Halaman ${p}${isSelected ? ' (QR Aktif - klik untuk menghapus)' : ' (Klik untuk menambahkan QR)'}`}
                                                     >
@@ -1200,8 +1322,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                     <div
                                                         key={qr.id}
                                                         className={`cursor-pointer rounded-md border p-2 text-xs transition-colors ${isActive
-                                                                ? 'border-amber-500 bg-amber-500/10'
-                                                                : 'bg-background hover:bg-muted/50'
+                                                            ? 'border-amber-500 bg-amber-500/10'
+                                                            : 'bg-background hover:bg-muted/50'
                                                             }`}
                                                         onClick={() => {
                                                             setActiveApprovalId(qr.id);
@@ -1239,8 +1361,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                         <div className="mt-1.5 flex items-center justify-between">
                                                             <span
                                                                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isCurrent
-                                                                        ? 'bg-green-100 text-green-700'
-                                                                        : 'bg-gray-100 text-gray-700'
+                                                                    ? 'bg-green-100 text-green-700'
+                                                                    : 'bg-gray-100 text-gray-700'
                                                                     }`}
                                                             >
                                                                 {isCurrent ? 'Halaman Ini' : `Hal. ${qr.page}`}
@@ -1446,7 +1568,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     {(fetchError || error) && (
                         <div className="flex h-full min-h-[300px] w-full items-center justify-center p-6">
                             <div className="max-w-md text-center">
-                                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
                                     <X className="h-6 w-6" />
                                 </div>
                                 <h4 className="font-semibold text-foreground text-sm sm:text-base">Gagal Membuka Dokumen</h4>

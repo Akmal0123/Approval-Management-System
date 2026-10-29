@@ -175,7 +175,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [bulkComment, setBulkComment] = useState('');
     const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
     const [bulkPreviewApprovalId, setBulkPreviewApprovalId] = useState<number | null>(null);
-    const [bulkMobileTab, setBulkMobileTab] = useState<'form' | 'preview'>('form');
 
     // Preview Dialog states
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -1177,275 +1176,181 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                     <Dialog
                         open={isBulkModalOpen}
                         onOpenChange={(open) => {
+                            if (isBulkSubmitting) return;
                             setIsBulkModalOpen(open);
                             if (!open) {
                                 setShowBulkSignaturePad(false);
+                                setBulkSignatureData(null);
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh] w-full sm:w-[96vw] max-w-6xl xl:max-w-7xl 2xl:max-w-[1450px] flex-col overflow-hidden p-0 rounded-none sm:rounded-2xl">
-                            <DialogHeader className="shrink-0 border-b bg-muted/20 px-4 py-3 sm:px-6 sm:py-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <Badge className="bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-                                            {selectedApprovalIds.length} Dokumen
-                                        </Badge>
-                                        <DialogTitle className="font-serif text-lg font-bold">Bulk Approval Persetujuan</DialogTitle>
+                        <DialogContent className="flex h-[92vh] max-h-[92dvh] w-[95vw] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 lg:h-[90vh] lg:max-h-[90dvh] lg:w-[95vw] lg:max-w-[1400px]">
+                            <DialogHeader className="shrink-0 border-b px-4 py-3">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    <div className="min-w-0">
+                                        <DialogTitle className="font-serif text-base">Bulk Approval Persetujuan</DialogTitle>
+                                        <DialogDescription className="font-sans text-xs truncate">
+                                            {bulkPreviewFileName || currentBulkPreviewApproval?.dokumen?.judul_dokumen}
+                                        </DialogDescription>
                                     </div>
-                                    <DialogDescription className="font-sans text-xs">
-                                        Tinjau dan setujui {selectedApprovalIds.length} dokumen yang dipilih sekaligus dengan metode tanda
-                                        tangan yang sama.
-                                    </DialogDescription>
+                                    <Badge className="bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+                                        {selectedApprovalIds.length} Dokumen
+                                    </Badge>
                                 </div>
                             </DialogHeader>
 
-                            {/* Mobile Tab Switcher (< lg only) */}
-                            <div className="flex border-b bg-muted/30 p-1.5 lg:hidden shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setBulkMobileTab('form')}
-                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${bulkMobileTab === 'form'
-                                            ? 'bg-background text-foreground shadow-xs font-bold'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                        }`}
-                                >
-                                    <IconPencil className="h-3.5 w-3.5" />
-                                    <span>Persetujuan ({selectedApprovalIds.length})</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setBulkMobileTab('preview')}
-                                    className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${bulkMobileTab === 'preview'
-                                            ? 'bg-background text-foreground shadow-xs font-bold'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                        }`}
-                                >
-                                    <IconEye className="h-3.5 w-3.5" />
-                                    <span>Pratinjau PDF</span>
-                                </button>
-                            </div>
+                            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-4 lg:flex-row lg:overflow-hidden">
+                                {/* PDF Preview with Placement - Left Side */}
+                                {bulkPreviewFileUrl && currentBulkPreviewApproval ? (
+                                    <div className="h-[450px] shrink-0 sm:h-[520px] lg:h-full lg:min-h-0 lg:flex-1">
+                                        <SignaturePlacementDialog
+                                            key={currentBulkPreviewApproval.id}
+                                            open={isBulkModalOpen}
+                                            onOpenChange={setIsBulkModalOpen}
+                                            dokumenId={currentBulkPreviewApproval.dokumen.id}
+                                            fileUrl={bulkPreviewFileUrl}
+                                            approvals={bulkPreviewMappedApprovals}
+                                            defaultActiveApprovalId={currentBulkPreviewApproval.id}
+                                            isEmbedded={true}
+                                            readOnly={!((currentBulkPreviewApproval.can_approve ?? true) && currentBulkPreviewApproval.approval_status === 'pending')}
+                                            bulkDocuments={selectedApprovalsList.map((a) => ({
+                                                id: a.id,
+                                                title: a.dokumen.judul_dokumen,
+                                                documentNumber: a.dokumen.nomor_dokumen,
+                                                transactionCode: a.dokumen.transaksi?.kode_transaksi,
+                                                nominal: a.dokumen.nominal,
+                                            }))}
+                                            selectedDocumentId={currentBulkPreviewApproval.id}
+                                            onDocumentSelect={(id) => setBulkPreviewApprovalId(Number(id))}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex h-full min-h-[300px] flex-1 flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                                        <IconFileText className="mb-2 h-12 w-12 text-muted-foreground/40" />
+                                        <p className="font-sans text-sm font-medium">Preview tidak tersedia</p>
+                                        <p className="font-sans text-xs text-muted-foreground">
+                                            Dokumen ini tidak memiliki file PDF yang valid untuk dipratinjau.
+                                        </p>
+                                    </div>
+                                )}
 
-                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-                                {/* Left Side: Embedded Document Preview ("ketika di pencet bulk approval juga ada") */}
-                                <div className={`flex flex-1 flex-col min-h-0 min-w-0 border-b lg:border-b-0 lg:border-r bg-muted/10 overflow-hidden ${bulkMobileTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-                                    <div className="flex shrink-0 items-center justify-between border-b bg-background/90 px-4 py-2.5 backdrop-blur-xs">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <IconEye className="h-4 w-4 shrink-0 text-primary" />
-                                            <span className="font-sans text-xs font-semibold text-foreground truncate">
-                                                Preview:{' '}
-                                                <span className="font-normal text-muted-foreground">
-                                                    {currentBulkPreviewApproval?.dokumen.nomor_dokumen || '-'} • {bulkPreviewFileName || currentBulkPreviewApproval?.dokumen.judul_dokumen}
-                                                </span>
-                                            </span>
+                                {/* Signature Panel - Right Side */}
+                                <div className="w-full shrink-0 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-3 lg:w-[300px] lg:min-w-[260px]">
+                                    <div>
+                                        <h3 className="font-serif text-base font-semibold leading-tight">Tanda Tangan Persetujuan</h3>
+                                        <p className="font-sans text-xs text-muted-foreground mt-0.5">
+                                            Tanda tangan akan diterapkan ke semua {selectedApprovalIds.length} dokumen
+                                        </p>
+                                    </div>
+
+                                    <Separator />
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                            Metode Tanda Tangan
+                                        </Label>
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant={bulkSignatureMethod === 'original' ? 'default' : 'outline'}
+                                                onClick={() => {
+                                                    setBulkSignatureMethod('original');
+                                                }}
+                                                className="w-full text-xs font-medium h-8"
+                                            >
+                                                Tanda Tangan Asli
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant={bulkSignatureMethod === 'qr' ? 'default' : 'outline'}
+                                                onClick={() => {
+                                                    setBulkSignatureMethod('qr');
+                                                }}
+                                                className="w-full text-xs font-medium h-8"
+                                            >
+                                                QR Code
+                                            </Button>
                                         </div>
-                                        {currentBulkPreviewApproval?.dokumen.nominal !== undefined && (
-                                            <Badge variant="outline" className="border-green-200 bg-green-50 px-2 py-0.5 font-sans text-xs font-semibold text-green-700 shrink-0">
-                                                {formatCurrency(currentBulkPreviewApproval.dokumen.nominal)}
-                                            </Badge>
-                                        )}
                                     </div>
 
-                                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                                        {bulkPreviewFileUrl && currentBulkPreviewApproval ? (
-                                            <SignaturePlacementDialog
-                                                key={currentBulkPreviewApproval.id}
-                                                open={isBulkModalOpen}
-                                                dokumenId={currentBulkPreviewApproval.dokumen.id}
-                                                fileUrl={bulkPreviewFileUrl}
-                                                approvals={bulkPreviewMappedApprovals}
-                                                defaultActiveApprovalId={currentBulkPreviewApproval.id}
-                                                isEmbedded={true}
-                                                hideSidebar={true}
-                                                readOnly={!((currentBulkPreviewApproval.can_approve ?? true) && currentBulkPreviewApproval.approval_status === 'pending')}
-                                            />
-                                        ) : (
-                                            <div className="flex h-full min-h-[300px] flex-1 flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                                                <IconFileText className="mb-2 h-12 w-12 text-muted-foreground/40" />
-                                                <p className="font-sans text-sm font-medium">Preview tidak tersedia</p>
-                                                <p className="font-sans text-xs text-muted-foreground">
-                                                    Dokumen ini tidak memiliki file PDF yang valid untuk dipratinjau.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                    <Separator />
 
-                                {/* Right Side: Approval Controls */}
-                                <div className={`w-full min-h-0 flex-col justify-between overflow-hidden bg-background lg:w-[320px] xl:w-[340px] lg:flex-none lg:shrink-0 ${bulkMobileTab === 'form' ? 'flex flex-1 lg:flex-none' : 'hidden lg:flex'}`}>
-                                    <div className="flex-1 space-y-3.5 overflow-y-auto p-3.5 sm:p-4 pb-6">
-                                        {/* List Tile Dokumen yang Dipilih */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                                    Dokumen yang Dipilih ({selectedApprovalIds.length})
-                                                </Label>
-                                                <button
+                                    {bulkSignatureMethod === 'original' ? (
+                                        !showBulkSignaturePad && !bulkSignatureData ? (
+                                            <div className="space-y-2">
+                                                <Card className="border-dashed">
+                                                    <CardContent className="flex flex-col items-center justify-center py-4 px-3">
+                                                        <IconPencil className="h-8 w-8 text-muted-foreground" />
+                                                        <p className="mt-1.5 text-center font-sans text-xs text-muted-foreground">
+                                                            Belum ada tanda tangan
+                                                        </p>
+                                                    </CardContent>
+                                                </Card>
+                                                <Button
                                                     type="button"
-                                                    onClick={() => setBulkMobileTab('preview')}
-                                                    className="lg:hidden text-[11px] font-semibold text-primary flex items-center gap-1 hover:underline"
+                                                    size="sm"
+                                                    onClick={() => setShowBulkSignaturePad(true)}
+                                                    className="w-full font-sans h-8 text-xs"
+                                                    variant="outline"
                                                 >
-                                                    <IconEye className="h-3 w-3" />
-                                                    Lihat Pratinjau
-                                                </button>
+                                                    <IconPencil className="mr-1.5 h-3.5 w-3.5" />
+                                                    Tambah Tanda Tangan
+                                                </Button>
                                             </div>
-                                            <div className="space-y-1.5 rounded-lg border bg-muted/20 p-1.5 max-h-48 overflow-y-auto">
-                                                {selectedApprovalsList.map((a) => {
-                                                    const isActive = a.id === (bulkPreviewApprovalId || selectedApprovalsList[0]?.id);
-                                                    return (
-                                                        <div
-                                                            key={a.id}
-                                                            className={`w-full flex items-center gap-2 rounded-md border px-2.5 py-1.5 sm:px-3 sm:py-2 text-left text-xs transition-all ${isActive
-                                                                    ? 'border-primary bg-primary/10 shadow-xs'
-                                                                    : 'border-transparent bg-background hover:border-border hover:bg-muted/50'
-                                                                }`}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setBulkPreviewApprovalId(a.id)}
-                                                                className="flex items-center gap-2 min-w-0 flex-1 text-left"
-                                                            >
-                                                                <IconFileText className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                                <span className={`font-mono font-semibold truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                                                                    {a.dokumen.nomor_dokumen || a.dokumen.judul_dokumen}
-                                                                </span>
-                                                                {a.dokumen.transaksi && (
-                                                                    <Badge variant="outline" className="shrink-0 border-blue-200 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700">
-                                                                        {a.dokumen.transaksi.kode_transaksi}
-                                                                    </Badge>
-                                                                )}
-                                                            </button>
-                                                            <div className="flex items-center gap-1 shrink-0">
-                                                                {isActive && (
-                                                                    <span className="hidden sm:inline-flex rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground">
-                                                                        Aktif
-                                                                    </span>
-                                                                )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setBulkPreviewApprovalId(a.id);
-                                                                        setBulkMobileTab('preview');
-                                                                    }}
-                                                                    className="lg:hidden text-[10px] font-semibold text-primary flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20"
-                                                                    title="Buka pratinjau dokumen ini"
-                                                                >
-                                                                    <IconEye className="h-3 w-3" />
-                                                                    <span>PDF</span>
-                                                                </button>
-                                                            </div>
+                                        ) : bulkSignatureData ? (
+                                            <div className="space-y-3">
+                                                <Card>
+                                                    <CardContent className="p-4">
+                                                        <div className="flex aspect-square max-w-[200px] mx-auto items-center justify-center rounded border bg-white p-3">
+                                                            <img
+                                                                src={bulkSignatureData}
+                                                                alt="Signature"
+                                                                className="max-h-full max-w-full object-contain"
+                                                            />
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        {/* Metode Tanda Tangan */}
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                                Metode Tanda Tangan
-                                            </Label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant={bulkSignatureMethod === 'original' ? 'default' : 'outline'}
-                                                    onClick={() => {
-                                                        setBulkSignatureMethod('original');
-                                                        setShowBulkSignaturePad(false);
-                                                    }}
-                                                    className="w-full text-xs font-medium px-1.5 py-2 h-auto text-center"
-                                                >
-                                                    Tanda Tangan Asli
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant={bulkSignatureMethod === 'qr' ? 'default' : 'outline'}
-                                                    onClick={() => {
-                                                        setBulkSignatureMethod('qr');
-                                                        setShowBulkSignaturePad(false);
-                                                    }}
-                                                    className="w-full text-xs font-medium px-1.5 py-2 h-auto text-center"
-                                                >
-                                                    Tanda Tangan QR Code
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        {/* Signature Input / QR Display */}
-                                        {bulkSignatureMethod === 'original' ? (
-                                            !showBulkSignaturePad && !bulkSignatureData ? (
-                                                <div className="space-y-3">
-                                                    <Card className="border-dashed bg-background">
-                                                        <CardContent className="flex flex-col items-center justify-center py-6">
-                                                            <IconPencil className="h-10 w-10 text-muted-foreground" />
-                                                            <p className="mt-2 text-center font-sans text-sm text-muted-foreground">Belum ada tanda tangan</p>
-                                                        </CardContent>
-                                                    </Card>
+                                                    </CardContent>
+                                                </Card>
+                                                <div className="flex gap-2">
                                                     <Button
                                                         type="button"
-                                                        onClick={() => setShowBulkSignaturePad(true)}
-                                                        className="w-full font-sans"
                                                         variant="outline"
+                                                        onClick={() => {
+                                                            setBulkSignatureData(null);
+                                                            setShowBulkSignaturePad(true);
+                                                        }}
+                                                        className="flex-1 font-sans text-xs"
                                                     >
-                                                        <IconPencil className="mr-2 h-4 w-4" />
-                                                        Tambah Tanda Tangan
+                                                        Ganti
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            setBulkSignatureData(null);
+                                                        }}
+                                                        className="font-sans text-xs text-red-600 hover:bg-red-50"
+                                                    >
+                                                        <IconX className="h-4 w-4" />
                                                     </Button>
                                                 </div>
-                                            ) : bulkSignatureData ? (
-                                                <div className="space-y-3">
-                                                    <Card className="mx-auto max-w-xs bg-background">
-                                                        <CardContent className="p-4">
-                                                            <div className="mx-auto flex aspect-square max-w-[160px] items-center justify-center rounded border bg-white p-3">
-                                                                <img
-                                                                    src={bulkSignatureData}
-                                                                    alt="Signature"
-                                                                    className="max-h-full max-w-full object-contain"
-                                                                />
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                    <div className="mx-auto flex max-w-xs gap-2">
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                setBulkSignatureData(null);
-                                                                setShowBulkSignaturePad(true);
-                                                            }}
-                                                            className="flex-1 font-sans text-xs"
-                                                        >
-                                                            Ganti
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => setBulkSignatureData(null)}
-                                                            className="font-sans text-xs text-red-600 hover:bg-red-50"
-                                                        >
-                                                            <IconX className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-background">
-                                                    <SignaturePad
-                                                        onSignatureComplete={(sig) => {
-                                                            setBulkSignatureData(sig);
-                                                            setShowBulkSignaturePad(false);
-                                                            showToast.success('✅ Tanda tangan berhasil ditambahkan!');
-                                                        }}
-                                                        onCancel={() => setShowBulkSignaturePad(false)}
-                                                    />
-                                                </div>
-                                            )
+                                            </div>
                                         ) : (
+                                            <SignaturePad
+                                                onSignatureComplete={(sig) => {
+                                                    setBulkSignatureData(sig);
+                                                    setShowBulkSignaturePad(false);
+                                                    showToast.success('✅ Tanda tangan berhasil ditambahkan!');
+                                                }}
+                                                onCancel={() => setShowBulkSignaturePad(false)}
+                                            />
+                                        )
+                                    ) : (
+                                        <div className="space-y-2">
                                             <Card className="border bg-white">
-                                                <CardContent className="flex flex-col items-center justify-center py-6 text-center">
-                                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                                <CardContent className="flex flex-col items-center justify-center py-4 px-3 text-center">
+                                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                                                         <svg
                                                             xmlns="http://www.w3.org/2000/svg"
                                                             viewBox="0 0 24 24"
@@ -1454,7 +1359,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             strokeWidth="2"
                                                             strokeLinecap="round"
                                                             strokeLinejoin="round"
-                                                            className="h-8 w-8"
+                                                            className="h-6 w-6"
                                                         >
                                                             <rect x="3" y="3" width="18" height="18" rx="2" />
                                                             <rect x="7" y="7" width="3" height="3" />
@@ -1463,67 +1368,64 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             <rect x="14" y="14" width="3" height="3" />
                                                         </svg>
                                                     </div>
-                                                    <p className="mt-3 font-serif text-base font-semibold">Tanda Tangan QR Code Terpilih</p>
-                                                    <p className="mt-1 max-w-[320px] font-sans text-xs text-muted-foreground">
-                                                        Sistem akan otomatis menyematkan QR Code unik pada setiap dokumen untuk verifikasi keaslian
-                                                        persetujuan.
+                                                    <p className="mt-2 font-serif text-sm font-semibold">QR Code Terpilih</p>
+                                                    <p className="mt-0.5 font-sans text-xs text-muted-foreground">
+                                                        QR Code unik akan disisipkan pada dokumen.
                                                     </p>
                                                 </CardContent>
                                             </Card>
-                                        )}
-
-                                        {/* Komentar Opsional */}
-                                        {(bulkSignatureData || bulkSignatureMethod === 'qr') && (
-                                            <div className="space-y-1.5 border-t pt-2">
-                                                <Label htmlFor="bulk-comment" className="font-sans text-xs font-medium">
-                                                    Komentar (Opsional)
-                                                </Label>
-                                                <Textarea
-                                                    id="bulk-comment"
-                                                    placeholder="Tambahkan komentar persetujuan jika diperlukan..."
-                                                    value={bulkComment}
-                                                    onChange={(e) => setBulkComment(e.target.value)}
-                                                    className="bg-background font-sans text-sm"
-                                                    rows={2}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Footer Action Buttons */}
-                                    <div className="flex shrink-0 items-center justify-between gap-2 border-t bg-muted/10 p-3 sm:p-4">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => setIsBulkModalOpen(false)}
-                                            disabled={isBulkSubmitting}
-                                            className="font-sans text-xs sm:text-sm h-9"
-                                        >
-                                            Batal
-                                        </Button>
-                                        <div className="flex items-center gap-2">
-                                            {bulkMobileTab === 'form' && (
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    onClick={() => setBulkMobileTab('preview')}
-                                                    className="lg:hidden font-sans text-xs h-9"
-                                                >
-                                                    <IconEye className="mr-1 h-3.5 w-3.5" />
-                                                    Pratinjau
-                                                </Button>
-                                            )}
-                                            <Button
-                                                type="button"
-                                                onClick={handleBulkApproveSubmit}
-                                                disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
-                                                className="font-sans text-xs sm:text-sm h-9"
-                                            >
-                                                <IconCheck className="mr-1.5 h-4 w-4" />
-                                                {isBulkSubmitting ? 'Memproses...' : `Setujui (${selectedApprovalIds.length})`}
-                                            </Button>
                                         </div>
-                                    </div>
+                                    )}
+
+                                    {(bulkSignatureData || bulkSignatureMethod === 'qr') && (
+                                        <>
+                                            <Separator />
+
+                                            <div className="space-y-2">
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="bulk-comment" className="font-sans text-xs">
+                                                        Komentar (Opsional)
+                                                    </Label>
+                                                    <Textarea
+                                                        id="bulk-comment"
+                                                        placeholder="Tambahkan komentar jika diperlukan..."
+                                                        value={bulkComment}
+                                                        onChange={(e) => setBulkComment(e.target.value)}
+                                                        className="font-sans text-sm"
+                                                        rows={2}
+                                                        disabled={isBulkSubmitting}
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={handleBulkApproveSubmit}
+                                                        disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
+                                                        className="w-full font-sans h-9"
+                                                    >
+                                                        {isBulkSubmitting ? 'Memproses...' : (
+                                                            <>
+                                                                <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+                                                                Setujui ({selectedApprovalIds.length}) Dokumen
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => setIsBulkModalOpen(false)}
+                                                        className="w-full font-sans h-8 text-xs"
+                                                        disabled={isBulkSubmitting}
+                                                    >
+                                                        Batal
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </DialogContent>
