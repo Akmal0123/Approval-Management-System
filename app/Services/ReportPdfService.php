@@ -12,6 +12,7 @@ class ReportPdfService extends Fpdi
     private string $statusFilter = 'Semua Status';
     private string $periodeFilter = 'Semua Periode';
     private string $printDate = '';
+    private int $totalDocs = 0;
     private bool $isMobile = false;
 
     public function setIsMobile(bool $isMobile): void
@@ -19,18 +20,29 @@ class ReportPdfService extends Fpdi
         $this->isMobile = $isMobile;
     }
 
+    public function setTotalDocs(int $total): void
+    {
+        $this->totalDocs = $total;
+    }
+
     public function setFilterInfo(
-        string $company,
-        string $aplikasi,
-        string $status,
-        string $title = 'REPORT DOKUMEN',
+        string $companyOrTitle,
+        string $aplikasiOrPeriode = '',
+        string $status = '',
+        string $title = '',
         string $periode = 'Semua Periode'
     ): void {
-        $this->companyFilter = $company;
-        $this->aplikasiFilter = $aplikasi;
-        $this->statusFilter = $status;
-        $this->reportTitle = strtoupper($title);
-        $this->periodeFilter = $periode;
+        // If called with (title, periode, total) or legacy (company, aplikasi, status, title, periode)
+        if ($title !== '') {
+            $this->companyFilter = $companyOrTitle;
+            $this->aplikasiFilter = $aplikasiOrPeriode;
+            $this->statusFilter = $status;
+            $this->reportTitle = strtoupper($title);
+            $this->periodeFilter = $periode;
+        } else {
+            $this->reportTitle = strtoupper($companyOrTitle);
+            $this->periodeFilter = $aplikasiOrPeriode ?: 'Semua Periode';
+        }
         $this->printDate = date('d/m/Y H:i');
     }
 
@@ -46,163 +58,82 @@ class ReportPdfService extends Fpdi
 
     private function renderDesktopHeader(): void
     {
-        $this->SetFont('Arial', 'B', 15);
-        $this->SetTextColor(30, 58, 138); // Dark blue primary
+        $this->SetFont('Arial', 'B', 14);
+        $this->SetTextColor(21, 128, 61); // Primary green
         $this->Cell(0, 7, $this->reportTitle, 0, 1, 'L');
 
-        $this->SetFont('Arial', '', 9);
+        $this->SetFont('Arial', '', 8.5);
         $this->SetTextColor(100, 116, 139); // Slate muted
-        $this->Cell(0, 5, 'Sistem Approval Management System (AMS)', 0, 1, 'L');
-        $this->Ln(2);
+        $this->Cell(0, 4.5, 'Sistem Approval Management System (AMS)', 0, 1, 'L');
+        $this->Ln(1.5);
 
-        // Metadata box (273mm width)
+        // Metadata box (273mm width on Landscape A4: X 12 to 285)
         $this->SetX(12);
-        $this->SetFillColor(241, 245, 249); // Slate 100
+        $this->SetFillColor(248, 250, 252); // Slate 50
         $this->SetDrawColor(203, 213, 225); // Slate 300
-        $this->RoundedRect(12, $this->GetY(), 273, 14, 1.5, 'DF');
+        $this->RoundedRect(12, $this->GetY(), 273, 9, 1.2, 'DF');
 
+        $boxY = $this->GetY() + 2.2;
+        $this->SetXY(15, $boxY);
         $this->SetFont('Arial', 'B', 8);
         $this->SetTextColor(51, 65, 85);
-        $this->SetY($this->GetY() + 2);
-
-        // Row 1: Company, Aplikasi, Status
-        $this->SetX(14);
-        $this->Cell(17, 4.5, 'Company:', 0, 0);
+        $this->Cell(15, 4.5, 'Periode:', 0, 0);
         $this->SetFont('Arial', '', 8);
-        $this->Cell(65, 4.5, $this->truncateText($this->companyFilter, 38), 0, 0);
+        $this->Cell(75, 4.5, $this->periodeFilter, 0, 0);
 
         $this->SetFont('Arial', 'B', 8);
-        $this->Cell(15, 4.5, 'Aplikasi:', 0, 0);
+        $this->Cell(17, 4.5, 'Tgl Cetak:', 0, 0);
         $this->SetFont('Arial', '', 8);
-        $this->Cell(65, 4.5, $this->truncateText($this->aplikasiFilter, 38), 0, 0);
+        $this->Cell(65, 4.5, $this->printDate, 0, 0);
 
-        $this->SetFont('Arial', 'B', 8);
-        $this->Cell(13, 4.5, 'Status:', 0, 0);
-        $this->SetFont('Arial', '', 8);
-        $this->Cell(45, 4.5, $this->truncateText($this->statusFilter, 24), 0, 1);
+        if ($this->totalDocs > 0) {
+            $this->SetFont('Arial', 'B', 8);
+            $this->Cell(22, 4.5, 'Total Data:', 0, 0);
+            $this->SetFont('Arial', '', 8);
+            $this->Cell(45, 4.5, $this->totalDocs . ' dokumen', 0, 0);
+        }
 
-        // Row 2: Periode, Tgl Cetak
-        $this->SetX(14);
-        $this->SetFont('Arial', 'B', 8);
-        $this->Cell(17, 4.5, 'Periode:', 0, 0);
-        $this->SetFont('Arial', '', 8);
-        $this->Cell(65, 4.5, $this->periodeFilter, 0, 0);
-
-        $this->SetFont('Arial', 'B', 8);
-        $this->Cell(15, 4.5, 'Tgl Cetak:', 0, 0);
-        $this->SetFont('Arial', '', 8);
-        $this->Cell(65, 4.5, $this->printDate, 0, 1);
-
-        $this->Ln(3);
-
-        // Table Header
-        $this->renderDesktopTableHeader();
+        $this->SetY($boxY + 9.5);
     }
 
     private function renderMobileHeader(): void
     {
-        $this->SetFont('Arial', 'B', 12.5);
-        $this->SetTextColor(30, 58, 138); // Dark blue primary
+        $this->SetFont('Arial', 'B', 12);
+        $this->SetTextColor(21, 128, 61); // Primary green
         $this->Cell(0, 6, $this->reportTitle, 0, 1, 'L');
 
-        $this->SetFont('Arial', '', 8);
+        $this->SetFont('Arial', '', 7.5);
         $this->SetTextColor(100, 116, 139); // Slate muted
-        $this->Cell(0, 4.5, 'Sistem Approval Management System (AMS) - Mobile Edition', 0, 1, 'L');
-        $this->Ln(1.5);
+        $this->Cell(0, 4, 'Sistem Approval Management System (AMS) - Mobile Edition', 0, 1, 'L');
+        $this->Ln(1);
 
         // Metadata box (190mm width, portrait: X 10 to 200)
         $this->SetX(10);
-        $this->SetFillColor(241, 245, 249);
+        $this->SetFillColor(248, 250, 252);
         $this->SetDrawColor(203, 213, 225);
-        $this->RoundedRect(10, $this->GetY(), 190, 15, 1.5, 'DF');
+        $this->RoundedRect(10, $this->GetY(), 190, 8.5, 1.2, 'DF');
 
-        $boxY = $this->GetY() + 1.8;
-
-        // Kolom 1 (X: 12 -> 76)
-        // Row 1: Company
-        $this->SetXY(12, $boxY);
+        $boxY = $this->GetY() + 2;
+        $this->SetXY(13, $boxY);
         $this->SetFont('Arial', 'B', 7.5);
         $this->SetTextColor(51, 65, 85);
-        $this->Cell(15, 3.8, 'Company:', 0, 0);
+        $this->Cell(14, 4, 'Periode:', 0, 0);
         $this->SetFont('Arial', '', 7.5);
-        $this->Cell(49, 3.8, $this->truncateText($this->companyFilter, 26), 0, 0);
+        $this->Cell(65, 4, $this->periodeFilter, 0, 0);
 
-        // Row 2: Periode (tepat di bawah Company)
-        $this->SetXY(12, $boxY + 5.5);
         $this->SetFont('Arial', 'B', 7.5);
-        $this->SetTextColor(51, 65, 85);
-        $this->Cell(15, 3.8, 'Periode:', 0, 0);
+        $this->Cell(16, 4, 'Tgl Cetak:', 0, 0);
         $this->SetFont('Arial', '', 7.5);
-        $this->Cell(49, 3.8, $this->truncateText($this->periodeFilter, 26), 0, 0);
+        $this->Cell(45, 4, $this->printDate, 0, 0);
 
-        // Kolom 2 (X: 78 -> 132)
-        // Row 1: Aplikasi
-        $this->SetXY(78, $boxY);
-        $this->SetFont('Arial', 'B', 7.5);
-        $this->SetTextColor(51, 65, 85);
-        $this->Cell(13, 3.8, 'Aplikasi:', 0, 0);
-        $this->SetFont('Arial', '', 7.5);
-        $this->Cell(42, 3.8, $this->truncateText($this->aplikasiFilter, 22), 0, 0);
+        if ($this->totalDocs > 0) {
+            $this->SetFont('Arial', 'B', 7.5);
+            $this->Cell(18, 4, 'Total:', 0, 0);
+            $this->SetFont('Arial', '', 7.5);
+            $this->Cell(30, 4, $this->totalDocs . ' dok', 0, 0);
+        }
 
-        // Kolom 3 (X: 135 -> 198) - Sejajar Lurus Sempurna!
-        // Row 1: Status
-        $this->SetXY(135, $boxY);
-        $this->SetFont('Arial', 'B', 7.5);
-        $this->SetTextColor(51, 65, 85);
-        $this->Cell(15, 3.8, 'Status:', 0, 0);
-        $this->SetFont('Arial', '', 7.5);
-        $this->Cell(48, 3.8, $this->truncateText($this->statusFilter, 24), 0, 0);
-
-        // Row 2: Tgl Cetak (tepat lurus di bawah Status)
-        $this->SetXY(135, $boxY + 5.5);
-        $this->SetFont('Arial', 'B', 7.5);
-        $this->SetTextColor(51, 65, 85);
-        $this->Cell(15, 3.8, 'Tgl Cetak:', 0, 0);
-        $this->SetFont('Arial', '', 7.5);
-        $this->Cell(48, 3.8, $this->printDate, 0, 0);
-
-        $this->SetY($boxY + 13.5);
-
-        // Table Header
-        $this->renderMobileTableHeader();
-    }
-
-    public function renderDesktopTableHeader(): void
-    {
-        $this->SetX(12);
-        $this->SetFillColor(30, 58, 138);
-        $this->SetTextColor(255, 255, 255);
-        $this->SetDrawColor(30, 58, 138);
-        $this->SetFont('Arial', 'B', 8);
-
-        // Column widths: Total = 273mm (12mm + 273mm = 285mm, margin kanan 12mm pada A4 297mm)
-        $this->Cell(8, 7, 'No', 1, 0, 'C', true);
-        $this->Cell(34, 7, 'No Dokumen', 1, 0, 'L', true);
-        $this->Cell(46, 7, 'Judul Dokumen', 1, 0, 'L', true);
-        $this->Cell(28, 7, 'Pengaju', 1, 0, 'L', true);
-        $this->Cell(26, 7, 'Company', 1, 0, 'L', true);
-        $this->Cell(24, 7, 'Aplikasi', 1, 0, 'L', true);
-        $this->Cell(26, 7, 'Transaksi', 1, 0, 'L', true);
-        $this->Cell(27, 7, 'Nominal (Rp)', 1, 0, 'R', true);
-        $this->Cell(28, 7, 'Status', 1, 0, 'C', true);
-        $this->Cell(26, 7, 'Tgl Pengajuan', 1, 1, 'C', true);
-    }
-
-    public function renderMobileTableHeader(): void
-    {
-        $this->SetX(10);
-        $this->SetFillColor(30, 58, 138);
-        $this->SetTextColor(255, 255, 255);
-        $this->SetDrawColor(30, 58, 138);
-        $this->SetFont('Arial', 'B', 7.5);
-
-        // Total width = 190mm (A4 Portrait width: 210mm - 20mm margins)
-        $this->Cell(8, 7, 'No', 1, 0, 'C', true);
-        $this->Cell(64, 7, 'No Dokumen & Judul', 1, 0, 'L', true);
-        $this->Cell(35, 7, 'Pengaju / Aplikasi', 1, 0, 'L', true);
-        $this->Cell(16, 7, 'Tipe', 1, 0, 'C', true);
-        $this->Cell(35, 7, 'Nominal (Rp)', 1, 0, 'R', true);
-        $this->Cell(32, 7, 'Status & Tgl', 1, 1, 'C', true);
+        $this->SetY($boxY + 8.5);
     }
 
     // Page footer
@@ -218,9 +149,9 @@ class ReportPdfService extends Fpdi
     }
 
     /**
-     * Render the table content from items
+     * Render grouped report content: Company -> Aplikasi -> Transaksi -> Docs
      */
-    public function renderContent(array $items): void
+    public function renderGroupedContent(array $groupedData): void
     {
         $this->AliasNbPages();
 
@@ -234,161 +165,287 @@ class ReportPdfService extends Fpdi
             $this->AddPage('L', 'A4');
         }
 
-        if (empty($items)) {
+        if (empty($groupedData)) {
             $this->SetFont('Arial', 'I', 10);
             $this->SetTextColor(100, 116, 139);
             $this->Ln(10);
-            $this->Cell(0, 10, 'Tidak ada data dokumen yang sesuai dengan filter yang dipilih.', 0, 1, 'C');
+            $this->Cell(0, 10, 'Tidak ada data dokumen yang sesuai dengan periode yang dipilih.', 0, 1, 'C');
             return;
         }
 
-        $no = 1;
-        foreach ($items as $item) {
-            if ($this->isMobile) {
-                // Check if page break will happen soon in Portrait (297mm height)
-                if ($this->GetY() > 268) {
-                    $this->AddPage('P', 'A4');
+        $pageWidth = $this->isMobile ? 190 : 273;
+        $startX = $this->isMobile ? 10 : 12;
+        $maxY = $this->isMobile ? 268 : 185;
+
+        foreach ($groupedData as $company => $aplikasiGroup) {
+            // Calculate total documents for this company
+            $companyTotal = 0;
+            foreach ($aplikasiGroup as $transGroup) {
+                foreach ($transGroup as $docTypeGroup) {
+                    foreach ($docTypeGroup as $docs) {
+                        $companyTotal += count($docs);
+                    }
                 }
-                $this->renderMobileRow($no, $item);
-            } else {
-                // Check if page break will happen soon in Landscape (210mm height)
-                if ($this->GetY() > 185) {
-                    $this->AddPage('L', 'A4');
-                }
-                $this->renderDesktopRow($no, $item);
             }
-            $no++;
+
+            // Page break check for Company Banner (requires at least 32mm)
+            if ($this->GetY() > ($maxY - 25)) {
+                $this->AddPage($this->isMobile ? 'P' : 'L', 'A4');
+            }
+
+            // 1. Company Banner (Primary Green)
+            $this->SetX($startX);
+            $this->SetFillColor(21, 128, 61); // #15803D
+            $this->SetTextColor(255, 255, 255);
+            $this->SetFont('Arial', 'B', $this->isMobile ? 8.5 : 9.5);
+            $this->RoundedRect($startX, $this->GetY(), $pageWidth, 7.5, 1, 'F');
+
+            $compY = $this->GetY();
+            $this->SetXY($startX + 3, $compY + 1.2);
+            $this->Cell($pageWidth - 30, 5, 'Company: ' . $this->truncateText($company, 55), 0, 0, 'L');
+            $this->SetXY($startX + $pageWidth - 32, $compY + 1.2);
+            $this->SetFont('Arial', '', $this->isMobile ? 7.5 : 8.5);
+            $this->Cell(29, 5, $companyTotal . ' dokumen', 0, 0, 'R');
+            $this->SetY($compY + 9);
+
+            foreach ($aplikasiGroup as $aplikasi => $transaksiGroup) {
+                // Page break check for Aplikasi Banner
+                if ($this->GetY() > ($maxY - 20)) {
+                    $this->AddPage($this->isMobile ? 'P' : 'L', 'A4');
+                }
+
+                // 2. Aplikasi Banner (Soft Mint Green)
+                $this->SetX($startX);
+                $this->SetFillColor(220, 252, 231); // #DCFCE7
+                $this->SetDrawColor(134, 239, 172); // #86EFAC
+                $this->RoundedRect($startX, $this->GetY(), $pageWidth, 6.5, 1, 'DF');
+
+                $appY = $this->GetY();
+                $this->SetXY($startX + 3, $appY + 1);
+                $this->SetTextColor(21, 128, 61);
+                $this->SetFont('Arial', 'B', $this->isMobile ? 8 : 9);
+                $this->Cell($pageWidth - 6, 4.5, 'Aplikasi: ' . $this->truncateText($aplikasi, 45), 0, 0, 'L');
+                $this->SetY($appY + 8);
+
+                foreach ($transaksiGroup as $transaksi => $docTypeGroup) {
+                    foreach ($docTypeGroup as $docType => $docs) {
+                        // Page break check for Transaksi Header + Table Header (requires at least 22mm)
+                        if ($this->GetY() > ($maxY - 18)) {
+                            $this->AddPage($this->isMobile ? 'P' : 'L', 'A4');
+                        }
+
+                        // 3. Transaksi Subheader
+                        $this->SetX($startX);
+                        $this->SetFillColor(241, 245, 249); // #F1F5F9
+                        $this->SetDrawColor(203, 213, 225); // #CBD5E1
+                        $this->RoundedRect($startX, $this->GetY(), $pageWidth, 6, 0.8, 'DF');
+
+                        $tranY = $this->GetY();
+                        $this->SetXY($startX + 3, $tranY + 0.8);
+                        $this->SetTextColor(30, 41, 59);
+                        $this->SetFont('Arial', 'B', $this->isMobile ? 7.5 : 8);
+                        $tranLabel = 'Transaksi: ' . $transaksi . '  [' . $docType . '] (' . count($docs) . ' dokumen)';
+                        $this->Cell($pageWidth - 6, 4.5, $tranLabel, 0, 0, 'L');
+                        $this->SetY($tranY + 7);
+
+                        // 4. Table Header
+                        $this->renderGroupTableHeader();
+
+                        // 5. Document Rows
+                        $no = 1;
+                        foreach ($docs as $doc) {
+                            if ($this->GetY() > $maxY) {
+                                $this->AddPage($this->isMobile ? 'P' : 'L', 'A4');
+                                $this->renderGroupTableHeader();
+                            }
+
+                            if ($this->isMobile) {
+                                $this->renderMobileGroupRow($no, $doc);
+                            } else {
+                                $this->renderDesktopGroupRow($no, $doc);
+                            }
+                            $no++;
+                        }
+
+                        $this->Ln(3.5);
+                    }
+                }
+
+                $this->Ln(2);
+            }
+
+            $this->Ln(3);
         }
     }
 
-    private function renderMobileRow(int $no, array $item): void
+    private function renderGroupTableHeader(): void
+    {
+        if ($this->isMobile) {
+            $this->SetX(10);
+            $this->SetFillColor(51, 65, 85); // Slate 700
+            $this->SetTextColor(255, 255, 255);
+            $this->SetDrawColor(51, 65, 85);
+            $this->SetFont('Arial', 'B', 7.5);
+
+            // Total = 190mm
+            $this->Cell(8, 6, 'No', 1, 0, 'C', true);
+            $this->Cell(70, 6, 'No Dokumen & Judul', 1, 0, 'L', true);
+            $this->Cell(32, 6, 'Pengaju', 1, 0, 'L', true);
+            $this->Cell(38, 6, 'Nominal (Rp)', 1, 0, 'R', true);
+            $this->Cell(42, 6, 'Status & Tgl', 1, 1, 'C', true);
+        } else {
+            $this->SetX(12);
+            $this->SetFillColor(51, 65, 85); // Slate 700
+            $this->SetTextColor(255, 255, 255);
+            $this->SetDrawColor(51, 65, 85);
+            $this->SetFont('Arial', 'B', 8);
+
+            // Total = 273mm
+            $this->Cell(8, 6, 'No', 1, 0, 'C', true);
+            $this->Cell(38, 6, 'No Dokumen', 1, 0, 'L', true);
+            $this->Cell(78, 6, 'Judul Dokumen', 1, 0, 'L', true);
+            $this->Cell(35, 6, 'Pengaju', 1, 0, 'L', true);
+            $this->Cell(34, 6, 'Nominal (Rp)', 1, 0, 'R', true);
+            $this->Cell(44, 6, 'Status', 1, 0, 'C', true);
+            $this->Cell(36, 6, 'Tgl Pengajuan', 1, 1, 'C', true);
+        }
+    }
+
+    private function renderDesktopGroupRow(int $no, array $doc): void
+    {
+        $this->SetX(12);
+        $fill = ($no % 2 === 0);
+        $this->SetFillColor(248, 250, 252);
+        $this->SetDrawColor(226, 232, 240);
+        $this->SetTextColor(30, 41, 59);
+        $this->SetFont('Arial', '', 7.5);
+
+        $nominalStr = isset($doc['nominal']) && $doc['nominal'] > 0
+            ? number_format((float)$doc['nominal'], 0, ',', '.')
+            : '-';
+
+        $statusText = $doc['status'] ?? '-';
+        if (!empty($doc['status_detail']) && $doc['status_detail'] !== $statusText) {
+            $statusText .= ' (' . $doc['status_detail'] . ')';
+        }
+
+        $this->Cell(8, 6, (string)$no, 1, 0, 'C', $fill);
+        $this->Cell(38, 6, $this->truncateText($doc['nomor_dokumen'] ?? '-', 24), 1, 0, 'L', $fill);
+        $this->Cell(78, 6, $this->truncateText($doc['judul_dokumen'] ?? '-', 52), 1, 0, 'L', $fill);
+        $this->Cell(35, 6, $this->truncateText($doc['user'] ?? '-', 22), 1, 0, 'L', $fill);
+        $this->Cell(34, 6, $nominalStr, 1, 0, 'R', $fill);
+
+        // Status text color
+        if ($doc['status'] === 'Approved') {
+            $this->SetTextColor(22, 101, 52); // Green
+        } elseif ($doc['status'] === 'Rejected') {
+            $this->SetTextColor(185, 28, 28); // Red
+        } elseif ($doc['status'] === 'Revision') {
+            $this->SetTextColor(126, 34, 206); // Purple
+        } else {
+            $this->SetTextColor(180, 83, 9); // Amber
+        }
+        $this->Cell(44, 6, $this->truncateText($statusText, 28), 1, 0, 'C', $fill);
+
+        $this->SetTextColor(30, 41, 59);
+        $this->Cell(36, 6, $doc['tgl_pengajuan'] ?? '-', 1, 1, 'C', $fill);
+    }
+
+    private function renderMobileGroupRow(int $no, array $doc): void
     {
         $fill = ($no % 2 === 0);
         $this->SetFillColor(248, 250, 252);
         $this->SetDrawColor(226, 232, 240);
         $this->SetTextColor(30, 41, 59);
 
-        $rowHeight = 10.5;
+        $rowHeight = 10;
         $x = 10;
         $y = $this->GetY();
 
-        // Background
         if ($fill) {
             $this->Rect($x, $y, 190, $rowHeight, 'F');
         }
         $this->Rect($x, $y, 190, $rowHeight, 'D');
 
-        // Internal vertical grid lines
-        $cols = [8, 64, 35, 16, 35, 32];
-        $currentX = $x;
-        foreach ($cols as $colWidth) {
-            $currentX += $colWidth;
-            if ($currentX < $x + 190) {
-                $this->Line($currentX, $y, $currentX, $y + $rowHeight);
+        // Internal dividers: 8, 70, 32, 38, 42
+        $cols = [8, 70, 32, 38, 42];
+        $currX = $x;
+        foreach ($cols as $w) {
+            $currX += $w;
+            if ($currX < $x + 190) {
+                $this->Line($currX, $y, $currX, $y + $rowHeight);
             }
         }
 
-        // 1. Kolom No (8mm)
+        // 1. No
         $this->SetXY($x, $y);
         $this->SetFont('Arial', '', 7.5);
         $this->Cell(8, $rowHeight, (string)$no, 0, 0, 'C');
 
-        // 2. Kolom No Dokumen & Judul (64mm)
+        // 2. No Dokumen & Judul
         $this->SetXY($x + 9, $y + 1);
         $this->SetFont('Arial', 'B', 7.5);
-        $this->SetTextColor(30, 41, 59);
-        $this->Cell(62, 4.2, $this->truncateText($item['nomor_dokumen'] ?? '-', 32), 0, 0, 'L');
+        $this->Cell(68, 4, $this->truncateText($doc['nomor_dokumen'] ?? '-', 35), 0, 0, 'L');
 
         $this->SetXY($x + 9, $y + 5.2);
         $this->SetFont('Arial', '', 6.8);
         $this->SetTextColor(100, 116, 139);
-        $this->Cell(62, 4.2, $this->truncateText($item['judul_dokumen'] ?? '-', 38), 0, 0, 'L');
+        $this->Cell(68, 4, $this->truncateText($doc['judul_dokumen'] ?? '-', 44), 0, 0, 'L');
 
-        // 3. Kolom Pengaju / Aplikasi (35mm)
-        $this->SetXY($x + 73, $y + 1);
-        $this->SetFont('Arial', 'B', 7);
+        // 3. Pengaju
+        $this->SetXY($x + 79, $y);
+        $this->SetFont('Arial', '', 7.2);
         $this->SetTextColor(51, 65, 85);
-        $this->Cell(33, 4.2, $this->truncateText($item['user'] ?? '-', 18), 0, 0, 'L');
+        $this->Cell(30, $rowHeight, $this->truncateText($doc['user'] ?? '-', 16), 0, 0, 'L');
 
-        $this->SetXY($x + 73, $y + 5.2);
-        $this->SetFont('Arial', '', 6.5);
-        $this->SetTextColor(100, 116, 139);
-        $this->Cell(33, 4.2, $this->truncateText($item['aplikasi'] ?? '-', 18), 0, 0, 'L');
-
-        // 4. Kolom Transaksi / Tipe (16mm)
-        $this->SetXY($x + 107, $y);
-        $this->SetFont('Arial', 'B', 7.5);
-        $this->SetTextColor(30, 58, 138);
-        $this->Cell(16, $rowHeight, $this->truncateText($item['transaksi'] ?? '-', 8), 0, 0, 'C');
-
-        // 5. Kolom Nominal (35mm)
-        $nominalStr = isset($item['nominal']) && $item['nominal'] > 0
-            ? number_format((float)$item['nominal'], 0, ',', '.')
+        // 4. Nominal
+        $nominalStr = isset($doc['nominal']) && $doc['nominal'] > 0
+            ? number_format((float)$doc['nominal'], 0, ',', '.')
             : '-';
-        $this->SetXY($x + 123, $y);
+        $this->SetXY($x + 111, $y);
         $this->SetFont('Arial', 'B', 7.5);
         $this->SetTextColor(15, 23, 42);
-        $this->Cell(33, $rowHeight, $nominalStr, 0, 0, 'R');
+        $this->Cell(36, $rowHeight, $nominalStr, 0, 0, 'R');
 
-        // 6. Kolom Status & Tanggal (32mm)
-        $statusText = $item['status'] ?? '-';
-        $this->SetXY($x + 158, $y + 1.2);
+        // 5. Status & Tgl
+        $statusText = $doc['status'] ?? '-';
+        $this->SetXY($x + 149, $y + 1);
         $this->SetFont('Arial', 'B', 7);
         if ($statusText === 'Approved') {
-            $this->SetTextColor(22, 101, 52); // Green
+            $this->SetTextColor(22, 101, 52);
         } elseif ($statusText === 'Rejected') {
-            $this->SetTextColor(185, 28, 28); // Red
+            $this->SetTextColor(185, 28, 28);
+        } elseif ($statusText === 'Revision') {
+            $this->SetTextColor(126, 34, 206);
         } else {
-            $this->SetTextColor(180, 83, 9); // Amber
+            $this->SetTextColor(180, 83, 9);
         }
-        $this->Cell(32, 4, $this->truncateText($statusText, 18), 0, 0, 'C');
+        $this->Cell(40, 4, $this->truncateText($statusText, 22), 0, 0, 'C');
 
-        // Format tanggal pengajuan: d/m/Y (misal 12/09/2026)
-        $rawDate = $item['tgl_pengajuan'] ?? '-';
-        $formattedDate = '-';
-        if ($rawDate && $rawDate !== '-') {
-            $ts = strtotime($rawDate);
-            $formattedDate = $ts ? date('d/m/Y', $ts) : $rawDate;
-        }
-
-        $this->SetXY($x + 158, $y + 5.5);
+        $this->SetXY($x + 149, $y + 5.2);
         $this->SetFont('Arial', '', 6.8);
-        $this->SetTextColor(71, 85, 105); // Slate 600, tajam dan pas di HP
-        $this->Cell(32, 4, $formattedDate, 0, 0, 'C');
+        $this->SetTextColor(71, 85, 105);
+        $this->Cell(40, 4, $doc['tgl_pengajuan'] ?? '-', 0, 0, 'C');
 
-        // Pindah baris
         $this->SetY($y + $rowHeight);
     }
 
-    private function renderDesktopRow(int $no, array $item): void
+    /**
+     * Backward compatible renderContent for flat item arrays
+     */
+    public function renderContent(array $items): void
     {
-        $this->SetX(12);
-        $fill = ($no % 2 === 0);
-        $this->SetFillColor(248, 250, 252); // Light zebra
-        $this->SetDrawColor(226, 232, 240); // Soft border
-        $this->SetTextColor(30, 41, 59);
-        $this->SetFont('Arial', '', 7.5);
-
-        $nominalStr = isset($item['nominal']) && $item['nominal'] > 0
-            ? number_format((float)$item['nominal'], 0, ',', '.')
-            : '-';
-
-        $statusText = $item['status'] ?? '-';
-        if (!empty($item['status_detail']) && $item['status_detail'] !== $statusText) {
-            $statusText .= ' (' . $item['status_detail'] . ')';
+        // Re-group flat items into company -> aplikasi -> transaksi -> docType structure
+        $grouped = [];
+        foreach ($items as $item) {
+            $comp = $item['company'] ?? 'Unknown Company';
+            $app = $item['aplikasi'] ?? 'Unknown Aplikasi';
+            $tran = $item['transaksi'] ?? '-';
+            $dt = $item['doc_type'] ?? 'PO';
+            $grouped[$comp][$app][$tran][$dt][] = $item;
         }
 
-        $this->Cell(8, 6, (string)$no, 1, 0, 'C', $fill);
-        $this->Cell(34, 6, $this->truncateText($item['nomor_dokumen'] ?? '-', 22), 1, 0, 'L', $fill);
-        $this->Cell(46, 6, $this->truncateText($item['judul_dokumen'] ?? '-', 30), 1, 0, 'L', $fill);
-        $this->Cell(28, 6, $this->truncateText($item['user'] ?? '-', 18), 1, 0, 'L', $fill);
-        $this->Cell(26, 6, $this->truncateText($item['company'] ?? '-', 16), 1, 0, 'L', $fill);
-        $this->Cell(24, 6, $this->truncateText($item['aplikasi'] ?? '-', 15), 1, 0, 'L', $fill);
-        $this->Cell(26, 6, $this->truncateText($item['transaksi'] ?? '-', 16), 1, 0, 'L', $fill);
-        $this->Cell(27, 6, $nominalStr, 1, 0, 'R', $fill);
-
-        $this->Cell(28, 6, $this->truncateText($statusText, 18), 1, 0, 'C', $fill);
-        $this->Cell(26, 6, $item['tgl_pengajuan'] ?? '-', 1, 1, 'C', $fill);
+        $this->renderGroupedContent($grouped);
     }
 
     private function truncateText(?string $text, int $maxLen): string

@@ -47,15 +47,9 @@ export interface ReportPageProps {
     pageTitle: string;
     pageSubtitle: string;
     filters?: {
-        status?: string;
-        company_id?: string;
-        aplikasi_id?: string;
         start_date?: string;
         end_date?: string;
     };
-    availableCompanies?: Array<{ id: number; name: string }>;
-    availableAplikasis?: Array<{ id: number; name: string; company_id?: number }>;
-    availableStatuses?: Array<{ value: string; label: string }>;
     breadcrumbs?: Array<{ title: string; href: string }>;
 }
 
@@ -259,32 +253,17 @@ export default function ReportView({
     pageTitle,
     pageSubtitle,
     filters = {},
-    availableCompanies = [],
-    availableAplikasis = [],
-    availableStatuses = [],
     breadcrumbs = [{ title: 'Report', href: '/report' }],
 }: ReportPageProps) {
-    const [selectedCompany, setSelectedCompany] = useState(filters.company_id || 'all');
-    const [selectedAplikasi, setSelectedAplikasi] = useState(filters.aplikasi_id || 'all');
-    const [selectedStatus, setSelectedStatus] = useState(filters.status || 'all');
     const [startDate, setStartDate] = useState(filters.start_date || '');
     const [endDate, setEndDate] = useState(filters.end_date || '');
     const [dateError, setDateError] = useState('');
 
     // Sync state with props
     useEffect(() => {
-        setSelectedCompany(filters.company_id || 'all');
-        setSelectedAplikasi(filters.aplikasi_id || 'all');
-        setSelectedStatus(filters.status || 'all');
         setStartDate(filters.start_date || '');
         setEndDate(filters.end_date || '');
-    }, [filters.company_id, filters.aplikasi_id, filters.status, filters.start_date, filters.end_date]);
-
-    // Filter available applications based on selected company
-    const filteredAplikasis = availableAplikasis.filter(app => {
-        if (!selectedCompany || selectedCompany === 'all') return true;
-        return String(app.company_id) === String(selectedCompany);
-    });
+    }, [filters.start_date, filters.end_date]);
 
     const currentPath =
         reportType === 'unapproved'
@@ -302,11 +281,6 @@ export default function ReportView({
         setDateError('');
 
         const queryParams: Record<string, string> = {};
-        if (selectedCompany && selectedCompany !== 'all') queryParams.company_id = selectedCompany;
-        if (selectedAplikasi && selectedAplikasi !== 'all') queryParams.aplikasi_id = selectedAplikasi;
-        if (reportType !== 'rejected' && selectedStatus && selectedStatus !== 'all') {
-            queryParams.status = selectedStatus;
-        }
         if (startDate) queryParams.start_date = startDate;
         if (endDate) queryParams.end_date = endDate;
 
@@ -318,9 +292,6 @@ export default function ReportView({
     };
 
     const handleResetFilters = () => {
-        setSelectedCompany('all');
-        setSelectedAplikasi('all');
-        setSelectedStatus('all');
         setStartDate('');
         setEndDate('');
         setDateError('');
@@ -332,80 +303,36 @@ export default function ReportView({
         });
     };
 
-    const hasActiveFilters =
-        selectedCompany !== 'all' ||
-        selectedAplikasi !== 'all' ||
-        (reportType !== 'rejected' && selectedStatus !== 'all') ||
-        Boolean(startDate) ||
-        Boolean(endDate);
+    const hasActiveFilters = Boolean(startDate) || Boolean(endDate);
 
     // ─── Export CSV ───────────────────────────────────────────────────────────
     const handleExportCSV = () => {
-        const rows = [
-            ['Company', 'Aplikasi', 'Transaksi', 'No Dokumen', 'Judul', 'Pengaju', 'Nominal', 'Status', 'Status Detail', 'Tgl Pengajuan'],
-        ];
+        const params = new URLSearchParams();
+        params.append('report_type', reportType);
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
 
-        Object.entries(groupedData).forEach(([company, aplikasiGroup]) => {
-            Object.entries(aplikasiGroup).forEach(([aplikasi, transaksiGroup]) => {
-                Object.entries(transaksiGroup).forEach(([transaksi, docTypeGroup]) => {
-                    Object.entries(docTypeGroup).forEach(([_docType, docs]) => {
-                        docs.forEach(doc => {
-                            rows.push([
-                                company,
-                                aplikasi,
-                                transaksi,
-                                doc.nomor_dokumen,
-                                `"${(doc.judul_dokumen || '').replace(/"/g, '""')}"`,
-                                doc.user,
-                                doc.nominal !== undefined && doc.nominal !== null ? String(doc.nominal) : '0',
-                                doc.status,
-                                doc.status_detail,
-                                doc.tgl_pengajuan || '-',
-                            ]);
-                        });
-                    });
-                });
-            });
-        });
-
-        const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
-        const link = document.createElement('a');
-        link.setAttribute('href', encodeURI(csvContent));
-        link.setAttribute('download', `${reportType}_dokumen_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.location.href = `/report/export/csv?${params.toString()}`;
     };
 
     // ─── Export Excel ─────────────────────────────────────────────────────────
     const handleExportExcel = () => {
         const params = new URLSearchParams();
         params.append('report_type', reportType);
-        if (selectedCompany && selectedCompany !== 'all') params.append('company_id', selectedCompany);
-        if (selectedAplikasi && selectedAplikasi !== 'all') params.append('aplikasi_id', selectedAplikasi);
-        if (reportType !== 'rejected' && selectedStatus && selectedStatus !== 'all') {
-            params.append('status', selectedStatus);
-        }
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
 
-        const url = `/report/export/excel?${params.toString()}`;
-        window.location.href = url;
+        window.location.href = `/report/export/excel?${params.toString()}`;
     };
 
     // ─── Export PDF ───────────────────────────────────────────────────────────
     const handleExportPdf = () => {
         const params = new URLSearchParams();
         params.append('report_type', reportType);
-        if (selectedCompany && selectedCompany !== 'all') params.append('company_id', selectedCompany);
-        if (selectedAplikasi && selectedAplikasi !== 'all') params.append('aplikasi_id', selectedAplikasi);
-        if (reportType !== 'rejected' && selectedStatus && selectedStatus !== 'all') {
-            params.append('status', selectedStatus);
-        }
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
 
-        // Deteksi apakah sedang dibuka di perangkat / layar mobile
+        // Detect mobile screen
         const isMobileScreen = typeof window !== 'undefined' && (
             window.innerWidth < 768 ||
             /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -414,21 +341,8 @@ export default function ReportView({
             params.append('is_mobile', '1');
         }
 
-        const url = `/report/export/pdf?${params.toString()}`;
-        window.open(url, '_blank');
+        window.open(`/report/export/pdf?${params.toString()}`, '_blank');
     };
-
-    // Count total documents
-    let totalDocsCount = 0;
-    Object.values(groupedData).forEach(appGroup => {
-        Object.values(appGroup).forEach(transGroup => {
-            Object.values(transGroup).forEach(docTypeGroup => {
-                Object.values(docTypeGroup).forEach(docs => {
-                    totalDocsCount += docs.length;
-                });
-            });
-        });
-    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -443,7 +357,7 @@ export default function ReportView({
                         </p>
                     </div>
 
-                    {/* Export Buttons - Exact design like reference image */}
+                    {/* Export Buttons */}
                     <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                         <Button
                             onClick={handleExportCSV}
@@ -469,89 +383,17 @@ export default function ReportView({
                     </div>
                 </div>
 
-                {/* Filter Section */}
-                <Card className="shadow-xs border-border/80">
+                {/* Filter Section - Clean Start Date & End Date */}
+                <Card className="shadow-xs border-border/80 bg-card">
                     <CardContent className="p-3.5 sm:p-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:flex-wrap items-end gap-3">
-                            {/* Filter Company */}
-                            <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[190px]">
-                                <label
-                                    htmlFor="filter-company"
-                                    className="text-xs font-semibold text-foreground/80"
-                                >
-                                    Company
-                                </label>
-                                <select
-                                    id="filter-company"
-                                    value={selectedCompany}
-                                    onChange={e => {
-                                        setSelectedCompany(e.target.value);
-                                        setSelectedAplikasi('all');
-                                    }}
-                                    className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                >
-                                    <option value="all">Semua Company</option>
-                                    {availableCompanies.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Filter Aplikasi */}
-                            <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[140px]">
-                                <label
-                                    htmlFor="filter-aplikasi"
-                                    className="text-xs font-semibold text-foreground/80"
-                                >
-                                    Aplikasi
-                                </label>
-                                <select
-                                    id="filter-aplikasi"
-                                    value={selectedAplikasi}
-                                    onChange={e => setSelectedAplikasi(e.target.value)}
-                                    className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                >
-                                    <option value="all">Semua Aplikasi</option>
-                                    {filteredAplikasis.map(a => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Filter Status (Only for general and unapproved) */}
-                            {reportType !== 'rejected' && (
-                                <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[140px]">
-                                    <label
-                                        htmlFor="filter-status"
-                                        className="text-xs font-semibold text-foreground/80"
-                                    >
-                                        Status
-                                    </label>
-                                    <select
-                                        id="filter-status"
-                                        value={selectedStatus}
-                                        onChange={e => setSelectedStatus(e.target.value)}
-                                        className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    >
-                                        {availableStatuses.map(st => (
-                                            <option key={st.value} value={st.value}>
-                                                {st.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
                             {/* Filter Start Date */}
-                            <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[150px]">
+                            <div className="flex flex-col gap-1.5 w-full sm:w-56">
                                 <label
                                     htmlFor="filter-start-date"
-                                    className="text-xs font-semibold text-foreground/80"
+                                    className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5"
                                 >
+                                    <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                                     Start Date
                                 </label>
                                 <input
@@ -563,16 +405,16 @@ export default function ReportView({
                                         setDateError('');
                                     }}
                                     className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    placeholder="Pilih tanggal awal"
                                 />
                             </div>
 
                             {/* Filter End Date */}
-                            <div className="flex flex-col gap-1 w-full lg:w-auto lg:min-w-[150px]">
+                            <div className="flex flex-col gap-1.5 w-full sm:w-56">
                                 <label
                                     htmlFor="filter-end-date"
-                                    className="text-xs font-semibold text-foreground/80"
+                                    className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5"
                                 >
+                                    <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                                     End Date
                                 </label>
                                 <input
@@ -584,12 +426,11 @@ export default function ReportView({
                                         setDateError('');
                                     }}
                                     className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    placeholder="Pilih tanggal akhir"
                                 />
                             </div>
 
                             {/* Action Buttons: Cari & Reset */}
-                            <div className="flex items-center gap-2 w-full lg:w-auto">
+                            <div className="flex items-center gap-2">
                                 <Button
                                     onClick={handleSearch}
                                     className="bg-[#16a34a] hover:bg-[#15803d] text-white flex items-center justify-center gap-1.5 h-9 text-xs font-medium shadow-xs px-4"
@@ -620,7 +461,7 @@ export default function ReportView({
                     </CardContent>
                 </Card>
 
-                {/* Content */}
+                {/* Content: Grouped by Company -> Aplikasi -> Transaksi */}
                 <div className="flex flex-col gap-5">
                     {Object.keys(groupedData).length === 0 && (
                         <Card className="shadow-xs border-border/80">
@@ -630,7 +471,7 @@ export default function ReportView({
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                                     {hasActiveFilters
-                                        ? 'Tidak ditemukan dokumen yang cocok dengan filter atau periode yang dipilih. Silakan ubah filter atau tekan reset.'
+                                        ? 'Tidak ditemukan dokumen yang cocok dengan periode yang dipilih. Silakan ubah filter atau tekan reset.'
                                         : reportType === 'unapproved'
                                         ? 'Tidak ada dokumen yang belum disetujui saat ini.'
                                         : reportType === 'rejected'
@@ -652,74 +493,82 @@ export default function ReportView({
                         </Card>
                     )}
 
-                    {Object.entries(groupedData).map(([company, aplikasiGroup]) => (
-                        <Card key={company} className="border-t-4 border-t-primary shadow-xs">
-                            <CardHeader className="p-3.5 sm:p-5 pb-2 sm:pb-3">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-lg sm:text-xl font-bold">Company: {company}</CardTitle>
-                                    <span className="text-xs text-muted-foreground font-medium">
-                                        {totalDocsCount} dokumen
-                                    </span>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-3.5 sm:p-5 pt-0 sm:pt-0 flex flex-col gap-4 sm:gap-6">
-                                {Object.entries(aplikasiGroup).map(([aplikasi, transaksiGroup]) => (
-                                    <div key={aplikasi} className="rounded-lg border p-3 sm:p-4 shadow-xs bg-card">
-                                        <h3 className="mb-3 sm:mb-4 text-base sm:text-lg font-semibold text-primary">
-                                            Aplikasi: {aplikasi}
-                                        </h3>
+                    {Object.entries(groupedData).map(([company, aplikasiGroup]) => {
+                        const companyDocsCount = Object.values(aplikasiGroup).reduce((appTotal, transGroup) => {
+                            return appTotal + Object.values(transGroup).reduce((tTotal, docTypeGroup) => {
+                                return tTotal + Object.values(docTypeGroup).reduce((dtTotal, docs) => dtTotal + docs.length, 0);
+                            }, 0);
+                        }, 0);
 
-                                        <div className="flex flex-col gap-4 sm:gap-6">
-                                            {Object.entries(transaksiGroup).map(([transaksi, docTypeGroup]) => {
-                                                const totalTranDocs = Object.values(docTypeGroup).reduce((s, d) => s + d.length, 0);
-                                                return (
-                                                <div
-                                                    key={transaksi}
-                                                    className="pl-2.5 sm:pl-4 border-l-2 border-primary/30"
-                                                >
-                                                    <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                                        <h4 className="font-medium text-xs sm:text-sm">
-                                                            Transaksi: {transaksi}
-                                                        </h4>
-                                                        <span className="text-[11px] sm:text-xs text-muted-foreground">
-                                                            {totalTranDocs} dokumen
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Doc type sub-groups: PO / PR / Lainnya */}
-                                                    <div className="flex flex-col gap-4">
-                                                        {Object.entries(docTypeGroup).map(([docType, docs]) => (
-                                                            <div key={docType}>
-                                                                <div className="flex items-center gap-2 mb-2">
-                                                                    <span
-                                                                        className={`inline-flex items-center px-3 py-0.5 rounded text-[11px] font-bold tracking-wide border ${
-                                                                            docType === 'PO'
-                                                                                ? 'bg-[#16a34a] text-white border-[#15803d]'
-                                                                                : docType === 'PR'
-                                                                                ? 'bg-[#16a34a] text-white border-[#15803d]'
-                                                                                : 'bg-gray-500 text-white border-gray-600'
-                                                                        }`}
-                                                                    >
-                                                                        {docType}
-                                                                    </span>
-                                                                    <span className="text-[11px] text-muted-foreground">{docs.length} dokumen</span>
-                                                                </div>
-                                                                <PaginatedTable
-                                                                    docs={docs}
-                                                                    groupKey={`${company}-${aplikasi}-${transaksi}-${docType}`}
-                                                                />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                );
-                                            })}
-                                        </div>
+                        return (
+                            <Card key={company} className="border-t-4 border-t-primary shadow-xs">
+                                <CardHeader className="p-3.5 sm:p-5 pb-2 sm:pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-lg sm:text-xl font-bold">Company: {company}</CardTitle>
+                                        <span className="text-xs text-muted-foreground font-medium">
+                                            {companyDocsCount} dokumen
+                                        </span>
                                     </div>
-                                ))}
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardHeader>
+                                <CardContent className="p-3.5 sm:p-5 pt-0 sm:pt-0 flex flex-col gap-4 sm:gap-6">
+                                    {Object.entries(aplikasiGroup).map(([aplikasi, transaksiGroup]) => (
+                                        <div key={aplikasi} className="rounded-lg border p-3 sm:p-4 shadow-xs bg-card">
+                                            <h3 className="mb-3 sm:mb-4 text-base sm:text-lg font-semibold text-primary">
+                                                Aplikasi: {aplikasi}
+                                            </h3>
+
+                                            <div className="flex flex-col gap-4 sm:gap-6">
+                                                {Object.entries(transaksiGroup).map(([transaksi, docTypeGroup]) => {
+                                                    const totalTranDocs = Object.values(docTypeGroup).reduce((s, d) => s + d.length, 0);
+                                                    return (
+                                                        <div
+                                                            key={transaksi}
+                                                            className="pl-2.5 sm:pl-4 border-l-2 border-primary/30"
+                                                        >
+                                                            <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                                                <h4 className="font-medium text-xs sm:text-sm">
+                                                                    Transaksi: {transaksi}
+                                                                </h4>
+                                                                <span className="text-[11px] sm:text-xs text-muted-foreground">
+                                                                    {totalTranDocs} dokumen
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Doc type sub-groups: PO / PR / Lainnya */}
+                                                            <div className="flex flex-col gap-4">
+                                                                {Object.entries(docTypeGroup).map(([docType, docs]) => (
+                                                                    <div key={docType}>
+                                                                        <div className="flex items-center gap-2 mb-2">
+                                                                            <span
+                                                                                className={`inline-flex items-center px-3 py-0.5 rounded text-[11px] font-bold tracking-wide border ${
+                                                                                    docType === 'PO'
+                                                                                        ? 'bg-[#16a34a] text-white border-[#15803d]'
+                                                                                        : docType === 'PR'
+                                                                                        ? 'bg-[#16a34a] text-white border-[#15803d]'
+                                                                                        : 'bg-gray-500 text-white border-gray-600'
+                                                                                }`}
+                                                                            >
+                                                                                {docType}
+                                                                            </span>
+                                                                            <span className="text-[11px] text-muted-foreground">{docs.length} dokumen</span>
+                                                                        </div>
+                                                                        <PaginatedTable
+                                                                            docs={docs}
+                                                                            groupKey={`${company}-${aplikasi}-${transaksi}-${docType}`}
+                                                                        />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
             </div>
         </AppLayout>
