@@ -1,5 +1,39 @@
+@php
+    $dashboardUrl = url('/dashboard');
+    if (auth()->check()) {
+        try {
+            $contextService = app(\App\Services\ContextService::class);
+            $context = $contextService->getContext();
+            $roleName = '';
+
+            if ($context && $context->role) {
+                $roleName = strtolower(trim($context->role->role_name));
+            } elseif ($contextService->isSuperAdmin()) {
+                $roleName = 'super admin';
+            } elseif (auth()->user()->userAuths && auth()->user()->userAuths->count() > 0) {
+                $firstAuth = auth()->user()->userAuths->first();
+                if ($firstAuth && $firstAuth->role) {
+                    $roleName = strtolower(trim($firstAuth->role->role_name));
+                }
+            }
+
+            if ($roleName === 'super admin') {
+                $dashboardUrl = route('super-admin.dashboard');
+            } elseif ($roleName === 'admin') {
+                $dashboardUrl = route('admin.dashboard');
+            } else {
+                $dashboardUrl = route('user.dashboard');
+            }
+        } catch (\Throwable $e) {
+            $dashboardUrl = url('/dashboard');
+        }
+    } else {
+        $dashboardUrl = route('login');
+    }
+@endphp
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,7 +41,8 @@
     <link rel="icon" href="/tspm-logo.png" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
         * {
             box-sizing: border-box;
@@ -115,10 +150,12 @@
         }
     </style>
 </head>
+
 <body>
     <main class="error-container" role="main">
         <!-- Cute 404 Illustration matching reference design with AMS Green Theme -->
-        <svg class="illustration" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg class="illustration" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true">
             <!-- Ground soft shadow (soft green tint) -->
             <ellipse cx="110" cy="188" rx="65" ry="7" fill="#e8f5e5" />
 
@@ -149,37 +186,31 @@
 
             <!-- Speech Bubble with 404 (AMS Primary Green #4ba443) -->
             <!-- Bubble Body with pointer tail -->
-            <path d="M 200 22 C 235 22 258 46 258 75 C 258 104 235 128 200 128 C 185 128 172 123 162 116 L 138 126 C 143 116 144 108 144 103 C 136 94 132 85 132 75 C 132 46 155 22 200 22 Z" fill="#4ba443" />
+            <path
+                d="M 200 22 C 235 22 258 46 258 75 C 258 104 235 128 200 128 C 185 128 172 123 162 116 L 138 126 C 143 116 144 108 144 103 C 136 94 132 85 132 75 C 132 46 155 22 200 22 Z"
+                fill="#4ba443" />
             <!-- Text 404 -->
-            <text x="198" y="87" fill="#ffffff" font-size="36" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="1">404</text>
+            <text x="198" y="87" fill="#ffffff" font-size="36" font-family="'Plus Jakarta Sans', system-ui, sans-serif"
+                font-weight="700" text-anchor="middle" letter-spacing="1">404</text>
         </svg>
 
-        <h1 class="error-title">PAGE NOT FOUND</h1>
+        <h1 class="error-title">HALAMAN TIDAK DITEMUKAN</h1>
 
         <div class="error-description">
-            <p>We looked everywhere for this page.</p>
-            <p>Are you sure the website URL is correct?</p>
-            <p>Get in touch with the site owner.</p>
+            <p>Halaman yang Anda cari tidak dapat ditemukan.</p>
+            <p>Pastikan alamat URL yang Anda tuju sudah benar.</p>
+            <p>Silakan hubungi administrator atau pemilik sistem jika Anda membutuhkan bantuan.</p>
             @if(!empty($exception) && $exception->getMessage() && !str_contains($exception->getMessage(), 'The route') && !str_contains($exception->getMessage(), 'not found'))
                 <div class="custom-msg">{{ $exception->getMessage() }}</div>
             @endif
         </div>
 
         <div class="button-group">
-            <button type="button" class="btn-outline" onclick="goBack()">
-                Go Back Home
-            </button>
+            <a href="{{ $dashboardUrl }}" class="btn-outline">
+                Kembali ke Dashboard
+            </a>
         </div>
     </main>
-
-    <script>
-        function goBack() {
-            if (window.history.length > 1) {
-                window.history.back();
-            } else {
-                window.location.href = '/dokumen';
-            }
-        }
-    </script>
 </body>
+
 </html>

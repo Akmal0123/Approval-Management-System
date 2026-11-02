@@ -1,5 +1,39 @@
+@php
+    $dashboardUrl = url('/dashboard');
+    if (auth()->check()) {
+        try {
+            $contextService = app(\App\Services\ContextService::class);
+            $context = $contextService->getContext();
+            $roleName = '';
+
+            if ($context && $context->role) {
+                $roleName = strtolower(trim($context->role->role_name));
+            } elseif ($contextService->isSuperAdmin()) {
+                $roleName = 'super admin';
+            } elseif (auth()->user()->userAuths && auth()->user()->userAuths->count() > 0) {
+                $firstAuth = auth()->user()->userAuths->first();
+                if ($firstAuth && $firstAuth->role) {
+                    $roleName = strtolower(trim($firstAuth->role->role_name));
+                }
+            }
+
+            if ($roleName === 'super admin') {
+                $dashboardUrl = route('super-admin.dashboard');
+            } elseif ($roleName === 'admin') {
+                $dashboardUrl = route('admin.dashboard');
+            } else {
+                $dashboardUrl = route('user.dashboard');
+            }
+        } catch (\Throwable $e) {
+            $dashboardUrl = url('/dashboard');
+        }
+    } else {
+        $dashboardUrl = route('login');
+    }
+@endphp
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,7 +41,8 @@
     <link rel="icon" href="/tspm-logo.png" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
         * {
             box-sizing: border-box;
@@ -114,10 +149,12 @@
         }
     </style>
 </head>
+
 <body>
     <main class="error-container" role="main">
         <!-- Cute 403 Illustration matching reference style -->
-        <svg class="illustration" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg class="illustration" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true">
             <!-- Ground soft shadow -->
             <ellipse cx="110" cy="188" rx="65" ry="7" fill="#f1f5f9" />
 
@@ -150,7 +187,8 @@
             <g transform="translate(136, 142)">
                 <circle cx="16" cy="16" r="16" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" />
                 <!-- Padlock Shackle -->
-                <path d="M 11 15 V 12 C 11 9.2 13.2 7 16 7 C 18.8 7 21 9.2 21 12 V 15" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" fill="none" />
+                <path d="M 11 15 V 12 C 11 9.2 13.2 7 16 7 C 18.8 7 21 9.2 21 12 V 15" stroke="#d97706"
+                    stroke-width="2.2" stroke-linecap="round" fill="none" />
                 <!-- Padlock Body -->
                 <rect x="9" y="14" width="14" height="11" rx="2.5" fill="#f59e0b" />
                 <!-- Keyhole -->
@@ -158,37 +196,31 @@
             </g>
 
             <!-- Speech Bubble with 403 -->
-            <path d="M 200 22 C 235 22 258 46 258 75 C 258 104 235 128 200 128 C 185 128 172 123 162 116 L 138 126 C 143 116 144 108 144 103 C 136 94 132 85 132 75 C 132 46 155 22 200 22 Z" fill="#f59e0b" />
+            <path
+                d="M 200 22 C 235 22 258 46 258 75 C 258 104 235 128 200 128 C 185 128 172 123 162 116 L 138 126 C 143 116 144 108 144 103 C 136 94 132 85 132 75 C 132 46 155 22 200 22 Z"
+                fill="#f59e0b" />
             <!-- Text 403 -->
-            <text x="198" y="87" fill="#ffffff" font-size="36" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="1">403</text>
+            <text x="198" y="87" fill="#ffffff" font-size="36" font-family="'Plus Jakarta Sans', system-ui, sans-serif"
+                font-weight="700" text-anchor="middle" letter-spacing="1">403</text>
         </svg>
 
-        <h1 class="error-title">ACCESS DENIED</h1>
+        <h1 class="error-title">AKSES DITOLAK</h1>
 
         <div class="error-description">
-            <p>You don't have permission to view this page or document.</p>
-            <p>Are you sure this document was assigned to your account?</p>
-            <p>Get in touch with the document owner or site administrator.</p>
+            <p>Anda tidak memiliki izin untuk mengakses halaman atau dokumen ini.</p>
+            <p>Pastikan dokumen atau halaman ini ditujukan untuk akun Anda.</p>
+            <p>Silakan hubungi pemilik dokumen atau administrator jika Anda memerlukan akses.</p>
             @if(!empty($exception) && $exception->getMessage() && !str_contains($exception->getMessage(), 'This action is unauthorized'))
                 <div class="custom-msg">{{ $exception->getMessage() }}</div>
             @endif
         </div>
 
         <div class="button-group">
-            <button type="button" class="btn-outline" onclick="goBack()">
-                Go Back Home
-            </button>
+            <a href="{{ $dashboardUrl }}" class="btn-outline">
+                Kembali ke Dashboard
+            </a>
         </div>
     </main>
-
-    <script>
-        function goBack() {
-            if (window.history.length > 1) {
-                window.history.back();
-            } else {
-                window.location.href = '/dokumen';
-            }
-        }
-    </script>
 </body>
+
 </html>
