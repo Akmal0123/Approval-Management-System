@@ -4,6 +4,9 @@ namespace App\Services;
 
 use setasign\Fpdi\Fpdi;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Dokumen;
+use App\Models\DokumenVersion;
+use App\Models\DokumenApproval;
 use Exception;
 
 class PdfSignatureService
@@ -439,6 +442,106 @@ class PdfSignatureService
                 @unlink($tempOutputFile);
             }
         }
+    }
+
+    /**
+     * Generate signed PDF, save it permanently to private storage, and save historical snapshot for approver.
+     *
+     * @param Dokumen $dokumen
+     * @param DokumenVersion $version
+     * @param DokumenApproval|null $currentApproval
+     * @return string Path to the saved signed PDF relative to storage/app
+     */
+    public function generateAndSaveSignedPdf(Dokumen $dokumen, DokumenVersion $version, ?DokumenApproval $currentApproval = null): string
+    {
+        // Get all approved approvals for this document
+        $approvedApprovals = DokumenApproval::where('dokumen_id', $dokumen->id)
+            ->where('approval_status', 'approved')
+            ->where(function ($query) {
+                $query->whereNotNull('signature_path')
+                    ->orWhere('signature_method', 'qr');
+            })
+            ->with(['user', 'masterflowStep'])
+            ->orderBy('created_at')
+            ->get();
+
+        if ($approvedApprovals->isEmpty()) {
+            return $version->file_url;
+        }
+
+        // Generate the signed PDF binary stream
+        $pdfContent = $this->generateSignedPdfStream(
+            $version->file_url,
+            $approvedApprovals,
+            $dokumen
+        );
+
+        $signedDir = 'dokumen_signed/' . $dokumen->id;
+        $safeBaseName = pathinfo($version->nama_file, PATHINFO_FILENAME);
+        $safeBaseName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $safeBaseName);
+
+        // 1. Save main current signed PDF to private local storage
+        $mainSignedPath = $signedDir . '/' . $safeBaseName . '_signed.pdf';
+        Storage::disk('local')->put($mainSignedPath, $pdfContent);
+        $version->update(['signed_file_url' => $mainSignedPath]);
+
+        // 2. If currentApproval is passed, save approval history snapshot for this specific step
+        if ($currentApproval) {
+            $stepOrder = $currentApproval->approval_order ?? $currentApproval->masterflowStep?->step_order ?? $currentApproval->id;
+            $historyPath = $signedDir . '/history/step_' . $stepOrder . '_approval_' . $currentApproval->id . '.pdf';
+            Storage::disk('local')->put($historyPath, $pdfContent);
+            $currentApproval->update(['signed_file_url' => $historyPath]);
+        }
+
+        return $mainSignedPath;
+    }
+
+    /**
+     * Generate and save signed PDF snapshot up to a specific approval step (for history auditing).
+     *
+     * @param Dokumen $dokumen
+     * @param DokumenVersion $version
+     * @param DokumenApproval $targetApproval
+     * @return string Path to the historical signed PDF
+     */
+    public function generateAndSaveApprovalStepPdf(Dokumen $dokumen, DokumenVersion $version, DokumenApproval $targetApproval): string
+    {
+        if ($targetApproval->signed_file_url && Storage::disk('local')->exists($targetApproval->signed_file_url)) {
+            return $targetApproval->signed_file_url;
+        }
+
+        // Approvals approved on or before this approval
+        $approvalsUpToTarget = DokumenApproval::where('dokumen_id', $dokumen->id)
+            ->where('approval_status', 'approved')
+            ->where(function ($query) use ($targetApproval) {
+                if ($targetApproval->tgl_approve) {
+                    $query->where('tgl_approve', '<=', $targetApproval->tgl_approve);
+                } else {
+                    $query->where('id', '<=', $targetApproval->id);
+                }
+            })
+            ->where(function ($query) {
+                $query->whereNotNull('signature_path')
+                    ->orWhere('signature_method', 'qr');
+            })
+            ->with(['user', 'masterflowStep'])
+            ->orderBy('created_at')
+            ->get();
+
+        $pdfContent = $this->generateSignedPdfStream(
+            $version->file_url,
+            $approvalsUpToTarget,
+            $dokumen
+        );
+
+        $signedDir = 'dokumen_signed/' . $dokumen->id;
+        $stepOrder = $targetApproval->approval_order ?? $targetApproval->masterflowStep?->step_order ?? $targetApproval->id;
+        $historyPath = $signedDir . '/history/step_' . $stepOrder . '_approval_' . $targetApproval->id . '.pdf';
+
+        Storage::disk('local')->put($historyPath, $pdfContent);
+        $targetApproval->update(['signed_file_url' => $historyPath]);
+
+        return $historyPath;
     }
 
     /**

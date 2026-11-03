@@ -1659,7 +1659,8 @@ class DokumenController extends Controller
 
     /**
      * Download document file.
-     * Uses on-demand PDF generation for signed documents.
+     * Serves the permanent signed file from private storage (deterministic SHA-256 hash),
+     * or generates and saves it if not yet created.
      */
     public function download(Dokumen $dokumen, $versionId = null, PdfSignatureService $pdfSignatureService)
     {
@@ -1691,23 +1692,25 @@ class DokumenController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        // If there are approved signatures, generate signed PDF on-the-fly
+        // If there are approved signatures and document is a PDF
         if ($approvedSignatures->count() > 0 && strtolower($version->tipe_file) === 'pdf') {
             try {
-                $pdfContent = $pdfSignatureService->generateSignedPdfStream(
-                    $version->file_url,
-                    $approvedSignatures,
-                    $dokumen
-                );
+                // Check if signed file already exists in private storage; if not, generate and save it
+                if (!$version->signed_file_url || !Storage::disk('local')->exists($version->signed_file_url)) {
+                    $pdfSignatureService->generateAndSaveSignedPdf($dokumen, $version);
+                    $version->refresh();
+                }
 
-                $signedFilename = pathinfo($version->nama_file, PATHINFO_FILENAME) . '_signed.pdf';
+                if ($version->signed_file_url && Storage::disk('local')->exists($version->signed_file_url)) {
+                    $filePath = Storage::disk('local')->path($version->signed_file_url);
+                    $signedFilename = pathinfo($version->nama_file, PATHINFO_FILENAME) . '_signed.pdf';
 
-                return response($pdfContent)
-                    ->header('Content-Type', 'application/pdf')
-                    ->header('Content-Disposition', 'attachment; filename="' . $signedFilename . '"')
-                    ->header('Content-Length', strlen($pdfContent));
+                    return response()->download($filePath, $signedFilename, [
+                        'Content-Type' => 'application/pdf',
+                    ]);
+                }
             } catch (\Exception $e) {
-                Log::error('Failed to generate signed PDF for download', [
+                Log::error('Failed to generate/serve signed PDF for download', [
                     'error' => $e->getMessage(),
                     'dokumen_id' => $dokumen->id,
                     'version_id' => $version->id,
@@ -1722,8 +1725,8 @@ class DokumenController extends Controller
     }
 
     /**
-     * Stream signed PDF with all approved signatures (on-demand generation).
-     * This endpoint is used for PDF preview in the browser.
+     * Stream signed PDF with all approved signatures.
+     * Uses saved signed PDF from private storage when available.
      */
     public function streamSignedPdf(Dokumen $dokumen, PdfSignatureService $pdfSignatureService, $versionId = null)
     {
@@ -1768,8 +1771,20 @@ class DokumenController extends Controller
             ]);
         }
 
-        // Generate signed PDF on-the-fly
         try {
+            if (!$version->signed_file_url || !Storage::disk('local')->exists($version->signed_file_url)) {
+                $pdfSignatureService->generateAndSaveSignedPdf($dokumen, $version);
+                $version->refresh();
+            }
+
+            if ($version->signed_file_url && Storage::disk('local')->exists($version->signed_file_url)) {
+                $filePath = Storage::disk('local')->path($version->signed_file_url);
+                return response()->file($filePath, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="signed_' . $version->nama_file . '"',
+                ]);
+            }
+
             $pdfContent = $pdfSignatureService->generateSignedPdfStream(
                 $version->file_url,
                 $approvedSignatures,
@@ -1793,6 +1808,48 @@ class DokumenController extends Controller
                 'Content-Type' => 'application/pdf',
             ]);
         }
+    }
+
+    /**
+     * Download the signed document snapshot at a specific approval step in history.
+     */
+    public function downloadApprovalHistory(Dokumen $dokumen, DokumenApproval $approval, PdfSignatureService $pdfSignatureService)
+    {
+        if (!$this->canAccessDokumen($dokumen)) {
+            abort(403, 'Anda tidak memiliki hak akses ke dokumen ini.');
+        }
+
+        if ($approval->dokumen_id !== $dokumen->id) {
+            abort(404, 'Data persetujuan tidak sesuai dengan dokumen.');
+        }
+
+        if ($approval->approval_status !== 'approved') {
+            abort(400, 'Tahap persetujuan ini belum di-approve.');
+        }
+
+        $version = $approval->dokumenVersion ?? $dokumen->latestVersion;
+        if (!$version || !Storage::disk('local')->exists($version->file_url)) {
+            abort(404, 'File dokumen tidak ditemukan.');
+        }
+
+        // Generate and save historical step file if not yet stored
+        if (!$approval->signed_file_url || !Storage::disk('local')->exists($approval->signed_file_url)) {
+            $pdfSignatureService->generateAndSaveApprovalStepPdf($dokumen, $version, $approval);
+            $approval->refresh();
+        }
+
+        if (!$approval->signed_file_url || !Storage::disk('local')->exists($approval->signed_file_url)) {
+            abort(404, 'File history tanda tangan tidak ditemukan.');
+        }
+
+        $filePath = Storage::disk('local')->path($approval->signed_file_url);
+        $stepOrder = $approval->approval_order ?? $approval->masterflowStep?->step_order ?? $approval->id;
+        $approverName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $approval->user?->name ?? 'approver');
+        $filename = pathinfo($version->nama_file, PATHINFO_FILENAME) . "_step_{$stepOrder}_{$approverName}_signed.pdf";
+
+        return response()->download($filePath, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 
     /**

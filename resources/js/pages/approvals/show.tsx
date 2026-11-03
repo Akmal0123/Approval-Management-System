@@ -544,12 +544,6 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                         <CardHeader>
                                             <div className="flex items-center justify-between">
                                                 <CardTitle className="font-serif text-lg">File Dokumen</CardTitle>
-                                                {approval.dokumen_version.signed_file_url && (
-                                                    <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700">
-                                                        <IconCheck className="mr-1 h-3 w-3" />
-                                                        Sudah Ditandatangani
-                                                    </Badge>
-                                                )}
                                             </div>
                                         </CardHeader>
                                         <CardContent>

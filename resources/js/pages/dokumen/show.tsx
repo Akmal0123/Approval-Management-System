@@ -1062,15 +1062,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                                                                                     Latest
                                                                                 </Badge>
                                                                             )}
-                                                                            {version.signed_file_url && (
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="gap-1 border-green-200 bg-green-50 text-green-700 hover:bg-green-50"
-                                                                                >
-                                                                                    <CheckCircle2 className="h-3 w-3" />
-                                                                                    Signed
-                                                                                </Badge>
-                                                                            )}
+
                                                                         </div>
                                                                         <p className="w-full text-sm [overflow-wrap:anywhere]" title={version.nama_file}>
                                                                             {version.nama_file}

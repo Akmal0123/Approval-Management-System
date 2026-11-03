@@ -167,9 +167,10 @@ Route::middleware(['auth'])->group(function () {
         // Document workflow actions
         Route::post('/{dokumen}/submit', [\App\Http\Controllers\DokumenController::class, 'submit'])->name('dokumen.submit');
         Route::post('/{dokumen}/cancel', [\App\Http\Controllers\DokumenController::class, 'cancel'])->name('dokumen.cancel');
-        Route::get('/{dokumen}/download/{version}', [\App\Http\Controllers\DokumenController::class, 'download'])->name('dokumen.download');
+        Route::get('/{dokumen}/download/{version?}', [\App\Http\Controllers\DokumenController::class, 'download'])->name('dokumen.download');
+        Route::get('/{dokumen}/approval/{approval}/download', [\App\Http\Controllers\DokumenController::class, 'downloadApprovalHistory'])->name('dokumen.approval.download');
 
-        // Stream signed PDF (on-demand generation for preview)
+        // Stream signed PDF (uses saved signed PDF from private storage when available)
         Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
     });
 

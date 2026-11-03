@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import {
     IconCheck,
     IconClock,
+    IconDownload,
     IconUsers,
     IconX,
 } from '@tabler/icons-react';
@@ -74,12 +75,12 @@ export interface ApprovalTimelineProps {
 type TimelineItem =
     | { type: 'single'; data: ApprovalTimelineItemData }
     | {
-          type: 'group';
-          data: ApprovalTimelineItemData[];
-          groupIndex: string;
-          groupType: string;
-          firstStepOrder: number;
-      };
+        type: 'group';
+        data: ApprovalTimelineItemData[];
+        groupIndex: string;
+        groupType: string;
+        firstStepOrder: number;
+    };
 
 export function ApprovalTimeline({
     approvals = [],
@@ -297,15 +298,14 @@ export function ApprovalTimeline({
 
                                         {/* Status Dot */}
                                         <div
-                                            className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${
-                                                isCompleted
+                                            className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background ${isCompleted
                                                     ? 'border-green-600 text-green-600'
                                                     : isRejected
-                                                    ? 'border-red-600 text-red-600'
-                                                    : isPending
-                                                    ? 'border-yellow-500 text-yellow-500'
-                                                    : 'border-muted text-muted-foreground'
-                                            }`}
+                                                        ? 'border-red-600 text-red-600'
+                                                        : isPending
+                                                            ? 'border-yellow-500 text-yellow-500'
+                                                            : 'border-muted text-muted-foreground'
+                                                }`}
                                         >
                                             {isCompleted ? (
                                                 <CheckCircle2Icon className="h-4 w-4" />
@@ -323,11 +323,10 @@ export function ApprovalTimeline({
                                                     <div className="whitespace-normal break-words font-sans text-sm font-semibold sm:text-base">
                                                         {app.masterflow_step?.step_name ||
                                                             (isCustomApproval
-                                                                ? `Custom Approver ${
-                                                                      app.approval_order
-                                                                          ? `(Order: ${app.approval_order})`
-                                                                          : ''
-                                                                  }`
+                                                                ? `Custom Approver ${app.approval_order
+                                                                    ? `(Order: ${app.approval_order})`
+                                                                    : ''
+                                                                }`
                                                                 : 'Approval Step')}
                                                     </div>
                                                     <div className="whitespace-normal break-words text-xs font-medium text-foreground sm:text-sm">
@@ -388,11 +387,10 @@ export function ApprovalTimeline({
                                             {/* Comments & Rejection Notes */}
                                             {(app.comment || app.alasan_reject) && (
                                                 <div
-                                                    className={`mt-2 rounded-md border p-3 text-sm ${
-                                                        isRejected
+                                                    className={`mt-2 rounded-md border p-3 text-sm ${isRejected
                                                             ? 'border-red-200 bg-red-50 text-red-900'
                                                             : 'border-border bg-muted/30'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {app.alasan_reject && (
                                                         <div className="mb-1">
@@ -437,8 +435,8 @@ export function ApprovalTimeline({
                                 const statusColor = isGroupApproved
                                     ? 'border-green-600 text-green-600'
                                     : anyRejected
-                                    ? 'border-red-600 text-red-600'
-                                    : 'border-yellow-500 text-yellow-500';
+                                        ? 'border-red-600 text-red-600'
+                                        : 'border-yellow-500 text-yellow-500';
 
                                 return (
                                     <div key={`group-${group.groupIndex}`} className="relative flex gap-3 sm:gap-4 pb-8 last:pb-0">
@@ -524,11 +522,10 @@ export function ApprovalTimeline({
                                                                     )}
                                                                     {(app.comment || app.alasan_reject) && (
                                                                         <div
-                                                                            className={`mt-2 rounded p-2 text-xs ${
-                                                                                isMemberRejected
+                                                                            className={`mt-2 rounded p-2 text-xs ${isMemberRejected
                                                                                     ? 'border border-red-200 bg-red-50 text-red-900'
                                                                                     : 'bg-muted/40'
-                                                                            }`}
+                                                                                }`}
                                                                         >
                                                                             {app.alasan_reject && (
                                                                                 <div className="font-medium text-red-600">
@@ -575,6 +572,18 @@ export function ApprovalTimeline({
                                                                                 Posisi Anda
                                                                             </Badge>
                                                                         )}
+                                                                    {app.approval_status === 'approved' && (app.dokumen_id || doc?.id) && (
+                                                                        <a
+                                                                            href={`/api/dokumen/${app.dokumen_id || doc?.id}/approval/${app.id}/download`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-950/60"
+                                                                            title="Unduh dokumen hasil persetujuan tahap ini"
+                                                                        >
+                                                                            <IconDownload className="h-3 w-3" />
+                                                                            <span>Unduh Tahap Ini</span>
+                                                                        </a>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );

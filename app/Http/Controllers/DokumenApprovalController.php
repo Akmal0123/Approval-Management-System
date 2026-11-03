@@ -407,6 +407,12 @@ class DokumenApprovalController extends Controller
         try {
             // Broadcast dokumen updated event for real-time updates (minimal payload)
             $dokumen = $approval->dokumen->fresh();
+            $version = $approval->dokumenVersion ?? $dokumen->latestVersion;
+
+            // Generate and save signed document and historical snapshot to private storage
+            if ($version && strtolower($version->tipe_file) === 'pdf') {
+                $pdfSignatureService->generateAndSaveSignedPdf($dokumen, $version, $approval);
+            }
 
             // Broadcast to detail page viewers
             Log::info('Broadcasting DokumenUpdated event', [
@@ -526,13 +532,17 @@ class DokumenApprovalController extends Controller
                 continue;
             }
 
-            // Broadcast real-time events outside transaction
+            // Broadcast real-time events outside transaction and save signed PDF
             try {
                 $dokumen = $approval->dokumen->fresh();
+                $version = $approval->dokumenVersion ?? $dokumen->latestVersion;
+                if ($version && strtolower($version->tipe_file) === 'pdf') {
+                    $pdfSignatureService->generateAndSaveSignedPdf($dokumen, $version, $approval);
+                }
                 broadcast(new DokumenUpdated($dokumen))->toOthers();
                 broadcast(new UserDokumenUpdated($dokumen))->toOthers();
             } catch (\Exception $e) {
-                Log::error("Bulk approval PDF embedding failed for ID {$approvalId}: " . $e->getMessage());
+                Log::error("Bulk approval PDF signing failed for ID {$approvalId}: " . $e->getMessage());
             }
         }
 
@@ -1145,22 +1155,35 @@ class DokumenApprovalController extends Controller
             ->firstOrFail();
 
         $dokumen = $approval->dokumen;
-        $version = $approval->dokumenVersion;
+        $version = $approval->dokumenVersion ?? $dokumen->latestVersion;
 
         // Check if file exists
         if (!$version || !Storage::disk('local')->exists($version->file_url)) {
             abort(404, 'File tidak ditemukan.');
         }
 
-        // Use PdfSignatureService to stream/render on-demand
         $pdfSignatureService = app(\App\Services\PdfSignatureService::class);
 
-        // Get all approvals for this document that are approved
-        $approvals = DokumenApproval::where('dokumen_id', $dokumen->id)
-            ->where('approval_status', 'approved')
-            ->get();
-
         try {
+            // If signed file exists in private storage, serve directly for deterministic output
+            if (!$version->signed_file_url || !Storage::disk('local')->exists($version->signed_file_url)) {
+                $pdfSignatureService->generateAndSaveSignedPdf($dokumen, $version);
+                $version->refresh();
+            }
+
+            if ($version->signed_file_url && Storage::disk('local')->exists($version->signed_file_url)) {
+                $filePath = Storage::disk('local')->path($version->signed_file_url);
+                $signedFilename = pathinfo($version->nama_file, PATHINFO_FILENAME) . '_signed.pdf';
+                return response()->file($filePath, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="' . $signedFilename . '"',
+                ]);
+            }
+
+            // Fallback to streaming if saving failed
+            $approvals = DokumenApproval::where('dokumen_id', $dokumen->id)
+                ->where('approval_status', 'approved')
+                ->get();
             $pdfStream = $pdfSignatureService->generateSignedPdfStream($version->file_url, $approvals, $dokumen);
 
             return response($pdfStream, 200, [
@@ -1168,7 +1191,7 @@ class DokumenApprovalController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $version->nama_file . '"',
             ]);
         } catch (\Exception $e) {
-            Log::error('Public PDF streaming failed', [
+            Log::error('Public PDF streaming/download failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

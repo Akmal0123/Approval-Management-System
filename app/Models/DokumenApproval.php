@@ -34,6 +34,7 @@ class DokumenApproval extends Model
         'alasan_reject',
         'comment',
         'signature_path',
+        'signed_file_url',
         'signature_method',
         'verification_token',
         'revision_notes',

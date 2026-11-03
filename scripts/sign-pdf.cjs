@@ -174,7 +174,15 @@ async function run() {
                     pdfDoc.setCreationDate(new Date(meta.creation_date));
                 } catch (e) {}
             }
-            pdfDoc.setModificationDate(new Date());
+            if (meta.modification_date) {
+                try {
+                    pdfDoc.setModificationDate(new Date(meta.modification_date));
+                } catch (e) {
+                    pdfDoc.setModificationDate(new Date());
+                }
+            } else {
+                pdfDoc.setModificationDate(new Date());
+            }
 
             // Set Custom Document Information Dictionary entries
             // These will appear directly in PDF viewers' "Custom" properties (Adobe Acrobat, Foxit, etc.)
