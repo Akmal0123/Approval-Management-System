@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Dokumen;
 use App\Models\DokumenVersion;
 use App\Models\DokumenApproval;
+use App\Models\DokumenHash;
 use Exception;
 
 class PdfSignatureService
@@ -480,10 +481,52 @@ class PdfSignatureService
         $safeBaseName = pathinfo($version->nama_file, PATHINFO_FILENAME);
         $safeBaseName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $safeBaseName);
 
+        // Record original document hash if not yet recorded
+        try {
+            $originalFullPath = Storage::disk('local')->path($version->file_url);
+            if (file_exists($originalFullPath)) {
+                DokumenHash::firstOrCreate(
+                    [
+                        'dokumen_id' => $dokumen->id,
+                        'dokumen_version_id' => $version->id,
+                        'hash_type' => 'original',
+                    ],
+                    [
+                        'sha256_hash' => hash_file('sha256', $originalFullPath),
+                        'file_path' => $version->file_url,
+                        'file_size' => filesize($originalFullPath),
+                        'note' => 'Dokumen asli saat diunggah (sebelum tanda tangan)',
+                    ]
+                );
+            }
+        } catch (\Exception $e) {
+            // Ignore original hash recording error
+        }
+
         // 1. Save main current signed PDF to private local storage
         $mainSignedPath = $signedDir . '/' . $safeBaseName . '_signed.pdf';
         Storage::disk('local')->put($mainSignedPath, $pdfContent);
         $version->update(['signed_file_url' => $mainSignedPath]);
+
+        // Record main signed final hash
+        try {
+            $finalHash = hash('sha256', $pdfContent);
+            DokumenHash::updateOrCreate(
+                [
+                    'dokumen_id' => $dokumen->id,
+                    'dokumen_version_id' => $version->id,
+                    'hash_type' => 'signed_final',
+                ],
+                [
+                    'sha256_hash' => $finalHash,
+                    'file_path' => $mainSignedPath,
+                    'file_size' => strlen($pdfContent),
+                    'note' => 'Dokumen final disetujui (semua stempel tanda tangan)',
+                ]
+            );
+        } catch (\Exception $e) {
+            // Ignore hash recording error
+        }
 
         // 2. If currentApproval is passed, save approval history snapshot for this specific step
         if ($currentApproval) {
@@ -491,6 +534,28 @@ class PdfSignatureService
             $historyPath = $signedDir . '/history/step_' . $stepOrder . '_approval_' . $currentApproval->id . '.pdf';
             Storage::disk('local')->put($historyPath, $pdfContent);
             $currentApproval->update(['signed_file_url' => $historyPath]);
+
+            try {
+                $stepHash = hash('sha256', $pdfContent);
+                DokumenHash::updateOrCreate(
+                    [
+                        'dokumen_id' => $dokumen->id,
+                        'dokumen_version_id' => $version->id,
+                        'dokumen_approval_id' => $currentApproval->id,
+                        'hash_type' => 'approval_step',
+                    ],
+                    [
+                        'sha256_hash' => $stepHash,
+                        'file_path' => $historyPath,
+                        'file_size' => strlen($pdfContent),
+                        'step_order' => $stepOrder,
+                        'approver_name' => $currentApproval->user?->name,
+                        'note' => 'Disetujui pada tahap ' . $stepOrder . ' oleh ' . ($currentApproval->user?->name ?? 'Approver'),
+                    ]
+                );
+            } catch (\Exception $e) {
+                // Ignore step hash recording error
+            }
         }
 
         return $mainSignedPath;
@@ -540,6 +605,28 @@ class PdfSignatureService
 
         Storage::disk('local')->put($historyPath, $pdfContent);
         $targetApproval->update(['signed_file_url' => $historyPath]);
+
+        try {
+            $stepHash = hash('sha256', $pdfContent);
+            DokumenHash::updateOrCreate(
+                [
+                    'dokumen_id' => $dokumen->id,
+                    'dokumen_version_id' => $version->id,
+                    'dokumen_approval_id' => $targetApproval->id,
+                    'hash_type' => 'approval_step',
+                ],
+                [
+                    'sha256_hash' => $stepHash,
+                    'file_path' => $historyPath,
+                    'file_size' => strlen($pdfContent),
+                    'step_order' => $stepOrder,
+                    'approver_name' => $targetApproval->user?->name,
+                    'note' => 'Disetujui pada tahap ' . $stepOrder . ' oleh ' . ($targetApproval->user?->name ?? 'Approver'),
+                ]
+            );
+        } catch (\Exception $e) {
+            // Ignore step hash recording error
+        }
 
         return $historyPath;
     }

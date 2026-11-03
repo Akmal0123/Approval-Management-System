@@ -195,6 +195,14 @@ class Dokumen extends Model
     }
 
     /**
+     * Get all cryptographic hash records and history for this document.
+     */
+    public function hashes(): HasMany
+    {
+        return $this->hasMany(DokumenHash::class, 'dokumen_id')->orderBy('id', 'asc');
+    }
+
+    /**
      * Get all signature positions for this document.
      */
     public function signaturePositions(): HasMany
