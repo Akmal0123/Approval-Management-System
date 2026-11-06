@@ -53,6 +53,16 @@ class MasterDataSeeder extends Seeder
             ],
         ];
 
-        DB::table('jabatans')->insert($jabatans);
+        foreach ($jabatans as $jabatan) {
+            DB::table('jabatans')->updateOrInsert(
+                ['id' => $jabatan['id']],
+                $jabatan
+            );
+        }
+
+        // Sync sequence in PostgreSQL so subsequent auto-increment inserts don't collide
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("SELECT setval(pg_get_serial_sequence('jabatans', 'id'), coalesce(max(id), 1)) FROM jabatans");
+        }
     }
 }

@@ -20,13 +20,16 @@ class UserJabatanSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get role IDs
-        $adminRoleId = DB::table('usersroles')->where('role_name', 'Admin')->first()->id;
-        $userRoleId = DB::table('usersroles')->where('role_name', 'User')->first()->id;
+        // Get role IDs (case-insensitive for PostgreSQL compatibility)
+        $adminRole = DB::table('usersroles')->whereRaw('LOWER(role_name) = ?', ['admin'])->first();
+        $adminRoleId = $adminRole?->id ?? 2;
+
+        $userRole = DB::table('usersroles')->whereRaw('LOWER(role_name) = ?', ['user'])->first();
+        $userRoleId = $userRole?->id ?? 3;
 
         // Get first company and aplikasi for default assignment
-        $firstCompanyId = DB::table('companies')->first()->id;
-        $firstAplikasiId = DB::table('aplikasis')->first()->id;
+        $firstCompanyId = DB::table('companies')->first()?->id ?? 1;
+        $firstAplikasiId = DB::table('aplikasis')->first()?->id ?? 1;
 
         // Get all jabatans
         $jabatans = DB::table('jabatans')->get();

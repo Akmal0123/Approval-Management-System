@@ -26,22 +26,26 @@ class AplikasiSeeder extends Seeder
             return;
         }
 
+        $defaultCompanyId = $companies->first()->id;
+        $tspmCompanyId = $companies->where('name', 'PT. Tiga Serangkai Pustaka Mandiri')->first()?->id ?? $defaultCompanyId;
+        $assalaamCompanyId = $companies->where('name', 'PT. Assalaam Niaga Utama')->first()?->id ?? $defaultCompanyId;
+
         $aplikasis = [
             [
                 'name' => 'Tisera',
-                'company_id' => $companies->where('name', 'PT. Tiga Serangkai Pustaka Mandiri')->first()->id,
+                'company_id' => $tspmCompanyId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
                 'name' => 'PerpusKita',
-                'company_id' => $companies->where('name', 'PT. Tiga Serangkai Pustaka Mandiri')->first()->id,
+                'company_id' => $tspmCompanyId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
                 'name' => 'Assalaam Hypermarket',
-                'company_id' => $companies->where('name', 'PT. Assalaam Niaga Utama')->first()->id,
+                'company_id' => $assalaamCompanyId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
