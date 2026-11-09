@@ -21,6 +21,7 @@ import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
     IconAlertCircle,
+    IconAlertTriangle,
     IconCheck,
     IconClock,
     IconEye,
@@ -175,6 +176,18 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [bulkComment, setBulkComment] = useState('');
     const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
     const [bulkPreviewApprovalId, setBulkPreviewApprovalId] = useState<number | null>(null);
+
+    // Bulk paraf tracking states
+    const [bulkParafMap, setBulkParafMap] = useState<Record<number, number[]>>({});
+    const [bulkTotalPagesMap, setBulkTotalPagesMap] = useState<Record<number, number>>({});
+
+    // Reset bulk paraf state when modal closes
+    useEffect(() => {
+        if (!isBulkModalOpen) {
+            setBulkParafMap({});
+            setBulkTotalPagesMap({});
+        }
+    }, [isBulkModalOpen]);
 
     // Preview Dialog states
     const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -338,6 +351,11 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             return;
         }
 
+        if (!isAllBulkDocsParafed) {
+            showToast.error(`❌ Harap selesaikan paraf seluruh dokumen (${fullyParafedDocsCount}/${selectedApprovalIds.length}) terlebih dahulu.`);
+            return;
+        }
+
         if (bulkSignatureMethod === 'original' && !bulkSignatureData) {
             showToast.error('❌ Silakan buat atau tambahkan tanda tangan terlebih dahulu');
             return;
@@ -351,6 +369,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                 signature_method: bulkSignatureMethod,
                 signature: bulkSignatureMethod === 'original' ? bulkSignatureData : undefined,
                 comment: bulkComment.trim() || undefined,
+                paraf_map: bulkParafMap,
             },
             {
                 preserveScroll: true,
@@ -443,6 +462,41 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             signature_path: a.signature_path,
             verification_token: a.verification_token,
         }));
+
+    const isDocFullyParafed = (approvalId: number) => {
+        const pages = bulkParafMap[approvalId] || [];
+        const total = bulkTotalPagesMap[approvalId] || 0;
+        return total > 0 && pages.length >= total;
+    };
+
+    const fullyParafedDocsCount = selectedApprovalIds.filter((id) => isDocFullyParafed(id)).length;
+    const isAllBulkDocsParafed = selectedApprovalIds.length > 0 && fullyParafedDocsCount === selectedApprovalIds.length;
+
+    const currentBulkDocTotalPages = currentBulkPreviewApproval ? (bulkTotalPagesMap[currentBulkPreviewApproval.id] || 0) : 0;
+    const currentBulkDocParafPages = currentBulkPreviewApproval ? (bulkParafMap[currentBulkPreviewApproval.id] || []) : [];
+    const isCurrentBulkDocParafed = currentBulkPreviewApproval ? isDocFullyParafed(currentBulkPreviewApproval.id) : false;
+
+    const handleParafCurrentBulkDoc = () => {
+        if (!currentBulkPreviewApproval) return;
+        const total = bulkTotalPagesMap[currentBulkPreviewApproval.id] || 1;
+        const allPages = Array.from({ length: total }, (_, i) => i + 1);
+        setBulkParafMap((prev) => ({
+            ...prev,
+            [currentBulkPreviewApproval.id]: allPages,
+        }));
+    };
+
+    const handleParafAllBulkDocs = () => {
+        const newMap: Record<number, number[]> = {};
+        selectedApprovalIds.forEach((id) => {
+            const total = bulkTotalPagesMap[id] || 1;
+            newMap[id] = Array.from({ length: total }, (_, i) => i + 1);
+        });
+        setBulkParafMap((prev) => ({
+            ...prev,
+            ...newMap,
+        }));
+    };
 
     // Handle search
     const handleFilterChange = (aplikasiId: string, transaksiId: string, searchVal: string = search, tabVal: string = selectedTab) => {
@@ -1213,12 +1267,27 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             defaultActiveApprovalId={currentBulkPreviewApproval.id}
                                             isEmbedded={true}
                                             readOnly={!((currentBulkPreviewApproval.can_approve ?? true) && currentBulkPreviewApproval.approval_status === 'pending')}
+                                            enableParaf={true}
+                                            parafPages={bulkParafMap[currentBulkPreviewApproval.id] || []}
+                                            onParafChange={(pages) => {
+                                                setBulkParafMap((prev) => ({
+                                                    ...prev,
+                                                    [currentBulkPreviewApproval.id]: pages,
+                                                }));
+                                            }}
+                                            onNumPagesChange={(n) => {
+                                                setBulkTotalPagesMap((prev) => ({
+                                                    ...prev,
+                                                    [currentBulkPreviewApproval.id]: n,
+                                                }));
+                                            }}
                                             bulkDocuments={selectedApprovalsList.map((a) => ({
                                                 id: a.id,
                                                 title: a.dokumen.judul_dokumen,
                                                 documentNumber: a.dokumen.nomor_dokumen,
                                                 transactionCode: a.dokumen.transaksi?.kode_transaksi,
                                                 nominal: a.dokumen.nominal,
+                                                isParafed: isDocFullyParafed(a.id),
                                             }))}
                                             selectedDocumentId={currentBulkPreviewApproval.id}
                                             onDocumentSelect={(id) => setBulkPreviewApprovalId(Number(id))}
@@ -1381,6 +1450,63 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         <>
                                             <Separator />
 
+                                            {/* Status Paraf Dokumen Massal */}
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                                        Status Paraf Dokumen
+                                                    </Label>
+                                                    <span className="text-[11px] font-medium text-muted-foreground">
+                                                        {fullyParafedDocsCount}/{selectedApprovalIds.length} Selesai
+                                                    </span>
+                                                </div>
+
+                                                {isAllBulkDocsParafed ? (
+                                                    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/90 p-2 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                                        <IconCheck className="h-4 w-4 shrink-0 text-emerald-600 stroke-[3]" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-semibold">Semua Dokumen Terparaf ✓</p>
+                                                            <p className="text-[11px] text-emerald-700 dark:text-emerald-400">Seluruh dokumen ({selectedApprovalIds.length}) siap disetujui massal.</p>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/90 p-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                                        <div className="flex items-start gap-1.5">
+                                                            <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-semibold">
+                                                                    Dokumen Aktif: {isCurrentBulkDocParafed ? 'Sudah Lengkap ✓' : 'Belum Lengkap'}
+                                                                </p>
+                                                                <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+                                                                    {currentBulkDocParafPages.length}/{currentBulkDocTotalPages || '-'} halaman diparaf pada dokumen yang sedang tampil.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col gap-1 pt-1">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={handleParafCurrentBulkDoc}
+                                                                className="w-full h-7 text-[11px] border-amber-300 bg-white/80 hover:bg-white text-amber-900 font-medium cursor-pointer"
+                                                            >
+                                                                Paraf Dokumen Ini ({currentBulkDocTotalPages || '-'} Hal)
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={handleParafAllBulkDocs}
+                                                                className="w-full h-7 text-[11px] border-amber-300 bg-amber-100/70 hover:bg-amber-200/80 text-amber-900 font-semibold cursor-pointer"
+                                                            >
+                                                                <IconCheck className="mr-1 h-3.5 w-3.5" />
+                                                                Paraf Semua Dokumen Sekaligus
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             <div className="space-y-2">
                                                 <div className="space-y-1.5">
                                                     <Label htmlFor="bulk-comment" className="font-sans text-xs">
@@ -1402,8 +1528,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                         type="button"
                                                         size="sm"
                                                         onClick={handleBulkApproveSubmit}
-                                                        disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
-                                                        className="w-full font-sans h-9"
+                                                        disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData) || !isAllBulkDocsParafed}
+                                                        className="w-full font-sans h-9 cursor-pointer"
                                                     >
                                                         {isBulkSubmitting ? 'Memproses...' : (
                                                             <>
@@ -1412,12 +1538,17 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             </>
                                                         )}
                                                     </Button>
+                                                    {!isAllBulkDocsParafed && (
+                                                        <p className="text-[10px] text-center text-amber-600 dark:text-amber-400 font-medium">
+                                                            Paraf seluruh dokumen (✓) untuk mengaktifkan persetujuan massal
+                                                        </p>
+                                                    )}
                                                     <Button
                                                         type="button"
                                                         size="sm"
                                                         variant="outline"
                                                         onClick={() => setIsBulkModalOpen(false)}
-                                                        className="w-full font-sans h-8 text-xs"
+                                                        className="w-full font-sans h-8 text-xs cursor-pointer"
                                                         disabled={isBulkSubmitting}
                                                     >
                                                         Batal
@@ -1491,6 +1622,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             </DialogContent>
                         </Dialog>
                     )}
+
                 </SidebarInset>
             </SidebarProvider>
         </>

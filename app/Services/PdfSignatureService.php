@@ -341,6 +341,36 @@ class PdfSignatureService
                 }
             }
 
+            $parafsData = [];
+            if ($approvals && $approvals->count() > 0) {
+                foreach ($approvals as $approval) {
+                    if (!empty($approval->paraf_pages)) {
+                        $fullParafPath = null;
+                        if ($approval->paraf_path) {
+                            $fullParafPath = Storage::disk('local')->path($approval->paraf_path);
+                            if (!file_exists($fullParafPath)) {
+                                $fullParafPath = Storage::disk('public')->path($approval->paraf_path);
+                            }
+                            if (!file_exists($fullParafPath)) {
+                                $fullParafPath = null;
+                            }
+                        }
+
+                        $pages = is_array($approval->paraf_pages) ? $approval->paraf_pages : json_decode($approval->paraf_pages, true);
+                        if (is_array($pages)) {
+                            foreach ($pages as $p) {
+                                $parafsData[] = [
+                                    'page' => (int)$p,
+                                    'imagePath' => $fullParafPath,
+                                    'approver_name' => $approval->user?->name ?? 'Approver',
+                                    'date' => $approval->tgl_approve ? $approval->tgl_approve->format('d/m/Y') : now()->format('d/m/Y'),
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+
             if (!$dokumen && $approvals && $approvals->count() > 0) {
                 $firstApproval = $approvals->first();
                 if ($firstApproval) {
@@ -378,6 +408,7 @@ class PdfSignatureService
                 'pdfPath' => $fullPdfPath,
                 'outPath' => $tempOutputFile,
                 'signatures' => $signaturesData,
+                'parafs' => $parafsData,
                 'qrCode' => $qrCodesData[0] ?? null,
                 'qrCodes' => $qrCodesData,
                 'metadata' => $metadata,

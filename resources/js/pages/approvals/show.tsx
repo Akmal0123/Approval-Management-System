@@ -143,6 +143,17 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
     const [signatureData, setSignatureData] = useState<string | null>(null);
     const [signaturePositions, setSignaturePositions] = useState<SignaturePosition[]>([]);
 
+    // Paraf verification states
+    const [detailParafPages, setDetailParafPages] = useState<number[]>([]);
+    const [detailTotalPages, setDetailTotalPages] = useState<number>(0);
+    const [isDetailAllParafed, setIsDetailAllParafed] = useState<boolean>(false);
+
+    useEffect(() => {
+        setDetailParafPages([]);
+        setDetailTotalPages(0);
+        setIsDetailAllParafed(false);
+    }, [approval.id, isPreviewDialogOpen]);
+
     const approveForm = useForm({
         comment: '',
         signature: '',
@@ -220,6 +231,11 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
     // Handle approve
     const handleApprove = async () => {
+        if (detailTotalPages > 0 && !isDetailAllParafed) {
+            showToast.error(`❌ Harap periksa dan beri paraf pada seluruh halaman dokumen (${detailParafPages.length}/${detailTotalPages}) terlebih dahulu.`);
+            return;
+        }
+
         if (approveForm.data.signature_method === 'original' && !signatureData) {
             showToast.error('❌ Silakan tanda tangani dokumen terlebih dahulu');
             return;
@@ -229,13 +245,15 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             method: approveForm.data.signature_method,
             hasComment: !!approveForm.data.comment,
             positionsCount: signaturePositions.length,
+            parafPagesCount: detailParafPages.length,
         });
 
-        // Set signature and signature_positions to form data
+        // Set signature, signature_positions, and paraf_pages to form data
         approveForm.transform((data) => ({
             ...data,
             signature: approveForm.data.signature_method === 'original' ? signatureData! : 'qr',
             signature_positions: signaturePositions.length > 0 ? signaturePositions : undefined,
+            paraf_pages: detailParafPages.length > 0 ? detailParafPages : undefined,
         }));
 
         approveForm.post(route('approvals.approve', approval.id), {
@@ -986,6 +1004,20 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId)
                                                 )
                                             }
+                                            enableParaf={
+                                                canApprove &&
+                                                approval.approval_status === 'pending' &&
+                                                (previewVersionId === approval.dokumen_version?.id || !previewVersionId)
+                                            }
+                                            parafPages={detailParafPages}
+                                            onParafChange={(pages, all) => {
+                                                setDetailParafPages(pages);
+                                                setIsDetailAllParafed(all);
+                                            }}
+                                            onNumPagesChange={(num) => {
+                                                setDetailTotalPages(num);
+                                                setIsDetailAllParafed(num > 0 && detailParafPages.length >= num);
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -1135,6 +1167,79 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                 <>
                                                     <Separator />
 
+                                                    {/* Status Paraf Dokumen */}
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                                            Status Paraf Halaman
+                                                        </Label>
+                                                        {isDetailAllParafed ? (
+                                                            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/90 p-2 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                                                <IconCheck className="h-4 w-4 shrink-0 text-emerald-600 stroke-[3]" />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-semibold">Semua Halaman Terparaf ({detailParafPages.length}/{detailTotalPages})</p>
+                                                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400">Seluruh lembar dokumen telah diverifikasi.</p>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/90 p-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                                                <div className="flex items-start gap-1.5">
+                                                                    <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="font-semibold">Pemeriksaan Halaman ({detailParafPages.length}/{detailTotalPages || '-'})</p>
+                                                                        <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+                                                                            Gunakan tombol toggle di bawah dokumen untuk memparaf tiap halaman.
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                {detailTotalPages > 0 && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            const all = Array.from({ length: detailTotalPages }, (_, i) => i + 1);
+                                                                            setDetailParafPages(all);
+                                                                            setIsDetailAllParafed(true);
+                                                                        }}
+                                                                        className="w-full h-7 text-[11px] border-amber-300 bg-amber-100/70 hover:bg-amber-200/80 text-amber-900 font-semibold cursor-pointer"
+                                                                    >
+                                                                        <IconCheck className="mr-1 h-3.5 w-3.5" />
+                                                                        Paraf Semua Halaman Sekaligus
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Status Paraf Dokumen */}
+                                                    <div className="space-y-1.5 border-t pt-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                                                Status Paraf Dokumen
+                                                            </Label>
+                                                            <span className="text-[11px] font-medium text-muted-foreground">
+                                                                {detailParafPages.length}/{detailTotalPages || '-'} Halaman
+                                                            </span>
+                                                        </div>
+
+                                                        {isDetailAllParafed ? (
+                                                            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/90 p-2 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                                                <IconCheck className="h-4 w-4 shrink-0 text-emerald-600 stroke-[3]" />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-semibold">Semua Halaman Terparaf ✓</p>
+                                                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400">Dokumen siap untuk disetujui.</p>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="rounded-lg border border-amber-200 bg-amber-50/90 p-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                                                <p className="font-semibold">Belum Lengkap ({detailParafPages.length}/{detailTotalPages || '-'})</p>
+                                                                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                                                                    Gunakan tombol toggle <strong>Paraf ✓</strong> pada bilah bawah pratinjau dokumen untuk menandai tiap lembar.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
                                                     <div className="space-y-2">
                                                         <div className="space-y-1.5">
                                                             <Label htmlFor="preview-comment" className="font-sans text-xs">
@@ -1156,8 +1261,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                 type="button"
                                                                 size="sm"
                                                                 onClick={handleApprove}
-                                                                disabled={approveForm.processing}
-                                                                className="w-full font-sans h-9"
+                                                                disabled={approveForm.processing || (detailTotalPages > 0 && !isDetailAllParafed)}
+                                                                className="w-full font-sans h-9 cursor-pointer"
                                                             >
                                                                 {approveForm.processing ? (
                                                                     <>
@@ -1173,12 +1278,17 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     </>
                                                                 )}
                                                             </Button>
+                                                            {detailTotalPages > 0 && !isDetailAllParafed && (
+                                                                <p className="text-[10px] text-center text-amber-600 dark:text-amber-400 font-medium">
+                                                                    Beri paraf seluruh halaman (✓) untuk mengaktifkan tombol setujui
+                                                                </p>
+                                                            )}
                                                             <Button
                                                                 type="button"
                                                                 size="sm"
                                                                 variant="outline"
                                                                 onClick={() => setIsPreviewDialogOpen(false)}
-                                                                className="w-full font-sans h-8 text-xs"
+                                                                className="w-full font-sans h-8 text-xs cursor-pointer"
                                                                 disabled={approveForm.processing}
                                                             >
                                                                 Batal
