@@ -1,18 +1,15 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useState } from 'react';
 import { Link, useForm } from '@inertiajs/react';
 import axios from 'axios';
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface InertiaLoginFormProps {
     canResetPassword: boolean;
+    status?: string;
 }
 
-export function InertiaLoginForm({ canResetPassword }: InertiaLoginFormProps) {
+export function InertiaLoginForm({ canResetPassword, status }: InertiaLoginFormProps) {
     const [showPassword, setShowPassword] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -36,117 +33,162 @@ export function InertiaLoginForm({ canResetPassword }: InertiaLoginFormProps) {
     };
 
     return (
-        <Card className="w-full border-0 shadow-primary">
-            <CardHeader className="space-y-3 text-center">
-                <CardTitle className="font-sans text-3xl font-bold tracking-tight text-foreground">Selamat Datang!</CardTitle>
-                <CardDescription className="font-sans text-base text-muted-foreground">Silahkan masuk ke akun anda untuk melanjutkan</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={submit} className="space-y-4">
+        <div className="w-full max-w-[410px] rounded-[32px] border border-white/80 bg-white/95 p-7 sm:p-8 shadow-[0_25px_60px_-15px_rgba(20,60,30,0.12),0_4px_16px_rgba(0,0,0,0.03),inset_0_2px_4px_rgba(255,255,255,0.95)] backdrop-blur-xl flex flex-col justify-between font-sans">
+            <div>
+                {/* Top Brand Logo Badge */}
+                <div className="flex flex-col items-center text-center">
+                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl shadow-[0_10px_22px_rgba(34,134,70,0.28)] transition-transform duration-300 hover:scale-105 overflow-hidden">
+                        <img
+                            src="/images/ams-logo-vector.svg"
+                            alt="AMS Logo"
+                            className="h-full w-full object-contain"
+                        />
+                    </div>
+
+                    <h1 className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-[#143d22]">
+                        Selamat Datang!
+                    </h1>
+                    <p className="mt-1 text-xs sm:text-sm text-[#5a7665]">
+                        Silakan masuk ke akun Anda untuk melanjutkan
+                    </p>
+                </div>
+
+                {/* Status Message (e.g. password reset link sent) */}
+                {status && (
+                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/90 p-2.5 text-center text-xs font-medium text-emerald-800">
+                        {status}
+                    </div>
+                )}
+
+                <form onSubmit={submit} className="mt-5 space-y-3.5">
                     {/* Email Field */}
-                    <div className="space-y-2">
-                        <Label htmlFor="email" className="font-sans text-sm font-medium text-foreground">
-                            Email
-                        </Label>
+                    <div className="space-y-1.5 text-left">
+                        <label
+                            htmlFor="email"
+                            className="flex items-center gap-1.5 text-xs font-semibold text-[#1f4b2c]"
+                        >
+                            <Mail className="h-3.5 w-3.5 text-[#1f4b2c]" />
+                            <span>Email</span>
+                        </label>
                         <div className="relative">
-                            <Mail className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
-                            <Input
+                            <input
                                 id="email"
                                 type="email"
-                                placeholder="nama@example.com"
+                                placeholder="Masukkan email kamu"
                                 value={data.email}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('email', e.target.value)}
-                                className={cn('pl-10 font-sans text-sm', errors.email && 'border-red-500')}
+                                onChange={(e) => setData('email', e.target.value)}
                                 required
                                 autoComplete="username"
+                                className={cn(
+                                    'h-11 w-full rounded-2xl border border-[#dce8e0] bg-[#f9fbf9] px-3.5 text-sm text-[#143d22] placeholder:text-[#96aea0] shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] transition-all outline-none focus:border-[#228646] focus:bg-white focus:ring-2 focus:ring-[#228646]/20',
+                                    errors.email && 'border-red-400 bg-red-50/30 focus:border-red-500'
+                                )}
                             />
                         </div>
-                        {errors.email && <p className="font-sans text-sm text-red-600">{errors.email}</p>}
+                        {errors.email && (
+                            <p className="text-xs text-red-600">{errors.email}</p>
+                        )}
                     </div>
 
                     {/* Password Field */}
-                    <div className="space-y-2">
-                        <Label htmlFor="password" className="font-sans text-sm font-medium text-foreground">
-                            Password
-                        </Label>
+                    <div className="space-y-1.5 text-left">
+                        <label
+                            htmlFor="password"
+                            className="flex items-center gap-1.5 text-xs font-semibold text-[#1f4b2c]"
+                        >
+                            <Lock className="h-3.5 w-3.5 text-[#1f4b2c]" />
+                            <span>Password</span>
+                        </label>
                         <div className="relative">
-                            <Lock className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
-                            <Input
+                            <input
                                 id="password"
                                 type={showPassword ? 'text' : 'password'}
-                                placeholder="Masukkan password Anda"
+                                placeholder="Masukkan password kamu"
                                 value={data.password}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('password', e.target.value)}
-                                className={cn('pr-10 pl-10 font-sans text-sm', errors.password && 'border-red-500')}
+                                onChange={(e) => setData('password', e.target.value)}
                                 required
                                 autoComplete="current-password"
+                                className={cn(
+                                    'h-11 w-full rounded-2xl border border-[#dce8e0] bg-[#f9fbf9] pl-3.5 pr-10 text-sm text-[#143d22] placeholder:text-[#96aea0] shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] transition-all outline-none focus:border-[#228646] focus:bg-white focus:ring-2 focus:ring-[#228646]/20',
+                                    errors.password && 'border-red-400 bg-red-50/30 focus:border-red-500'
+                                )}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute top-3 right-3 h-4 w-4 text-muted-foreground transition-colors hover:text-foreground"
+                                className="absolute top-1/2 -translate-y-1/2 right-3 text-[#799583] hover:text-[#143d22] transition-colors"
+                                tabIndex={-1}
+                                aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
                             >
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
-                        {errors.password && <p className="font-sans text-sm text-red-600">{errors.password}</p>}
+                        {errors.password && (
+                            <p className="text-xs text-red-600">{errors.password}</p>
+                        )}
                     </div>
 
                     {/* Remember Me & Forgot Password */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-between pt-1">
+                        <label htmlFor="remember" className="flex items-center gap-2 cursor-pointer select-none">
                             <input
                                 id="remember"
                                 type="checkbox"
                                 checked={data.remember}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('remember', e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                onChange={(e) => setData('remember', e.target.checked)}
+                                className="h-4 w-4 rounded-md border-[#c2d7ca] text-[#228646] accent-[#228646] focus:ring-[#228646] cursor-pointer"
                             />
-                            <Label htmlFor="remember" className="font-sans text-sm font-normal text-foreground">
+                            <span className="text-xs sm:text-sm text-[#476553]">
                                 Ingat saya
-                            </Label>
-                        </div>
+                            </span>
+                        </label>
 
                         {canResetPassword && (
                             <Link
                                 href={route('password.request')}
-                                className="font-sans text-sm font-medium text-primary transition-colors hover:text-primary/80"
+                                className="text-xs sm:text-sm font-medium text-[#228646] hover:text-[#176233] transition-colors"
                             >
                                 Lupa password?
                             </Link>
                         )}
                     </div>
 
-                    {/* Submit Button */}
-                    <Button type="submit" className="w-full font-sans font-semibold" disabled={processing}>
+                    {/* Submit Button: Masuk -> */}
+                    <button
+                        type="submit"
+                        disabled={processing}
+                        className="group relative mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#228646] px-4 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(34,134,70,0.32),inset_0_1px_2px_rgba(255,255,255,0.35)] transition-all duration-200 hover:bg-[#1b733b] hover:shadow-[0_10px_26px_rgba(34,134,70,0.42)] active:translate-y-0.5 active:shadow-[0_4px_12px_rgba(34,134,70,0.25)] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
                         {processing ? (
-                            <div className="flex items-center space-x-2">
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                <span className="font-sans">Memproses...</span>
-                            </div>
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                <span>Memproses...</span>
+                            </>
                         ) : (
-                            'Masuk'
+                            <>
+                                <span>Masuk</span>
+                                <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                            </>
                         )}
-                    </Button>
+                    </button>
 
-                    {/* Divider */}
-                    <div className="relative my-6">
+                    {/* ATAU Divider */}
+                    <div className="relative my-3 flex items-center justify-center">
                         <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-border" />
+                            <div className="w-full border-t border-[#e2ece5]" />
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-3 font-sans font-medium text-muted-foreground">atau</span>
-                        </div>
+                        <span className="relative bg-white px-3 text-[10px] font-semibold tracking-wider uppercase text-[#90a69a]">
+                            ATAU
+                        </span>
                     </div>
 
                     {/* Google OAuth Button */}
-                    <Button
+                    <button
                         type="button"
-                        variant="outline"
-                        className="w-full font-sans font-medium"
                         onClick={() => (window.location.href = route('auth.google'))}
+                        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-2xl border border-[#d6e5dc] bg-[#f8faf8] px-4 text-xs sm:text-sm font-medium text-[#1c472a] shadow-xs transition-all duration-200 hover:bg-[#edf5f0] hover:border-[#c5dcd0] active:translate-y-0.5"
                     >
-                        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path
                                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                                 fill="#4285F4"
@@ -164,18 +206,15 @@ export function InertiaLoginForm({ canResetPassword }: InertiaLoginFormProps) {
                                 fill="#EA4335"
                             />
                         </svg>
-                        Masuk dengan Google
-                    </Button>
-
-                    {/* Additional Options */}
-                    <div className="text-center text-sm">
-                        <span className="font-sans text-muted-foreground">Belum punya akun? </span>
-                        <Link href={route('register')} className="font-sans font-medium text-primary transition-colors hover:text-primary/80">
-                            Daftar sekarang
-                        </Link>
-                    </div>
+                        <span>Masuk dengan Google</span>
+                    </button>
                 </form>
-            </CardContent>
-        </Card>
+            </div>
+
+            {/* Copyright Footer */}
+            <div className="mt-5 text-center text-xs text-[#8fa799]">
+                © 2026 Approval Management System
+            </div>
+        </div>
     );
 }

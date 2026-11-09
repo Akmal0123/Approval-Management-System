@@ -1,6 +1,5 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import CreateDocumentDialog from '@/components/create-document-dialog';
-import VerifyAuthenticityDialog from '@/components/verify-authenticity-dialog';
 import { NotificationListener } from '@/components/NotificationListener';
 import { SiteHeader } from '@/components/site-header';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import api from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { IconAlertCircle, IconArrowUpRight, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconShieldCheck, IconTrash } from '@tabler/icons-react';
+import { IconAlertCircle, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
 import { Activity, CalendarIcon, CheckCircle2, Eye, FileTextIcon, LayoutGrid, List, SearchIcon, UserIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -144,7 +143,6 @@ export default function UserDokumen() {
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [isVerifyOpen, setIsVerifyOpen] = useState(false);
     const [selectedDokumen, setSelectedDokumen] = useState<Dokumen | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -484,17 +482,6 @@ export default function UserDokumen() {
                                         <p className="font-sans text-sm text-muted-foreground">Kelola dan ajukan dokumen untuk persetujuan</p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2.5">
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsVerifyOpen(true)}
-                                            className="group inline-flex items-center justify-center gap-2 rounded-xl border border-primary/70 bg-transparent px-4 py-2 font-sans text-sm font-medium text-primary shadow-xs transition-all duration-200 hover:border-primary hover:bg-secondary hover:text-secondary-foreground hover:shadow-sm active:scale-[0.98]"
-                                        >
-                                            <IconShieldCheck className="h-4 w-4 text-primary transition-colors duration-200 group-hover:text-secondary-foreground" />
-                                            <span>Cek Keaslian</span>
-                                            <span className="inline-flex max-w-0 -translate-x-1 items-center overflow-hidden opacity-0 transition-all duration-200 group-hover:max-w-[20px] group-hover:translate-x-0 group-hover:opacity-100">
-                                                <IconArrowUpRight className="h-3.5 w-3.5 text-secondary-foreground" />
-                                            </span>
-                                        </button>
                                         <Button onClick={handleCreate} className="font-sans">
                                             <IconPlus className="mr-2 h-4 w-4" />
                                             Buat Dokumen
@@ -944,12 +931,6 @@ export default function UserDokumen() {
                         open={isCreateDialogOpen}
                         onOpenChange={setIsCreateDialogOpen}
                         onSuccess={fetchDokumen}
-                    />
-
-                    {/* Verify Authenticity Dialog */}
-                    <VerifyAuthenticityDialog
-                        open={isVerifyOpen}
-                        onOpenChange={setIsVerifyOpen}
                     />
 
                     {/* Delete Confirmation Dialog */}

@@ -169,8 +169,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{dokumen}/cancel', [\App\Http\Controllers\DokumenController::class, 'cancel'])->name('dokumen.cancel');
         Route::get('/{dokumen}/download/{version?}', [\App\Http\Controllers\DokumenController::class, 'download'])->name('dokumen.download');
         Route::get('/{dokumen}/approval/{approval}/download', [\App\Http\Controllers\DokumenController::class, 'downloadApprovalHistory'])->name('dokumen.approval.download');
-        Route::post('/verify-authenticity', [\App\Http\Controllers\DokumenController::class, 'verifyFileAuthenticity'])->name('dokumen.verify-authenticity');
-
         // Stream signed PDF (uses saved signed PDF from private storage when available)
         Route::get('/{dokumen}/signed-pdf/{version?}', [\App\Http\Controllers\DokumenController::class, 'streamSignedPdf'])->name('dokumen.signed-pdf');
     });
@@ -237,7 +235,8 @@ Route::middleware(['auth'])->group(function () {
     })->name('masterflows.steps');
 });
 
-// Public Signature Verification Routes
+// Public Signature & Authenticity Verification Routes
+Route::post('/api/dokumen/verify-authenticity', [\App\Http\Controllers\DokumenController::class, 'verifyFileAuthenticity'])->name('dokumen.verify-authenticity');
 Route::get('/verify/signature/{token}', [\App\Http\Controllers\DokumenApprovalController::class, 'verifySignature'])->name('verify.signature');
 Route::get('/verify/signature/{token}/download', [\App\Http\Controllers\DokumenApprovalController::class, 'downloadSignedDocument'])->name('verify.signature.download');
 

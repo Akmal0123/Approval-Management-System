@@ -19,7 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
         // Use custom CSRF verification middleware
         $middleware->validateCsrfTokens(except: [
-            // Exempt these routes from CSRF verification
+            // Exempt public document verification from CSRF verification
+            'api/dokumen/verify-authenticity',
         ]);
 
         $middleware->web(append: [
