@@ -13,19 +13,19 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     const [isVerifyOpen, setIsVerifyOpen] = useState(false);
 
     return (
-        <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-[#ebf7ee] via-[#def2e3] to-[#e4f6eb] text-[#143d22] antialiased selection:bg-[#228646] selection:text-white flex flex-col justify-center py-6 sm:py-8 lg:py-12 px-4 sm:px-6 lg:px-12 font-sans">
+        <div
+            className="relative min-h-screen w-full overflow-hidden bg-cover bg-center bg-no-repeat text-[#143d22] antialiased selection:bg-[#228646] selection:text-white flex flex-col justify-center py-6 sm:py-8 lg:py-12 px-4 sm:px-6 lg:px-12 font-sans"
+            style={{ backgroundImage: "url('/images/background.png')" }}
+        >
             <Head title="Masuk - Approval Management System" />
 
-            {/* Ambient Background Glows & Soft Lighting */}
-            <div className="pointer-events-none absolute -top-40 -right-40 h-[550px] w-[550px] rounded-full bg-[#d2eed8]/50 blur-3xl z-0" />
-            <div className="pointer-events-none absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-[#c7e8cf]/60 blur-3xl z-0" />
-            <div className="pointer-events-none absolute top-1/2 left-1/3 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-[#def5e4]/50 blur-2xl z-0" />
-
-            {/* Soft Organic Clay Bottom Wave Decoration */}
-            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-44 lg:h-64 overflow-hidden z-0 opacity-40">
-                <svg className="w-full h-full text-[#c8ebd3] fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                    <path d="M0,192L60,181.3C120,171,240,149,360,160C480,171,600,213,720,218.7C840,224,960,192,1080,170.7C1200,149,1320,139,1380,133.3L1440,128L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z" />
-                </svg>
+            {/* Fullscreen Background Image Layer */}
+            <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+                <img
+                    src="/images/background.png"
+                    alt=""
+                    className="h-full w-full object-cover object-center select-none"
+                />
             </div>
 
             {/* Main Content Stage Container */}
@@ -73,14 +73,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
                                 {/* Floating 3D Clay Sphere Bottom-Left */}
                                 <div className="pointer-events-none absolute bottom-4 -left-2 h-5 w-5 rounded-full bg-gradient-to-br from-[#c5f8d8] via-[#5ec986] to-[#258548] shadow-[0_6px_14px_rgba(20,60,30,0.18),inset_-1px_-2px_4px_rgba(0,0,0,0.15),inset_1px_1px_3px_rgba(255,255,255,0.7)] z-20" />
-
-                                <div className="relative w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[400px] transition-transform duration-700 hover:scale-[1.02]">
-                                    <img
-                                        src="/images/login-img-hero.png"
-                                        alt="AMS 3D Security Scene"
-                                        className="h-auto w-full object-contain drop-shadow-[0_20px_35px_rgba(20,60,30,0.12)] select-none pointer-events-none"
-                                    />
-                                </div>
                             </div>
                         </div>
 

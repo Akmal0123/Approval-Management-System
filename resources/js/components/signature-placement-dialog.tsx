@@ -40,6 +40,7 @@ export interface BulkDocumentItem {
     documentNumber?: string;
     transactionCode?: string;
     nominal?: number;
+    isParafed?: boolean;
 }
 
 interface Props {
@@ -58,6 +59,11 @@ interface Props {
     bulkDocuments?: BulkDocumentItem[];
     selectedDocumentId?: number | string;
     onDocumentSelect?: (id: number | string) => void;
+    enableParaf?: boolean;
+    parafPages?: number[];
+    parafImage?: string | null;
+    onParafChange?: (pages: number[], isAllParafed: boolean) => void;
+    onNumPagesChange?: (numPages: number) => void;
 }
 
 export interface SignaturePosition {
@@ -85,6 +91,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     bulkDocuments,
     selectedDocumentId,
     onDocumentSelect,
+    enableParaf = false,
+    parafPages,
+    parafImage,
+    onParafChange,
+    onNumPagesChange,
 }) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -93,6 +104,46 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+    // Paraf tracking state
+    const [internalParafPages, setInternalParafPages] = useState<number[]>(parafPages || []);
+
+    useEffect(() => {
+        if (parafPages !== undefined) {
+            setInternalParafPages(parafPages);
+        }
+    }, [parafPages]);
+
+    const activeParafPages = parafPages !== undefined ? parafPages : internalParafPages;
+
+    const handleToggleParaf = (targetPage: number) => {
+        const isAlready = activeParafPages.includes(targetPage);
+        const next = isAlready
+            ? activeParafPages.filter((p) => p !== targetPage)
+            : [...activeParafPages, targetPage].sort((a, b) => a - b);
+
+        setInternalParafPages(next);
+        const allParafed = numPages > 0 && next.length >= numPages;
+        if (onParafChange) {
+            onParafChange(next, allParafed);
+        }
+    };
+
+    const handleParafAll = () => {
+        if (numPages <= 0) return;
+        const all = Array.from({ length: numPages }, (_, i) => i + 1);
+        setInternalParafPages(all);
+        if (onParafChange) {
+            onParafChange(all, true);
+        }
+    };
+
+    const handleResetParaf = () => {
+        setInternalParafPages([]);
+        if (onParafChange) {
+            onParafChange([], false);
+        }
+    };
 
     // Authenticated blob state
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -279,6 +330,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         setNumPages(0);
         setCurrentPage(1);
         pageSizesRef.current = {};
+        if (onNumPagesChange) {
+            onNumPagesChange(0);
+        }
     }, [fileUrl]);
 
     // Notify parent on positions changes
@@ -386,6 +440,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
+        if (onNumPagesChange) {
+            onNumPagesChange(numPages);
+        }
         setLoading(false);
         setError(null);
     }
@@ -1032,7 +1089,15 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                                     {doc.documentNumber || doc.title}
                                                                 </span>
                                                             </div>
-                                                            {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {doc.isParafed && (
+                                                                    <span className="inline-flex items-center gap-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 text-[9px] font-semibold">
+                                                                        <Check className="h-2.5 w-2.5 stroke-[3]" />
+                                                                        Diparaf
+                                                                    </span>
+                                                                )}
+                                                                {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                                            </div>
                                                         </div>
                                                         {doc.documentNumber && doc.title && (
                                                             <span className="text-[11px] text-muted-foreground truncate w-full pl-3.5">
@@ -1583,7 +1648,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
+<<<<<<< HEAD
                             className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4"
+=======
+                            className="flex w-max min-w-full flex-col items-center gap-4 pb-14"
+>>>>>>> c97c08b26785c84b9a9f0af76af8604614d52571
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
@@ -1605,6 +1674,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                 onLoadSuccess={(page) => onPageLoadSuccess(page, pageNumber)}
                                             >
                                                 {renderSignatureBoxes(pageNumber)}
+                                                {enableParaf && activeParafPages.includes(pageNumber) && (
+                                                    <div className="absolute bottom-3 right-3 z-15 flex h-6 w-6 items-center justify-center rounded border border-emerald-600 bg-white shadow-xs select-none pointer-events-none text-emerald-700">
+                                                        <Check className="h-3.5 w-3.5 stroke-[3]" />
+                                                    </div>
+                                                )}
                                             </Page>
                                         </div>
                                     </div>
@@ -1613,6 +1687,77 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         </Document>
                     )}
                 </div>
+
+                {/* Floating Paraf Toggle Bar */}
+                {enableParaf && numPages > 0 && !(fetchLoading || loading) && (
+                    <div className="absolute bottom-3 inset-x-2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-30 flex items-center justify-between sm:justify-center gap-2 rounded-xl sm:rounded-full border border-border/80 bg-background/95 px-3 py-1.5 shadow-xl backdrop-blur-md max-w-full sm:max-w-xl transition-all">
+                        <div className="flex items-center gap-1.5 text-xs">
+                            <span className="font-medium text-foreground text-[11px] sm:text-xs">
+                                Hal {currentPage}/{numPages}
+                            </span>
+                            <span
+                                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold transition-colors ${
+                                    activeParafPages.length >= numPages
+                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                }`}
+                            >
+                                {activeParafPages.length >= numPages && <Check className="h-3 w-3 stroke-[3]" />}
+                                <span>{activeParafPages.length}/{numPages} Diparaf</span>
+                            </span>
+                        </div>
+
+                        {/* Main Toggle Button */}
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => handleToggleParaf(currentPage)}
+                            className={`h-7 sm:h-8 gap-1.5 text-xs font-semibold px-2.5 sm:px-3.5 transition-all shadow-xs cursor-pointer ${
+                                activeParafPages.includes(currentPage)
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    : 'border border-amber-300 bg-amber-50 hover:bg-emerald-50 text-amber-900 hover:text-emerald-800 hover:border-emerald-300 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
+                            }`}
+                            title={activeParafPages.includes(currentPage) ? `Halaman ${currentPage} sudah diparaf. Klik untuk batalkan (X).` : `Klik untuk beri paraf pada halaman ${currentPage} (✓)`}
+                        >
+                            {activeParafPages.includes(currentPage) ? (
+                                <>
+                                    <Check className="h-3.5 w-3.5 stroke-[3] text-white" />
+                                    <span>Paraf ✓ <span className="font-normal opacity-90">(Hal {currentPage})</span></span>
+                                </>
+                            ) : (
+                                <>
+                                    <X className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
+                                    <span>Paraf ✗ <span className="font-normal opacity-80">(Hal {currentPage})</span></span>
+                                </>
+                            )}
+                        </Button>
+
+                        {/* Paraf All / Reset button */}
+                        {activeParafPages.length < numPages ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleParafAll}
+                                className="h-7 px-2 text-[10px] sm:text-[11px] text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                                title="Tandai seluruh halaman sudah diparaf"
+                            >
+                                Paraf Semua
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleResetParaf}
+                                className="h-7 px-2 text-[10px] sm:text-[11px] text-muted-foreground hover:text-red-600 font-medium cursor-pointer"
+                                title="Reset semua paraf"
+                            >
+                                Reset
+                            </Button>
+                        )}
+                    </div>
+                )}
                 {isEmbedded && !readOnly && (
                     <div className="shrink-0 border-t bg-background p-2 lg:hidden">
                         <Button type="button" onClick={handleSave} disabled={saving || loading} className="h-9 w-full">

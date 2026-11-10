@@ -117,7 +117,7 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
 
         try {
             setTimeout(() => {
-                setLoadingStage('Mencocokkan ke database histori & integritas stempel AMS...');
+                setLoadingStage('Mencocokkan ke database dokumen sah & fully signed AMS...');
             }, 600);
 
             const response = await axios.post('/api/dokumen/verify-authenticity', formData, {
@@ -189,7 +189,7 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                 Verifikasi Keaslian Dokumen
                             </DialogTitle>
                             <DialogDescription className="font-sans text-xs text-muted-foreground mt-0.5">
-                                Unggah dokumen PDF untuk memastikan keaslian, integritas isi, dan riwayat tanda tangan digital AMS.
+                                Unggah berkas PDF untuk memastikan keaslian dokumen yang telah disetujui sepenuhnya (fully signed) oleh sistem AMS.
                             </DialogDescription>
                         </div>
                     </div>
@@ -229,19 +229,19 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                     </span>
                                 </p>
                                 <p className="font-sans text-xs text-muted-foreground">
-                                    Mendukung file dokumen hasil terbitan AMS (Maks. 25 MB)
+                                    Hanya untuk dokumen yang telah disetujui sepenuhnya (Fully Signed/Approved) oleh AMS (Maks. 25 MB)
                                 </p>
                             </div>
 
                             <div className="mt-6 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                     <IconCheck className="h-3.5 w-3.5 text-primary" />
-                                    Deteksi modifikasi isi
+                                    Hanya Dokumen Fully Signed
                                 </span>
                                 <span className="h-3 w-px bg-border" />
                                 <span className="flex items-center gap-1">
                                     <IconCheck className="h-3.5 w-3.5 text-primary" />
-                                    Histori stempel approver
+                                    Integritas Kriptografi SHA-256
                                 </span>
                             </div>
                         </div>
@@ -288,14 +288,14 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <h3 className="font-serif text-base font-bold text-secondary-foreground">
-                                                    DOKUMEN ASLI & TERVERIFIKASI
+                                                    DOKUMEN ASLI & FULLY SIGNED
                                                 </h3>
                                                 <Badge className="bg-primary hover:bg-primary text-primary-foreground text-[10px] px-2 py-0 font-semibold tracking-wide uppercase">
-                                                    Sah AMS
+                                                    Sah & Lengkap
                                                 </Badge>
                                             </div>
                                             <p className="font-sans text-xs text-muted-foreground mt-0.5">
-                                                {result.stage_label || 'Dokumen cocok dengan catatan sah di sistem AMS.'}
+                                                {result.stage_label || 'Dokumen sah dan telah disetujui sepenuhnya oleh seluruh approver.'}
                                             </p>
                                         </div>
                                     </div>
@@ -318,10 +318,10 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                         </div>
                                         <div>
                                             <h3 className="font-serif text-base font-bold text-destructive">
-                                                DOKUMEN TIDAK COCOK / TIDAK TERDAFTAR
+                                                DOKUMEN TIDAK VALID / BELUM FULLY SIGNED
                                             </h3>
                                             <p className="font-sans text-xs text-muted-foreground mt-0.5">
-                                                {result.message || 'Isi dokumen telah dimodifikasi atau file ini tidak diterbitkan oleh sistem AMS.'}
+                                                {result.message || 'Dokumen tidak cocok, belum disetujui sepenuhnya (belum fully signed), atau isi dokumen telah dimodifikasi.'}
                                             </p>
                                         </div>
                                     </div>
@@ -454,18 +454,18 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                 </div>
                             )}
 
-                            {/* Bento Item 3: Cryptographic Hash Audit & Stage History */}
+                            {/* Bento Item 3: Cryptographic Hash Audit */}
                             {result.is_valid && (
                                 <div className="rounded-2xl border border-border/70 bg-secondary/20 p-4.5 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <IconHistory className="h-4 w-4 text-primary" />
                                             <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                                                Histori Hash & Stempel Dokumen
+                                                Sidik Jari Kriptografis (SHA-256 Fully Signed)
                                             </span>
                                         </div>
                                         <span className="text-[11px] text-muted-foreground font-mono">
-                                            Algoritma SHA-256
+                                            Standar Kriptografi SHA-256
                                         </span>
                                     </div>
 
@@ -475,7 +475,7 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
                                                     <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                                                    Hash Berkas yang Diunggah (Cocok)
+                                                    Hash Dokumen Fully Signed (Cocok 100%)
                                                 </div>
                                                 <code className="mt-0.5 block font-mono text-[11px] text-foreground break-all font-semibold">
                                                     {result.matched_hash}
@@ -497,7 +497,7 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                     {result.hash_history && result.hash_history.length > 0 && (
                                         <div className="space-y-1.5 pt-1">
                                             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Jejak Hash Berdasarkan Siklus Stempel:
+                                                Catatan Integritas Dokumen Terverifikasi:
                                             </span>
                                             <div className="space-y-1.5">
                                                 {result.hash_history.map((hist) => (
@@ -546,7 +546,7 @@ export default function VerifyAuthenticityDialog({ open, onOpenChange }: Props) 
                                         {result.computed_hash}
                                     </code>
                                     <p className="text-[10px] text-muted-foreground pt-1">
-                                        Nilai hash di atas tidak ditemukan pada dokumen asli, stempel persetujuan, maupun dokumen final di database AMS.
+                                        Nilai hash di atas tidak cocok dengan berkas dokumen yang telah disetujui sepenuhnya (fully signed/approved) di database AMS.
                                     </p>
                                 </div>
                             )}

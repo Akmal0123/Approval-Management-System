@@ -31,9 +31,13 @@ class UserController extends Controller
 
         // Filter by role
         if ($request->has('role_id') && $request->role_id !== '') {
-            $query->whereHas('userAuths', function ($q) use ($request) {
-                $q->where('role_id', $request->role_id);
-            });
+            if ($request->role_id === 'unassigned') {
+                $query->doesntHave('userAuths');
+            } else {
+                $query->whereHas('userAuths', function ($q) use ($request) {
+                    $q->where('role_id', $request->role_id);
+                });
+            }
         }
 
         // Filter by jabatan
@@ -43,47 +47,74 @@ class UserController extends Controller
             });
         }
 
+        // Search by name or email
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%");
+            });
+        }
+
         $users = $query->get();
 
         // Define role hierarchy (lower number = higher priority)
+        // 0: Unassigned / Menunggu Penugasan Role (Highest priority for Super Admin)
+        // 1: Super Admin
+        // 2: Admin
+        // 3: User
         $roleHierarchy = [
             'Super Admin' => 1,
             'Admin' => 2,
             'User' => 3,
         ];
 
-        // Sort users by highest role they have
+        // Sort users: unassigned/pending users FIRST, then Super Admin, Admin, User
         $users = $users->sort(function ($a, $b) use ($roleHierarchy) {
-            // Get the highest role (lowest hierarchy number) for each user
-            $aHighestRole = 999;
-            if ($a->userAuths && $a->userAuths->count() > 0) {
+            $aHasAuth = $a->userAuths && $a->userAuths->count() > 0;
+            $bHasAuth = $b->userAuths && $b->userAuths->count() > 0;
+
+            // Unassigned users get priority 0 so Super Admin can attend to them immediately
+            $aPriority = 0;
+            if ($aHasAuth) {
+                $aPriority = 999;
                 foreach ($a->userAuths as $auth) {
                     if ($auth->role && isset($roleHierarchy[$auth->role->role_name])) {
-                        $aHighestRole = min($aHighestRole, $roleHierarchy[$auth->role->role_name]);
+                        $aPriority = min($aPriority, $roleHierarchy[$auth->role->role_name]);
                     }
                 }
             }
 
-            $bHighestRole = 999;
-            if ($b->userAuths && $b->userAuths->count() > 0) {
+            $bPriority = 0;
+            if ($bHasAuth) {
+                $bPriority = 999;
                 foreach ($b->userAuths as $auth) {
                     if ($auth->role && isset($roleHierarchy[$auth->role->role_name])) {
-                        $bHighestRole = min($bHighestRole, $roleHierarchy[$auth->role->role_name]);
+                        $bPriority = min($bPriority, $roleHierarchy[$auth->role->role_name]);
                     }
                 }
             }
 
-            // If same role level, sort by name
-            if ($aHighestRole === $bHighestRole) {
-                return strcmp($a->name, $b->name);
+            // If same priority level:
+            if ($aPriority === $bPriority) {
+                // If both are unassigned, sort newest registration first
+                if ($aPriority === 0) {
+                    $timeA = $a->created_at ? $a->created_at->timestamp : 0;
+                    $timeB = $b->created_at ? $b->created_at->timestamp : 0;
+                    return $timeB - $timeA;
+                }
+                return strcmp(strtolower($a->name), strtolower($b->name));
             }
 
-            return $aHighestRole - $bHighestRole;
+            return $aPriority - $bPriority;
         })->values();
 
+        // Count unassigned users for UI badge
+        $unassignedCount = User::doesntHave('userAuths')->count();
+
         // Pagination settings
-        $perPage = $request->get('per_page', 10);
-        $currentPage = $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 10);
+        $currentPage = (int) $request->get('page', 1);
         $total = $users->count();
 
         // Manual pagination
@@ -92,12 +123,13 @@ class UserController extends Controller
         return response()->json([
             'data' => $paginatedUsers,
             'meta' => [
-                'current_page' => (int) $currentPage,
-                'per_page' => (int) $perPage,
+                'current_page' => $currentPage,
+                'per_page' => $perPage,
                 'total' => $total,
                 'last_page' => (int) ceil($total / $perPage),
-                'from' => ($currentPage - 1) * $perPage + 1,
+                'from' => $total > 0 ? ($currentPage - 1) * $perPage + 1 : 0,
                 'to' => min($currentPage * $perPage, $total),
+                'unassigned_count' => $unassignedCount,
             ]
         ]);
     }
@@ -111,7 +143,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'pin' => 'required|string|size:8',
+            'pin' => 'nullable|string|size:8',
             'address' => 'nullable|string',
             'phone_number' => 'nullable|string',
             'user_auths' => 'required|array|min:1',
@@ -135,7 +167,7 @@ class UserController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'pin' => $request->pin,
+                'pin' => $request->pin ?: '12345678',
             ]);
 
             // Create user profile
@@ -208,7 +240,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $id,
             'password' => 'nullable|string|min:6',
-            'pin' => 'required|string|size:8',
+            'pin' => 'nullable|string|size:8',
             'address' => 'nullable|string',
             'phone_number' => 'nullable|string',
             'user_auths' => 'required|array|min:1',
@@ -231,8 +263,14 @@ class UserController extends Controller
             $updateData = [
                 'name' => $request->name,
                 'email' => $request->email,
-                'pin' => $request->pin,
             ];
+
+            if ($request->filled('pin')) {
+                $updateData['pin'] = $request->pin;
+            } elseif (!$user->pin) {
+                // If user doesn't have a PIN yet, assign default 12345678
+                $updateData['pin'] = '12345678';
+            }
 
             // Only update password if provided
             if ($request->filled('password')) {
@@ -280,15 +318,19 @@ class UserController extends Controller
 
             // Send registration approved email if this is their first role assignment
             if ($hadNoAuths && count($request->user_auths) > 0) {
-                $firstAuth = $user->userAuths()->with(['role', 'company', 'jabatan', 'aplikasi'])->first();
-                if ($firstAuth) {
-                    $authDetails = [
-                        'role' => $firstAuth->role->role_name ?? 'N/A',
-                        'company' => $firstAuth->company->name ?? 'N/A',
-                        'jabatan' => $firstAuth->jabatan->name ?? 'N/A',
-                        'aplikasi' => $firstAuth->aplikasi->name ?? 'N/A',
-                    ];
-                    \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\UserRegistrationApprovedMail($user, $authDetails));
+                try {
+                    $firstAuth = $user->userAuths()->with(['role', 'company', 'jabatan', 'aplikasi'])->first();
+                    if ($firstAuth) {
+                        $authDetails = [
+                            'role' => $firstAuth->role->role_name ?? 'N/A',
+                            'company' => $firstAuth->company->name ?? 'N/A',
+                            'jabatan' => $firstAuth->jabatan->name ?? 'N/A',
+                            'aplikasi' => $firstAuth->aplikasi->name ?? 'N/A',
+                        ];
+                        \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\UserRegistrationApprovedMail($user, $authDetails));
+                    }
+                } catch (\Throwable $mailError) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send registration approved email: ' . $mailError->getMessage());
                 }
             }
 

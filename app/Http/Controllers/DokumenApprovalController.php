@@ -301,6 +301,9 @@ class DokumenApprovalController extends Controller
             'signature_positions.*.y' => 'required_with:signature_positions|numeric',
             'signature_positions.*.width' => 'required_with:signature_positions|numeric',
             'signature_positions.*.height' => 'required_with:signature_positions|numeric',
+            'paraf_signature' => 'nullable|string',
+            'paraf_pages' => 'nullable|array',
+            'paraf_pages.*' => 'integer|min:1',
         ]);
 
         // Handle signature storage (moved outside transaction)
@@ -337,6 +340,24 @@ class DokumenApprovalController extends Controller
             }
         }
 
+        // Process paraf signature if provided
+        $parafPath = null;
+        $parafData = $request->input('paraf_signature');
+        if ($parafData && str_starts_with($parafData, 'data:image')) {
+            $pImg = preg_replace('/^data:image\/\w+;base64,/', '', $parafData);
+            $pImg = str_replace(' ', '+', $pImg);
+            $pData = base64_decode($pImg);
+
+            $pFilename = 'approval_paraf_' . time() . '_' . \Illuminate\Support\Str::random(10) . '.png';
+            $parafPath = 'signatures/approvals/' . $approval->id . '/' . $pFilename;
+            \Illuminate\Support\Facades\Storage::disk('local')->put($parafPath, $pData);
+        } elseif ($parafData && preg_match('/\/signatures\/(\d+)\/file/', $parafData, $matches)) {
+            $sig = \App\Models\Signature::find($matches[1]);
+            if ($sig) {
+                $parafPath = $sig->signature_path;
+            }
+        }
+
         DB::beginTransaction();
         try {
             // Update signature positions if provided by approver
@@ -368,6 +389,8 @@ class DokumenApprovalController extends Controller
                 'tgl_approve' => now(),
                 'comment' => $validated['comment'],
                 'signature_path' => $signaturePath,
+                'paraf_path' => $parafPath,
+                'paraf_pages' => $validated['paraf_pages'] ?? null,
                 'signature_method' => $signatureMethod,
                 'verification_token' => $verificationToken,
             ]);
@@ -454,6 +477,8 @@ class DokumenApprovalController extends Controller
             'signature_method' => 'nullable|string|in:original,qr',
             'signature' => 'required_if:signature_method,original|nullable|string',
             'comment' => 'nullable|string|max:1000',
+            'paraf_signature' => 'nullable|string',
+            'paraf_map' => 'nullable|array',
         ]);
 
         $signatureMethod = $validated['signature_method'] ?? 'original';
@@ -483,6 +508,25 @@ class DokumenApprovalController extends Controller
             }
         }
 
+        // Process paraf signature once if provided
+        $parafPath = null;
+        $parafData = $validated['paraf_signature'] ?? null;
+        if ($parafData && str_starts_with($parafData, 'data:image')) {
+            $pImg = preg_replace('/^data:image\/\w+;base64,/', '', $parafData);
+            $pImg = str_replace(' ', '+', $pImg);
+            $pData = base64_decode($pImg);
+
+            $pFilename = 'approval_paraf_bulk_' . time() . '_' . \Illuminate\Support\Str::random(10) . '.png';
+            $parafPath = 'signatures/approvals/bulk/' . $pFilename;
+
+            \Illuminate\Support\Facades\Storage::disk('local')->put($parafPath, $pData);
+        } elseif ($parafData && preg_match('/\/signatures\/(\d+)\/file/', $parafData, $matches)) {
+            $sig = \App\Models\Signature::find($matches[1]);
+            if ($sig) {
+                $parafPath = $sig->signature_path;
+            }
+        }
+
         $approvedCount = 0;
         $failedCount = 0;
 
@@ -504,11 +548,15 @@ class DokumenApprovalController extends Controller
 
             DB::beginTransaction();
             try {
+                $docParafPages = $validated['paraf_map'][$approvalId] ?? null;
+
                 $approval->update([
                     'approval_status' => 'approved',
                     'tgl_approve' => now(),
                     'comment' => $validated['comment'] ?? null,
                     'signature_path' => $signaturePath,
+                    'paraf_path' => $parafPath,
+                    'paraf_pages' => $docParafPages,
                     'signature_method' => $signatureMethod,
                     'verification_token' => $verificationToken,
                 ]);

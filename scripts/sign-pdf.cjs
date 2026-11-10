@@ -1,4 +1,4 @@
-const { PDFDocument, StandardFonts, PDFName, PDFHexString } = require('pdf-lib');
+const { PDFDocument, StandardFonts, PDFName, PDFHexString, rgb } = require('pdf-lib');
 const fs = require('fs');
 
 async function run() {
@@ -152,6 +152,112 @@ async function run() {
                 }
             } catch (qrDocErr) {
                 console.error('Failed to embed document QR code:', qrDocErr.message);
+            }
+        }
+
+        // Draw Parafs (Fixed at bottom right of specified pages, no text, compact checkmark boxes side-by-side)
+        if (Array.isArray(inputData.parafs) && inputData.parafs.length > 0) {
+            const parafImageCache = {};
+            const mmToPt = 72 / 25.4;
+
+            // Group parafs by page and deduplicate by approval_id / approver_name per page
+            const parafsByPage = {};
+            for (const paraf of inputData.parafs) {
+                const pageNum = parseInt(paraf.page, 10);
+                if (!pageNum) continue;
+                if (!parafsByPage[pageNum]) {
+                    parafsByPage[pageNum] = [];
+                }
+                const alreadyAdded = parafsByPage[pageNum].some((p) =>
+                    (p.approval_id && paraf.approval_id && p.approval_id === paraf.approval_id) ||
+                    (p.approver_name && paraf.approver_name && p.approver_name === paraf.approver_name)
+                );
+                if (!alreadyAdded) {
+                    parafsByPage[pageNum].push(paraf);
+                }
+            }
+
+            // Dimensions: compact checkmark square (7mm x 7mm)
+            const boxSize = 7 * mmToPt; // ~19.8 pt
+            const gap = 2.5 * mmToPt;   // ~7.1 pt gap between boxes
+            const marginFromRightPt = 15 * mmToPt;
+            const marginFromBottomPt = 10 * mmToPt;
+
+            for (const [pageNumStr, pageParafs] of Object.entries(parafsByPage)) {
+                const pageNum = parseInt(pageNumStr, 10);
+                const pageIndex = Math.min(Math.max(pageNum - 1, 0), pages.length - 1);
+                const page = pages[pageIndex];
+
+                const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
+                const pageX = mediaBox ? mediaBox.x : 0;
+                const pageY = mediaBox ? mediaBox.y : 0;
+                const pageWidth = page.getWidth();
+
+                for (let idx = 0; idx < pageParafs.length; idx++) {
+                    const paraf = pageParafs[idx];
+                    // Position each approver's box side-by-side horizontally from right to left
+                    const xOffset = marginFromRightPt + boxSize + idx * (boxSize + gap);
+                    const x = pageX + pageWidth - xOffset;
+                    const y = pageY + marginFromBottomPt;
+
+                    let parafImg = null;
+                    if (paraf.imagePath && fs.existsSync(paraf.imagePath)) {
+                        parafImg = parafImageCache[paraf.imagePath];
+                        if (!parafImg) {
+                            try {
+                                const imgBytes = fs.readFileSync(paraf.imagePath);
+                                const isPng = imgBytes.length > 4 && imgBytes[0] === 0x89 && imgBytes[1] === 0x50 && imgBytes[2] === 0x4E && imgBytes[3] === 0x47;
+                                if (isPng) {
+                                    parafImg = await pdfDoc.embedPng(imgBytes);
+                                } else {
+                                    parafImg = await pdfDoc.embedJpg(imgBytes);
+                                }
+                                parafImageCache[paraf.imagePath] = parafImg;
+                            } catch (e) {
+                                console.error('Failed embedding paraf image:', e.message);
+                            }
+                        }
+                    }
+
+                    if (parafImg) {
+                        const imgW = 20 * mmToPt;
+                        const imgH = 12 * mmToPt;
+                        page.drawImage(parafImg, {
+                            x: pageX + pageWidth - (marginFromRightPt + imgW + idx * (imgW + gap)),
+                            y: y,
+                            width: imgW,
+                            height: imgH,
+                        });
+                    } else {
+                        // 1. Compact white square with emerald border
+                        page.drawRectangle({
+                            x: x,
+                            y: y,
+                            width: boxSize,
+                            height: boxSize,
+                            color: rgb(1, 1, 1),
+                            borderColor: rgb(0.08, 0.60, 0.35),
+                            borderWidth: 0.9,
+                        });
+
+                        // 2. Crisp emerald checkmark vector centered in the box (no text)
+                        const centerX = x + boxSize / 2;
+                        const centerY = y + boxSize / 2;
+
+                        page.drawLine({
+                            start: { x: centerX - 2.8, y: centerY + 0.3 },
+                            end: { x: centerX - 0.7, y: centerY - 2.3 },
+                            thickness: 1.4,
+                            color: rgb(0.08, 0.60, 0.35),
+                        });
+                        page.drawLine({
+                            start: { x: centerX - 0.7, y: centerY - 2.3 },
+                            end: { x: centerX + 3.0, y: centerY + 2.6 },
+                            thickness: 1.4,
+                            color: rgb(0.08, 0.60, 0.35),
+                        });
+                    }
+                }
             }
         }
 

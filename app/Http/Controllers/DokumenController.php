@@ -2141,7 +2141,7 @@ class DokumenController extends Controller
     }
 
     /**
-     * Verify document authenticity by checking its SHA-256 hash against registered document hashes.
+     * Verify document authenticity by checking its SHA-256 hash against registered fully signed document hashes.
      */
     public function verifyFileAuthenticity(Request $request)
     {
@@ -2152,42 +2152,41 @@ class DokumenController extends Controller
         $file = $request->file('file');
         $uploadedHash = hash_file('sha256', $file->getRealPath());
 
-        // 1. Try finding in DokumenHash table
+        // 1. Try finding in DokumenHash table (only fully signed final documents)
         $matchedHash = DokumenHash::where('sha256_hash', $uploadedHash)
+            ->where('hash_type', 'signed_final')
             ->with([
                 'dokumen.user',
                 'dokumen.approvals.user.profile',
                 'dokumen.approvals.masterflowStep.jabatan',
                 'dokumen.versions',
                 'dokumen.hashes',
-                'dokumenApproval.user',
-                'dokumenApproval.masterflowStep.jabatan',
             ])
             ->first();
 
-        // 2. Fallback search across disk files if not yet registered in DokumenHash (for legacy documents)
+        // 2. Fallback search across disk signed files for fully approved legacy documents
         if (!$matchedHash) {
             $matchedHash = $this->findAndRegisterLegacyHash($uploadedHash);
         }
 
-        if (!$matchedHash || !$matchedHash->dokumen) {
+        // Verify document exists and is fully approved (fully signed)
+        if (
+            !$matchedHash ||
+            !$matchedHash->dokumen ||
+            ($matchedHash->dokumen->status !== 'approved' && !$matchedHash->dokumen->isFullyApproved())
+        ) {
             return response()->json([
                 'success' => true,
                 'is_valid' => false,
                 'computed_hash' => $uploadedHash,
-                'message' => 'Dokumen tidak dikenali di sistem atau isi dokumen telah dimodifikasi.',
+                'message' => 'Dokumen tidak dikenali di sistem atau belum disetujui sepenuhnya (belum fully signed/approved). Hanya dokumen yang telah disetujui secara lengkap yang dapat diverifikasi keasliannya.',
             ]);
         }
 
         $dokumen = $matchedHash->dokumen;
 
         // Human-friendly description for the stage where this hash was matched
-        $stageLabel = match ($matchedHash->hash_type) {
-            'original' => 'Dokumen Asli (Sebelum Tanda Tangan)',
-            'approval_step' => 'Dokumen Sah pada Tahap ' . ($matchedHash->step_order ?? 1) . ' (' . ($matchedHash->approver_name ?? 'Approver') . ')',
-            'signed_final' => 'Dokumen Final Sah & Lengkap Bertanda Tangan',
-            default => 'Dokumen Terdaftar di AMS',
-        };
+        $stageLabel = 'Dokumen Sah & Disetujui Sepenuhnya (Fully Signed)';
 
         // Format Approvers list
         $approvers = $dokumen->approvals->map(function ($app) {
@@ -2209,36 +2208,23 @@ class DokumenController extends Controller
             ];
         })->sortBy('step_order')->values();
 
-        // Format Complete Hash History for this Document
-        $hashHistory = $dokumen->hashes()->get()->map(function ($h) use ($uploadedHash) {
-            $typeLabel = match ($h->hash_type) {
-                'original' => 'Dokumen Asli',
-                'approval_step' => 'Stempel Tahap ' . ($h->step_order ?? 1),
-                'signed_final' => 'Dokumen Final',
-                default => 'Versi Dokumen',
-            };
-
+        // Format Complete Hash History for this Document (only fully signed hashes)
+        $hashHistory = $dokumen->hashes()->where('hash_type', 'signed_final')->get()->map(function ($h) use ($uploadedHash) {
             return [
                 'id' => $h->id,
                 'hash_type' => $h->hash_type,
-                'type_label' => $typeLabel,
+                'type_label' => 'Dokumen Sah Final (Fully Signed)',
                 'sha256_hash' => $h->sha256_hash,
                 'step_order' => $h->step_order,
                 'approver_name' => $h->approver_name,
-                'note' => $h->note,
+                'note' => $h->note ?? 'Dokumen sah & disetujui sepenuhnya (Fully Signed)',
                 'created_at' => $h->created_at ? $h->created_at->format('d/m/Y H:i') : null,
                 'is_current_match' => ($h->sha256_hash === $uploadedHash),
             ];
         });
 
         // Determine Document Status badge
-        $statusLabel = match ($dokumen->status) {
-            'approved' => 'Disetujui Sepenuhnya',
-            'under_review' => 'Sedang Diproses (Under Review)',
-            'rejected' => 'Ditolak',
-            'draft' => 'Draft',
-            default => ucfirst(str_replace('_', ' ', $dokumen->status)),
-        };
+        $statusLabel = 'Disetujui Sepenuhnya (Fully Approved)';
 
         return response()->json([
             'success' => true,
@@ -2266,61 +2252,39 @@ class DokumenController extends Controller
 
     /**
      * Fallback search for documents uploaded/signed before hash tracking was enabled.
+     * Only checks signed files of fully approved documents.
      */
     private function findAndRegisterLegacyHash(string $uploadedHash): ?DokumenHash
     {
-        // 1. Check DokumenVersion original files
-        $versions = DokumenVersion::whereNotNull('file_url')->get();
-        foreach ($versions as $ver) {
-            $fullPath = Storage::disk('local')->path($ver->file_url);
-            if (file_exists($fullPath) && hash_file('sha256', $fullPath) === $uploadedHash) {
-                return DokumenHash::create([
-                    'dokumen_id' => $ver->dokumen_id,
-                    'dokumen_version_id' => $ver->id,
-                    'sha256_hash' => $uploadedHash,
-                    'hash_type' => 'original',
-                    'file_path' => $ver->file_url,
-                    'file_size' => filesize($fullPath),
-                    'note' => 'Dokumen asli saat diunggah (sebelum tanda tangan)',
-                ]);
-            }
-        }
+        // Only check DokumenVersion signed files for fully approved documents
+        $versionsWithSigned = DokumenVersion::whereNotNull('signed_file_url')
+            ->whereHas('dokumen', function ($query) {
+                $query->where('status', 'approved');
+            })
+            ->with('dokumen')
+            ->get();
 
-        // 2. Check DokumenVersion signed files
-        $versionsWithSigned = DokumenVersion::whereNotNull('signed_file_url')->get();
         foreach ($versionsWithSigned as $ver) {
+            $dokumen = $ver->dokumen;
+            if (!$dokumen || ($dokumen->status !== 'approved' && !$dokumen->isFullyApproved())) {
+                continue;
+            }
+
             $fullPath = Storage::disk('local')->path($ver->signed_file_url);
             if (file_exists($fullPath) && hash_file('sha256', $fullPath) === $uploadedHash) {
-                return DokumenHash::create([
-                    'dokumen_id' => $ver->dokumen_id,
-                    'dokumen_version_id' => $ver->id,
-                    'sha256_hash' => $uploadedHash,
-                    'hash_type' => 'signed_final',
-                    'file_path' => $ver->signed_file_url,
-                    'file_size' => filesize($fullPath),
-                    'note' => 'Dokumen final disetujui (semua stempel tanda tangan)',
-                ]);
-            }
-        }
-
-        // 3. Check DokumenApproval signed files
-        $approvalsWithSigned = DokumenApproval::whereNotNull('signed_file_url')->get();
-        foreach ($approvalsWithSigned as $app) {
-            $fullPath = Storage::disk('local')->path($app->signed_file_url);
-            if (file_exists($fullPath) && hash_file('sha256', $fullPath) === $uploadedHash) {
-                $stepOrder = $app->approval_order ?? $app->masterflowStep?->step_order ?? 1;
-                return DokumenHash::create([
-                    'dokumen_id' => $app->dokumen_id,
-                    'dokumen_version_id' => $app->dokumen_version_id,
-                    'dokumen_approval_id' => $app->id,
-                    'sha256_hash' => $uploadedHash,
-                    'hash_type' => 'approval_step',
-                    'file_path' => $app->signed_file_url,
-                    'file_size' => filesize($fullPath),
-                    'step_order' => $stepOrder,
-                    'approver_name' => $app->user?->name,
-                    'note' => 'Disetujui pada tahap ' . $stepOrder . ' oleh ' . ($app->user?->name ?? 'Approver'),
-                ]);
+                return DokumenHash::updateOrCreate(
+                    [
+                        'dokumen_id' => $dokumen->id,
+                        'dokumen_version_id' => $ver->id,
+                        'hash_type' => 'signed_final',
+                    ],
+                    [
+                        'sha256_hash' => $uploadedHash,
+                        'file_path' => $ver->signed_file_url,
+                        'file_size' => filesize($fullPath),
+                        'note' => 'Dokumen sah & disetujui sepenuhnya (Fully Signed)',
+                    ]
+                );
             }
         }
 

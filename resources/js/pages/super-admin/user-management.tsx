@@ -28,8 +28,11 @@ import {
     EyeOff,
     Minus,
     Plus,
+    Search,
+    ShieldAlert,
     Smartphone,
     Trash2,
+    UserCheck,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
@@ -89,6 +92,7 @@ interface PaginationMeta {
     last_page: number;
     from: number;
     to: number;
+    unassigned_count?: number;
 }
 
 interface FormData {
@@ -142,6 +146,7 @@ export default function UserManagement() {
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [filterRole, setFilterRole] = useState<string>('');
     const [filterJabatan, setFilterJabatan] = useState<string>('');
+    const [searchTerm, setSearchTerm] = useState<string>('');
     const [pagination, setPagination] = useState<PaginationMeta>({
         current_page: 1,
         per_page: 10,
@@ -163,6 +168,7 @@ export default function UserManagement() {
             const params = new URLSearchParams();
             if (filterRole) params.append('role_id', filterRole);
             if (filterJabatan) params.append('jabatan_id', filterJabatan);
+            if (searchTerm.trim()) params.append('search', searchTerm.trim());
             params.append('page', currentPage.toString());
             params.append('per_page', perPage.toString());
 
@@ -232,12 +238,12 @@ export default function UserManagement() {
         if (auth.user) {
             fetchUsers();
         }
-    }, [auth.user, filterRole, filterJabatan, currentPage, perPage]);
+    }, [auth.user, filterRole, filterJabatan, searchTerm, currentPage, perPage]);
 
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [filterRole, filterJabatan, perPage]);
+    }, [filterRole, filterJabatan, searchTerm, perPage]);
 
     // Handle form input changes
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -323,7 +329,7 @@ export default function UserManagement() {
             name: user.name,
             email: user.email,
             password: '', // Don't pre-fill password for security
-            pin: user.pin,
+            pin: user.pin || '12345678',
             address: user.profile?.address || '',
             phone_number: user.profile?.phone_number || '',
             user_auths:
@@ -442,6 +448,33 @@ export default function UserManagement() {
                                             {pagination.total} Users
                                         </Badge>
 
+                                        {pagination.unassigned_count && pagination.unassigned_count > 0 ? (
+                                            <Badge
+                                                variant="outline"
+                                                onClick={() => setFilterRole(filterRole === 'unassigned' ? '' : 'unassigned')}
+                                                className={`cursor-pointer transition-all ${filterRole === 'unassigned'
+                                                    ? 'border-amber-600 bg-amber-500 font-sans text-sm font-medium text-white shadow-sm'
+                                                    : 'border-amber-400 bg-amber-50 font-sans text-sm font-medium text-amber-800 hover:bg-amber-100'
+                                                    }`}
+                                                title="Klik untuk memfilter user yang belum memiliki role"
+                                            >
+                                                <span className="mr-1.5 h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                                {pagination.unassigned_count} User Menunggu Role
+                                            </Badge>
+                                        ) : null}
+
+                                        {/* Search Filter */}
+                                        <div className="relative flex items-center">
+                                            <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                type="text"
+                                                placeholder="Cari nama atau email..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className="h-9 w-44 pl-8 font-sans text-sm sm:w-56"
+                                            />
+                                        </div>
+
                                         {/* Role Filter */}
                                         <div className="flex items-center gap-2">
                                             <Label htmlFor="filter-role" className="font-sans text-sm font-medium">
@@ -451,11 +484,14 @@ export default function UserManagement() {
                                                 value={filterRole || 'all'}
                                                 onValueChange={(value) => setFilterRole(value === 'all' ? '' : value)}
                                             >
-                                                <SelectTrigger id="filter-role" className="w-40 font-sans">
+                                                <SelectTrigger id="filter-role" className="w-44 font-sans">
                                                     <SelectValue placeholder="Semua Role" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="all">Semua Role</SelectItem>
+                                                    <SelectItem value="unassigned" className="font-semibold text-amber-700">
+                                                        ⏳ Menunggu Role {pagination.unassigned_count ? `(${pagination.unassigned_count})` : ''}
+                                                    </SelectItem>
                                                     {roles.map((role) => (
                                                         <SelectItem key={role.id} value={role.id.toString()}>
                                                             {role.role_name}
@@ -510,176 +546,38 @@ export default function UserManagement() {
                                         <CardContent className="p-0">
                                             <div className="space-y-3 p-4 md:hidden">
                                                 {users.length > 0 ? (
-                                                    users.map((user, index) => (
-                                                        <article key={user.id} className="space-y-3 border-b border-border pb-5 last:border-0 last:pb-0">
-                                                            <div className="flex min-w-0 items-start justify-between gap-3">
-                                                                <div className="flex min-w-0 items-start gap-2">
-                                                                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center font-mono text-xs leading-none text-muted-foreground">
-                                                                        {index + 1}
-                                                                    </span>
-                                                                    <div className="min-w-0">
-                                                                        <h3 className="break-words font-sans text-sm font-semibold text-foreground">{user.name}</h3>
-                                                                        <p className="mt-1 break-all font-sans text-sm text-muted-foreground">{user.email}</p>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex shrink-0 gap-1">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleEdit(user)}
-                                                                        className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
-                                                                        aria-label={`Edit ${user.name}`}
-                                                                        title="Edit"
-                                                                    >
-                                                                        <Edit className="h-4 w-4" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleDelete(user)}
-                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
-                                                                        aria-label={`Hapus ${user.name}`}
-                                                                        title="Hapus"
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="min-w-0 pl-8">
-                                                                <p className="text-xs text-muted-foreground">Telepon</p>
-                                                                <p className="mt-1 break-words font-sans text-sm text-foreground">
-                                                                    {user.profile?.phone_number || '-'}
-                                                                </p>
-                                                            </div>
-
-                                                            <div className="min-w-0 pl-8">
-                                                                <p className="mb-2 text-xs text-muted-foreground">Authorization</p>
-                                                                {user.user_auths && user.user_auths.length > 0 ? (
-                                                                    <div className="space-y-3">
-                                                                        {user.user_auths.map((auth, authIndex) => (
-                                                                            <div key={authIndex} className="min-w-0 border-l-2 border-border pl-3">
-                                                                                <span
-                                                                                    className={`inline-flex max-w-full items-center break-words rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
-                                                                                        ? 'bg-red-100 text-red-800'
-                                                                                        : auth.role?.role_name === 'Admin'
-                                                                                            ? 'bg-blue-100 text-blue-800'
-                                                                                            : auth.role?.role_name === 'User'
-                                                                                                ? 'bg-green-100 text-green-800'
-                                                                                                : 'bg-gray-100 text-gray-800'
-                                                                                        }`}
-                                                                                >
-                                                                                    {auth.role?.role_name || 'No Role'}
-                                                                                </span>
-                                                                                <div className="mt-2 space-y-1.5 text-sm">
-                                                                                    <div className="flex min-w-0 items-start gap-1.5 text-foreground">
-                                                                                        <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                                                        <span className="break-words">{auth.company?.name || 'No Company'}</span>
-                                                                                    </div>
-                                                                                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                                                        <span className="flex min-w-0 items-center gap-1">
-                                                                                            <Briefcase className="h-3 w-3 shrink-0" />
-                                                                                            <span className="break-words">{auth.jabatan?.name || 'No Jabatan'}</span>
-                                                                                        </span>
-                                                                                        <span className="flex min-w-0 items-center gap-1">
-                                                                                            <Smartphone className="h-3 w-3 shrink-0" />
-                                                                                            <span className="break-words">{auth.aplikasi?.name || 'No Aplikasi'}</span>
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
+                                                    users.map((user, index) => {
+                                                        const isUnassigned = !user.user_auths || user.user_auths.length === 0;
+                                                        return (
+                                                            <article
+                                                                key={user.id}
+                                                                className={`space-y-3 border-b border-border pb-5 last:border-0 last:pb-0 ${isUnassigned ? 'rounded-lg border border-amber-300 bg-amber-50/50 p-3' : ''}`}
+                                                            >
+                                                                <div className="flex min-w-0 items-start justify-between gap-3">
+                                                                    <div className="flex min-w-0 items-start gap-2">
+                                                                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center font-mono text-xs leading-none text-muted-foreground">
+                                                                            {index + 1}
+                                                                        </span>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <h3 className="break-words font-sans text-sm font-semibold text-foreground">{user.name}</h3>
+                                                                                {isUnassigned && (
+                                                                                    <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                                                                        Baru
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
-                                                                        ))}
+                                                                            <p className="mt-1 break-all font-sans text-sm text-muted-foreground">{user.email}</p>
+                                                                        </div>
                                                                     </div>
-                                                                ) : (
-                                                                    <p className="text-sm text-muted-foreground">Tidak ada authorization</p>
-                                                                )}
-                                                            </div>
-                                                        </article>
-                                                    ))
-                                                ) : (
-                                                    <p className="py-4 text-center font-sans text-sm text-muted-foreground">Belum ada user yang tersedia</p>
-                                                )}
-                                            </div>
-                                            <div className="hidden md:block">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead className="w-16 font-sans">No</TableHead>
-                                                        <TableHead className="w-48 font-sans">Nama</TableHead>
-                                                        <TableHead className="w-56 font-sans">Email</TableHead>
-                                                        <TableHead className="w-32 font-sans">Telepon</TableHead>
-                                                        <TableHead className="min-w-80 font-sans">Authorization</TableHead>
-                                                        <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {users.length > 0 ? (
-                                                        users.map((user, index) => (
-                                                            <TableRow key={user.id}>
-                                                                <TableCell className="font-mono">{index + 1}</TableCell>
-                                                                <TableCell className="font-sans font-medium">{user.name}</TableCell>
-                                                                <TableCell className="font-sans">{user.email}</TableCell>
-                                                                <TableCell className="font-sans">{user.profile?.phone_number || '-'}</TableCell>
-                                                                <TableCell className="font-sans">
-                                                                    <div className="space-y-4">
-                                                                        {user.user_auths && user.user_auths.length > 0 ? (
-                                                                            user.user_auths.map((auth, authIndex) => (
-                                                                                <div key={authIndex} className="space-y-1.5">
-                                                                                    {/* Badge Role - Highlight Utama */}
-                                                                                    <div>
-                                                                                        <span
-                                                                                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
-                                                                                                ? 'bg-red-100 text-red-800'
-                                                                                                : auth.role?.role_name === 'Admin'
-                                                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                                                    : auth.role?.role_name === 'User'
-                                                                                                        ? 'bg-green-100 text-green-800'
-                                                                                                        : 'bg-gray-100 text-gray-800'
-                                                                                                }`}
-                                                                                        >
-                                                                                            {auth.role?.role_name || 'No Role'}
-                                                                                        </span>
-                                                                                    </div>
-
-                                                                                    {/* Company Name - Konteks Organisasi */}
-                                                                                    <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                                                                                        <Building2 className="h-3.5 w-3.5 text-gray-500" />
-                                                                                        <span className="font-medium">
-                                                                                            {auth.company?.name || 'No Company'}
-                                                                                        </span>
-                                                                                    </div>
-
-                                                                                    {/* Jabatan & Aplikasi - Detail Sekunder */}
-                                                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                                        <div className="flex items-center gap-1">
-                                                                                            <Briefcase className="h-3 w-3" />
-                                                                                            <span>{auth.jabatan?.name || 'No Jabatan'}</span>
-                                                                                        </div>
-                                                                                        <span className="text-gray-400">•</span>
-                                                                                        <div className="flex items-center gap-1">
-                                                                                            <Smartphone className="h-3 w-3" />
-                                                                                            <span>{auth.aplikasi?.name || 'No Aplikasi'}</span>
-                                                                                        </div>
-                                                                                    </div>
-
-                                                                                    {/* Divider between multiple auths */}
-                                                                                    {authIndex < user.user_auths!.length - 1 && (
-                                                                                        <div className="mt-3 border-t border-gray-200 pt-3"></div>
-                                                                                    )}
-                                                                                </div>
-                                                                            ))
-                                                                        ) : (
-                                                                            <div className="py-2 text-sm text-gray-500">Tidak ada authorization</div>
-                                                                        )}
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <div className="flex justify-end gap-2">
+                                                                    <div className="flex shrink-0 items-center gap-1.5">
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
                                                                             onClick={() => handleEdit(user)}
                                                                             className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                            aria-label={`Edit ${user.name}`}
+                                                                            title="Edit"
                                                                         >
                                                                             <Edit className="h-4 w-4" />
                                                                         </Button>
@@ -688,22 +586,199 @@ export default function UserManagement() {
                                                                             size="sm"
                                                                             onClick={() => handleDelete(user)}
                                                                             className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                            aria-label={`Hapus ${user.name}`}
+                                                                            title="Hapus"
                                                                         >
                                                                             <Trash2 className="h-4 w-4" />
                                                                         </Button>
                                                                     </div>
+                                                                </div>
+
+                                                                <div className="min-w-0 pl-8">
+                                                                    <p className="text-xs text-muted-foreground">Telepon</p>
+                                                                    <p className="mt-1 break-words font-sans text-sm text-foreground">
+                                                                        {user.profile?.phone_number || '-'}
+                                                                    </p>
+                                                                </div>
+
+                                                                <div className="min-w-0 pl-8">
+                                                                    <p className="mb-2 text-xs text-muted-foreground">Authorization</p>
+                                                                    {user.user_auths && user.user_auths.length > 0 ? (
+                                                                        <div className="space-y-3">
+                                                                            {user.user_auths.map((auth, authIndex) => (
+                                                                                <div key={authIndex} className="min-w-0 border-l-2 border-border pl-3">
+                                                                                    <span
+                                                                                        className={`inline-flex max-w-full items-center break-words rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
+                                                                                            ? 'bg-red-100 text-red-800'
+                                                                                            : auth.role?.role_name === 'Admin'
+                                                                                                ? 'bg-blue-100 text-blue-800'
+                                                                                                : auth.role?.role_name === 'User'
+                                                                                                    ? 'bg-green-100 text-green-800'
+                                                                                                    : 'bg-gray-100 text-gray-800'
+                                                                                            }`}
+                                                                                    >
+                                                                                        {auth.role?.role_name || 'No Role'}
+                                                                                    </span>
+                                                                                    <div className="mt-2 space-y-1.5 text-sm">
+                                                                                        <div className="flex min-w-0 items-start gap-1.5 text-foreground">
+                                                                                            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                                            <span className="break-words">{auth.company?.name || 'No Company'}</span>
+                                                                                        </div>
+                                                                                        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                                                            <span className="flex min-w-0 items-center gap-1">
+                                                                                                <Briefcase className="h-3 w-3 shrink-0" />
+                                                                                                <span className="break-words">{auth.jabatan?.name || 'No Jabatan'}</span>
+                                                                                            </span>
+                                                                                            <span className="flex min-w-0 items-center gap-1">
+                                                                                                <Smartphone className="h-3 w-3 shrink-0" />
+                                                                                                <span className="break-words">{auth.aplikasi?.name || 'No Aplikasi'}</span>
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                                                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                                                                Menunggu Penugasan Role
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </article>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <p className="py-4 text-center font-sans text-sm text-muted-foreground">Belum ada user yang tersedia</p>
+                                                )}
+                                            </div>
+                                            <div className="hidden md:block">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-16 font-sans">No</TableHead>
+                                                            <TableHead className="w-48 font-sans">Nama</TableHead>
+                                                            <TableHead className="w-56 font-sans">Email</TableHead>
+                                                            <TableHead className="w-32 font-sans">Telepon</TableHead>
+                                                            <TableHead className="min-w-80 font-sans">Authorization</TableHead>
+                                                            <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {users.length > 0 ? (
+                                                            users.map((user, index) => {
+                                                                const isUnassigned = !user.user_auths || user.user_auths.length === 0;
+                                                                return (
+                                                                    <TableRow
+                                                                        key={user.id}
+                                                                        className={isUnassigned ? 'border-l-4 border-l-amber-500 bg-amber-50/50 hover:bg-amber-100/60 transition-colors' : ''}
+                                                                    >
+                                                                        <TableCell className="font-mono">{index + 1}</TableCell>
+                                                                        <TableCell className="font-sans font-medium">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span>{user.name}</span>
+                                                                                {isUnassigned && (
+                                                                                    <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                                                                                        User Baru
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="font-sans">{user.email}</TableCell>
+                                                                        <TableCell className="font-sans">{user.profile?.phone_number || '-'}</TableCell>
+                                                                        <TableCell className="font-sans">
+                                                                            <div className="space-y-4">
+                                                                                {user.user_auths && user.user_auths.length > 0 ? (
+                                                                                    user.user_auths.map((auth, authIndex) => (
+                                                                                        <div key={authIndex} className="space-y-1.5">
+                                                                                            {/* Badge Role - Highlight Utama */}
+                                                                                            <div>
+                                                                                                <span
+                                                                                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
+                                                                                                        ? 'bg-red-100 text-red-800'
+                                                                                                        : auth.role?.role_name === 'Admin'
+                                                                                                            ? 'bg-blue-100 text-blue-800'
+                                                                                                            : auth.role?.role_name === 'User'
+                                                                                                                ? 'bg-green-100 text-green-800'
+                                                                                                                : 'bg-gray-100 text-gray-800'
+                                                                                                        }`}
+                                                                                                >
+                                                                                                    {auth.role?.role_name || 'No Role'}
+                                                                                                </span>
+                                                                                            </div>
+
+                                                                                            {/* Company Name - Konteks Organisasi */}
+                                                                                            <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                                                                                                <Building2 className="h-3.5 w-3.5 text-gray-500" />
+                                                                                                <span className="font-medium">
+                                                                                                    {auth.company?.name || 'No Company'}
+                                                                                                </span>
+                                                                                            </div>
+
+                                                                                            {/* Jabatan & Aplikasi - Detail Sekunder */}
+                                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                                                <div className="flex items-center gap-1">
+                                                                                                    <Briefcase className="h-3 w-3" />
+                                                                                                    <span>{auth.jabatan?.name || 'No Jabatan'}</span>
+                                                                                                </div>
+                                                                                                <span className="text-gray-400">•</span>
+                                                                                                <div className="flex items-center gap-1">
+                                                                                                    <Smartphone className="h-3 w-3" />
+                                                                                                    <span>{auth.aplikasi?.name || 'No Aplikasi'}</span>
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Divider between multiple auths */}
+                                                                                            {authIndex < user.user_auths!.length - 1 && (
+                                                                                                <div className="mt-3 border-t border-gray-200 pt-3"></div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))
+                                                                                ) : (
+                                                                                    <div className="flex flex-col gap-1 py-1">
+                                                                                        <span className="inline-flex items-center gap-1.5 w-fit rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                                                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                                                                            Menunggu Penugasan Role
+                                                                                        </span>
+                                                                                        <span className="text-xs text-muted-foreground">User belum memiliki otorisasi sistem</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-right">
+                                                                            <div className="flex justify-end items-center gap-2">
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleEdit(user)}
+                                                                                    className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
+                                                                                >
+                                                                                    <Edit className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleDelete(user)}
+                                                                                    className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <TableRow>
+                                                                <TableCell colSpan={6} className="py-8 text-center font-sans text-gray-500">
+                                                                    Belum ada user yang tersedia
                                                                 </TableCell>
                                                             </TableRow>
-                                                        ))
-                                                    ) : (
-                                                        <TableRow>
-                                                            <TableCell colSpan={6} className="py-8 text-center font-sans text-gray-500">
-                                                                Belum ada user yang tersedia
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -823,9 +898,19 @@ export default function UserManagement() {
                     <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-[800px] sm:rounded-2xl">
                         <form onSubmit={handleSubmit}>
                             <DialogHeader>
-                                <DialogTitle className="font-serif">{editingUser ? 'Edit Master User' : 'Tambah Master User Baru'}</DialogTitle>
+                                <DialogTitle className="font-serif">
+                                    {editingUser
+                                        ? !editingUser.user_auths || editingUser.user_auths.length === 0
+                                            ? 'Penugasan Role User Baru'
+                                            : 'Edit Master User'
+                                        : 'Tambah Master User Baru'}
+                                </DialogTitle>
                                 <DialogDescription className="font-sans">
-                                    {editingUser ? 'Perbarui informasi master user' : 'Tambahkan master user baru ke sistem'}
+                                    {editingUser
+                                        ? !editingUser.user_auths || editingUser.user_auths.length === 0
+                                            ? `Berikan hak akses dan role awal untuk ${editingUser.name}`
+                                            : 'Perbarui informasi master user'
+                                        : 'Tambahkan master user baru ke sistem'}
                                 </DialogDescription>
                             </DialogHeader>
 

@@ -34,6 +34,8 @@ class DokumenApproval extends Model
         'alasan_reject',
         'comment',
         'signature_path',
+        'paraf_path',
+        'paraf_pages',
         'signed_file_url',
         'signature_method',
         'verification_token',
@@ -49,6 +51,7 @@ class DokumenApproval extends Model
         'tgl_approve' => 'datetime',
         'tgl_deadline' => 'datetime',
         'revision_requested_at' => 'datetime',
+        'paraf_pages' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
