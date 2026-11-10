@@ -749,16 +749,6 @@ export default function UserManagement() {
                                                                         </TableCell>
                                                                         <TableCell className="text-right">
                                                                             <div className="flex justify-end items-center gap-2">
-                                                                                {isUnassigned && (
-                                                                                    <Button
-                                                                                        size="sm"
-                                                                                        onClick={() => handleEdit(user)}
-                                                                                        className="h-8 gap-1.5 bg-emerald-600 px-3 text-xs text-white shadow-sm hover:bg-emerald-700"
-                                                                                    >
-                                                                                        <UserCheck className="h-3.5 w-3.5" />
-                                                                                        <span>Beri Role</span>
-                                                                                    </Button>
-                                                                                )}
                                                                                 <Button
                                                                                     variant="outline"
                                                                                     size="sm"
