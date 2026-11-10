@@ -571,16 +571,6 @@ export default function UserManagement() {
                                                                         </div>
                                                                     </div>
                                                                     <div className="flex shrink-0 items-center gap-1.5">
-                                                                        {isUnassigned && (
-                                                                            <Button
-                                                                                size="sm"
-                                                                                onClick={() => handleEdit(user)}
-                                                                                className="h-8 gap-1 bg-emerald-600 px-2.5 text-xs text-white hover:bg-emerald-700"
-                                                                            >
-                                                                                <UserCheck className="h-3.5 w-3.5" />
-                                                                                <span>Beri Role</span>
-                                                                            </Button>
-                                                                        )}
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
@@ -665,140 +655,140 @@ export default function UserManagement() {
                                                 )}
                                             </div>
                                             <div className="hidden md:block">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead className="w-16 font-sans">No</TableHead>
-                                                        <TableHead className="w-48 font-sans">Nama</TableHead>
-                                                        <TableHead className="w-56 font-sans">Email</TableHead>
-                                                        <TableHead className="w-32 font-sans">Telepon</TableHead>
-                                                        <TableHead className="min-w-80 font-sans">Authorization</TableHead>
-                                                        <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {users.length > 0 ? (
-                                                        users.map((user, index) => {
-                                                            const isUnassigned = !user.user_auths || user.user_auths.length === 0;
-                                                            return (
-                                                                <TableRow
-                                                                    key={user.id}
-                                                                    className={isUnassigned ? 'border-l-4 border-l-amber-500 bg-amber-50/50 hover:bg-amber-100/60 transition-colors' : ''}
-                                                                >
-                                                                    <TableCell className="font-mono">{index + 1}</TableCell>
-                                                                    <TableCell className="font-sans font-medium">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span>{user.name}</span>
-                                                                            {isUnassigned && (
-                                                                                <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                                                                                    User Baru
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                    <TableCell className="font-sans">{user.email}</TableCell>
-                                                                    <TableCell className="font-sans">{user.profile?.phone_number || '-'}</TableCell>
-                                                                    <TableCell className="font-sans">
-                                                                        <div className="space-y-4">
-                                                                            {user.user_auths && user.user_auths.length > 0 ? (
-                                                                                user.user_auths.map((auth, authIndex) => (
-                                                                                    <div key={authIndex} className="space-y-1.5">
-                                                                                        {/* Badge Role - Highlight Utama */}
-                                                                                        <div>
-                                                                                            <span
-                                                                                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
-                                                                                                    ? 'bg-red-100 text-red-800'
-                                                                                                    : auth.role?.role_name === 'Admin'
-                                                                                                        ? 'bg-blue-100 text-blue-800'
-                                                                                                        : auth.role?.role_name === 'User'
-                                                                                                            ? 'bg-green-100 text-green-800'
-                                                                                                            : 'bg-gray-100 text-gray-800'
-                                                                                                    }`}
-                                                                                            >
-                                                                                                {auth.role?.role_name || 'No Role'}
-                                                                                            </span>
-                                                                                        </div>
-
-                                                                                        {/* Company Name - Konteks Organisasi */}
-                                                                                        <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                                                                                            <Building2 className="h-3.5 w-3.5 text-gray-500" />
-                                                                                            <span className="font-medium">
-                                                                                                {auth.company?.name || 'No Company'}
-                                                                                            </span>
-                                                                                        </div>
-
-                                                                                        {/* Jabatan & Aplikasi - Detail Sekunder */}
-                                                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                                            <div className="flex items-center gap-1">
-                                                                                                <Briefcase className="h-3 w-3" />
-                                                                                                <span>{auth.jabatan?.name || 'No Jabatan'}</span>
-                                                                                            </div>
-                                                                                            <span className="text-gray-400">•</span>
-                                                                                            <div className="flex items-center gap-1">
-                                                                                                <Smartphone className="h-3 w-3" />
-                                                                                                <span>{auth.aplikasi?.name || 'No Aplikasi'}</span>
-                                                                                            </div>
-                                                                                        </div>
-
-                                                                                        {/* Divider between multiple auths */}
-                                                                                        {authIndex < user.user_auths!.length - 1 && (
-                                                                                            <div className="mt-3 border-t border-gray-200 pt-3"></div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                ))
-                                                                            ) : (
-                                                                                <div className="flex flex-col gap-1 py-1">
-                                                                                    <span className="inline-flex items-center gap-1.5 w-fit rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                                                                                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                                                                                        Menunggu Penugasan Role
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-16 font-sans">No</TableHead>
+                                                            <TableHead className="w-48 font-sans">Nama</TableHead>
+                                                            <TableHead className="w-56 font-sans">Email</TableHead>
+                                                            <TableHead className="w-32 font-sans">Telepon</TableHead>
+                                                            <TableHead className="min-w-80 font-sans">Authorization</TableHead>
+                                                            <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {users.length > 0 ? (
+                                                            users.map((user, index) => {
+                                                                const isUnassigned = !user.user_auths || user.user_auths.length === 0;
+                                                                return (
+                                                                    <TableRow
+                                                                        key={user.id}
+                                                                        className={isUnassigned ? 'border-l-4 border-l-amber-500 bg-amber-50/50 hover:bg-amber-100/60 transition-colors' : ''}
+                                                                    >
+                                                                        <TableCell className="font-mono">{index + 1}</TableCell>
+                                                                        <TableCell className="font-sans font-medium">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span>{user.name}</span>
+                                                                                {isUnassigned && (
+                                                                                    <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                                                                                        User Baru
                                                                                     </span>
-                                                                                    <span className="text-xs text-muted-foreground">User belum memiliki otorisasi sistem</span>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <div className="flex justify-end items-center gap-2">
-                                                                            {isUnassigned && (
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="font-sans">{user.email}</TableCell>
+                                                                        <TableCell className="font-sans">{user.profile?.phone_number || '-'}</TableCell>
+                                                                        <TableCell className="font-sans">
+                                                                            <div className="space-y-4">
+                                                                                {user.user_auths && user.user_auths.length > 0 ? (
+                                                                                    user.user_auths.map((auth, authIndex) => (
+                                                                                        <div key={authIndex} className="space-y-1.5">
+                                                                                            {/* Badge Role - Highlight Utama */}
+                                                                                            <div>
+                                                                                                <span
+                                                                                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${auth.role?.role_name === 'Super Admin'
+                                                                                                        ? 'bg-red-100 text-red-800'
+                                                                                                        : auth.role?.role_name === 'Admin'
+                                                                                                            ? 'bg-blue-100 text-blue-800'
+                                                                                                            : auth.role?.role_name === 'User'
+                                                                                                                ? 'bg-green-100 text-green-800'
+                                                                                                                : 'bg-gray-100 text-gray-800'
+                                                                                                        }`}
+                                                                                                >
+                                                                                                    {auth.role?.role_name || 'No Role'}
+                                                                                                </span>
+                                                                                            </div>
+
+                                                                                            {/* Company Name - Konteks Organisasi */}
+                                                                                            <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                                                                                                <Building2 className="h-3.5 w-3.5 text-gray-500" />
+                                                                                                <span className="font-medium">
+                                                                                                    {auth.company?.name || 'No Company'}
+                                                                                                </span>
+                                                                                            </div>
+
+                                                                                            {/* Jabatan & Aplikasi - Detail Sekunder */}
+                                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                                                <div className="flex items-center gap-1">
+                                                                                                    <Briefcase className="h-3 w-3" />
+                                                                                                    <span>{auth.jabatan?.name || 'No Jabatan'}</span>
+                                                                                                </div>
+                                                                                                <span className="text-gray-400">•</span>
+                                                                                                <div className="flex items-center gap-1">
+                                                                                                    <Smartphone className="h-3 w-3" />
+                                                                                                    <span>{auth.aplikasi?.name || 'No Aplikasi'}</span>
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Divider between multiple auths */}
+                                                                                            {authIndex < user.user_auths!.length - 1 && (
+                                                                                                <div className="mt-3 border-t border-gray-200 pt-3"></div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))
+                                                                                ) : (
+                                                                                    <div className="flex flex-col gap-1 py-1">
+                                                                                        <span className="inline-flex items-center gap-1.5 w-fit rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                                                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                                                                            Menunggu Penugasan Role
+                                                                                        </span>
+                                                                                        <span className="text-xs text-muted-foreground">User belum memiliki otorisasi sistem</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-right">
+                                                                            <div className="flex justify-end items-center gap-2">
+                                                                                {isUnassigned && (
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        onClick={() => handleEdit(user)}
+                                                                                        className="h-8 gap-1.5 bg-emerald-600 px-3 text-xs text-white shadow-sm hover:bg-emerald-700"
+                                                                                    >
+                                                                                        <UserCheck className="h-3.5 w-3.5" />
+                                                                                        <span>Beri Role</span>
+                                                                                    </Button>
+                                                                                )}
                                                                                 <Button
+                                                                                    variant="outline"
                                                                                     size="sm"
                                                                                     onClick={() => handleEdit(user)}
-                                                                                    className="h-8 gap-1.5 bg-emerald-600 px-3 text-xs text-white shadow-sm hover:bg-emerald-700"
+                                                                                    className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
                                                                                 >
-                                                                                    <UserCheck className="h-3.5 w-3.5" />
-                                                                                    <span>Beri Role</span>
+                                                                                    <Edit className="h-4 w-4" />
                                                                                 </Button>
-                                                                            )}
-                                                                            <Button
-                                                                                variant="outline"
-                                                                                size="sm"
-                                                                                onClick={() => handleEdit(user)}
-                                                                                className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50"
-                                                                            >
-                                                                                <Edit className="h-4 w-4" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                variant="outline"
-                                                                                size="sm"
-                                                                                onClick={() => handleDelete(user)}
-                                                                                className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            );
-                                                        })
-                                                    ) : (
-                                                        <TableRow>
-                                                            <TableCell colSpan={6} className="py-8 text-center font-sans text-gray-500">
-                                                                Belum ada user yang tersedia
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => handleDelete(user)}
+                                                                                    className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <TableRow>
+                                                                <TableCell colSpan={6} className="py-8 text-center font-sans text-gray-500">
+                                                                    Belum ada user yang tersedia
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
                                             </div>
                                         </CardContent>
                                     </Card>
