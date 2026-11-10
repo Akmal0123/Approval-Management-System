@@ -1427,7 +1427,7 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
 
                     {/* PDF Preview Dialog */}
                     <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-                        <DialogContent className="flex h-[90vh] w-[calc(100%-1rem)] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0 sm:rounded-2xl">
+                        <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
                             <DialogHeader className="shrink-0 border-b p-4">
                                 <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">{previewFileName}</DialogDescription>

@@ -93,8 +93,6 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-    // Mobile tab state for the preview dialog
-    const [mobilePanelTab, setMobilePanelTab] = useState<'pdf' | 'info'>('pdf');
 
     // Authenticated blob state
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -228,7 +226,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         if (open || isEmbedded) {
             setLoading(true);
             setError(null);
-            setMobilePanelTab('pdf'); // Always start on PDF tab when dialog opens/file changes
+            setCurrentPage(1);
             if (dokumenId) {
                 fetchExistingPositions();
             } else {
@@ -956,41 +954,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     };
 
     const innerContent = (
-        <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
-
-            {/* ===== MOBILE TAB SWITCHER (< md only, when sidebar is visible) ===== */}
-            {!hideSidebar && (
-                <div className="flex shrink-0 border-b bg-muted/30 px-1.5 pt-1.5 pb-0 md:hidden">
-                    <button
-                        type="button"
-                        onClick={() => setMobilePanelTab('pdf')}
-                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'pdf'
-                            ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
-                            : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        📄 PDF Dokumen
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setMobilePanelTab('info')}
-                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'info'
-                            ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
-                            : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        👥 Info Approver
-                    </button>
-                </div>
-            )}
+        <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto lg:overflow-hidden bg-background lg:flex-row">
 
             {/* Sidebar Configuration */}
             {!hideSidebar && (
-                <div className={`
-                w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3
-                md:flex md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4
-                ${mobilePanelTab === 'info' ? 'flex max-h-[calc(100%-42px)]' : 'hidden'}
-            `}>
+                <div className="w-full shrink-0 flex flex-col gap-3 sm:gap-4 overflow-y-auto border-t lg:border-t-0 lg:border-r bg-muted/20 p-3 sm:p-4 lg:w-64 xl:w-72 lg:h-full lg:max-h-none order-2 lg:order-1">
                     <div>
                         {/* Dropdown List Dokumen Khusus Skenario Bulk Approve */}
                         {bulkDocuments && bulkDocuments.length > 0 && (() => {
@@ -1394,7 +1362,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     </div>
 
                     {/* Kontrol Tampilan & Simpan Posisi */}
-                    <div className="hidden space-y-3 border-t pt-4 md:block">
+                    <div className="space-y-3 border-t pt-3 sm:pt-4">
                         <div className="text-sm font-semibold">Kontrol Tampilan</div>
 
                         <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
@@ -1478,10 +1446,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 ref={viewerRef}
                 className={isFullscreen
                     ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-1 sm:p-4"
-                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2.5' : 'md:p-6'} min-h-0 min-w-0 flex-1 ${!hideSidebar && mobilePanelTab === 'info'
-                        ? 'hidden md:flex'
-                        : 'flex'
-                    }`}
+                    : `relative flex flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2' : 'md:p-3 lg:p-4'} min-h-0 min-w-0 flex-1 w-full order-1 lg:order-2 h-[480px] sm:h-[560px] lg:h-full`}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
@@ -1553,7 +1518,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                 <div
                     ref={pagesViewportRef}
-                    className="relative flex min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain"
+                    className="relative block min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-x-auto overflow-y-auto overscroll-contain p-2 sm:p-4"
                 >
                     {(fetchLoading || loading) && !(fetchError || error) && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-xs">
@@ -1618,7 +1583,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex w-max min-w-full flex-col items-center gap-4"
+                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
@@ -1649,7 +1614,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     )}
                 </div>
                 {isEmbedded && !readOnly && (
-                    <div className="shrink-0 border-t bg-background p-2 md:hidden">
+                    <div className="shrink-0 border-t bg-background p-2 lg:hidden">
                         <Button type="button" onClick={handleSave} disabled={saving || loading} className="h-9 w-full">
                             {saving ? 'Menyimpan...' : 'Simpan Posisi'}
                         </Button>
@@ -1665,22 +1630,24 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex h-[90vh] max-w-5xl flex-col overflow-hidden p-0">
-                <DialogHeader className="shrink-0 border-b px-6 py-4">
+            <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
+                <DialogHeader className="shrink-0 border-b px-4 sm:px-6 py-3 sm:py-4">
                     <DialogTitle>Atur Posisi Tanda Tangan</DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Geser kotak tanda tangan ke lokasi yang Anda inginkan di dokumen PDF ini. Tanda tangan approver akan otomatis ditempatkan pada
                         posisi tersebut.
                     </DialogDescription>
                 </DialogHeader>
 
-                {innerContent}
+                <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+                    {innerContent}
+                </div>
 
-                <DialogFooter className="shrink-0 border-t px-6 py-4">
-                    <Button variant="outline" onClick={() => onOpenChange && onOpenChange(false)}>
+                <DialogFooter className="shrink-0 border-t px-4 sm:px-6 py-3 sm:py-4 flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                    <Button variant="outline" onClick={() => onOpenChange && onOpenChange(false)} className="w-full sm:w-auto">
                         Batal
                     </Button>
-                    <Button onClick={handleSave} disabled={saving || loading}>
+                    <Button onClick={handleSave} disabled={saving || loading} className="w-full sm:w-auto">
                         {saving ? 'Menyimpan...' : 'Simpan Posisi Tanda Tangan'}
                     </Button>
                 </DialogFooter>

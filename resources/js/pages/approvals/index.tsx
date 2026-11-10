@@ -1184,7 +1184,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[92vh] max-h-[92dvh] w-[95vw] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 lg:h-[90vh] lg:max-h-[90dvh] lg:w-[95vw] lg:max-w-[1400px]">
+                        <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
                             <DialogHeader className="shrink-0 border-b px-4 py-3">
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                     <div className="min-w-0">
@@ -1199,10 +1199,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 </div>
                             </DialogHeader>
 
-                            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-4 lg:flex-row lg:overflow-hidden">
+                            <div className="flex flex-1 flex-col gap-3 sm:gap-4 overflow-y-auto p-2.5 sm:p-4 lg:flex-row lg:overflow-hidden min-h-0 min-w-0">
                                 {/* PDF Preview with Placement - Left Side */}
                                 {bulkPreviewFileUrl && currentBulkPreviewApproval ? (
-                                    <div className="h-[450px] shrink-0 sm:h-[520px] lg:h-full lg:min-h-0 lg:flex-1">
+                                    <div className="min-w-0 w-full flex-1 shrink-0 lg:h-full lg:min-h-0 lg:shrink flex flex-col">
                                         <SignaturePlacementDialog
                                             key={currentBulkPreviewApproval.id}
                                             open={isBulkModalOpen}
@@ -1235,7 +1235,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 )}
 
                                 {/* Signature Panel - Right Side */}
-                                <div className="w-full shrink-0 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-3 lg:w-[300px] lg:min-w-[260px]">
+                                <div className="w-full shrink-0 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-3 sm:p-4 lg:w-72 xl:w-80 lg:h-full">
                                     <div>
                                         <h3 className="font-serif text-base font-semibold leading-tight">Tanda Tangan Persetujuan</h3>
                                         <p className="font-sans text-xs text-muted-foreground mt-0.5">
@@ -1451,7 +1451,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                 }
                             }}
                         >
-                            <DialogContent className="flex h-[100dvh] sm:h-[90dvh] max-h-[100dvh] sm:max-h-[90dvh] w-full sm:max-w-[90vw] flex-col overflow-hidden rounded-none sm:rounded-2xl p-0">
+                            <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
                                 <DialogHeader className="shrink-0 border-b p-3 sm:p-4">
                                     <div className="space-y-1">
                                         <DialogTitle className="font-serif text-base sm:text-lg">Preview Dokumen</DialogTitle>
@@ -1471,7 +1471,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                     </div>
                                 </DialogHeader>
 
-                                <div className="flex min-h-0 flex-1 overflow-hidden">
+                                <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
                                     {/* PDF Preview with Placement */}
                                     {previewFileUrl && (
                                         <SignaturePlacementDialog

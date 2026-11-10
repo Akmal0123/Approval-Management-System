@@ -942,7 +942,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             }
                         }}
                     >
-                        <DialogContent className="flex h-[92vh] max-h-[92dvh] w-[95vw] max-w-[95vw] flex-col overflow-hidden rounded-2xl p-0 lg:h-[90vh] lg:max-h-[90dvh] lg:w-[95vw] lg:max-w-[1400px]">
+                        <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
                             <DialogHeader className="shrink-0 border-b px-4 py-3">
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                     <div className="min-w-0">
@@ -965,10 +965,10 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                 </div>
                             </DialogHeader>
 
-                            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-4 lg:flex-row lg:overflow-hidden">
+                            <div className="flex flex-1 flex-col gap-3 sm:gap-4 overflow-y-auto p-2.5 sm:p-4 lg:flex-row lg:overflow-hidden min-h-0 min-w-0">
                                 {/* PDF Preview - Left Side */}
                                 {previewFileUrl && (
-                                    <div className="h-[450px] shrink-0 sm:h-[520px] lg:h-full lg:min-h-0 lg:flex-1">
+                                    <div className="min-w-0 w-full flex-1 shrink-0 lg:h-full lg:min-h-0 lg:shrink flex flex-col">
                                         <SignaturePlacementDialog
                                             open={isPreviewDialogOpen}
                                             onOpenChange={setIsPreviewDialogOpen}
@@ -994,7 +994,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                 {canApprove &&
                                     approval.approval_status === 'pending' &&
                                     (previewVersionId === approval.dokumen_version?.id || !previewVersionId) && (
-                                        <div className="w-full shrink-0 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-3 lg:w-[300px] lg:min-w-[260px]">
+                                        <div className="w-full shrink-0 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-3 sm:p-4 lg:w-72 xl:w-80 lg:h-full">
                                             <div>
                                                 <h3 className="font-serif text-base font-semibold leading-tight">Tanda Tangan Persetujuan</h3>
                                                 <p className="font-sans text-xs text-muted-foreground mt-0.5">Tanda tangani dokumen untuk menyetujuinya</p>
@@ -1195,7 +1195,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
 
                     {/* Standalone PDF Viewer Preview Dialog */}
                     <Dialog open={isPDFViewerOpen} onOpenChange={setIsPDFViewerOpen}>
-                        <DialogContent className="flex h-[90vh] max-h-[90dvh] max-w-[90vw] flex-col overflow-hidden rounded-2xl p-0">
+                        <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
                             <DialogHeader className="shrink-0 border-b p-4">
                                 <DialogTitle className="font-serif">Preview Dokumen</DialogTitle>
                                 <DialogDescription className="font-sans">{pdfViewerFileName}</DialogDescription>
