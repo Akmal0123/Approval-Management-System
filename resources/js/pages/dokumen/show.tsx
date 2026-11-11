@@ -1434,7 +1434,13 @@ export default function DokumenDetail({ dokumen: initialDokumen }: { dokumen?: D
                             </DialogHeader>
                             <div className="flex-1 overflow-auto p-4">
                                 {previewFileUrl && (
-                                    <PDFViewer fileUrl={previewFileUrl} fileName={previewFileName} showControls={true} height="100%" />
+                                    <PDFViewer
+                                        fileUrl={previewFileUrl}
+                                        fileName={previewFileName}
+                                        showControls={true}
+                                        height="100%"
+                                        approvals={sortedApprovals.filter(a => a.approval_status !== 'skipped')}
+                                    />
                                 )}
                             </div>
                         </DialogContent>

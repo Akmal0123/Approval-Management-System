@@ -24,14 +24,16 @@ if (typeof window !== 'undefined') {
 export const isQrCodeId = (id: string | number | null | undefined): boolean =>
     typeof id === 'string' && id.startsWith('qr_code');
 
-interface Approval {
+export interface Approval {
     id: number | string;
     step_name?: string;
     jabatan_name?: string;
+    nama?: string;
     user?: { name: string };
     approver_email?: string;
     approval_status?: string;
     signature_method?: string;
+    paraf_pages?: number[] | string | null;
 }
 
 export interface BulkDocumentItem {
@@ -1076,9 +1078,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                                 onDocumentSelect(doc.id);
                                                             }
                                                         }}
-                                                        className={`flex flex-col items-start gap-1 p-2 cursor-pointer rounded-md ${
-                                                            isSelected ? 'bg-primary/10 text-primary font-medium' : ''
-                                                        }`}
+                                                        className={`flex flex-col items-start gap-1 p-2 cursor-pointer rounded-md ${isSelected ? 'bg-primary/10 text-primary font-medium' : ''
+                                                            }`}
                                                     >
                                                         <div className="flex items-center justify-between w-full gap-2">
                                                             <div className="flex items-center gap-1.5 truncate">
@@ -1648,11 +1649,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-<<<<<<< HEAD
-                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4"
-=======
                             className="flex w-max min-w-full flex-col items-center gap-4 pb-14"
->>>>>>> c97c08b26785c84b9a9f0af76af8604614d52571
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
@@ -1674,11 +1671,54 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                 onLoadSuccess={(page) => onPageLoadSuccess(page, pageNumber)}
                                             >
                                                 {renderSignatureBoxes(pageNumber)}
-                                                {enableParaf && activeParafPages.includes(pageNumber) && (
-                                                    <div className="absolute bottom-3 right-3 z-15 flex h-6 w-6 items-center justify-center rounded border border-emerald-600 bg-white shadow-xs select-none pointer-events-none text-emerald-700">
-                                                        <Check className="h-3.5 w-3.5 stroke-[3]" />
-                                                    </div>
-                                                )}
+                                                {(() => {
+                                                    const pageBadges: { id: string | number; label: string }[] = [];
+
+                                                    // Checked by previously approved approvers
+                                                    (approvals || []).forEach((app) => {
+                                                        if (app.approval_status === 'approved' && app.paraf_pages) {
+                                                            let parsed: number[] = [];
+                                                            if (Array.isArray(app.paraf_pages)) {
+                                                                parsed = app.paraf_pages.map(Number);
+                                                            } else if (typeof app.paraf_pages === 'string') {
+                                                                try {
+                                                                    parsed = JSON.parse(app.paraf_pages).map(Number);
+                                                                } catch {}
+                                                            }
+                                                            if (parsed.includes(pageNumber)) {
+                                                                const name = app.user?.name || app.nama || app.step_name || 'Approver';
+                                                                pageBadges.push({
+                                                                    id: `approved-${app.id}`,
+                                                                    label: `Diparaf oleh ${name} (Verifikasi AMS)`,
+                                                                });
+                                                            }
+                                                        }
+                                                    });
+
+                                                    // Checked by current approver (draft in-progress paraf)
+                                                    if (enableParaf && activeParafPages.includes(pageNumber)) {
+                                                        pageBadges.push({
+                                                            id: 'current-active',
+                                                            label: 'Paraf pemeriksaan Anda (Draft)',
+                                                        });
+                                                    }
+
+                                                    if (pageBadges.length === 0) return null;
+
+                                                    return (
+                                                        <div className="paraf-preview-overlay absolute bottom-3 right-3 z-15 flex flex-row-reverse items-center gap-1.5 select-none print:hidden pointer-events-auto">
+                                                            {pageBadges.map((b) => (
+                                                                <div
+                                                                    key={b.id}
+                                                                    title={b.label}
+                                                                    className="flex h-6 w-6 items-center justify-center rounded border border-emerald-600 bg-white shadow-xs text-emerald-700 transition-transform hover:scale-110 cursor-help"
+                                                                >
+                                                                    <Check className="h-3.5 w-3.5 stroke-[3]" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </Page>
                                         </div>
                                     </div>
@@ -1696,11 +1736,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                 Hal {currentPage}/{numPages}
                             </span>
                             <span
-                                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold transition-colors ${
-                                    activeParafPages.length >= numPages
+                                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold transition-colors ${activeParafPages.length >= numPages
                                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                                         : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                                }`}
+                                    }`}
                             >
                                 {activeParafPages.length >= numPages && <Check className="h-3 w-3 stroke-[3]" />}
                                 <span>{activeParafPages.length}/{numPages} Diparaf</span>
@@ -1712,11 +1751,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             type="button"
                             size="sm"
                             onClick={() => handleToggleParaf(currentPage)}
-                            className={`h-7 sm:h-8 gap-1.5 text-xs font-semibold px-2.5 sm:px-3.5 transition-all shadow-xs cursor-pointer ${
-                                activeParafPages.includes(currentPage)
+                            className={`h-7 sm:h-8 gap-1.5 text-xs font-semibold px-2.5 sm:px-3.5 transition-all shadow-xs cursor-pointer ${activeParafPages.includes(currentPage)
                                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                     : 'border border-amber-300 bg-amber-50 hover:bg-emerald-50 text-amber-900 hover:text-emerald-800 hover:border-emerald-300 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
-                            }`}
+                                }`}
                             title={activeParafPages.includes(currentPage) ? `Halaman ${currentPage} sudah diparaf. Klik untuk batalkan (X).` : `Klik untuk beri paraf pada halaman ${currentPage} (✓)`}
                         >
                             {activeParafPages.includes(currentPage) ? (
