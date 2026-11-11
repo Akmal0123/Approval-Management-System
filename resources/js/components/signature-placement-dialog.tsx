@@ -1648,11 +1648,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-<<<<<<< HEAD
-                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4"
-=======
-                            className="flex w-max min-w-full flex-col items-center gap-4 pb-14"
->>>>>>> c97c08b26785c84b9a9f0af76af8604614d52571
+                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4 pb-14"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;

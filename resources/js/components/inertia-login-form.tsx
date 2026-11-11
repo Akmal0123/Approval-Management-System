@@ -211,8 +211,19 @@ export function InertiaLoginForm({ canResetPassword, status }: InertiaLoginFormP
                 </form>
             </div>
 
+            {/* Register Link */}
+            <div className="mt-5 text-center text-xs sm:text-sm text-[#5a7665]">
+                Belum punya akun?{' '}
+                <Link
+                    href={route('register')}
+                    className="font-semibold text-[#228646] hover:text-[#176233] transition-colors underline-offset-2 hover:underline"
+                >
+                    Daftar di sini
+                </Link>
+            </div>
+
             {/* Copyright Footer */}
-            <div className="mt-5 text-center text-xs text-[#8fa799]">
+            <div className="mt-3 text-center text-xs text-[#8fa799]">
                 © 2026 Approval Management System
             </div>
         </div>
