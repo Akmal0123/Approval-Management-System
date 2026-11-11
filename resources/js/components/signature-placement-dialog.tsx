@@ -1649,7 +1649,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex w-max min-w-full flex-col items-center gap-4 pb-14"
+                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4 pb-14"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
@@ -1683,7 +1683,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                             } else if (typeof app.paraf_pages === 'string') {
                                                                 try {
                                                                     parsed = JSON.parse(app.paraf_pages).map(Number);
-                                                                } catch {}
+                                                                } catch { }
                                                             }
                                                             if (parsed.includes(pageNumber)) {
                                                                 const name = app.user?.name || app.nama || app.step_name || 'Approver';
@@ -1737,8 +1737,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             </span>
                             <span
                                 className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold transition-colors ${activeParafPages.length >= numPages
-                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                                     }`}
                             >
                                 {activeParafPages.length >= numPages && <Check className="h-3 w-3 stroke-[3]" />}
@@ -1752,8 +1752,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             size="sm"
                             onClick={() => handleToggleParaf(currentPage)}
                             className={`h-7 sm:h-8 gap-1.5 text-xs font-semibold px-2.5 sm:px-3.5 transition-all shadow-xs cursor-pointer ${activeParafPages.includes(currentPage)
-                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                    : 'border border-amber-300 bg-amber-50 hover:bg-emerald-50 text-amber-900 hover:text-emerald-800 hover:border-emerald-300 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'border border-amber-300 bg-amber-50 hover:bg-emerald-50 text-amber-900 hover:text-emerald-800 hover:border-emerald-300 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
                                 }`}
                             title={activeParafPages.includes(currentPage) ? `Halaman ${currentPage} sudah diparaf. Klik untuk batalkan (X).` : `Klik untuk beri paraf pada halaman ${currentPage} (✓)`}
                         >
