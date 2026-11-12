@@ -149,6 +149,7 @@
     max-width: 100%;
     margin-left: auto;
     margin-right: auto;
+    touch-action: pan-y !important;
 }
 
 .react-pdf__Page {
@@ -157,13 +158,16 @@
     margin-left: auto;
     margin-right: auto;
     max-width: 100% !important;
+    touch-action: pan-y !important;
 }
 
 .react-pdf__Page canvas,
+.react-pdf__Page__canvas,
 .react-pdf__Page .react-pdf__Page__svg {
     display: block;
     max-width: 100% !important;
     height: auto !important;
+    touch-action: pan-y !important;
 }
 
 .react-pdf__message {

@@ -1525,7 +1525,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 ref={viewerRef}
                 className={isFullscreen
                     ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-1 sm:p-4"
-                    : `relative flex flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2' : 'md:p-3 lg:p-4'} min-h-0 min-w-0 flex-1 w-full order-1 lg:order-2 h-[480px] sm:h-[560px] lg:h-full`}
+                    : `relative flex flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2' : 'md:p-3 lg:p-4'} min-w-0 w-full order-1 lg:order-2 shrink-0 lg:shrink min-h-[460px] sm:min-h-[540px] h-[55vh] sm:h-[60vh] lg:h-full lg:flex-1 lg:min-h-0`}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
@@ -1662,11 +1662,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-<<<<<<< HEAD
-                            className="flex w-full max-w-full flex-col items-center gap-4 pb-14"
-=======
                             className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4 pb-14"
->>>>>>> f4caa7089818b7cca728ccd285065ee68c4bb56a
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
