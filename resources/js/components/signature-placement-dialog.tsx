@@ -314,16 +314,27 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         });
     }, [approvals]);
 
-    const MOBILE_MIN_SCALE = 0.45;
+    const MOBILE_MIN_SCALE = 0.3;
 
     const getMobileScale = (widthPt: number) => {
-        const el = viewerRef.current;
+        const el = pagesViewportRef.current ?? viewerRef.current;
         if (!el || widthPt <= 0) return 1;
         const style = getComputedStyle(el);
-        const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+        const available = el.clientWidth - padding - 16;
         if (available <= 0) return 1;
-        return Math.min(1, Math.max(MOBILE_MIN_SCALE, available / widthPt));
+        return Math.min(1.0, Math.max(MOBILE_MIN_SCALE, available / widthPt));
     };
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (pageSizesRef.current[1]) {
+                setScale(getMobileScale(pageSizesRef.current[1].width));
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         hasAutoFit.current = false;
@@ -462,9 +473,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         if (!hasAutoFit.current) {
             hasAutoFit.current = true;
-            if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                setScale(getMobileScale(widthPt));
-            }
+            requestAnimationFrame(() => {
+                if (typeof window !== 'undefined') {
+                    setScale(getMobileScale(widthPt));
+                }
+            });
         }
     };
 
@@ -1583,7 +1596,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                 <div
                     ref={pagesViewportRef}
-                    className="relative block min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-x-auto overflow-y-auto overscroll-contain p-2 sm:p-4"
+                    className="relative block min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain p-2 sm:p-4"
                 >
                     {(fetchLoading || loading) && !(fetchError || error) && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-xs">
@@ -1648,22 +1661,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-<<<<<<< HEAD
-                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4"
-=======
-                            className="flex w-max min-w-full flex-col items-center gap-4 pb-14"
->>>>>>> c97c08b26785c84b9a9f0af76af8604614d52571
+                            className="flex w-full max-w-full flex-col items-center gap-4 pb-14"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
                                 return (
-                                    <div key={pageNumber} className="flex w-full shrink-0 justify-center">
+                                    <div key={pageNumber} className="flex w-full max-w-full justify-center py-1">
                                         <div
                                             ref={(element) => {
                                                 pageContainersRef.current[pageNumber] = element;
                                             }}
                                             data-page-number={pageNumber}
-                                            className={`relative w-fit shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}
+                                            className={`relative max-w-full bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}
                                         >
                                             <Page
                                                 pageNumber={pageNumber}

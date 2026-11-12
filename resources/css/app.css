@@ -145,8 +145,8 @@
 /* React-PDF Styles */
 .react-pdf__Document {
     display: block;
-    width: fit-content;
-    min-width: 100%;
+    width: 100%;
+    max-width: 100%;
     margin-left: auto;
     margin-right: auto;
 }
@@ -156,10 +156,14 @@
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
     margin-left: auto;
     margin-right: auto;
+    max-width: 100% !important;
 }
 
-.react-pdf__Page canvas {
+.react-pdf__Page canvas,
+.react-pdf__Page .react-pdf__Page__svg {
     display: block;
+    max-width: 100% !important;
+    height: auto !important;
 }
 
 .react-pdf__message {

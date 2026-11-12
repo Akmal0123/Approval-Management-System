@@ -160,13 +160,18 @@ export default function PDFViewer({
     }
 
     const onPageLoadSuccess = (page: any) => {
-        if (hasAutoFit.current || window.innerWidth >= 768) return;
+        if (hasAutoFit.current) return;
+        hasAutoFit.current = true;
 
         const pageWidth = page.getViewport({ scale: 1 }).width;
-        const availableWidth = (viewerRef.current?.clientWidth ?? 0) - 32;
-        if (pageWidth > 0 && availableWidth > 0) {
-            setScale(Math.min(1, Math.max(0.3, availableWidth / pageWidth)));
-            hasAutoFit.current = true;
+        const viewerEl = viewerRef.current;
+        if (!viewerEl || pageWidth <= 0) return;
+
+        const style = getComputedStyle(viewerEl);
+        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+        const available = viewerEl.clientWidth - padding - 16;
+        if (available > 0) {
+            setScale(Math.min(1.0, Math.max(0.3, available / pageWidth)));
         }
     };
 
@@ -330,7 +335,7 @@ export default function PDFViewer({
             {/* PDF Viewer */}
             <div
                 ref={viewerRef}
-                className="relative min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain rounded-lg border border-border bg-muted/30"
+                className="relative min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/30"
                 style={{ height: isFullscreen ? 'calc(100vh - 90px)' : height, maxHeight: '100%' }}
                 onScroll={() => {
                     const viewportTop = viewerRef.current?.getBoundingClientRect().top ?? 0;
@@ -375,14 +380,14 @@ export default function PDFViewer({
                 )}
 
                 {!activeError && blobUrl && (
-                    <div className="flex min-w-max justify-center p-4">
+                    <div className="flex w-full max-w-full justify-center p-2 sm:p-4">
                         <Document
                             file={blobUrl}
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex w-max min-w-full flex-col items-center gap-4"
+                            className="flex w-full max-w-full flex-col items-center gap-4"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const page = index + 1;
@@ -392,7 +397,7 @@ export default function PDFViewer({
                                         ref={(element) => {
                                             pageRefs.current[page] = element;
                                         }}
-                                        className="flex w-full shrink-0 justify-center"
+                                        className="flex w-full max-w-full justify-center py-1"
                                     >
                                         <Page
                                             pageNumber={page}
