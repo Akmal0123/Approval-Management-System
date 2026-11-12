@@ -113,6 +113,8 @@ interface DokumenApproval {
     user?: User;
     group_index?: string | null;
     jenis_group?: string | null;
+    paraf_pages?: number[] | null;
+    paraf_path?: string | null;
 }
 
 interface Props {
@@ -443,6 +445,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
             approver_email: a.user?.email || '',
             approval_status: a.approval_status,
             signature_method: a.id === approval.id ? approveForm.data.signature_method : a.signature_method,
+            paraf_pages: a.paraf_pages,
         }));
     return (
         <>
@@ -1312,7 +1315,13 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                             </DialogHeader>
                             <div className="min-h-0 flex-1 overflow-auto overscroll-contain p-2 sm:p-4">
                                 {pdfViewerFileUrl && (
-                                    <PDFViewer fileUrl={pdfViewerFileUrl} fileName={pdfViewerFileName} showControls={true} height="100%" />
+                                    <PDFViewer
+                                        fileUrl={pdfViewerFileUrl}
+                                        fileName={pdfViewerFileName}
+                                        showControls={true}
+                                        height="100%"
+                                        approvals={allApprovals}
+                                    />
                                 )}
                             </div>
                         </DialogContent>

@@ -424,6 +424,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             signature_method: a.signature_method,
             signature_path: a.signature_path,
             verification_token: a.verification_token,
+            paraf_pages: (a as any).paraf_pages,
         }));
 
     // Keep bulkPreviewApprovalId in sync with selectedApprovalIds
@@ -461,6 +462,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             signature_method: a.signature_method,
             signature_path: a.signature_path,
             verification_token: a.verification_token,
+            paraf_pages: (a as any).paraf_pages,
         }));
 
     const isDocFullyParafed = (approvalId: number) => {

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Download, ExternalLink, Maximize2, Minimize2, RefreshCw, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Download, ExternalLink, Maximize2, Minimize2, RefreshCw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
@@ -11,6 +11,15 @@ if (typeof window !== 'undefined') {
     pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 }
 
+export interface ParafApproval {
+    id?: number | string;
+    nama?: string;
+    step_name?: string;
+    user?: { name: string };
+    approval_status?: string;
+    paraf_pages?: number[] | string | null;
+}
+
 interface PDFViewerProps {
     fileUrl: string;
     fileName?: string;
@@ -18,6 +27,7 @@ interface PDFViewerProps {
     onFullscreen?: () => void;
     showControls?: boolean;
     height?: string;
+    approvals?: ParafApproval[];
 }
 
 export default function PDFViewer({
@@ -27,6 +37,7 @@ export default function PDFViewer({
     onFullscreen,
     showControls = true,
     height = '600px',
+    approvals = [],
 }: PDFViewerProps) {
     const [numPages, setNumPages] = useState<number>(0);
     const [pageNumber, setPageNumber] = useState<number>(1);
@@ -399,14 +410,54 @@ export default function PDFViewer({
                                         }}
                                         className="flex w-full max-w-full justify-center py-1"
                                     >
-                                        <Page
-                                            pageNumber={page}
-                                            scale={scale}
-                                            renderTextLayer={false}
-                                            renderAnnotationLayer={false}
-                                            className="shadow-lg"
-                                            onLoadSuccess={onPageLoadSuccess}
-                                        />
+                                        <div className="relative shadow-lg">
+                                            <Page
+                                                pageNumber={page}
+                                                scale={scale}
+                                                renderTextLayer={false}
+                                                renderAnnotationLayer={false}
+                                                className="block !m-0 !p-0 !max-w-none !shadow-none"
+                                                onLoadSuccess={onPageLoadSuccess}
+                                            />
+                                            {(() => {
+                                                const pageBadges: { id: string | number; label: string }[] = [];
+                                                (approvals || []).forEach((app) => {
+                                                    if (app.approval_status === 'approved' && app.paraf_pages) {
+                                                        let parsed: number[] = [];
+                                                        if (Array.isArray(app.paraf_pages)) {
+                                                            parsed = app.paraf_pages.map(Number);
+                                                        } else if (typeof app.paraf_pages === 'string') {
+                                                            try {
+                                                                parsed = JSON.parse(app.paraf_pages).map(Number);
+                                                            } catch {}
+                                                        }
+                                                        if (parsed.includes(page)) {
+                                                            const name = app.user?.name || app.nama || app.step_name || 'Approver';
+                                                            pageBadges.push({
+                                                                id: `approved-${app.id}`,
+                                                                label: `Diparaf oleh ${name} (Verifikasi AMS)`,
+                                                            });
+                                                        }
+                                                    }
+                                                });
+
+                                                if (pageBadges.length === 0) return null;
+
+                                                return (
+                                                    <div className="paraf-preview-overlay absolute bottom-3 right-3 z-15 flex flex-row-reverse items-center gap-1.5 select-none print:hidden pointer-events-auto">
+                                                        {pageBadges.map((b) => (
+                                                            <div
+                                                                key={b.id}
+                                                                title={b.label}
+                                                                className="flex h-6 w-6 items-center justify-center rounded border border-emerald-600 bg-white shadow-xs text-emerald-700 transition-transform hover:scale-110 cursor-help"
+                                                            >
+                                                                <Check className="h-3.5 w-3.5 stroke-[3]" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
                                     </div>
                                 );
                             })}
