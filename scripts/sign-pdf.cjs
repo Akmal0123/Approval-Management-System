@@ -18,6 +18,7 @@ async function run() {
         const pdfDoc = await PDFDocument.load(pdfBytes);
         const pages = pdfDoc.getPages();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
         for (const sig of inputData.signatures || []) {
             const pageIndex = Math.min(Math.max(sig.page - 1, 0), pages.length - 1);
@@ -155,8 +156,133 @@ async function run() {
             }
         }
 
-        // Note: Paraf is exclusively a digital preview/checklist feature inside AMS (rendered as UI overlay)
-        // and is intentionally NOT drawn/printed onto the PDF document when downloaded or printed.
+        // Draw Parafs (Fixed at bottom right of specified pages, with approver identity or image, laid out horizontally)
+        if (Array.isArray(inputData.parafs) && inputData.parafs.length > 0) {
+            const parafImageCache = {};
+            const mmToPt = 72 / 25.4;
+
+            // Group parafs by page and deduplicate by approval_id
+            const parafsByPage = {};
+            for (const paraf of inputData.parafs) {
+                const pageNum = parseInt(paraf.page, 10);
+                if (!pageNum) continue;
+                if (!parafsByPage[pageNum]) {
+                    parafsByPage[pageNum] = [];
+                }
+                const alreadyAdded = parafsByPage[pageNum].some((p) =>
+                    p.approval_id && paraf.approval_id && p.approval_id === paraf.approval_id
+                );
+                if (!alreadyAdded) {
+                    parafsByPage[pageNum].push(paraf);
+                }
+            }
+
+            const marginFromRightPt = 15 * mmToPt;
+            const marginFromBottomPt = 10 * mmToPt;
+            const gap = 3 * mmToPt;
+
+            for (const [pageNumStr, pageParafs] of Object.entries(parafsByPage)) {
+                const pageNum = parseInt(pageNumStr, 10);
+                const pageIndex = Math.min(Math.max(pageNum - 1, 0), pages.length - 1);
+                const page = pages[pageIndex];
+
+                const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
+                const pageX = mediaBox ? mediaBox.x : 0;
+                const pageY = mediaBox ? mediaBox.y : 0;
+                const pageWidth = page.getWidth();
+
+                let currentRightOffset = marginFromRightPt;
+
+                for (let idx = 0; idx < pageParafs.length; idx++) {
+                    const paraf = pageParafs[idx];
+
+                    let parafImg = null;
+                    if (paraf.imagePath && fs.existsSync(paraf.imagePath)) {
+                        parafImg = parafImageCache[paraf.imagePath];
+                        if (!parafImg) {
+                            try {
+                                const imgBytes = fs.readFileSync(paraf.imagePath);
+                                const isPng = imgBytes.length > 4 && imgBytes[0] === 0x89 && imgBytes[1] === 0x50 && imgBytes[2] === 0x4E && imgBytes[3] === 0x47;
+                                if (isPng) {
+                                    parafImg = await pdfDoc.embedPng(imgBytes);
+                                } else {
+                                    parafImg = await pdfDoc.embedJpg(imgBytes);
+                                }
+                                parafImageCache[paraf.imagePath] = parafImg;
+                            } catch (e) {
+                                console.error('Failed embedding paraf image:', e.message);
+                            }
+                        }
+                    }
+
+                    if (parafImg) {
+                        const imgW = 18 * mmToPt;
+                        const imgH = 9 * mmToPt;
+                        const x = pageX + pageWidth - (currentRightOffset + imgW);
+                        const y = pageY + marginFromBottomPt;
+
+                        page.drawImage(parafImg, {
+                            x: x,
+                            y: y,
+                            width: imgW,
+                            height: imgH,
+                        });
+
+                        currentRightOffset += imgW + gap;
+                    } else {
+                        // Default checklist with identity (e.g. "✓ App 1", "✓ App 2")
+                        const identityText = String(paraf.identity || ('App ' + (idx + 1)));
+                        const textWidth = fontBold.widthOfTextAtSize(identityText, 7);
+                        const boxWidth = (8 * mmToPt) + textWidth;
+                        const boxHeight = 6.5 * mmToPt;
+
+                        const x = pageX + pageWidth - (currentRightOffset + boxWidth);
+                        const y = pageY + marginFromBottomPt;
+
+                        // 1. Box background & border
+                        page.drawRectangle({
+                            x: x,
+                            y: y,
+                            width: boxWidth,
+                            height: boxHeight,
+                            color: rgb(1, 1, 1),
+                            borderColor: rgb(0.08, 0.60, 0.35),
+                            borderWidth: 0.9,
+                        });
+
+                        // 2. Checkmark icon on left
+                        const checkX = x + 3.2 * mmToPt;
+                        const checkY = y + boxHeight / 2;
+
+                        page.drawLine({
+                            start: { x: checkX - 2.8, y: checkY + 0.3 },
+                            end: { x: checkX - 0.7, y: checkY - 2.3 },
+                            thickness: 1.3,
+                            color: rgb(0.08, 0.60, 0.35),
+                        });
+                        page.drawLine({
+                            start: { x: checkX - 0.7, y: checkY - 2.3 },
+                            end: { x: checkX + 3.0, y: checkY + 2.6 },
+                            thickness: 1.3,
+                            color: rgb(0.08, 0.60, 0.35),
+                        });
+
+                        // 3. Identity text on right
+                        const textX = checkX + 5.0;
+                        const textY = y + (boxHeight - 7) / 2 + 1;
+                        page.drawText(identityText, {
+                            x: textX,
+                            y: textY,
+                            size: 7,
+                            font: fontBold,
+                            color: rgb(0.08, 0.60, 0.35),
+                        });
+
+                        currentRightOffset += boxWidth + gap;
+                    }
+                }
+            }
+        }
 
         // Apply PDF Metadata and Cryptographic Security Attributes
         if (inputData.metadata) {

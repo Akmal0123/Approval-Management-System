@@ -21,6 +21,7 @@ class Signature extends Model
         'user_id',
         'signature_path',
         'signature_type',
+        'category',
         'is_default',
     ];
 
@@ -75,13 +76,22 @@ class Signature extends Model
      */
     public function setAsDefault(): void
     {
-        // Unset all other signatures for this user
+        // Unset all other signatures in the same category for this user
         static::where('user_id', $this->user_id)
+            ->where('category', $this->category ?? 'signature')
             ->where('id', '!=', $this->id)
             ->update(['is_default' => false]);
 
         // Set this signature as default
         $this->update(['is_default' => true]);
+    }
+
+    /**
+     * Scope to get signatures by category.
+     */
+    public function scopeCategory($query, string $category)
+    {
+        return $query->where('category', $category);
     }
 
     /**

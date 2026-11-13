@@ -1249,4 +1249,25 @@ class DokumenApprovalController extends Controller
             );
         }
     }
+
+    /**
+     * Serve paraf image file for an approval.
+     */
+    public function parafFile(DokumenApproval $approval)
+    {
+        if (!$approval->paraf_path) {
+            abort(404, 'Paraf tidak ditemukan.');
+        }
+
+        $path = Storage::disk('local')->path($approval->paraf_path);
+        if (!file_exists($path)) {
+            $path = Storage::disk('public')->path($approval->paraf_path);
+            if (!file_exists($path)) {
+                abort(404, 'File paraf tidak ditemukan di storage.');
+            }
+        }
+
+        $mime = mime_content_type($path) ?: 'image/png';
+        return response()->file($path, ['Content-Type' => $mime]);
+    }
 }

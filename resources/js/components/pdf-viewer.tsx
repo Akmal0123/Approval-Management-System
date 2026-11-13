@@ -419,44 +419,6 @@ export default function PDFViewer({
                                                 className="block !m-0 !p-0 !max-w-none !shadow-none"
                                                 onLoadSuccess={onPageLoadSuccess}
                                             />
-                                            {(() => {
-                                                const pageBadges: { id: string | number; label: string }[] = [];
-                                                (approvals || []).forEach((app) => {
-                                                    if (app.approval_status === 'approved' && app.paraf_pages) {
-                                                        let parsed: number[] = [];
-                                                        if (Array.isArray(app.paraf_pages)) {
-                                                            parsed = app.paraf_pages.map(Number);
-                                                        } else if (typeof app.paraf_pages === 'string') {
-                                                            try {
-                                                                parsed = JSON.parse(app.paraf_pages).map(Number);
-                                                            } catch {}
-                                                        }
-                                                        if (parsed.includes(page)) {
-                                                            const name = app.user?.name || app.nama || app.step_name || 'Approver';
-                                                            pageBadges.push({
-                                                                id: `approved-${app.id}`,
-                                                                label: `Diparaf oleh ${name} (Verifikasi AMS)`,
-                                                            });
-                                                        }
-                                                    }
-                                                });
-
-                                                if (pageBadges.length === 0) return null;
-
-                                                return (
-                                                    <div className="paraf-preview-overlay absolute bottom-3 right-3 z-15 flex flex-row-reverse items-center gap-1.5 select-none print:hidden pointer-events-auto">
-                                                        {pageBadges.map((b) => (
-                                                            <div
-                                                                key={b.id}
-                                                                title={b.label}
-                                                                className="flex h-6 w-6 items-center justify-center rounded border border-emerald-600 bg-white shadow-xs text-emerald-700 transition-transform hover:scale-110 cursor-help"
-                                                            >
-                                                                <Check className="h-3.5 w-3.5 stroke-[3]" />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                );
-                                            })()}
                                         </div>
                                     </div>
                                 );

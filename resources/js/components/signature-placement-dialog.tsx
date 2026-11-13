@@ -24,16 +24,19 @@ if (typeof window !== 'undefined') {
 export const isQrCodeId = (id: string | number | null | undefined): boolean =>
     typeof id === 'string' && id.startsWith('qr_code');
 
-export interface Approval {
+interface Approval {
     id: number | string;
     step_name?: string;
+    approval_order?: number;
     jabatan_name?: string;
-    nama?: string;
     user?: { name: string };
     approver_email?: string;
     approval_status?: string;
     signature_method?: string;
+    paraf_path?: string | null;
+    paraf_url?: string | null;
     paraf_pages?: number[] | string | null;
+    nama?: string;
 }
 
 export interface BulkDocumentItem {
@@ -106,6 +109,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const [saving, setSaving] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    // Mobile tab state for the preview dialog
+    const [mobilePanelTab, setMobilePanelTab] = useState<'pdf' | 'info'>('pdf');
 
     // Paraf tracking state
     const [internalParafPages, setInternalParafPages] = useState<number[]>(parafPages || []);
@@ -279,7 +284,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         if (open || isEmbedded) {
             setLoading(true);
             setError(null);
-            setCurrentPage(1);
+            setMobilePanelTab('pdf'); // Always start on PDF tab when dialog opens/file changes
             if (dokumenId) {
                 fetchExistingPositions();
             } else {
@@ -316,27 +321,16 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         });
     }, [approvals]);
 
-    const MOBILE_MIN_SCALE = 0.3;
+    const MOBILE_MIN_SCALE = 0.45;
 
     const getMobileScale = (widthPt: number) => {
-        const el = pagesViewportRef.current ?? viewerRef.current;
+        const el = viewerRef.current;
         if (!el || widthPt <= 0) return 1;
         const style = getComputedStyle(el);
-        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-        const available = el.clientWidth - padding - 16;
+        const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
         if (available <= 0) return 1;
-        return Math.min(1.0, Math.max(MOBILE_MIN_SCALE, available / widthPt));
+        return Math.min(1, Math.max(MOBILE_MIN_SCALE, available / widthPt));
     };
-
-    useEffect(() => {
-        const handleResize = () => {
-            if (pageSizesRef.current[1]) {
-                setScale(getMobileScale(pageSizesRef.current[1].width));
-            }
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     useEffect(() => {
         hasAutoFit.current = false;
@@ -475,11 +469,9 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         if (!hasAutoFit.current) {
             hasAutoFit.current = true;
-            requestAnimationFrame(() => {
-                if (typeof window !== 'undefined') {
-                    setScale(getMobileScale(widthPt));
-                }
-            });
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                setScale(getMobileScale(widthPt));
+            }
         }
     };
 
@@ -1026,11 +1018,41 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     };
 
     const innerContent = (
-        <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto lg:overflow-hidden bg-background lg:flex-row">
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:flex-row">
+
+            {/* ===== MOBILE TAB SWITCHER (< md only, when sidebar is visible) ===== */}
+            {!hideSidebar && (
+                <div className="flex shrink-0 border-b bg-muted/30 px-1.5 pt-1.5 pb-0 md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setMobilePanelTab('pdf')}
+                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'pdf'
+                            ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        📄 PDF Dokumen
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMobilePanelTab('info')}
+                        className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-t-md transition-all ${mobilePanelTab === 'info'
+                            ? 'bg-background text-foreground shadow-sm border border-b-0 border-border'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        👥 Info Approver
+                    </button>
+                </div>
+            )}
 
             {/* Sidebar Configuration */}
             {!hideSidebar && (
-                <div className="w-full shrink-0 flex flex-col gap-3 sm:gap-4 overflow-y-auto border-t lg:border-t-0 lg:border-r bg-muted/20 p-3 sm:p-4 lg:w-64 xl:w-72 lg:h-full lg:max-h-none order-2 lg:order-1">
+                <div className={`
+                w-full shrink-0 flex-col gap-3 overflow-y-auto border-b bg-muted/20 p-3
+                md:flex md:h-full md:max-h-none md:w-80 md:gap-6 md:border-r md:border-b-0 md:p-4
+                ${mobilePanelTab === 'info' ? 'flex max-h-[calc(100%-42px)]' : 'hidden'}
+            `}>
                     <div>
                         {/* Dropdown List Dokumen Khusus Skenario Bulk Approve */}
                         {bulkDocuments && bulkDocuments.length > 0 && (() => {
@@ -1441,7 +1463,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     </div>
 
                     {/* Kontrol Tampilan & Simpan Posisi */}
-                    <div className="space-y-3 border-t pt-3 sm:pt-4">
+                    <div className="hidden space-y-3 border-t pt-4 md:block">
                         <div className="text-sm font-semibold">Kontrol Tampilan</div>
 
                         <div className="flex items-center justify-between gap-2 rounded-lg border bg-background p-1.5">
@@ -1525,7 +1547,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                 ref={viewerRef}
                 className={isFullscreen
                     ? "fixed inset-0 z-[99999] flex flex-col overflow-hidden bg-gray-950/95 backdrop-blur-md p-1 sm:p-4"
-                    : `relative flex flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2' : 'md:p-3 lg:p-4'} min-w-0 w-full order-1 lg:order-2 shrink-0 lg:shrink min-h-[460px] sm:min-h-[540px] h-[55vh] sm:h-[60vh] lg:h-full lg:flex-1 lg:min-h-0`}
+                    : `relative flex-col overflow-hidden bg-gray-100 p-1 sm:p-2 ${isEmbedded ? 'md:p-2.5' : 'md:p-6'} min-h-0 min-w-0 flex-1 ${!hideSidebar && mobilePanelTab === 'info'
+                        ? 'hidden md:flex'
+                        : 'flex'
+                    }`}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
@@ -1597,7 +1622,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                 <div
                     ref={pagesViewportRef}
-                    className="relative block min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain p-2 sm:p-4"
+                    className="relative flex min-h-0 min-w-0 flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain"
                 >
                     {(fetchLoading || loading) && !(fetchError || error) && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-xs">
@@ -1662,18 +1687,18 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                             onLoadError={onDocumentLoadError}
                             loading=""
                             error=""
-                            className="flex w-max min-w-full flex-col items-center gap-4 p-2 sm:p-4 pb-14"
+                            className="flex w-max min-w-full flex-col items-center gap-4 pb-14"
                         >
                             {Array.from({ length: numPages }, (_, index) => {
                                 const pageNumber = index + 1;
                                 return (
-                                    <div key={pageNumber} className="flex w-full max-w-full justify-center py-1">
+                                    <div key={pageNumber} className="flex w-full shrink-0 justify-center">
                                         <div
                                             ref={(element) => {
                                                 pageContainersRef.current[pageNumber] = element;
                                             }}
                                             data-page-number={pageNumber}
-                                            className={`relative max-w-full bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}
+                                            className={`relative w-fit shrink-0 bg-white shadow-xl select-none ${loading ? 'hidden' : ''}`}
                                         >
                                             <Page
                                                 pageNumber={pageNumber}
@@ -1685,10 +1710,17 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                             >
                                                 {renderSignatureBoxes(pageNumber)}
                                                 {(() => {
-                                                    const pageBadges: { id: string | number; label: string }[] = [];
+                                                    interface ParafBadge {
+                                                        id: string | number;
+                                                        label: string;
+                                                        identity: string;
+                                                        type: 'checklist' | 'image';
+                                                        imageSrc?: string | null;
+                                                    }
+                                                    const pageBadges: ParafBadge[] = [];
 
                                                     // Checked by previously approved approvers
-                                                    (approvals || []).forEach((app) => {
+                                                    (approvals || []).forEach((app, idx) => {
                                                         if (app.approval_status === 'approved' && app.paraf_pages) {
                                                             let parsed: number[] = [];
                                                             if (Array.isArray(app.paraf_pages)) {
@@ -1700,9 +1732,14 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                             }
                                                             if (parsed.includes(pageNumber)) {
                                                                 const name = app.user?.name || app.nama || app.step_name || 'Approver';
+                                                                const order = app.approval_order ?? (idx + 1);
+                                                                const identity = `App ${order}`;
                                                                 pageBadges.push({
                                                                     id: `approved-${app.id}`,
-                                                                    label: `Diparaf oleh ${name} (Verifikasi AMS)`,
+                                                                    label: `Diparaf oleh ${name} (${identity})`,
+                                                                    identity,
+                                                                    type: app.paraf_url || app.paraf_path ? 'image' : 'checklist',
+                                                                    imageSrc: app.paraf_url || (app.paraf_path ? `/storage/${app.paraf_path}` : null),
                                                                 });
                                                             }
                                                         }
@@ -1710,9 +1747,16 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
                                                     // Checked by current approver (draft in-progress paraf)
                                                     if (enableParaf && activeParafPages.includes(pageNumber)) {
+                                                        const activeApp = (approvals || []).find((a) => a.id === defaultActiveApprovalId);
+                                                        const myOrder = activeApp?.approval_order ?? (approvals?.findIndex((a) => a.id === defaultActiveApprovalId) !== -1 ? (approvals?.findIndex((a) => a.id === defaultActiveApprovalId) + 1) : 1);
+                                                        const myIdentity = `App ${myOrder}`;
+
                                                         pageBadges.push({
                                                             id: 'current-active',
-                                                            label: 'Paraf pemeriksaan Anda (Draft)',
+                                                            label: `Paraf pemeriksaan Anda (Draft - ${myIdentity})`,
+                                                            identity: myIdentity,
+                                                            type: parafImage ? 'image' : 'checklist',
+                                                            imageSrc: parafImage,
                                                         });
                                                     }
 
@@ -1724,15 +1768,22 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                                 <div
                                                                     key={b.id}
                                                                     title={b.label}
-                                                                    className="flex h-6 w-6 items-center justify-center rounded border border-emerald-600 bg-white shadow-xs text-emerald-700 transition-transform hover:scale-110 cursor-help"
+                                                                    className="flex items-center gap-1 h-6 px-1.5 rounded border border-emerald-600 bg-white shadow-xs text-emerald-700 transition-transform hover:scale-105 cursor-help"
                                                                 >
-                                                                    <Check className="h-3.5 w-3.5 stroke-[3]" />
+                                                                    {b.type === 'image' && b.imageSrc ? (
+                                                                        <img src={b.imageSrc} alt="Paraf" className="h-4 max-w-[28px] object-contain" />
+                                                                    ) : (
+                                                                        <Check className="h-3 w-3 stroke-[3] text-emerald-600 shrink-0" />
+                                                                    )}
+                                                                    <span className="text-[10px] font-bold tracking-tight text-emerald-800 whitespace-nowrap">
+                                                                        {b.identity}
+                                                                    </span>
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                    );
-                                                })()}
-                                            </Page>
+                                                        );
+                                                    })()}
+                                                    </Page>
                                         </div>
                                     </div>
                                 );
@@ -1810,7 +1861,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     </div>
                 )}
                 {isEmbedded && !readOnly && (
-                    <div className="shrink-0 border-t bg-background p-2 lg:hidden">
+                    <div className="shrink-0 border-t bg-background p-2 md:hidden">
                         <Button type="button" onClick={handleSave} disabled={saving || loading} className="h-9 w-full">
                             {saving ? 'Menyimpan...' : 'Simpan Posisi'}
                         </Button>
@@ -1826,24 +1877,22 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex h-[94vh] max-h-[94dvh] w-full max-w-[98vw] 2xl:max-w-7xl flex-col overflow-hidden rounded-xl sm:rounded-2xl p-0 lg:h-[92vh] lg:max-h-[92dvh]">
-                <DialogHeader className="shrink-0 border-b px-4 sm:px-6 py-3 sm:py-4">
+            <DialogContent className="flex h-[90vh] max-w-5xl flex-col overflow-hidden p-0">
+                <DialogHeader className="shrink-0 border-b px-6 py-4">
                     <DialogTitle>Atur Posisi Tanda Tangan</DialogTitle>
-                    <DialogDescription className="text-xs sm:text-sm">
+                    <DialogDescription>
                         Geser kotak tanda tangan ke lokasi yang Anda inginkan di dokumen PDF ini. Tanda tangan approver akan otomatis ditempatkan pada
                         posisi tersebut.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-                    {innerContent}
-                </div>
+                {innerContent}
 
-                <DialogFooter className="shrink-0 border-t px-4 sm:px-6 py-3 sm:py-4 flex-col-reverse sm:flex-row sm:justify-end gap-2">
-                    <Button variant="outline" onClick={() => onOpenChange && onOpenChange(false)} className="w-full sm:w-auto">
+                <DialogFooter className="shrink-0 border-t px-6 py-4">
+                    <Button variant="outline" onClick={() => onOpenChange && onOpenChange(false)}>
                         Batal
                     </Button>
-                    <Button onClick={handleSave} disabled={saving || loading} className="w-full sm:w-auto">
+                    <Button onClick={handleSave} disabled={saving || loading}>
                         {saving ? 'Menyimpan...' : 'Simpan Posisi Tanda Tangan'}
                     </Button>
                 </DialogFooter>

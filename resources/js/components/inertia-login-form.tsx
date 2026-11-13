@@ -224,7 +224,7 @@ export function InertiaLoginForm({ canResetPassword, status }: InertiaLoginFormP
 
             {/* Copyright Footer */}
             <div className="mt-3 text-center text-xs text-[#8fa799]">
-                © 2026 Approval Management System
+                © 2026 Document Approval Management System
             </div>
         </div>
     );

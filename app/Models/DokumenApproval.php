@@ -61,6 +61,7 @@ class DokumenApproval extends Model
      */
     protected $appends = [
         'signature_url',
+        'paraf_url',
     ];
 
     /**
@@ -356,5 +357,17 @@ class DokumenApproval extends Model
         }
 
         return \Illuminate\Support\Facades\Storage::url($this->signature_path);
+    }
+
+    /**
+     * Get the URL of the paraf file.
+     */
+    public function getParafUrlAttribute(): ?string
+    {
+        if (!$this->paraf_path) {
+            return null;
+        }
+
+        return route('dokumen.approval.paraf-file', ['approval' => $this->id]);
     }
 }

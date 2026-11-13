@@ -181,6 +181,31 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
     const [bulkParafMap, setBulkParafMap] = useState<Record<number, number[]>>({});
     const [bulkTotalPagesMap, setBulkTotalPagesMap] = useState<Record<number, number>>({});
 
+    // Bulk paraf selection states
+    const [bulkParafType, setBulkParafType] = useState<'checklist' | 'saved'>('checklist');
+    const [bulkSavedParafs, setBulkSavedParafs] = useState<any[]>([]);
+    const [selectedBulkSavedParaf, setSelectedBulkSavedParaf] = useState<any | null>(null);
+
+    // Fetch user's saved signatures & parafs when bulk modal opens
+    useEffect(() => {
+        if (isBulkModalOpen) {
+            api.get(route('signatures.index'))
+                .then((res: any) => {
+                    const list = res.data?.signatures || [];
+                    setBulkSavedParafs(list);
+                    const defParaf =
+                        list.find((s: any) => s.category === 'paraf' && s.is_default) ||
+                        list.find((s: any) => s.category === 'paraf') ||
+                        list.find((s: any) => s.is_default) ||
+                        list[0] || null;
+                    setSelectedBulkSavedParaf(defParaf);
+                })
+                .catch((err: any) => {
+                    console.error('Failed to load saved parafs for bulk:', err);
+                });
+        }
+    }, [isBulkModalOpen]);
+
     // Reset bulk paraf state when modal closes
     useEffect(() => {
         if (!isBulkModalOpen) {
@@ -351,11 +376,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             return;
         }
 
-        if (!isAllBulkDocsParafed) {
-            showToast.error(`❌ Harap selesaikan paraf seluruh dokumen (${fullyParafedDocsCount}/${selectedApprovalIds.length}) terlebih dahulu.`);
-            return;
-        }
-
         if (bulkSignatureMethod === 'original' && !bulkSignatureData) {
             showToast.error('❌ Silakan buat atau tambahkan tanda tangan terlebih dahulu');
             return;
@@ -369,6 +389,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                 signature_method: bulkSignatureMethod,
                 signature: bulkSignatureMethod === 'original' ? bulkSignatureData : undefined,
                 comment: bulkComment.trim() || undefined,
+                paraf_signature:
+                    bulkParafType === 'saved' && selectedBulkSavedParaf
+                        ? `/signatures/${selectedBulkSavedParaf.id}/file`
+                        : undefined,
                 paraf_map: bulkParafMap,
             },
             {
@@ -425,6 +449,8 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             signature_path: a.signature_path,
             verification_token: a.verification_token,
             paraf_pages: (a as any).paraf_pages,
+            paraf_path: (a as any).paraf_path,
+            paraf_url: (a as any).paraf_url,
         }));
 
     // Keep bulkPreviewApprovalId in sync with selectedApprovalIds
@@ -452,9 +478,10 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
         currentBulkPreviewApproval?.dokumen?.approvals || (currentBulkPreviewApproval ? [currentBulkPreviewApproval] : [])
     )
         .filter((a) => a.approval_status !== 'skipped')
-        .map((a) => ({
+        .map((a, idx) => ({
             id: a.id,
             step_name: a.masterflow_step?.step_name || 'Approval Step',
+            approval_order: a.approval_order ?? (idx + 1),
             jabatan_name: a.masterflow_step?.jabatan?.name || '',
             user: a.user ? { name: a.user.name } : undefined,
             approver_email: a.user?.email || '',
@@ -463,6 +490,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
             signature_path: a.signature_path,
             verification_token: a.verification_token,
             paraf_pages: (a as any).paraf_pages,
+            paraf_path: (a as any).paraf_path,
         }));
 
     const isDocFullyParafed = (approvalId: number) => {
@@ -1271,6 +1299,11 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                             readOnly={!((currentBulkPreviewApproval.can_approve ?? true) && currentBulkPreviewApproval.approval_status === 'pending')}
                                             enableParaf={true}
                                             parafPages={bulkParafMap[currentBulkPreviewApproval.id] || []}
+                                            parafImage={
+                                                bulkParafType === 'saved' && selectedBulkSavedParaf
+                                                    ? selectedBulkSavedParaf.signature_url || `/signatures/${selectedBulkSavedParaf.id}/file`
+                                                    : null
+                                            }
                                             onParafChange={(pages) => {
                                                 setBulkParafMap((prev) => ({
                                                     ...prev,
@@ -1452,62 +1485,104 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                         <>
                                             <Separator />
 
-                                            {/* Status Paraf Dokumen Massal */}
-                                            <div className="space-y-1.5">
+                                            {/* Pilihan Bentuk Paraf */}
+                                            <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
                                                     <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                                                        Status Paraf Dokumen
+                                                        Bentuk Paraf Dokumen
                                                     </Label>
-                                                    <span className="text-[11px] font-medium text-muted-foreground">
-                                                        {fullyParafedDocsCount}/{selectedApprovalIds.length} Selesai
-                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground">Opsional</span>
                                                 </div>
 
-                                                {isAllBulkDocsParafed ? (
-                                                    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/90 p-2 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                                        <IconCheck className="h-4 w-4 shrink-0 text-emerald-600 stroke-[3]" />
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="font-semibold">Semua Dokumen Terparaf ✓</p>
-                                                            <p className="text-[11px] text-emerald-700 dark:text-emerald-400">Seluruh dokumen ({selectedApprovalIds.length}) siap disetujui massal.</p>
-                                                        </div>
+                                                <div className="grid grid-cols-2 gap-1.5">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant={bulkParafType === 'checklist' ? 'default' : 'outline'}
+                                                        onClick={() => {
+                                                            setBulkParafType('checklist');
+                                                            setSelectedBulkSavedParaf(null);
+                                                        }}
+                                                        className="w-full text-xs font-medium h-8"
+                                                    >
+                                                        <IconCheck className="mr-1 h-3.5 w-3.5" />
+                                                        Centang (Default)
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant={bulkParafType === 'saved' ? 'default' : 'outline'}
+                                                        onClick={() => {
+                                                            setBulkParafType('saved');
+                                                            if (bulkSavedParafs.length > 0 && !selectedBulkSavedParaf) {
+                                                                const defParaf =
+                                                                    bulkSavedParafs.find((s: any) => s.category === 'paraf' && s.is_default) ||
+                                                                    bulkSavedParafs.find((s: any) => s.category === 'paraf') ||
+                                                                    bulkSavedParafs.find((s: any) => s.is_default) ||
+                                                                    bulkSavedParafs[0];
+                                                                setSelectedBulkSavedParaf(defParaf);
+                                                            }
+                                                        }}
+                                                        className="w-full text-xs font-medium h-8"
+                                                    >
+                                                        <IconPencil className="mr-1 h-3.5 w-3.5" />
+                                                        Paraf Tersimpan
+                                                    </Button>
+                                                </div>
+
+                                                {bulkParafType === 'checklist' ? (
+                                                    <div className="rounded-md border bg-muted/40 p-2 text-[11px] text-muted-foreground leading-tight">
+                                                        Identitas approver otomatis dicantumkan di samping centang pada setiap lembar yang diparaf.
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/90 p-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
-                                                        <div className="flex items-start gap-1.5">
-                                                            <IconAlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="font-semibold">
-                                                                    Dokumen Aktif: {isCurrentBulkDocParafed ? 'Sudah Lengkap ✓' : 'Belum Lengkap'}
-                                                                </p>
-                                                                <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
-                                                                    {currentBulkDocParafPages.length}/{currentBulkDocTotalPages || '-'} halaman diparaf pada dokumen yang sedang tampil.
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {bulkSavedParafs.length === 0 ? (
+                                                            <div className="rounded border border-dashed bg-muted/20 p-2.5 text-center text-xs text-muted-foreground">
+                                                                <p>Belum ada paraf tersimpan di profil.</p>
+                                                                <a
+                                                                    href={route('profile.edit')}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="mt-1 block text-[11px] font-semibold text-primary underline"
+                                                                >
+                                                                    Tambah Paraf di Profil ↗
+                                                                </a>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                <div className="grid max-h-28 grid-cols-3 gap-1.5 overflow-y-auto rounded-md border bg-card p-1">
+                                                                    {bulkSavedParafs.map((p) => (
+                                                                        <button
+                                                                            key={p.id}
+                                                                            type="button"
+                                                                            onClick={() => setSelectedBulkSavedParaf(p)}
+                                                                            className={`relative flex aspect-square items-center justify-center rounded border p-1 transition-all ${
+                                                                                selectedBulkSavedParaf?.id === p.id
+                                                                                    ? 'border-emerald-600 bg-emerald-50/30 ring-2 ring-emerald-500/30'
+                                                                                    : 'border-border hover:border-emerald-300'
+                                                                            }`}
+                                                                        >
+                                                                            <img
+                                                                                src={p.signature_url || `/signatures/${p.id}/file`}
+                                                                                alt="Paraf"
+                                                                                className="max-h-full max-w-full object-contain"
+                                                                            />
+                                                                            {p.is_default && (
+                                                                                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                                                                            )}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground">
+                                                                    Klik salah satu gambar paraf di atas untuk digunakan.
                                                                 </p>
                                                             </div>
-                                                        </div>
-                                                        <div className="flex flex-col gap-1 pt-1">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={handleParafCurrentBulkDoc}
-                                                                className="w-full h-7 text-[11px] border-amber-300 bg-white/80 hover:bg-white text-amber-900 font-medium cursor-pointer"
-                                                            >
-                                                                Paraf Dokumen Ini ({currentBulkDocTotalPages || '-'} Hal)
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={handleParafAllBulkDocs}
-                                                                className="w-full h-7 text-[11px] border-amber-300 bg-amber-100/70 hover:bg-amber-200/80 text-amber-900 font-semibold cursor-pointer"
-                                                            >
-                                                                <IconCheck className="mr-1 h-3.5 w-3.5" />
-                                                                Paraf Semua Dokumen Sekaligus
-                                                            </Button>
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
+
+                                            <Separator />
 
                                             <div className="space-y-2">
                                                 <div className="space-y-1.5">
@@ -1530,7 +1605,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                         type="button"
                                                         size="sm"
                                                         onClick={handleBulkApproveSubmit}
-                                                        disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData) || !isAllBulkDocsParafed}
+                                                        disabled={isBulkSubmitting || (bulkSignatureMethod === 'original' && !bulkSignatureData)}
                                                         className="w-full font-sans h-9 cursor-pointer"
                                                     >
                                                         {isBulkSubmitting ? 'Memproses...' : (
@@ -1540,11 +1615,6 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             </>
                                                         )}
                                                     </Button>
-                                                    {!isAllBulkDocsParafed && (
-                                                        <p className="text-[10px] text-center text-amber-600 dark:text-amber-400 font-medium">
-                                                            Paraf seluruh dokumen (✓) untuk mengaktifkan persetujuan massal
-                                                        </p>
-                                                    )}
                                                     <Button
                                                         type="button"
                                                         size="sm"

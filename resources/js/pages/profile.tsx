@@ -249,7 +249,24 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                                             Kelola tanda tangan digital Anda untuk proses approval dokumen
                                         </p>
                                     </div>
-                                    <SignatureManager />
+                                    <SignatureManager category="signature" />
+                                </CardContent>
+                            </Card>
+
+                            {/* Paraf Management Section */}
+                            <Card>
+                                <CardContent className="p-6">
+                                    <div className="mb-6">
+                                        <h2 className="text-xl font-semibold">Paraf / Inisial Digital</h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            Kelola paraf / inisial digital Anda untuk verifikasi setiap lembar halaman dokumen
+                                        </p>
+                                    </div>
+                                    <SignatureManager
+                                        category="paraf"
+                                        title="Manajemen Paraf Digital"
+                                        description="Buat dan kelola paraf / inisial Anda dalam format standar persegi 1:1 (400 × 400 px)"
+                                    />
                                 </CardContent>
                             </Card>
                         </div>

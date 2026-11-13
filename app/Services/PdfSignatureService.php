@@ -341,8 +341,35 @@ class PdfSignatureService
                 }
             }
 
-            // Paraf is strictly a digital preview verification check in AMS and is not stamped into the downloaded PDF
+            // Collect all parafs from approvals that marked paraf_pages
             $parafsData = [];
+            foreach ($approvals as $idx => $app) {
+                if (!empty($app->paraf_pages)) {
+                    $pages = is_array($app->paraf_pages) ? $app->paraf_pages : json_decode($app->paraf_pages, true);
+                    if (is_array($pages)) {
+                        $appOrder = $app->approval_order ?? ($idx + 1);
+                        $identity = 'App ' . $appOrder;
+
+                        $parafImgPath = null;
+                        if (!empty($app->paraf_path)) {
+                            $fullParafPath = Storage::disk('local')->path($app->paraf_path);
+                            if (file_exists($fullParafPath)) {
+                                $parafImgPath = $fullParafPath;
+                            }
+                        }
+
+                        foreach ($pages as $p) {
+                            $parafsData[] = [
+                                'approval_id' => $app->id,
+                                'page' => (int)$p,
+                                'approver_name' => $app->user?->name ?? 'Approver',
+                                'identity' => $identity,
+                                'imagePath' => $parafImgPath,
+                            ];
+                        }
+                    }
+                }
+            }
 
             if (!$dokumen && $approvals && $approvals->count() > 0) {
                 $firstApproval = $approvals->first();

@@ -18,6 +18,7 @@ interface Signature {
     signature_path: string;
     signature_url: string;
     signature_type: 'manual' | 'uploaded';
+    category?: 'signature' | 'paraf';
     is_default: boolean;
     created_at: string;
 }
@@ -33,7 +34,21 @@ function getCsrfToken(): string {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 }
 
-export default function SignatureManager() {
+interface SignatureManagerProps {
+    category?: 'signature' | 'paraf';
+    title?: string;
+    description?: string;
+}
+
+export default function SignatureManager({
+    category = 'signature',
+    title,
+    description,
+}: SignatureManagerProps) {
+    const isParaf = category === 'paraf';
+    const itemLabel = isParaf ? 'Paraf' : 'Tanda Tangan';
+    const itemLabelLower = isParaf ? 'paraf' : 'tanda tangan';
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [signatures, setSignatures] = useState<Signature[]>([]);
@@ -55,7 +70,7 @@ export default function SignatureManager() {
     // Fetch signatures on mount
     useEffect(() => {
         fetchSignatures();
-    }, []);
+    }, [category]);
 
     // Initialize canvas with 400x400 standard dimensions and white background
     useEffect(() => {
@@ -82,6 +97,7 @@ export default function SignatureManager() {
     const fetchSignatures = async () => {
         try {
             const response = await axios.get(route('signatures.index'), {
+                params: { category },
                 headers: {
                     Accept: 'application/json',
                 },
@@ -188,7 +204,7 @@ export default function SignatureManager() {
         }
 
         if (isBlank) {
-            showToast.error('❌ Silakan gambar tanda tangan terlebih dahulu');
+            showToast.error(`❌ Silakan gambar ${itemLabelLower} terlebih dahulu`);
             return;
         }
 
@@ -202,6 +218,7 @@ export default function SignatureManager() {
                 {
                     signature: dataUrl,
                     signature_type: 'manual',
+                    category: category,
                     is_default: signatures.length === 0, // Set as default if first signature
                 },
                 {
@@ -214,7 +231,7 @@ export default function SignatureManager() {
                 },
             );
 
-            showToast.success('✅ Tanda tangan berhasil disimpan!');
+            showToast.success(`✅ ${itemLabel} berhasil disimpan!`);
             clearCanvas();
             await fetchSignatures();
         } catch (error: any) {
@@ -263,20 +280,20 @@ export default function SignatureManager() {
         }
 
         try {
-            const file = await createSignatureFile(uploadImageSrc, croppedAreaPixels, originalFileName || 'signature.png');
+            const file = await createSignatureFile(uploadImageSrc, croppedAreaPixels, originalFileName || `${itemLabelLower}.png`);
             setProcessedFile(file);
             setCroppedPreviewUrl(URL.createObjectURL(file));
             setCropModalOpen(false);
-            showToast.success('✅ Area tanda tangan 1:1 berhasil dipilih');
+            showToast.success(`✅ Area ${itemLabelLower} 1:1 berhasil dipilih`);
         } catch (error: any) {
-            console.error('Failed to crop signature image:', error);
-            showToast.error('❌ Gagal memotong gambar tanda tangan');
+            console.error(`Failed to crop ${itemLabelLower} image:`, error);
+            showToast.error(`❌ Gagal memotong gambar ${itemLabelLower}`);
         }
     };
 
     const uploadSignature = async () => {
         if (!processedFile) {
-            showToast.error('❌ Silakan pilih dan potong gambar tanda tangan terlebih dahulu');
+            showToast.error(`❌ Silakan pilih dan potong gambar ${itemLabelLower} terlebih dahulu`);
             return;
         }
 
@@ -285,6 +302,7 @@ export default function SignatureManager() {
             const formData = new FormData();
             formData.append('signature_file', processedFile);
             formData.append('signature_type', 'uploaded');
+            formData.append('category', category);
             formData.append('is_default', signatures.length === 0 ? '1' : '0');
 
             await axios.post(route('signatures.upload'), formData, {
@@ -296,16 +314,16 @@ export default function SignatureManager() {
                 withCredentials: true,
             });
 
-            showToast.success('✅ Tanda tangan berhasil diupload!');
+            showToast.success(`✅ ${itemLabel} berhasil diupload!`);
             setProcessedFile(null);
             setCroppedPreviewUrl(null);
             setUploadImageSrc(null);
             // Reset file input
-            const fileInput = document.getElementById('signature-file') as HTMLInputElement;
+            const fileInput = document.getElementById(`${category}-file`) as HTMLInputElement;
             if (fileInput) fileInput.value = '';
             await fetchSignatures();
         } catch (error: any) {
-            const message = error.response?.data?.message || 'Gagal mengupload tanda tangan';
+            const message = error.response?.data?.message || `Gagal mengupload ${itemLabelLower}`;
             showToast.error(`❌ ${message}`);
         } finally {
             setLoading(false);
@@ -316,7 +334,7 @@ export default function SignatureManager() {
         setProcessedFile(null);
         setCroppedPreviewUrl(null);
         setUploadImageSrc(null);
-        const fileInput = document.getElementById('signature-file') as HTMLInputElement;
+        const fileInput = document.getElementById(`${category}-file`) as HTMLInputElement;
         if (fileInput) fileInput.value = '';
     };
 
@@ -335,10 +353,10 @@ export default function SignatureManager() {
                 },
             );
 
-            showToast.success('✅ Tanda tangan default berhasil diupdate!');
+            showToast.success(`✅ ${itemLabel} default berhasil diupdate!`);
             await fetchSignatures();
         } catch (error: any) {
-            const message = error.response?.data?.message || 'Gagal mengupdate tanda tangan default';
+            const message = error.response?.data?.message || `Gagal mengupdate ${itemLabelLower} default`;
             showToast.error(`❌ ${message}`);
         } finally {
             setLoading(false);
@@ -356,10 +374,10 @@ export default function SignatureManager() {
                 withCredentials: true,
             });
 
-            showToast.success('✅ Tanda tangan berhasil dihapus');
+            showToast.success(`✅ ${itemLabel} berhasil dihapus`);
             await fetchSignatures();
         } catch (error: any) {
-            const message = error.response?.data?.message || 'Gagal menghapus tanda tangan';
+            const message = error.response?.data?.message || `Gagal menghapus ${itemLabelLower}`;
             showToast.error(`❌ ${message}`);
         } finally {
             setLoading(false);
@@ -383,25 +401,25 @@ export default function SignatureManager() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Digital Signature Management</CardTitle>
-                    <CardDescription>Buat dan kelola tanda tangan digital Anda dengan format standar persegi 1:1 (400 × 400 px)</CardDescription>
+                    <CardTitle>{title || (isParaf ? 'Manajemen Paraf Digital' : 'Digital Signature Management')}</CardTitle>
+                    <CardDescription>{description || `Buat dan kelola ${itemLabelLower} digital Anda dengan format standar persegi 1:1 (400 × 400 px)`}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="draw" className="w-full">
-                        <TabsList className="flex h-auto w-full flex-col gap-1.5 p-1.5">
+                        <TabsList className="flex h-auto w-full flex-col gap-1.5 p-1.5 sm:flex-row">
                             <TabsTrigger value="draw" className="w-full justify-center py-2.5 font-sans">
                                 <PenTool className="mr-2 h-4 w-4 shrink-0" />
-                                Gambar Tanda Tangan
+                                Gambar {itemLabel}
                             </TabsTrigger>
                             <TabsTrigger value="upload" className="w-full justify-center py-2.5 font-sans">
                                 <Upload className="mr-2 h-4 w-4 shrink-0" />
-                                Upload Tanda Tangan
+                                Upload {itemLabel}
                             </TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="draw" className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Gambar tanda tangan Anda di dalam area persegi (1:1) di bawah ini</Label>
+                                <Label>Gambar {itemLabelLower} Anda di dalam area persegi (1:1) di bawah ini</Label>
                                 <div className="flex justify-center">
                                     <div className="w-full max-w-[360px]">
                                         <canvas
@@ -419,7 +437,7 @@ export default function SignatureManager() {
                                         />
                                     </div>
                                 </div>
-                                <p className="text-center text-xs text-muted-foreground">Area tanda tangan berukuran 1:1 persegi (output: 400 × 400 px PNG)</p>
+                                <p className="text-center text-xs text-muted-foreground">Area {itemLabelLower} berukuran 1:1 persegi (output: 400 × 400 px PNG)</p>
                             </div>
                             <div className="flex justify-center gap-2 sm:justify-end">
                                 <Button type="button" variant="outline" onClick={clearCanvas}>
@@ -427,15 +445,15 @@ export default function SignatureManager() {
                                     Hapus
                                 </Button>
                                 <Button type="button" onClick={saveCanvasSignature} disabled={loading}>
-                                    {loading ? 'Menyimpan...' : 'Simpan Tanda Tangan'}
+                                    {loading ? 'Menyimpan...' : `Simpan ${itemLabel}`}
                                 </Button>
                             </div>
                         </TabsContent>
 
                         <TabsContent value="upload" className="space-y-4">
                             <div className="space-y-4">
-                                <Label htmlFor="signature-file">Upload gambar tanda tangan</Label>
-                                <Input id="signature-file" type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileChange} />
+                                <Label htmlFor={`${category}-file`}>Upload gambar {itemLabelLower}</Label>
+                                <Input id={`${category}-file`} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileChange} />
                                 <p className="text-sm leading-relaxed text-muted-foreground">
                                     Format: PNG, JPG, JPEG (Maks. 2MB). Gambar akan dipotong menjadi rasio persegi 1:1.
                                 </p>
@@ -445,7 +463,7 @@ export default function SignatureManager() {
                                 <div className="space-y-4 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-medium">Hasil Crop Tanda Tangan (1:1)</p>
+                                            <p className="text-sm font-medium">Hasil Crop {itemLabel} (1:1)</p>
                                             <p className="text-xs text-muted-foreground">Standar Output: 400 × 400 px PNG</p>
                                         </div>
                                         <Button
@@ -477,7 +495,7 @@ export default function SignatureManager() {
                                         </Button>
                                         <Button type="button" onClick={uploadSignature} disabled={loading} className="w-full sm:w-auto">
                                             <Upload className="mr-2 h-4 w-4" />
-                                            {loading ? 'Mengupload...' : 'Upload Tanda Tangan'}
+                                            {loading ? 'Mengupload...' : `Upload ${itemLabel}`}
                                         </Button>
                                     </div>
                                 </div>
@@ -486,7 +504,7 @@ export default function SignatureManager() {
                             {!croppedPreviewUrl && (
                                 <div className="rounded-md border border-dashed border-neutral-300 p-8 text-center text-muted-foreground dark:border-neutral-700">
                                     <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground/60" />
-                                    <p className="text-sm">Pilih gambar tanda tangan untuk membuka pemotong gambar 1:1</p>
+                                    <p className="text-sm">Pilih gambar {itemLabelLower} untuk membuka pemotong gambar 1:1</p>
                                 </div>
                             )}
                         </TabsContent>
@@ -498,9 +516,9 @@ export default function SignatureManager() {
             <Dialog open={cropModalOpen} onOpenChange={setCropModalOpen}>
                 <DialogContent className="max-w-md sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle className="font-serif">Sesuaikan Area Tanda Tangan (1:1)</DialogTitle>
+                        <DialogTitle className="font-serif">Sesuaikan Area {itemLabel} (1:1)</DialogTitle>
                         <DialogDescription className="font-sans">
-                            Geser dan perbesar gambar agar tanda tangan berada di tengah area persegi. Output akan disimpan dalam ukuran 400 × 400 px.
+                            Geser dan perbesar gambar agar {itemLabelLower} berada di tengah area persegi. Output akan disimpan dalam ukuran 400 × 400 px.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -577,8 +595,8 @@ export default function SignatureManager() {
             {/* Signatures List */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Tanda Tangan Saya</CardTitle>
-                    <CardDescription>Kelola tanda tangan yang telah disimpan (semua berformat 1:1 persegi)</CardDescription>
+                    <CardTitle>{isParaf ? 'Paraf Saya' : 'Tanda Tangan Saya'}</CardTitle>
+                    <CardDescription>Kelola {itemLabelLower} yang telah disimpan (semua berformat 1:1 persegi)</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {initialLoading ? (
@@ -606,9 +624,9 @@ export default function SignatureManager() {
                             <div className="mb-4 rounded-full bg-muted p-4">
                                 <FileSignature className="h-8 w-8 text-muted-foreground" />
                             </div>
-                            <h3 className="mb-1 text-lg font-medium">Belum ada tanda tangan</h3>
+                            <h3 className="mb-1 text-lg font-medium">Belum ada {itemLabelLower}</h3>
                             <p className="max-w-sm text-sm text-muted-foreground">
-                                Gambar atau upload tanda tangan Anda di atas untuk memulai. Tanda tangan akan digunakan untuk proses approval dokumen.
+                                Gambar atau upload {itemLabelLower} Anda di atas untuk memulai. {itemLabel} akan digunakan untuk proses {isParaf ? 'paraf lembar' : 'approval'} dokumen.
                             </p>
                         </div>
                     ) : (
@@ -631,10 +649,10 @@ export default function SignatureManager() {
                                         <div className="mb-4 flex aspect-square w-full items-center justify-center rounded border border-neutral-200 bg-white p-3 dark:border-neutral-800">
                                             <img
                                                 src={`/signatures/${signature.id}/file`}
-                                                alt="Tanda Tangan"
+                                                alt={itemLabel}
                                                 className="max-h-full max-w-full object-contain"
                                                 onError={(e) => {
-                                                    console.error('Failed to load signature image:', signature.signature_path);
+                                                    console.error(`Failed to load ${itemLabelLower} image:`, signature.signature_path);
                                                     e.currentTarget.src =
                                                         'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
                                                 }}
@@ -674,9 +692,9 @@ export default function SignatureManager() {
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="font-serif">Hapus Tanda Tangan</DialogTitle>
+                        <DialogTitle className="font-serif">Hapus {itemLabel}</DialogTitle>
                         <DialogDescription className="font-sans">
-                            Apakah Anda yakin ingin menghapus tanda tangan ini? Tindakan ini tidak dapat dibatalkan.
+                            Apakah Anda yakin ingin menghapus {itemLabelLower} ini? Tindakan ini tidak dapat dibatalkan.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

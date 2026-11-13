@@ -13,12 +13,17 @@ class SignatureController extends Controller
     /**
      * Get all signatures for the authenticated user.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $signatures = Signature::byUser(Auth::id())
+        $query = Signature::byUser(Auth::id())
             ->orderBy('is_default', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        if ($request->has('category') && in_array($request->category, ['signature', 'paraf'])) {
+            $query->where('category', $request->category);
+        }
+
+        $signatures = $query->get();
 
         return response()->json([
             'signatures' => $signatures,
@@ -33,8 +38,11 @@ class SignatureController extends Controller
         $validated = $request->validate([
             'signature' => 'required|string', // Base64 encoded image
             'signature_type' => 'required|in:manual,uploaded',
+            'category' => 'nullable|in:signature,paraf',
             'is_default' => 'boolean',
         ]);
+
+        $category = $validated['category'] ?? 'signature';
 
         try {
             // Decode base64 image
@@ -56,12 +64,13 @@ class SignatureController extends Controller
             $imageInfo = @getimagesizefromstring($imageData);
             if (!$imageInfo || $imageInfo[0] !== 400 || $imageInfo[1] !== 400) {
                 return response()->json([
-                    'message' => 'Signature harus berukuran 400 × 400 px (rasio 1:1).',
+                    'message' => ($category === 'paraf' ? 'Paraf' : 'Signature') . ' harus berukuran 400 × 400 px (rasio 1:1).',
                 ], 422);
             }
 
             // Generate filename
-            $filename = 'signature_' . time() . '_' . Str::random(10) . '.png';
+            $prefix = $category === 'paraf' ? 'paraf_' : 'signature_';
+            $filename = $prefix . time() . '_' . Str::random(10) . '.png';
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the image
@@ -72,6 +81,7 @@ class SignatureController extends Controller
                 'user_id' => Auth::id(),
                 'signature_path' => $path,
                 'signature_type' => $validated['signature_type'],
+                'category' => $category,
                 'is_default' => $validated['is_default'] ?? false,
             ]);
 
@@ -80,13 +90,14 @@ class SignatureController extends Controller
                 $signature->setAsDefault();
             }
 
+            $label = $category === 'paraf' ? 'Paraf' : 'Tanda tangan';
             return response()->json([
-                'message' => 'Tanda tangan berhasil disimpan!',
+                'message' => "{$label} berhasil disimpan!",
                 'signature' => $signature,
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal menyimpan tanda tangan: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -98,8 +109,11 @@ class SignatureController extends Controller
     {
         $validated = $request->validate([
             'signature_file' => 'required|image|mimes:png,jpg,jpeg|max:2048', // Max 2MB
+            'category' => 'nullable|in:signature,paraf',
             'is_default' => 'boolean',
         ]);
+
+        $category = $validated['category'] ?? 'signature';
 
         try {
             $file = $request->file('signature_file');
@@ -108,7 +122,7 @@ class SignatureController extends Controller
             $imageInfo = @getimagesize($file->getRealPath());
             if (!$imageInfo || $imageInfo[0] !== 400 || $imageInfo[1] !== 400) {
                 return response()->json([
-                    'message' => 'Signature harus berukuran 400 × 400 px (rasio 1:1).',
+                    'message' => ($category === 'paraf' ? 'Paraf' : 'Signature') . ' harus berukuran 400 × 400 px (rasio 1:1).',
                 ], 422);
             }
 
@@ -117,7 +131,8 @@ class SignatureController extends Controller
             $ext = ($mime === 'image/jpeg') ? 'jpg' : 'png';
 
             // Generate filename
-            $filename = 'uploaded_' . time() . '_' . Str::random(10) . '.' . $ext;
+            $prefix = $category === 'paraf' ? 'paraf_uploaded_' : 'uploaded_';
+            $filename = $prefix . time() . '_' . Str::random(10) . '.' . $ext;
             $path = 'signatures/user_' . Auth::id() . '/' . $filename;
 
             // Store the file
@@ -128,6 +143,7 @@ class SignatureController extends Controller
                 'user_id' => Auth::id(),
                 'signature_path' => $path,
                 'signature_type' => 'uploaded',
+                'category' => $category,
                 'is_default' => $validated['is_default'] ?? false,
             ]);
 
@@ -136,8 +152,9 @@ class SignatureController extends Controller
                 $signature->setAsDefault();
             }
 
+            $label = $category === 'paraf' ? 'Paraf' : 'Tanda tangan';
             return response()->json([
-                'message' => 'Tanda tangan berhasil diupload!',
+                'message' => "{$label} berhasil diupload!",
                 'signature' => $signature,
             ], 201);
         } catch (\Exception $e) {

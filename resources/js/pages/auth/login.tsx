@@ -44,11 +44,11 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     />
                                 </div>
                                 <span className="text-sm font-black tracking-tight text-[#143d22]">
-                                    AMS
+                                    DAMS
                                 </span>
                                 <span className="text-slate-300 text-xs">|</span>
                                 <span className="text-xs font-semibold text-[#375a43]">
-                                    Approval Management System
+                                    Document Approval Management System
                                 </span>
                             </div>
                         </div>
