@@ -20,6 +20,8 @@ async function run() {
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+
+        
         for (const sig of inputData.signatures || []) {
             const pageIndex = Math.min(Math.max(sig.page - 1, 0), pages.length - 1);
             const page = pages[pageIndex];
@@ -216,8 +218,15 @@ async function run() {
                     }
 
                     if (parafImg) {
-                        const imgW = 18 * mmToPt;
-                        const imgH = 9 * mmToPt;
+                        // Preserve original image aspect ratio up to max bounding box (e.g. max 18mm width, 12mm height)
+                        const maxW = 18 * mmToPt;
+                        const maxH = 12 * mmToPt;
+                        const origW = parafImg.width || 1;
+                        const origH = parafImg.height || 1;
+                        const ratio = Math.min(maxW / origW, maxH / origH);
+                        const imgW = origW * ratio;
+                        const imgH = origH * ratio;
+
                         const x = pageX + pageWidth - (currentRightOffset + imgW);
                         const y = pageY + marginFromBottomPt;
 

@@ -60,11 +60,11 @@ class SignatureController extends Controller
                 ], 422);
             }
 
-            // Validate image dimensions (must be 400x400 px, 1:1 ratio)
+            // Validate image dimensions (1:1 aspect ratio, min 200x200 px, max 2000x2000 px)
             $imageInfo = @getimagesizefromstring($imageData);
-            if (!$imageInfo || $imageInfo[0] !== 400 || $imageInfo[1] !== 400) {
+            if (!$imageInfo || $imageInfo[0] !== $imageInfo[1] || $imageInfo[0] < 200 || $imageInfo[0] > 2000) {
                 return response()->json([
-                    'message' => ($category === 'paraf' ? 'Paraf' : 'Signature') . ' harus berukuran 400 × 400 px (rasio 1:1).',
+                    'message' => ($category === 'paraf' ? 'Paraf' : 'Signature') . ' harus berasio 1:1 (persegi) dengan resolusi minimal 200×200 px.',
                 ], 422);
             }
 
@@ -118,11 +118,11 @@ class SignatureController extends Controller
         try {
             $file = $request->file('signature_file');
 
-            // Validate image dimensions (must be 400x400 px, 1:1 ratio)
+            // Validate image dimensions (1:1 aspect ratio, min 200x200 px, max 2000x2000 px)
             $imageInfo = @getimagesize($file->getRealPath());
-            if (!$imageInfo || $imageInfo[0] !== 400 || $imageInfo[1] !== 400) {
+            if (!$imageInfo || $imageInfo[0] !== $imageInfo[1] || $imageInfo[0] < 200 || $imageInfo[0] > 2000) {
                 return response()->json([
-                    'message' => ($category === 'paraf' ? 'Paraf' : 'Signature') . ' harus berukuran 400 × 400 px (rasio 1:1).',
+                    'message' => ($category === 'paraf' ? 'Paraf' : 'Signature') . ' harus berasio 1:1 (persegi) dengan resolusi minimal 200×200 px.',
                 ], 422);
             }
 

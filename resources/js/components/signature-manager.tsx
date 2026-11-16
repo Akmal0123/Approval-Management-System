@@ -80,12 +80,12 @@ export default function SignatureManager({
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        canvas.width = 400;
-        canvas.height = 400;
+        canvas.width = 800;
+        canvas.height = 800;
 
         // Set canvas drawing style
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -139,7 +139,7 @@ export default function SignatureManager({
         if (!ctx) return;
 
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -424,8 +424,8 @@ export default function SignatureManager({
                                     <div className="w-full max-w-[360px]">
                                         <canvas
                                             ref={canvasRef}
-                                            width={400}
-                                            height={400}
+                                            width={800}
+                                            height={800}
                                             className="aspect-square w-full cursor-crosshair touch-none rounded-md border-2 border-dashed border-neutral-300 bg-white shadow-xs dark:border-neutral-700 dark:bg-neutral-950"
                                             onMouseDown={startDrawing}
                                             onMouseMove={draw}
@@ -437,7 +437,7 @@ export default function SignatureManager({
                                         />
                                     </div>
                                 </div>
-                                <p className="text-center text-xs text-muted-foreground">Area {itemLabelLower} berukuran 1:1 persegi (output: 400 × 400 px PNG)</p>
+                                <p className="text-center text-xs text-muted-foreground">Area {itemLabelLower} berukuran 1:1 persegi High Definition (output: 800 × 800 px PNG)</p>
                             </div>
                             <div className="flex justify-center gap-2 sm:justify-end">
                                 <Button type="button" variant="outline" onClick={clearCanvas}>

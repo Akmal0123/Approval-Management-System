@@ -47,13 +47,13 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Set standard 400x400 canvas size (1:1 square ratio)
-        canvas.width = 400;
-        canvas.height = 400;
+        // Set standard 800x800 high-res canvas size (1:1 square ratio)
+        canvas.width = 800;
+        canvas.height = 800;
 
         // Set canvas drawing style
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -108,7 +108,7 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
         if (!ctx) return;
 
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -214,8 +214,8 @@ export default function SignaturePad({ onSignatureComplete, onCancel }: Signatur
                                     <div className="w-full max-w-[220px]">
                                         <canvas
                                             ref={canvasRef}
-                                            width={400}
-                                            height={400}
+                                            width={800}
+                                            height={800}
                                             onMouseDown={startDrawing}
                                             onMouseMove={draw}
                                             onMouseUp={stopDrawing}
