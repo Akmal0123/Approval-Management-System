@@ -34,10 +34,10 @@ export function SanctumRegisterForm() {
             <div>
                 {/* Top Brand Logo Badge */}
                 <div className="flex flex-col items-center text-center">
-                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl shadow-[0_10px_22px_rgba(34,134,70,0.28)] transition-transform duration-300 hover:scale-105 overflow-hidden">
+                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white border border-slate-100 shadow-[0_10px_22px_rgba(8,109,111,0.22)] transition-transform duration-300 hover:scale-105 p-1 overflow-hidden">
                         <img
-                            src="/images/ams-logo-vector.svg"
-                            alt="AMS Logo"
+                            src="/images/ts-logo.png"
+                            alt="Logo TS"
                             className="h-full w-full object-contain"
                         />
                     </div>

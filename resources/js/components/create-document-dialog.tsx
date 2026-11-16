@@ -391,7 +391,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
     const handleFetchExternalData = async (keywordToUse?: string) => {
         const query = (keywordToUse || externalDocKeyword).trim();
         if (!query) {
-            showToast.error('Masukkan kode dokumen transaksi terlebih dahulu (misal: RQE-22001434)');
+            showToast.error('Masukkan nomor dokumen transaksi terlebih dahulu (misal: TSPM/2025/01/PO/0084 atau TSPM2902/2025/01/PR0011)');
             return;
         }
 
@@ -1381,22 +1381,20 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
                         <div className="flex bg-slate-100 dark:bg-muted/50 p-1 rounded-lg border my-3">
                             <button
                                 type="button"
-                                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                                    docTypeMode === 'manual'
-                                        ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
-                                        : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
-                                }`}
+                                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${docTypeMode === 'manual'
+                                    ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
+                                    : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
+                                    }`}
                                 onClick={() => handleTabChange('manual')}
                             >
                                 Dokumen Manual
                             </button>
                             <button
                                 type="button"
-                                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                                    docTypeMode === 'transaksi'
-                                        ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
-                                        : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
-                                }`}
+                                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${docTypeMode === 'transaksi'
+                                    ? 'bg-white dark:bg-background text-emerald-700 dark:text-emerald-400 shadow-sm font-semibold'
+                                    : 'text-slate-500 hover:text-slate-800 dark:text-muted-foreground dark:hover:text-foreground'
+                                    }`}
                                 onClick={() => handleTabChange('transaksi')}
                             >
                                 Dokumen Transaksi
@@ -1583,48 +1581,75 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-2">
-                                            <div className="relative flex-1">
-                                                <Input
-                                                    placeholder="Ketik kode dokumen (misal: RQE-22001434, POE-22005020, CCA-00000002)..."
-                                                    value={externalDocKeyword}
-                                                    onChange={(e) => setExternalDocKeyword(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            handleFetchExternalData();
-                                                        }
-                                                    }}
-                                                    className="font-mono text-xs uppercase h-9 pr-8"
-                                                />
-                                                {externalDocKeyword && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setExternalDocKeyword('')}
-                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                )}
+                                        <div className="space-y-2">
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <Input
+                                                        placeholder="Ketik nomor PO / PR (misal: TSPM/2025/01/PO/0084, TSPM2902/2025/01/PR0011)..."
+                                                        value={externalDocKeyword}
+                                                        onChange={(e) => setExternalDocKeyword(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                handleFetchExternalData();
+                                                            }
+                                                        }}
+                                                        className="font-mono text-xs uppercase h-9 pr-8"
+                                                    />
+                                                    {externalDocKeyword && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExternalDocKeyword('')}
+                                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => handleFetchExternalData()}
+                                                    disabled={isFetchingExternal || !externalDocKeyword.trim()}
+                                                    className="h-9 px-4 font-sans text-xs gap-1.5"
+                                                >
+                                                    {isFetchingExternal ? (
+                                                        <>
+                                                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                                            <span>Menarik...</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <IconDownload className="h-4 w-4" />
+                                                            <span>Tarik Data</span>
+                                                        </>
+                                                    )}
+                                                </Button>
                                             </div>
-                                            <Button
-                                                type="button"
-                                                onClick={() => handleFetchExternalData()}
-                                                disabled={isFetchingExternal || !externalDocKeyword.trim()}
-                                                className="h-9 px-4 font-sans text-xs gap-1.5"
-                                            >
-                                                {isFetchingExternal ? (
-                                                    <>
-                                                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                                                        <span>Menarik...</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <IconDownload className="h-4 w-4" />
-                                                        <span>Tarik Data</span>
-                                                    </>
-                                                )}
-                                            </Button>
+
+                                            {/* Quick sample chips from TSPM database */}
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-muted-foreground font-sans">
+                                                <span>Contoh dari Database:</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setExternalDocKeyword('TSPM/2025/01/PO/0084');
+                                                        handleFetchExternalData('TSPM/2025/01/PO/0084');
+                                                    }}
+                                                    className="font-mono text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/20 transition-colors cursor-pointer"
+                                                >
+                                                    TSPM/2025/01/PO/0084 (PO)
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setExternalDocKeyword('TSPM2902/2025/01/PR0011');
+                                                        handleFetchExternalData('TSPM2902/2025/01/PR0011');
+                                                    }}
+                                                    className="font-mono text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/20 transition-colors cursor-pointer"
+                                                >
+                                                    TSPM2902/2025/01/PR0011 (PR)
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* Success Banner */}
