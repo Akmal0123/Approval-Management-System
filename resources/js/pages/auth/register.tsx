@@ -35,8 +35,8 @@ export default function Register() {
                                 <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/85 backdrop-blur-md border border-white/95 shadow-[0_4px_16px_rgba(20,60,30,0.06),inset_0_1px_2px_rgba(255,255,255,0.95)] transition-transform duration-300 hover:scale-[1.02]">
                                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg overflow-hidden shadow-xs">
                                         <img
-                                            src="/images/ams-logo-vector.svg"
-                                            alt="AMS Logo"
+                                            src="/images/ts-logo.png"
+                                            alt="Logo TS"
                                             className="h-full w-full object-contain"
                                         />
                                     </div>
