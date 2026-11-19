@@ -194,6 +194,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                     const list = res.data?.signatures || [];
                     setBulkSavedParafs(list);
                     const defParaf =
+                        list.find((s: any) => s.is_paraf) ||
                         list.find((s: any) => s.category === 'paraf' && s.is_default) ||
                         list.find((s: any) => s.category === 'paraf') ||
                         list.find((s: any) => s.is_default) ||
@@ -1516,6 +1517,7 @@ export default function ApproverIndex({ approvals, stats, filters, aplikasis = [
                                                             setBulkParafType('saved');
                                                             if (bulkSavedParafs.length > 0 && !selectedBulkSavedParaf) {
                                                                 const defParaf =
+                                                                    bulkSavedParafs.find((s: any) => s.is_paraf) ||
                                                                     bulkSavedParafs.find((s: any) => s.category === 'paraf' && s.is_default) ||
                                                                     bulkSavedParafs.find((s: any) => s.category === 'paraf') ||
                                                                     bulkSavedParafs.find((s: any) => s.is_default) ||

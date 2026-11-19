@@ -244,29 +244,12 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                             <Card>
                                 <CardContent className="p-6">
                                     <div className="mb-6">
-                                        <h2 className="text-xl font-semibold">Tanda Tangan Digital</h2>
+                                        <h2 className="text-xl font-semibold">Tanda Tangan & Paraf Digital</h2>
                                         <p className="text-sm text-muted-foreground">
-                                            Kelola tanda tangan digital Anda untuk proses approval dokumen
+                                            Kelola tanda tangan digital Anda untuk proses approval dokumen, serta pilih coretan yang ingin dijadikan sebagai paraf.
                                         </p>
                                     </div>
-                                    <SignatureManager category="signature" />
-                                </CardContent>
-                            </Card>
-
-                            {/* Paraf Management Section */}
-                            <Card>
-                                <CardContent className="p-6">
-                                    <div className="mb-6">
-                                        <h2 className="text-xl font-semibold">Paraf / Inisial Digital</h2>
-                                        <p className="text-sm text-muted-foreground">
-                                            Kelola paraf / inisial digital Anda untuk verifikasi setiap lembar halaman dokumen
-                                        </p>
-                                    </div>
-                                    <SignatureManager
-                                        category="paraf"
-                                        title="Manajemen Paraf Digital"
-                                        description="Buat dan kelola paraf / inisial Anda dalam format standar persegi 1:1 (400 × 400 px)"
-                                    />
+                                    <SignatureManager />
                                 </CardContent>
                             </Card>
                         </div>

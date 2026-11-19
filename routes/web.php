@@ -219,6 +219,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('signatures/upload', [\App\Http\Controllers\SignatureController::class, 'upload'])->name('signatures.upload');
     Route::get('signatures/{signature}/file', [\App\Http\Controllers\SignatureController::class, 'file'])->name('signatures.file');
     Route::post('signatures/{signature}/set-default', [\App\Http\Controllers\SignatureController::class, 'setDefault'])->name('signatures.setDefault');
+    Route::post('signatures/{signature}/toggle-paraf', [\App\Http\Controllers\SignatureController::class, 'toggleParaf'])->name('signatures.toggleParaf');
     Route::delete('signatures/{signature}', [\App\Http\Controllers\SignatureController::class, 'destroy'])->name('signatures.destroy');
 
     // Helper routes

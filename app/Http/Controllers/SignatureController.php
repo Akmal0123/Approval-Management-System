@@ -20,7 +20,17 @@ class SignatureController extends Controller
             ->orderBy('created_at', 'desc');
 
         if ($request->has('category') && in_array($request->category, ['signature', 'paraf'])) {
-            $query->where('category', $request->category);
+            if ($request->category === 'paraf') {
+                $query->where(function ($q) {
+                    $q->where('is_paraf', true)
+                      ->orWhere('category', 'paraf');
+                });
+            } else {
+                $query->where(function ($q) {
+                    $q->where('category', 'signature')
+                      ->orWhereNull('category');
+                });
+            }
         }
 
         $signatures = $query->get();
@@ -186,6 +196,36 @@ class SignatureController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Gagal mengupdate tanda tangan default: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle a signature as paraf.
+     */
+    public function toggleParaf(Signature $signature)
+    {
+        // Ensure user owns this signature
+        if ($signature->user_id !== Auth::id()) {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        try {
+            $signature->toggleAsParaf();
+            $fresh = $signature->fresh();
+            $msg = $fresh->is_paraf 
+                ? 'Tanda tangan berhasil dijadikan sebagai Paraf!' 
+                : 'Status paraf untuk tanda tangan ini telah dinonaktifkan.';
+
+            return response()->json([
+                'message' => $msg,
+                'signature' => $fresh,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal mengupdate status paraf: ' . $e->getMessage(),
             ], 500);
         }
     }

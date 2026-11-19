@@ -162,7 +162,8 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                 .then((res: any) => {
                     const list = res.data?.signatures || [];
                     setSavedParafs(list);
-                    const defParaf = list.find((s: any) => s.category === 'paraf' && s.is_default) ||
+                    const defParaf = list.find((s: any) => s.is_paraf) ||
+                        list.find((s: any) => s.category === 'paraf' && s.is_default) ||
                         list.find((s: any) => s.category === 'paraf') ||
                         list.find((s: any) => s.is_default) ||
                         list[0] || null;
@@ -1235,6 +1236,7 @@ export default function ApproverShow({ approval, allApprovals, canApprove }: Pro
                                                                     setParafType('saved');
                                                                     if (savedParafs.length > 0 && !selectedSavedParaf) {
                                                                         const defParaf =
+                                                                            savedParafs.find((s: any) => s.is_paraf) ||
                                                                             savedParafs.find((s: any) => s.category === 'paraf' && s.is_default) ||
                                                                             savedParafs.find((s: any) => s.category === 'paraf') ||
                                                                             savedParafs.find((s: any) => s.is_default) ||

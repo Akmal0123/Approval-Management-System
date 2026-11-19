@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createSignatureFile, PixelCrop } from '@/lib/signature-crop';
 import { showToast } from '@/lib/toast';
 import axios from 'axios';
-import { CheckCircle2, Crop, FileSignature, PenTool, RotateCcw, Trash2, Upload, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, CheckCircle2, Crop, FileSignature, PenTool, RotateCcw, Trash2, Upload, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Cropper from 'react-easy-crop';
 
@@ -20,6 +20,7 @@ interface Signature {
     signature_type: 'manual' | 'uploaded';
     category?: 'signature' | 'paraf';
     is_default: boolean;
+    is_paraf?: boolean;
     created_at: string;
 }
 
@@ -363,6 +364,31 @@ export default function SignatureManager({
         }
     };
 
+    const toggleAsParaf = async (signatureId: number) => {
+        setLoading(true);
+        try {
+            const response = await axios.post(
+                route('signatures.toggleParaf', signatureId),
+                {},
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-XSRF-TOKEN': getCsrfToken(),
+                    },
+                    withCredentials: true,
+                },
+            );
+
+            showToast.success(`✅ ${response.data.message || 'Status paraf berhasil diubah'}`);
+            await fetchSignatures();
+        } catch (error: any) {
+            const message = error.response?.data?.message || 'Gagal mengubah status paraf';
+            showToast.error(`❌ ${message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const deleteSignature = async (signatureId: number) => {
         setLoading(true);
         try {
@@ -635,16 +661,24 @@ export default function SignatureManager({
                             {signatures.map((signature) => (
                                 <Card key={signature.id} className="relative">
                                     <CardContent className="p-4">
-                                        <div className="mb-2 flex items-start justify-between">
-                                            <Badge variant={signature.is_default ? 'default' : 'secondary'}>
-                                                {signature.signature_type === 'manual' ? 'Digambar' : 'Diupload'}
-                                            </Badge>
-                                            {signature.is_default && (
-                                                <Badge variant="outline" className="ml-2">
-                                                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                                                    Default
+                                        <div className="mb-2 flex flex-wrap items-center justify-between gap-1">
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                <Badge variant={signature.is_default ? 'default' : 'secondary'}>
+                                                    {signature.signature_type === 'manual' ? 'Digambar' : 'Diupload'}
                                                 </Badge>
-                                            )}
+                                                {signature.is_default && (
+                                                    <Badge variant="outline" className="border-emerald-600 text-emerald-700 dark:text-emerald-400">
+                                                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                                                        TTD Default
+                                                    </Badge>
+                                                )}
+                                                {signature.is_paraf && (
+                                                    <Badge className="bg-amber-600 hover:bg-amber-700 text-white">
+                                                        <Check className="mr-1 h-3 w-3 stroke-[3]" />
+                                                        Paraf Default
+                                                    </Badge>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="mb-4 flex aspect-square w-full items-center justify-center rounded border border-neutral-200 bg-white p-3 dark:border-neutral-800">
                                             <img
@@ -658,7 +692,7 @@ export default function SignatureManager({
                                                 }}
                                             />
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap items-center gap-1.5">
                                             {!signature.is_default && (
                                                 <Button
                                                     type="button"
@@ -666,16 +700,30 @@ export default function SignatureManager({
                                                     size="sm"
                                                     onClick={() => setAsDefault(signature.id)}
                                                     disabled={loading}
+                                                    className="h-8 text-xs"
                                                 >
-                                                    Set as Default
+                                                    Set TTD Default
                                                 </Button>
                                             )}
+                                            <Button
+                                                type="button"
+                                                variant={signature.is_paraf ? 'default' : 'outline'}
+                                                size="sm"
+                                                onClick={() => toggleAsParaf(signature.id)}
+                                                disabled={loading}
+                                                className={`h-8 text-xs ${signature.is_paraf ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                                                title={signature.is_paraf ? 'Klik untuk membatalkan tanda tangan ini sebagai paraf' : 'Jadikan tanda tangan ini sebagai paraf'}
+                                            >
+                                                {signature.is_paraf ? 'Paraf Aktif ✓' : 'Jadikan Paraf'}
+                                            </Button>
                                             <Button
                                                 type="button"
                                                 variant="destructive"
                                                 size="sm"
                                                 onClick={() => handleDeleteClick(signature.id)}
                                                 disabled={loading}
+                                                className="h-8 w-8 p-0 ml-auto"
+                                                title="Hapus"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>

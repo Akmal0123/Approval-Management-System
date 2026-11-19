@@ -23,6 +23,7 @@ class Signature extends Model
         'signature_type',
         'category',
         'is_default',
+        'is_paraf',
     ];
 
     /**
@@ -32,6 +33,7 @@ class Signature extends Model
      */
     protected $casts = [
         'is_default' => 'boolean',
+        'is_paraf' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -76,14 +78,38 @@ class Signature extends Model
      */
     public function setAsDefault(): void
     {
-        // Unset all other signatures in the same category for this user
+        // Unset all other signatures for this user
         static::where('user_id', $this->user_id)
-            ->where('category', $this->category ?? 'signature')
             ->where('id', '!=', $this->id)
             ->update(['is_default' => false]);
 
         // Set this signature as default
         $this->update(['is_default' => true]);
+    }
+
+    /**
+     * Toggle or set this signature as paraf.
+     */
+    public function toggleAsParaf(): void
+    {
+        $newVal = !$this->is_paraf;
+
+        if ($newVal) {
+            // Unset other paraf for this user
+            static::where('user_id', $this->user_id)
+                ->where('id', '!=', $this->id)
+                ->update(['is_paraf' => false]);
+        }
+
+        $this->update(['is_paraf' => $newVal]);
+    }
+
+    /**
+     * Scope to get paraf signature.
+     */
+    public function scopeParaf($query)
+    {
+        return $query->where('is_paraf', true);
     }
 
     /**
