@@ -63,38 +63,123 @@ class FastifyIntegrationService
     }
 
     /**
-     * Ambil data dokumen tunggal (PO / PR) dari External Inventory System via Fastify,
-     * sudah ditransformasikan agar siap digunakan oleh AMS.
+     * Bangun full URL berdasarkan konfigurasi path dinamis dari Transaksi Management.
+     * Mendukung:
+     * - Path dengan trailing slash: 'api/v1/integration/purchase-order/'
+     * - Path tanpa trailing slash: 'api/v1/integration/purchase-orders'
+     * - Path dengan placeholder: 'api/v1/integration/purchase-orders/:number' atau '{id}'
+     * - Path dengan awalan slash atau tanpa awalan slash
+     */
+    public static function buildUrlFromPath(string $basePath, string $param): string
+    {
+        $base = self::getBaseUrl();
+        $path = trim($basePath);
+
+        // Jika path memiliki placeholder (:number, :id, :keyword, {number}, {id}, {keyword})
+        if (preg_match('/(:number|:id|:keyword|\{number\}|\{id\}|\{keyword\})/i', $path)) {
+            $replaced = preg_replace('/(:number|:id|:keyword|\{number\}|\{id\}|\{keyword\})/i', rawurlencode($param), $path);
+            return $base . '/' . ltrim($replaced, '/');
+        }
+
+        // Default: gabungkan base + trimmed path + '/' + encoded param
+        return $base . '/' . trim($path, '/') . '/' . rawurlencode($param);
+    }
+
+    /**
+     * Ambil data dokumen tunggal dari Microservice Lookup menggunakan Lookup Path API dinamis
+     * yang dikonfigurasi Super Admin pada menu Manajemen Transaksi.
+     */
+    public static function fetchDocumentByPath(string $lookupPath, string $keyword): ?array
+    {
+        $clean = trim($keyword);
+        if (empty($clean) || empty($lookupPath)) {
+            return null;
+        }
+
+        try {
+            $url = self::buildUrlFromPath($lookupPath, $clean);
+            $scopes = [
+                'lookup:read',
+                'integration:purchase-order:read',
+                'integration:purchase-request:read',
+            ];
+
+            $response = Http::timeout(8)
+                ->withHeaders(self::getHeaders($scopes))
+                ->get($url);
+
+            if ($response->successful()) {
+                $json = $response->json();
+                if (isset($json['success']) && $json['success'] && isset($json['data'])) {
+                    return $json['data'];
+                }
+                return $json['data'] ?? $json;
+            } else {
+                Log::warning("FastifyIntegrationService::fetchDocumentByPath failed [{$url}]: HTTP " . $response->status());
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::fetchDocumentByPath [{$lookupPath}] failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Ambil file stream biner PDF dari Microservice Lookup menggunakan Get PDF Path API atau Lookup Path API.
+     */
+    public static function fetchPdfByPath(string $keyword, ?string $pdfPath = null, ?string $lookupPath = null): ?string
+    {
+        $clean = trim($keyword);
+        if (empty($clean)) {
+            return null;
+        }
+
+        try {
+            $scopes = [
+                'lookup:read',
+                'integration:purchase-order:read',
+                'integration:purchase-request:read',
+            ];
+
+            $url = null;
+            if (!empty($pdfPath)) {
+                $trimmedPdf = trim($pdfPath);
+                if (preg_match('/(:number|:id|:keyword|\{number\}|\{id\}|\{keyword\})/i', $trimmedPdf)) {
+                    $url = self::buildUrlFromPath($trimmedPdf, $clean);
+                } elseif (str_ends_with($trimmedPdf, '/pdf') || str_contains($trimmedPdf, '/pdf')) {
+                    $url = self::buildUrlFromPath($trimmedPdf, $clean);
+                } else {
+                    $url = self::buildUrlFromPath($trimmedPdf, $clean) . '/pdf';
+                }
+            } elseif (!empty($lookupPath)) {
+                $url = self::buildUrlFromPath($lookupPath, $clean) . '/pdf';
+            } else {
+                $url = self::getBaseUrl() . '/api/v1/integration/document/' . rawurlencode($clean) . '/pdf';
+            }
+
+            $response = Http::timeout(10)
+                ->withHeaders(self::getHeaders($scopes))
+                ->get($url);
+
+            if ($response->successful()) {
+                return $response->body();
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::fetchPdfByPath [{$keyword}] failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Ambil data dokumen tunggal via unified endpoint (Fallback jika path spesifik tidak ada).
      */
     public static function getDocument(string $keyword): ?array
     {
         $clean = trim($keyword);
-        $upper = strtoupper($clean);
-
-        $isPo = str_contains($upper, '/PO/') || str_starts_with($upper, 'PO') || preg_match('/(^|\b|\/)PO(\/|\b|\d)/i', $upper);
-        $isPr = str_contains($upper, '/PR') || str_starts_with($upper, 'PR') || preg_match('/(^|\b|\/)PR(\/|\b|\d)/i', $upper);
 
         try {
-            // Prioritaskan endpoint spesifik jika format jelas
-            if ($isPo) {
-                $url = self::getBaseUrl() . '/api/v1/integration/purchase-orders/' . rawurlencode($clean);
-                $res = Http::timeout(8)
-                    ->withHeaders(self::getHeaders(['integration:purchase-order:read']))
-                    ->get($url);
-                if ($res->successful() && $res->json('success')) {
-                    return $res->json('data');
-                }
-            } elseif ($isPr) {
-                $url = self::getBaseUrl() . '/api/v1/integration/purchase-requests/' . rawurlencode($clean);
-                $res = Http::timeout(8)
-                    ->withHeaders(self::getHeaders(['integration:purchase-request:read']))
-                    ->get($url);
-                if ($res->successful() && $res->json('success')) {
-                    return $res->json('data');
-                }
-            }
-
-            // Fallback ke unified document endpoint
+            // Unified document endpoint
             $url = self::getBaseUrl() . '/api/v1/integration/document/' . rawurlencode($clean);
             $response = Http::timeout(8)
                 ->withHeaders(self::getHeaders())

@@ -1792,72 +1792,79 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     )}
                 </div>
 
-                {/* Floating Paraf Toggle Bar */}
+                {/* Docked Paraf Control Bar (Statis di Bawah Dokumen - Bebas Halangan & Rapi) */}
                 {enableParaf && numPages > 0 && !(fetchLoading || loading) && (
-                    <div className="absolute bottom-3 inset-x-2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-30 flex items-center justify-between sm:justify-center gap-2 rounded-xl sm:rounded-full border border-border/80 bg-background/95 px-3 py-1.5 shadow-xl backdrop-blur-md max-w-full sm:max-w-xl transition-all">
-                        <div className="flex items-center gap-1.5 text-xs">
-                            <span className="font-medium text-foreground text-[11px] sm:text-xs">
-                                Hal {currentPage}/{numPages}
-                            </span>
+                    <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 bg-background/95 px-3 py-2 rounded-b-lg backdrop-blur-xs shadow-xs z-20">
+                        {/* Kiri: Status Progress Ringkas */}
+                        <div className="flex items-center gap-2">
                             <span
-                                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold transition-colors ${activeParafPages.length >= numPages
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${activeParafPages.length >= numPages
                                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                                     : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                                     }`}
                             >
-                                {activeParafPages.length >= numPages && <Check className="h-3 w-3 stroke-[3]" />}
-                                <span>{activeParafPages.length}/{numPages} Diparaf</span>
+                                {activeParafPages.length >= numPages ? (
+                                    <Check className="h-3.5 w-3.5 stroke-[3] text-emerald-600" />
+                                ) : (
+                                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                )}
+                                <span>{activeParafPages.length}/{numPages} Halaman Diparaf</span>
                             </span>
                         </div>
 
-                        {/* Main Toggle Button */}
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => handleToggleParaf(currentPage)}
-                            className={`h-7 sm:h-8 gap-1.5 text-xs font-semibold px-2.5 sm:px-3.5 transition-all shadow-xs cursor-pointer ${activeParafPages.includes(currentPage)
-                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                : 'border border-amber-300 bg-amber-50 hover:bg-emerald-50 text-amber-900 hover:text-emerald-800 hover:border-emerald-300 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
-                                }`}
-                            title={activeParafPages.includes(currentPage) ? `Halaman ${currentPage} sudah diparaf. Klik untuk batalkan (X).` : `Klik untuk beri paraf pada halaman ${currentPage} (✓)`}
-                        >
-                            {activeParafPages.includes(currentPage) ? (
-                                <>
-                                    <Check className="h-3.5 w-3.5 stroke-[3] text-white" />
-                                    <span>Paraf ✓ <span className="font-normal opacity-90">(Hal {currentPage})</span></span>
-                                </>
-                            ) : (
-                                <>
-                                    <X className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
-                                    <span>Paraf ✗ <span className="font-normal opacity-80">(Hal {currentPage})</span></span>
-                                </>
-                            )}
-                        </Button>
+                        {/* Kanan: Aksi Paraf Halaman Aktif & Paraf Semua */}
+                        <div className="flex items-center gap-1.5">
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleToggleParaf(currentPage)}
+                                className={`h-8 gap-1.5 text-xs font-semibold px-3 transition-all cursor-pointer ${activeParafPages.includes(currentPage)
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    : 'border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary hover:border-primary/50'
+                                    }`}
+                                title={activeParafPages.includes(currentPage)
+                                    ? `Halaman ${currentPage} sudah diparaf. Klik untuk batalkan.`
+                                    : `Klik untuk beri paraf pada halaman ${currentPage}`
+                                }
+                            >
+                                {activeParafPages.includes(currentPage) ? (
+                                    <>
+                                        <Check className="h-3.5 w-3.5 stroke-[3] text-white" />
+                                        <span>Sudah Diparaf (Hal {currentPage})</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="h-3.5 w-3.5 opacity-60" />
+                                        <span>+ Paraf Hal {currentPage}</span>
+                                    </>
+                                )}
+                            </Button>
 
-                        {/* Paraf All / Reset button */}
-                        {activeParafPages.length < numPages ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleParafAll}
-                                className="h-7 px-2 text-[10px] sm:text-[11px] text-muted-foreground hover:text-foreground font-medium cursor-pointer"
-                                title="Tandai seluruh halaman sudah diparaf"
-                            >
-                                Paraf Semua
-                            </Button>
-                        ) : (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleResetParaf}
-                                className="h-7 px-2 text-[10px] sm:text-[11px] text-muted-foreground hover:text-red-600 font-medium cursor-pointer"
-                                title="Reset semua paraf"
-                            >
-                                Reset
-                            </Button>
-                        )}
+                            {/* Tombol Opsi: Paraf Semua / Reset */}
+                            {activeParafPages.length < numPages ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleParafAll}
+                                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                                    title="Tandai seluruh halaman sudah diparaf"
+                                >
+                                    Paraf Semua
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleResetParaf}
+                                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive font-medium cursor-pointer"
+                                    title="Reset semua paraf"
+                                >
+                                    Reset
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 )}
                 {isEmbedded && !readOnly && (
