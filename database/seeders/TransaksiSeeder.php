@@ -28,6 +28,8 @@ class TransaksiSeeder extends Seeder
                     'departemen' => 'Procurement',
                     'deskripsi' => 'Pengajuan pengadaan barang dan jasa operasional',
                     'is_active' => true,
+                    'lookup_path_api' => 'api/v1/integration/purchase-requests/',
+                    'get_pdf_path_api' => 'api/v1/integration/purchase-requests/',
                 ],
                 [
                     'kode_transaksi' => 'PO',
@@ -35,6 +37,8 @@ class TransaksiSeeder extends Seeder
                     'departemen' => 'Purchasing',
                     'deskripsi' => 'Pemesanan pembelian barang ke vendor rekanan',
                     'is_active' => true,
+                    'lookup_path_api' => 'api/v1/integration/purchase-order/',
+                    'get_pdf_path_api' => 'api/v1/integration/purchase-order/',
                 ],
                 [
                     'kode_transaksi' => 'CUTI',
@@ -42,6 +46,8 @@ class TransaksiSeeder extends Seeder
                     'departemen' => 'HRD',
                     'deskripsi' => 'Form permohonan cuti tahunan dan izin karyawan',
                     'is_active' => true,
+                    'lookup_path_api' => null,
+                    'get_pdf_path_api' => null,
                 ],
                 [
                     'kode_transaksi' => 'REIMBURSE',
@@ -49,6 +55,8 @@ class TransaksiSeeder extends Seeder
                     'departemen' => 'Finance',
                     'deskripsi' => 'Penggantian biaya operasional dinas dan klaim medis',
                     'is_active' => true,
+                    'lookup_path_api' => null,
+                    'get_pdf_path_api' => null,
                 ],
             ],
             'PerpusKita' => [
@@ -99,18 +107,21 @@ class TransaksiSeeder extends Seeder
             ];
 
             foreach ($transList as $trans) {
-                Transaksi::firstOrCreate(
-                    [
-                        'aplikasi_id' => $aplikasi->id,
-                        'kode_transaksi' => $trans['kode_transaksi'],
-                    ],
-                    [
-                        'nama_transaksi' => $trans['nama_transaksi'],
-                        'departemen' => $trans['departemen'],
-                        'deskripsi' => $trans['deskripsi'],
-                        'is_active' => $trans['is_active'],
-                    ]
-                );
+                $record = Transaksi::firstOrNew([
+                    'aplikasi_id' => $aplikasi->id,
+                    'kode_transaksi' => $trans['kode_transaksi'],
+                ]);
+
+                $record->fill([
+                    'nama_transaksi' => $trans['nama_transaksi'],
+                    'departemen' => $trans['departemen'],
+                    'deskripsi' => $trans['deskripsi'],
+                    'is_active' => $trans['is_active'],
+                    'lookup_path_api' => $trans['lookup_path_api'] ?? null,
+                    'get_pdf_path_api' => $trans['get_pdf_path_api'] ?? null,
+                ]);
+
+                $record->save();
                 $totalCreated++;
             }
         }

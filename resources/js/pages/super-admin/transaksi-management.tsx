@@ -746,13 +746,13 @@ export default function SuperAdminTransaksiManagement() {
                         <Input
                             id="lookup_path_api"
                             name="lookup_path_api"
-                            placeholder="Contoh: /po/search"
+                            placeholder="Contoh: api/v1/integration/purchase-order/"
                             value={formData.lookup_path_api || ''}
                             onChange={handleInputChange}
                             className="font-sans text-xs bg-background"
                         />
                         {errors.lookup_path_api && <p className="text-[11px] text-red-500">{errors.lookup_path_api}</p>}
-                        <span className="text-[11px] text-muted-foreground block">Endpoint pencarian data</span>
+                        <span className="text-[11px] text-muted-foreground block">Endpoint pencarian data (misal: api/v1/integration/purchase-order/)</span>
                     </div>
 
                     <div className="space-y-1.5">
@@ -762,13 +762,13 @@ export default function SuperAdminTransaksiManagement() {
                         <Input
                             id="get_pdf_path_api"
                             name="get_pdf_path_api"
-                            placeholder="Contoh: /po/download"
+                            placeholder="Contoh: api/v1/integration/purchase-order/"
                             value={formData.get_pdf_path_api || ''}
                             onChange={handleInputChange}
                             className="font-sans text-xs bg-background"
                         />
                         {errors.get_pdf_path_api && <p className="text-[11px] text-red-500">{errors.get_pdf_path_api}</p>}
-                        <span className="text-[11px] text-muted-foreground block">Endpoint unduh PDF</span>
+                        <span className="text-[11px] text-muted-foreground block">Endpoint unduh PDF (opsional, default mengikuti lookup)</span>
                     </div>
 
                     <div className="space-y-1.5">

@@ -2024,32 +2024,70 @@ class DokumenController extends Controller
         $keyword = trim($request->keyword);
         $source = 'dummy';
 
-        // 1. Coba cari melalui Fastify Integration Service (External Inventory System via JWT)
-        $txData = FastifyIntegrationService::getDocument($keyword);
-        if ($txData) {
-            $source = 'external-inventory-system';
+        $transaksiId = $request->input('transaksi_id');
+        $transaksi = null;
+
+        if ($transaksiId) {
+            $transaksi = Transaksi::find($transaksiId);
+        }
+
+        if (!$transaksi && $request->filled('aplikasi_id')) {
+            $candidateTransaksis = Transaksi::where('aplikasi_id', $request->aplikasi_id)
+                ->where('is_active', true)
+                ->whereNotNull('lookup_path_api')
+                ->get();
+            if ($candidateTransaksis->count() === 1) {
+                $transaksi = $candidateTransaksis->first();
+            }
+        }
+
+        $lookupPath = $transaksi?->lookup_path_api;
+        $pdfPath = $transaksi?->get_pdf_path_api;
+
+        $txData = null;
+        $pdfBinary = null;
+
+        // 1. Tarik data dari microservice menggunakan lookup_path_api jika dikonfigurasi oleh Superadmin
+        if (!empty($lookupPath)) {
+            $txData = FastifyIntegrationService::fetchDocumentByPath($lookupPath, $keyword);
+            if ($txData) {
+                $source = 'external-inventory-system';
+                $pdfBinary = FastifyIntegrationService::fetchPdfByPath($keyword, $pdfPath, $lookupPath);
+            }
         } else {
-            // 2. Fallback ke DummyTransactionService lokal jika tidak ditemukan di sistem eksternal
+            // Fallback jika belum diatur lookup_path_api
+            $txData = FastifyIntegrationService::getDocument($keyword);
+            if ($txData) {
+                $source = 'external-inventory-system';
+                $pdfBinary = FastifyIntegrationService::getDocumentPdf($keyword);
+            }
+        }
+
+        // 2. Fallback ke DummyTransactionService lokal jika tidak ditemukan di sistem eksternal
+        if (!$txData) {
             $txData = DummyTransactionService::findByKeyword($keyword);
         }
 
         if (!$txData) {
             $dummySamples = array_column(DummyTransactionService::getSamples(), 'code');
             $samples = array_merge(
-                ['PO-2026-0001', 'PR-2026-0001', 'PO-2026-0002', 'PR-2026-0002'],
+                ['TSPM/2025/01/PO/0084', 'TSPM2902/2025/01/PR0011', 'PO-2026-0001', 'PR-2026-0001'],
                 $dummySamples
             );
+            $notFoundMsg = !empty($lookupPath)
+                ? "Data transaksi dengan nomor/kode '{$keyword}' tidak ditemukan di sistem eksternal (Path: {$lookupPath}) maupun data lokal."
+                : "Data transaksi dengan nomor/kode '{$keyword}' tidak ditemukan di External Inventory System maupun data lokal.";
+
             return response()->json([
                 'status' => 'error',
-                'message' => "Data transaksi dengan nomor/kode '{$keyword}' tidak ditemukan di External Inventory System maupun data lokal.",
+                'message' => $notFoundMsg,
                 'samples' => array_values(array_unique($samples)),
             ], 404);
         }
 
-        // Ambil file PDF yang sudah jadi langsung dari Fastify Microservice
-        $pdfBinary = null;
-        if ($source === 'external-inventory-system') {
-            $pdfBinary = FastifyIntegrationService::getDocumentPdf($keyword);
+        // Ambil file PDF yang sudah jadi langsung dari Fastify Microservice jika belum ada
+        if (!$pdfBinary && $source === 'external-inventory-system') {
+            $pdfBinary = FastifyIntegrationService::fetchPdfByPath($keyword, $pdfPath, $lookupPath);
         }
 
         // Jika belum ada binary atau fallback dummy, minta Fastify generate dari data JSON
@@ -2060,40 +2098,43 @@ class DokumenController extends Controller
         $pdfBase64 = $pdfBinary ? base64_encode($pdfBinary) : '';
 
         // Map data to return
-        $filename = ($txData['kode'] ?? 'dokumen') . '.pdf';
+        $filename = ($txData['kode'] ?? ($txData['nomor_dokumen'] ?? 'dokumen')) . '.pdf';
         $message = $source === 'external-inventory-system'
-            ? "Data transaksi dan template PDF berhasil ditarik dari External Inventory System via Fastify (JWT Protected)"
+            ? "Data transaksi dan template PDF berhasil ditarik dari External Inventory System via Fastify (" . ($lookupPath ?? 'default') . ")"
             : 'Data transaksi dan file PDF berhasil ditarik via Fastify Microservice';
 
-        // Auto-detect transaction type from keyword or nomor_dokumen
-        $docNum = $txData['nomor_dokumen'] ?? ($txData['kode'] ?? $keyword);
-        $detectedType = Dokumen::identifyTransactionTypeFromNumber($docNum) ?? ($txData['tipe'] ?? 'PR');
+        $detectedType = $transaksi?->kode_transaksi ?? ($txData['tipe'] ?? 'PR');
+        $matchedTransaksiId = $transaksi?->id;
 
-        $matchedTransaksi = Transaksi::where('kode_transaksi', $detectedType)
-            ->when($request->input('aplikasi_id'), fn($q, $appId) => $q->orderByRaw('aplikasi_id = ? DESC', [$appId]))
-            ->first();
+        if (!$matchedTransaksiId) {
+            $matchedTransaksi = Transaksi::where('kode_transaksi', $detectedType)
+                ->when($request->input('aplikasi_id'), fn($q, $appId) => $q->orderByRaw('aplikasi_id = ? DESC', [$appId]))
+                ->first();
+            $matchedTransaksiId = $matchedTransaksi?->id;
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => $message,
             'source' => $source,
             'data' => [
-                'kode' => $txData['kode'] ?? '',
-                'nomor_dokumen' => $txData['nomor_dokumen'] ?? $txData['kode'],
+                'kode' => $txData['kode'] ?? ($txData['nomor_dokumen'] ?? ''),
+                'nomor_dokumen' => $txData['nomor_dokumen'] ?? ($txData['kode'] ?? ''),
                 'judul' => $txData['judul'] ?? '',
                 'nominal' => $txData['nominal'] ?? 0,
                 'tanggal' => $txData['tanggal'] ?? date('Y-m-d'),
                 'tipe' => $detectedType,
-                'transaksi_id' => $matchedTransaksi?->id,
+                'transaksi_id' => $matchedTransaksiId,
                 'deskripsi' => $txData['deskripsi'] ?? '',
                 'vendor' => $txData['vendor'] ?? null,
                 'filename' => $filename,
                 'pdf_base64' => $pdfBase64,
                 'items_count' => count($txData['items'] ?? []),
                 'source' => $source,
+                'lookup_path_api' => $lookupPath,
             ],
             'samples' => array_merge(
-                ['TSPM/2014/11/PO/0001', 'TSPM10000/2014/09/PR0001', 'PO-2026-0001', 'PR-2026-0001'],
+                ['TSPM/2025/01/PO/0084', 'TSPM2902/2025/01/PR0011', 'PO-2026-0001', 'PR-2026-0001'],
                 DummyTransactionService::getSamples()
             ),
         ]);
