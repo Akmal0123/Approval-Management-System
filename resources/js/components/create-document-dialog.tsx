@@ -388,14 +388,18 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
     };
 
     // Handle Tarik Data & File PDF Eksternal via kode dokumen
-    const handleFetchExternalData = async (keywordToUse?: string, transaksiIdToUse?: string) => {
+    const handleFetchExternalData = async (keywordToUse?: string, transaksiIdToUse?: string | number) => {
         const query = (keywordToUse || externalDocKeyword).trim();
         if (!query) {
             showToast.error('Masukkan nomor dokumen transaksi terlebih dahulu (misal: TSPM/2025/01/PO/0084 atau TSPM2902/2025/01/PR0011)');
             return;
         }
 
-        const effectiveTransaksiId = transaksiIdToUse || formData.transaksi_id || null;
+        const rawTransaksiId = transaksiIdToUse ?? formData.transaksi_id;
+        const effectiveTransaksiId = rawTransaksiId !== undefined && rawTransaksiId !== null && rawTransaksiId !== ''
+            ? String(rawTransaksiId)
+            : null;
+
         if (!effectiveTransaksiId) {
             showToast.error('Silakan pilih Tipe Transaksi terlebih dahulu sebelum menarik data');
             return;
@@ -1619,7 +1623,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
                                                     onClick={() => {
                                                         const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
                                                         const poTrans = transaksis.find((t) => (!currentAppId || String(t.aplikasi_id) === currentAppId) && ((t.kode_transaksi || '').toUpperCase() === 'PO' || (t.kode || '').toUpperCase() === 'PO'));
-                                                        const transId = poTrans ? String(poTrans.id) : formData.transaksi_id;
+                                                        const transId = poTrans ? String(poTrans.id) : (formData.transaksi_id ? String(formData.transaksi_id) : undefined);
                                                         if (transId) {
                                                             setFormData((prev) => ({ ...prev, transaksi_id: transId }));
                                                         }
@@ -1635,7 +1639,7 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
                                                     onClick={() => {
                                                         const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
                                                         const prTrans = transaksis.find((t) => (!currentAppId || String(t.aplikasi_id) === currentAppId) && ((t.kode_transaksi || '').toUpperCase() === 'PR' || (t.kode || '').toUpperCase() === 'PR'));
-                                                        const transId = prTrans ? String(prTrans.id) : formData.transaksi_id;
+                                                        const transId = prTrans ? String(prTrans.id) : (formData.transaksi_id ? String(formData.transaksi_id) : undefined);
                                                         if (transId) {
                                                             setFormData((prev) => ({ ...prev, transaksi_id: transId }));
                                                         }

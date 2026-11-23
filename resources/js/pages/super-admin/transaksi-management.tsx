@@ -69,7 +69,7 @@ export default function SuperAdminTransaksiManagement() {
         deskripsi: '',
         is_active: true,
         lookup_path_api: '',
-        get_pdf_path_api: '', 
+        get_pdf_path_api: '',
         path_dokumen: '',
     });
 
@@ -331,16 +331,16 @@ export default function SuperAdminTransaksiManagement() {
                                                 >
                                                     <SelectTrigger className="font-sans w-full h-10 px-3 flex items-center justify-between">
                                                         <SelectValue placeholder="Semua Aplikasi" className="w-full truncate">
-                                                        {selectedAplikasiFilter === 'all' ? (
-                                                            <span>Semua Aplikasi</span>
-                                                        ) : (
-                                                            <span className="truncate block">
-                                                                {(() => {
-                                                                    const found = aplikasis.find((a) => String(a.id) === selectedAplikasiFilter);
-                                                                    return found ? `${found.name} ${found.company ? `(${found.company.name})` : ''}` : 'Semua Aplikasi';
-                                                                })()}
-                                                            </span>
-                                                        )}
+                                                            {selectedAplikasiFilter === 'all' ? (
+                                                                <span>Semua Aplikasi</span>
+                                                            ) : (
+                                                                <span className="truncate block">
+                                                                    {(() => {
+                                                                        const found = aplikasis.find((a) => String(a.id) === selectedAplikasiFilter);
+                                                                        return found ? `${found.name} ${found.company ? `(${found.company.name})` : ''}` : 'Semua Aplikasi';
+                                                                    })()}
+                                                                </span>
+                                                            )}
                                                         </SelectValue>
                                                     </SelectTrigger>
                                                     <SelectContent
@@ -432,134 +432,38 @@ export default function SuperAdminTransaksiManagement() {
                                                                     </div>
 
                                                                     <div className="grid min-w-0 grid-cols-2 gap-3 text-sm">
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-xs text-muted-foreground">Aplikasi</p>
-                                                                        <div className="mt-1 flex min-w-0 items-start gap-1.5">
-                                                                            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                                            <span className="break-words text-foreground">{transaksi.aplikasi?.name || '-'}</span>
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-xs text-muted-foreground">Aplikasi</p>
+                                                                            <div className="mt-1 flex min-w-0 items-start gap-1.5">
+                                                                                <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                                                <span className="break-words text-foreground">{transaksi.aplikasi?.name || '-'}</span>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-xs text-muted-foreground">Departemen</p>
-                                                                        <div className="mt-1">
-                                                                            {transaksi.departemen ? (
-                                                                                <Badge variant="outline" className="max-w-full whitespace-normal break-words text-xs">
-                                                                                    {transaksi.departemen}
-                                                                                </Badge>
-                                                                            ) : (
-                                                                                <span className="text-xs text-muted-foreground">Semua</span>
-                                                                            )}
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-xs text-muted-foreground">Departemen</p>
+                                                                            <div className="mt-1">
+                                                                                {transaksi.departemen ? (
+                                                                                    <Badge variant="outline" className="max-w-full whitespace-normal break-words text-xs">
+                                                                                        {transaksi.departemen}
+                                                                                    </Badge>
+                                                                                ) : (
+                                                                                    <span className="text-xs text-muted-foreground">Semua</span>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div className="col-span-2 min-w-0">
-                                                                        <p className="text-xs text-muted-foreground">Deskripsi</p>
-                                                                        <p className="mt-1 break-words text-sm text-foreground">{transaksi.deskripsi || '-'}</p>
-                                                                    </div>
+                                                                        <div className="col-span-2 min-w-0">
+                                                                            <p className="text-xs text-muted-foreground">Deskripsi</p>
+                                                                            <p className="mt-1 break-words text-sm text-foreground">{transaksi.deskripsi || '-'}</p>
+                                                                        </div>
                                                                     </div>
 
                                                                     <div className="flex justify-end gap-2 border-t border-border pt-2">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => openEditModal(transaksi)}
-                                                                        className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-950"
-                                                                        aria-label={`Edit ${transaksi.nama_transaksi}`}
-                                                                        title="Edit Transaksi"
-                                                                    >
-                                                                        <IconEdit className="h-4 w-4" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => {
-                                                                            setDeletingTransaksi(transaksi);
-                                                                            setIsDeleteDialogOpen(true);
-                                                                        }}
-                                                                        className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-950"
-                                                                        aria-label={`Hapus ${transaksi.nama_transaksi}`}
-                                                                        title="Hapus Transaksi"
-                                                                    >
-                                                                        <IconTrash className="h-4 w-4" />
-                                                                    </Button>
-                                                                    </div>
-                                                                </div>
-                                                            </article>
-                                                        ))}
-                                                    </div>
-                                                    <div className="hidden md:block">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead className="w-16 font-sans">No</TableHead>
-                                                            <TableHead className="w-32 font-sans">Kode</TableHead>
-                                                            <TableHead className="font-sans">Nama Transaksi</TableHead>
-                                                            <TableHead className="font-sans">Aplikasi</TableHead>
-                                                            {/* <TableHead className="font-sans">Departemen</TableHead> */}
-                                                            <TableHead className="font-sans">Deskripsi</TableHead>
-                                                            <TableHead className="w-28 font-sans">Status</TableHead>
-                                                            <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {filteredTransaksis.map((transaksi, index) => (
-                                                            <TableRow key={transaksi.id}>
-                                                                <TableCell className="font-mono">{index + 1}</TableCell>
-                                                                <TableCell className="font-mono text-xs font-semibold text-primary">
-                                                                    <Badge variant="outline" className="font-mono">
-                                                                        {transaksi.kode_transaksi}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                                <TableCell className="font-sans font-medium text-foreground">
-                                                                    {transaksi.nama_transaksi}
-                                                                </TableCell>
-                                                                <TableCell className="font-sans">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                        <span className="text-sm">{transaksi.aplikasi?.name || '-'}</span>
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="font-sans">
-                                                                    {transaksi.departemen ? (
-                                                                        <Badge variant="outline" className="text-xs">
-                                                                            {transaksi.departemen}
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <span className="text-xs text-muted-foreground">Semua</span>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="max-w-xs truncate font-sans text-xs text-muted-foreground">
-                                                                    {transaksi.deskripsi || '-'}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleToggleStatus(transaksi)}
-                                                                        className="inline-flex cursor-pointer items-center gap-1 focus:outline-none"
-                                                                        title="Klik untuk mengubah status"
-                                                                    >
-                                                                        {transaksi.is_active ? (
-                                                                            <Badge className="border-emerald-300 bg-emerald-100 font-sans text-emerald-800 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                                                                <CheckCircle2 className="mr-1 h-3 w-3" />
-                                                                                Aktif
-                                                                            </Badge>
-                                                                        ) : (
-                                                                            <Badge
-                                                                                variant="outline"
-                                                                                className="border-slate-300 bg-slate-100 font-sans text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                                                                            >
-                                                                                <XCircle className="mr-1 h-3 w-3" />
-                                                                                Nonaktif
-                                                                            </Badge>
-                                                                        )}
-                                                                    </button>
-                                                                </TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <div className="flex justify-end gap-2">
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
                                                                             onClick={() => openEditModal(transaksi)}
                                                                             className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-950"
+                                                                            aria-label={`Edit ${transaksi.nama_transaksi}`}
                                                                             title="Edit Transaksi"
                                                                         >
                                                                             <IconEdit className="h-4 w-4" />
@@ -572,16 +476,112 @@ export default function SuperAdminTransaksiManagement() {
                                                                                 setIsDeleteDialogOpen(true);
                                                                             }}
                                                                             className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-950"
+                                                                            aria-label={`Hapus ${transaksi.nama_transaksi}`}
                                                                             title="Hapus Transaksi"
                                                                         >
                                                                             <IconTrash className="h-4 w-4" />
                                                                         </Button>
                                                                     </div>
-                                                                </TableCell>
-                                                            </TableRow>
+                                                                </div>
+                                                            </article>
                                                         ))}
-                                                    </TableBody>
-                                                </Table>
+                                                    </div>
+                                                    <div className="hidden md:block">
+                                                        <Table>
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead className="w-16 font-sans">No</TableHead>
+                                                                    <TableHead className="w-32 font-sans">Kode</TableHead>
+                                                                    <TableHead className="font-sans">Nama Transaksi</TableHead>
+                                                                    <TableHead className="font-sans">Aplikasi</TableHead>
+                                                                    {/* <TableHead className="font-sans">Departemen</TableHead> */}
+                                                                    <TableHead className="font-sans">Deskripsi</TableHead>
+                                                                    <TableHead className="w-28 font-sans">Status</TableHead>
+                                                                    <TableHead className="w-24 text-right font-sans">Aksi</TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {filteredTransaksis.map((transaksi, index) => (
+                                                                    <TableRow key={transaksi.id}>
+                                                                        <TableCell className="font-mono">{index + 1}</TableCell>
+                                                                        <TableCell className="font-mono text-xs font-semibold text-primary">
+                                                                            <Badge variant="outline" className="font-mono">
+                                                                                {transaksi.kode_transaksi}
+                                                                            </Badge>
+                                                                        </TableCell>
+                                                                        <TableCell className="font-sans font-medium text-foreground">
+                                                                            {transaksi.nama_transaksi}
+                                                                        </TableCell>
+                                                                        <TableCell className="font-sans">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                <span className="text-sm">{transaksi.aplikasi?.name || '-'}</span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="font-sans">
+                                                                            {transaksi.departemen ? (
+                                                                                <Badge variant="outline" className="text-xs">
+                                                                                    {transaksi.departemen}
+                                                                                </Badge>
+                                                                            ) : (
+                                                                                <span className="text-xs text-muted-foreground">Semua</span>
+                                                                            )}
+                                                                        </TableCell>
+                                                                        <TableCell className="max-w-xs truncate font-sans text-xs text-muted-foreground">
+                                                                            {transaksi.deskripsi || '-'}
+                                                                        </TableCell>
+                                                                        <TableCell>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleToggleStatus(transaksi)}
+                                                                                className="inline-flex cursor-pointer items-center gap-1 focus:outline-none"
+                                                                                title="Klik untuk mengubah status"
+                                                                            >
+                                                                                {transaksi.is_active ? (
+                                                                                    <Badge className="border-emerald-300 bg-emerald-100 font-sans text-emerald-800 hover:bg-emerald-200 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                                                                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                                                                                        Aktif
+                                                                                    </Badge>
+                                                                                ) : (
+                                                                                    <Badge
+                                                                                        variant="outline"
+                                                                                        className="border-slate-300 bg-slate-100 font-sans text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                                                                                    >
+                                                                                        <XCircle className="mr-1 h-3 w-3" />
+                                                                                        Nonaktif
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </button>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-right">
+                                                                            <div className="flex justify-end gap-2">
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => openEditModal(transaksi)}
+                                                                                    className="h-8 w-8 border-blue-300 p-0 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-950"
+                                                                                    title="Edit Transaksi"
+                                                                                >
+                                                                                    <IconEdit className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => {
+                                                                                        setDeletingTransaksi(transaksi);
+                                                                                        setIsDeleteDialogOpen(true);
+                                                                                    }}
+                                                                                    className="h-8 w-8 border-red-300 p-0 text-red-600 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-950"
+                                                                                    title="Hapus Transaksi"
+                                                                                >
+                                                                                    <IconTrash className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
                                                     </div>
                                                 </>
                                             )}
@@ -593,240 +593,240 @@ export default function SuperAdminTransaksiManagement() {
                     </div>
 
                     {/* Create / Edit Modal */}
-<Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-    <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-3xl sm:rounded-2xl">
-        <DialogHeader>
-            <DialogTitle className="font-serif">
-                {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}
-            </DialogTitle>
-            <DialogDescription className="font-sans">
-                Konfigurasi tipe transaksi dan kaitkan dengan modul aplikasi.
-            </DialogDescription>
-        </DialogHeader>
+                    <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                        <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-[95vw] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-3xl sm:rounded-2xl">
+                            <DialogHeader>
+                                <DialogTitle className="font-serif">
+                                    {editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru'}
+                                </DialogTitle>
+                                <DialogDescription className="font-sans">
+                                    Konfigurasi tipe transaksi dan kaitkan dengan modul aplikasi.
+                                </DialogDescription>
+                            </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="py-2 space-y-4">
-            {/* Baris 1: Aplikasi & Path API Aplikasi (Autofill) */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="min-w-0 space-y-2">
-                    <Label htmlFor="aplikasi_id" className="font-sans font-medium">
-                        Aplikasi <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                        value={formData.aplikasi_id}
-                        onValueChange={(val) => setFormData((prev) => ({ ...prev, aplikasi_id: val }))}
-                    >
-                        <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans">
-                            <SelectValue placeholder="Pilih Aplikasi" className="min-w-0 flex-1 truncate" />
-                        </SelectTrigger>
-                        <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
-                            {aplikasis.map((app) => (
-                                <SelectItem key={app.id} value={String(app.id)} className="whitespace-normal break-words font-sans">
-                                    {app.name} {app.company ? `(${app.company.name})` : ''}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    {errors.aplikasi_id && <p className="text-xs text-red-500">{errors.aplikasi_id}</p>}
-                </div>
+                            <form onSubmit={handleSubmit} className="py-2 space-y-4">
+                                {/* Baris 1: Aplikasi & Path API Aplikasi (Autofill) */}
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="min-w-0 space-y-2">
+                                        <Label htmlFor="aplikasi_id" className="font-sans font-medium">
+                                            Aplikasi <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Select
+                                            value={formData.aplikasi_id}
+                                            onValueChange={(val) => setFormData((prev) => ({ ...prev, aplikasi_id: val }))}
+                                        >
+                                            <SelectTrigger id="aplikasi_id" className="w-full min-w-0 font-sans">
+                                                <SelectValue placeholder="Pilih Aplikasi" className="min-w-0 flex-1 truncate" />
+                                            </SelectTrigger>
+                                            <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
+                                                {aplikasis.map((app) => (
+                                                    <SelectItem key={app.id} value={String(app.id)} className="whitespace-normal break-words font-sans">
+                                                        {app.name} {app.company ? `(${app.company.name})` : ''}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.aplikasi_id && <p className="text-xs text-red-500">{errors.aplikasi_id}</p>}
+                                    </div>
 
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="base_path_api" className="font-sans font-medium flex items-center gap-1.5 text-muted-foreground">
-                            <Globe className="h-3.5 w-3.5 text-primary" />
-                            Path API Aplikasi
-                        </Label>
-                        
-                    </div>
-                    <Input
-                        id="base_path_api"
-                        readOnly
-                        disabled
-                        value={fullApiUrl}
-                        placeholder={
-                            selectedApp
-                                ? (fullApiUrl ? '' : 'Belum dikonfigurasi di Master Perusahaan / Aplikasi')
-                                : 'Pilih aplikasi terlebih dahulu'
-                        }
-                        className="bg-muted/50 font-mono text-xs text-foreground cursor-not-allowed selection:bg-none"
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                        {selectedApp?.company?.base_url && selectedApp?.path_api
-                            ? `Base URL (${selectedApp.company.base_url}) + Path (${selectedApp.path_api})`
-                            : 'URL API lengkap dari Master Perusahaan & Aplikasi terpilih.'}
-                    </p>
-                </div>
-            </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="base_path_api" className="font-sans font-medium flex items-center gap-1.5 text-muted-foreground">
+                                                <Globe className="h-3.5 w-3.5 text-primary" />
+                                                Path API Aplikasi
+                                            </Label>
 
-            {/* Baris 2: Nama Transaksi & Kode Transaksi */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                    <Label htmlFor="nama_transaksi" className="font-sans font-medium">
-                        Nama Transaksi <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                        id="nama_transaksi"
-                        name="nama_transaksi"
-                        placeholder="Misal: Purchase Request, Pengajuan Cuti..."
-                        value={formData.nama_transaksi}
-                        onChange={handleInputChange}
-                        className="font-sans"
-                        required
-                    />
-                    {errors.nama_transaksi && <p className="text-xs text-red-500">{errors.nama_transaksi}</p>}
-                </div>
+                                        </div>
+                                        <Input
+                                            id="base_path_api"
+                                            readOnly
+                                            disabled
+                                            value={fullApiUrl}
+                                            placeholder={
+                                                selectedApp
+                                                    ? (fullApiUrl ? '' : 'Belum dikonfigurasi di Master Perusahaan / Aplikasi')
+                                                    : 'Pilih aplikasi terlebih dahulu'
+                                            }
+                                            className="bg-muted/50 font-mono text-xs text-foreground cursor-not-allowed selection:bg-none"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            {selectedApp?.company?.base_url && selectedApp?.path_api
+                                                ? `Base URL (${selectedApp.company.base_url}) + Path (${selectedApp.path_api})`
+                                                : 'URL API lengkap dari Master Perusahaan & Aplikasi terpilih.'}
+                                        </p>
+                                    </div>
+                                </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="kode_transaksi" className="font-sans font-medium">
-                        Kode Transaksi <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                        id="kode_transaksi"
-                        name="kode_transaksi"
-                        placeholder="Misal: PR, PO, CUTI"
-                        value={formData.kode_transaksi}
-                        onChange={handleInputChange}
-                        className="font-mono uppercase"
-                        required
-                    />
-                    {errors.kode_transaksi && <p className="text-xs text-red-500">{errors.kode_transaksi}</p>}
-                </div>
-            </div>
+                                {/* Baris 2: Nama Transaksi & Kode Transaksi */}
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="nama_transaksi" className="font-sans font-medium">
+                                            Nama Transaksi <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="nama_transaksi"
+                                            name="nama_transaksi"
+                                            placeholder="Misal: Purchase Request, Pengajuan Cuti..."
+                                            value={formData.nama_transaksi}
+                                            onChange={handleInputChange}
+                                            className="font-sans"
+                                            required
+                                        />
+                                        {errors.nama_transaksi && <p className="text-xs text-red-500">{errors.nama_transaksi}</p>}
+                                    </div>
 
-            {/* Baris 3: Deskripsi */}
-            <div className="space-y-2">
-                <Label htmlFor="deskripsi" className="font-sans font-medium">
-                    Deskripsi (Opsional)
-                </Label>
-                <Textarea
-                    id="deskripsi"
-                    name="deskripsi"
-                    placeholder="Keterangan alur atau peruntukan transaksi..."
-                    value={formData.deskripsi}
-                    onChange={handleInputChange}
-                    className="font-sans"
-                    rows={2}
-                />
-            </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="kode_transaksi" className="font-sans font-medium">
+                                            Kode Transaksi <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="kode_transaksi"
+                                            name="kode_transaksi"
+                                            placeholder="Misal: PR, PO, CUTI"
+                                            value={formData.kode_transaksi}
+                                            onChange={handleInputChange}
+                                            className="font-mono uppercase"
+                                            required
+                                        />
+                                        {errors.kode_transaksi && <p className="text-xs text-red-500">{errors.kode_transaksi}</p>}
+                                    </div>
+                                </div>
 
-            {/* Baris 4: Status Transaksi Aktif */}
-            <div className="flex items-center gap-2 pt-1">
-                <input
-                    type="checkbox"
-                    id="is_active"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-                    className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <Label htmlFor="is_active" className="cursor-pointer font-sans text-sm font-medium">
-                    Status Transaksi Aktif
-                </Label>
-            </div>
+                                {/* Baris 3: Deskripsi */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="deskripsi" className="font-sans font-medium">
+                                        Deskripsi (Opsional)
+                                    </Label>
+                                    <Textarea
+                                        id="deskripsi"
+                                        name="deskripsi"
+                                        placeholder="Keterangan alur atau peruntukan transaksi..."
+                                        value={formData.deskripsi}
+                                        onChange={handleInputChange}
+                                        className="font-sans"
+                                        rows={2}
+                                    />
+                                </div>
 
-            {/* ================= SECTION INTEGRASI ENDPOINT & PATH DOKUMEN ================= */}
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                    <div>
-                        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                            <span>Integrasi Endpoint & Path Dokumen</span>
-                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md border border-border/60">
-                                Opsional
-                            </span>
-                        </h4>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Konfigurasi path & endpoint spesifik untuk transaksi ini bila terintegrasi dengan modul aplikasi eksternal.
-                        </p>
-                    </div>
-                </div>
+                                {/* Baris 4: Status Transaksi Aktif */}
+                                <div className="flex items-center gap-2 pt-1">
+                                    <input
+                                        type="checkbox"
+                                        id="is_active"
+                                        checked={formData.is_active}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
+                                        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
+                                    />
+                                    <Label htmlFor="is_active" className="cursor-pointer font-sans text-sm font-medium">
+                                        Status Transaksi Aktif
+                                    </Label>
+                                </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1">
-                    <div className="space-y-1.5">
-                        <Label htmlFor="lookup_path_api" className="text-xs font-medium font-sans">
-                            Lookup Path API
-                        </Label>
-                        <Input
-                            id="lookup_path_api"
-                            name="lookup_path_api"
-                            placeholder="Contoh: api/v1/integration/purchase-order/"
-                            value={formData.lookup_path_api || ''}
-                            onChange={handleInputChange}
-                            className="font-sans text-xs bg-background"
-                        />
-                        {errors.lookup_path_api && <p className="text-[11px] text-red-500">{errors.lookup_path_api}</p>}
-                        <span className="text-[11px] text-muted-foreground block">Endpoint pencarian data (misal: api/v1/integration/purchase-order/)</span>
-                    </div>
+                                {/* ================= SECTION INTEGRASI ENDPOINT & PATH DOKUMEN ================= */}
+                                <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                                <span>Integrasi Endpoint & Path Dokumen</span>
+                                                <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md border border-border/60">
+                                                    Opsional
+                                                </span>
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Konfigurasi path & endpoint spesifik untuk transaksi ini bila terintegrasi dengan modul aplikasi eksternal.
+                                            </p>
+                                        </div>
+                                    </div>
 
-                    <div className="space-y-1.5">
-                        <Label htmlFor="get_pdf_path_api" className="text-xs font-medium font-sans">
-                            Get PDF Path API
-                        </Label>
-                        <Input
-                            id="get_pdf_path_api"
-                            name="get_pdf_path_api"
-                            placeholder="Contoh: api/v1/integration/purchase-order/"
-                            value={formData.get_pdf_path_api || ''}
-                            onChange={handleInputChange}
-                            className="font-sans text-xs bg-background"
-                        />
-                        {errors.get_pdf_path_api && <p className="text-[11px] text-red-500">{errors.get_pdf_path_api}</p>}
-                        <span className="text-[11px] text-muted-foreground block">Endpoint unduh PDF (opsional, default mengikuti lookup)</span>
-                    </div>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="lookup_path_api" className="text-xs font-medium font-sans">
+                                                Lookup Path API
+                                            </Label>
+                                            <Input
+                                                id="lookup_path_api"
+                                                name="lookup_path_api"
+                                                placeholder="Contoh: api/v1/integration/purchase-order/"
+                                                value={formData.lookup_path_api || ''}
+                                                onChange={handleInputChange}
+                                                className="font-sans text-xs bg-background"
+                                            />
+                                            {errors.lookup_path_api && <p className="text-[11px] text-red-500">{errors.lookup_path_api}</p>}
+                                            <span className="text-[11px] text-muted-foreground block">Endpoint pencarian data</span>
+                                        </div>
 
-                    <div className="space-y-1.5">
-                        <Label htmlFor="path_dokumen" className="text-xs font-medium font-sans">
-                            Path Dokumen
-                        </Label>
-                        <Input
-                            id="path_dokumen"
-                            name="path_dokumen"
-                            placeholder="Contoh: /dokumen/view"
-                            value={formData.path_dokumen || ''}
-                            onChange={handleInputChange}
-                            className="font-sans text-xs bg-background"
-                        />
-                        {errors.path_dokumen && <p className="text-[11px] text-red-500">{errors.path_dokumen}</p>}
-                        <span className="text-[11px] text-muted-foreground block">Path preview/view file</span>
-                    </div>
-                </div>
-            </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="get_pdf_path_api" className="text-xs font-medium font-sans">
+                                                Get PDF Path API
+                                            </Label>
+                                            <Input
+                                                id="get_pdf_path_api"
+                                                name="get_pdf_path_api"
+                                                placeholder="Contoh: api/v1/integration/purchase-order/"
+                                                value={formData.get_pdf_path_api || ''}
+                                                onChange={handleInputChange}
+                                                className="font-sans text-xs bg-background"
+                                            />
+                                            {errors.get_pdf_path_api && <p className="text-[11px] text-red-500">{errors.get_pdf_path_api}</p>}
+                                            <span className="text-[11px] text-muted-foreground block">Endpoint unduh PDF (opsional, default mengikuti lookup)</span>
+                                        </div>
 
-            {/* Footer Form */}
-            <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="font-sans">
-                    Batal
-                </Button>
-                <Button type="submit" disabled={submitting} className="font-sans">
-                    {submitting ? 'Menyimpan...' : editingTransaksi ? 'Simpan Perubahan' : 'Tambah Transaksi'}
-                </Button>
-            </DialogFooter>
-        </form>
-    </DialogContent>
-</Dialog>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="path_dokumen" className="text-xs font-medium font-sans">
+                                                Path Dokumen
+                                            </Label>
+                                            <Input
+                                                id="path_dokumen"
+                                                name="path_dokumen"
+                                                placeholder="Contoh: /dokumen/view"
+                                                value={formData.path_dokumen || ''}
+                                                onChange={handleInputChange}
+                                                className="font-sans text-xs bg-background"
+                                            />
+                                            {errors.path_dokumen && <p className="text-[11px] text-red-500">{errors.path_dokumen}</p>}
+                                            <span className="text-[11px] text-muted-foreground block">Path preview/view file</span>
+                                        </div>
+                                    </div>
+                                </div>
 
-{/* Delete Confirmation Modal */}
-<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-    <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-            <DialogTitle className="font-serif text-red-600">Hapus Transaksi</DialogTitle>
-            <DialogDescription className="font-sans">
-                Apakah Anda yakin ingin menghapus transaksi{' '}
-                <span className="font-semibold text-foreground">
-                    "{deletingTransaksi?.nama_transaksi}" ({deletingTransaksi?.kode_transaksi})
-                </span>
-                ? Data masterflow yang terhubung mungkin akan terpengaruh.
-            </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
-                Batal
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} className="font-sans">
-                Hapus
-            </Button>
-        </DialogFooter>
-    </DialogContent>
-</Dialog>
-            </SidebarInset>
-        </SidebarProvider>
-    </>
-);
+                                {/* Footer Form */}
+                                <DialogFooter className="pt-2">
+                                    <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="font-sans">
+                                        Batal
+                                    </Button>
+                                    <Button type="submit" disabled={submitting} className="font-sans">
+                                        {submitting ? 'Menyimpan...' : editingTransaksi ? 'Simpan Perubahan' : 'Tambah Transaksi'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Delete Confirmation Modal */}
+                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="font-serif text-red-600">Hapus Transaksi</DialogTitle>
+                                <DialogDescription className="font-sans">
+                                    Apakah Anda yakin ingin menghapus transaksi{' '}
+                                    <span className="font-semibold text-foreground">
+                                        "{deletingTransaksi?.nama_transaksi}" ({deletingTransaksi?.kode_transaksi})
+                                    </span>
+                                    ? Data masterflow yang terhubung mungkin akan terpengaruh.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="font-sans">
+                                    Batal
+                                </Button>
+                                <Button variant="destructive" onClick={handleDelete} className="font-sans">
+                                    Hapus
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </SidebarInset>
+            </SidebarProvider>
+        </>
+    );
 }
