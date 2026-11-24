@@ -1614,43 +1614,6 @@ export function CreateDocumentDialog({ open, onOpenChange, onSuccess, editDokume
                                                     )}
                                                 </Button>
                                             </div>
-
-                                            {/* Quick sample chips from TSPM database */}
-                                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-muted-foreground font-sans">
-                                                <span>Contoh dari Database:</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
-                                                        const poTrans = transaksis.find((t) => (!currentAppId || String(t.aplikasi_id) === currentAppId) && ((t.kode_transaksi || '').toUpperCase() === 'PO' || (t.kode || '').toUpperCase() === 'PO'));
-                                                        const transId = poTrans ? String(poTrans.id) : (formData.transaksi_id ? String(formData.transaksi_id) : undefined);
-                                                        if (transId) {
-                                                            setFormData((prev) => ({ ...prev, transaksi_id: transId }));
-                                                        }
-                                                        setExternalDocKeyword('TSPM/2025/01/PO/0084');
-                                                        handleFetchExternalData('TSPM/2025/01/PO/0084', transId);
-                                                    }}
-                                                    className="font-mono text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/20 transition-colors cursor-pointer"
-                                                >
-                                                    TSPM/2025/01/PO/0084 (PO)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const currentAppId = String(formData.aplikasi_id || selectedAplikasiId || '');
-                                                        const prTrans = transaksis.find((t) => (!currentAppId || String(t.aplikasi_id) === currentAppId) && ((t.kode_transaksi || '').toUpperCase() === 'PR' || (t.kode || '').toUpperCase() === 'PR'));
-                                                        const transId = prTrans ? String(prTrans.id) : (formData.transaksi_id ? String(formData.transaksi_id) : undefined);
-                                                        if (transId) {
-                                                            setFormData((prev) => ({ ...prev, transaksi_id: transId }));
-                                                        }
-                                                        setExternalDocKeyword('TSPM2902/2025/01/PR0011');
-                                                        handleFetchExternalData('TSPM2902/2025/01/PR0011', transId);
-                                                    }}
-                                                    className="font-mono text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/20 transition-colors cursor-pointer"
-                                                >
-                                                    TSPM2902/2025/01/PR0011 (PR)
-                                                </button>
-                                            </div>
                                         </div>
 
                                         {/* Success Banner */}

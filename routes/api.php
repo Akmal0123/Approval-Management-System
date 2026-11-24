@@ -76,6 +76,7 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
     // Dokumen API Routes
     Route::get('/dokumen', [DokumenController::class, 'apiIndex']);
     Route::post('/dokumen/lookup-external', [DokumenController::class, 'lookupExternal']);
+    Route::post('/dokumen/sync-lookup-drafts', [DokumenController::class, 'syncLookupDrafts']);
     Route::get('/dokumen/lookup-external-suggestions', [DokumenController::class, 'lookupExternalSuggestions']);
     Route::post('/dokumen/{dokumen}/upload-revision', [DokumenController::class, 'uploadRevision']);
     Route::delete('/dokumen/{dokumen}', [DokumenController::class, 'destroy']);

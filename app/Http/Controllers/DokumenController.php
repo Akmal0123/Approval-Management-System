@@ -44,6 +44,17 @@ class DokumenController extends Controller
      */
     public function apiIndex(Request $request)
     {
+        // Auto-sync data lookup di balik sistem untuk akun Super Admin (dibatasi maksimal sekali per 30 detik)
+        if ($this->contextService->isSuperAdmin()) {
+            try {
+                \Illuminate\Support\Facades\Cache::lock('ams_auto_sync_lookup_drafts', 30)->get(function () {
+                    \App\Services\LookupDraftSyncService::syncAll();
+                });
+            } catch (\Throwable $e) {
+                // Abaikan jika lock sedang aktif atau service eksternal tidak merespons
+            }
+        }
+
         $query = Dokumen::with(['user', 'masterflow', 'latestVersion', 'approvals.user', 'aplikasi', 'transaksi'])
             ->orderBy('created_at', 'desc');
 
@@ -116,6 +127,17 @@ class DokumenController extends Controller
      */
     public function index(Request $request)
     {
+        // Auto-sync data lookup di balik sistem untuk akun Super Admin (dibatasi maksimal sekali per 30 detik)
+        if ($this->contextService->isSuperAdmin()) {
+            try {
+                \Illuminate\Support\Facades\Cache::lock('ams_auto_sync_lookup_drafts', 30)->get(function () {
+                    \App\Services\LookupDraftSyncService::syncAll();
+                });
+            } catch (\Throwable $e) {
+                // Abaikan jika lock sedang aktif atau service eksternal tidak merespons
+            }
+        }
+
         $query = Dokumen::with(['user', 'masterflow', 'latestVersion', 'approvals.user', 'aplikasi', 'transaksi'])
             ->orderBy('created_at', 'desc');
 
@@ -282,10 +304,10 @@ class DokumenController extends Controller
         if ($request->filled('nominal')) {
             $rawNom = $request->nominal;
             if (is_numeric($rawNom)) {
-                $nominal = (float)$rawNom;
+                $nominal = (float) $rawNom;
             } elseif (is_string($rawNom)) {
                 $cleaned = preg_replace('/[^0-9.]/', '', str_replace(',', '.', str_replace('.', '', $rawNom)));
-                $nominal = is_numeric($cleaned) ? (float)$cleaned : 0;
+                $nominal = is_numeric($cleaned) ? (float) $cleaned : 0;
             }
         }
 
@@ -427,7 +449,7 @@ class DokumenController extends Controller
 
                 // Filter steps based on document nominal requirement
                 $applicableSteps = $masterflow->steps->filter(function ($step) use ($dokumen) {
-                    $stepMin = (!is_null($step->min_nominal) && (float)$step->min_nominal > 0) ? (float)$step->min_nominal : null;
+                    $stepMin = (!is_null($step->min_nominal) && (float) $step->min_nominal > 0) ? (float) $step->min_nominal : null;
 
                     // Fallback: If min_nominal is not explicitly set, steps for Kadiv or Direktur require >= 5.000.000
                     if (is_null($stepMin)) {
@@ -448,116 +470,116 @@ class DokumenController extends Controller
                     return true;
                 })->values();
 
-                    $minStepOrder = $applicableSteps->min('step_order');
+                $minStepOrder = $applicableSteps->min('step_order');
 
-                    Log::info('Processing masterflow steps', [
-                        'masterflow_id' => $masterflow->id,
-                        'total_steps_count' => $masterflow->steps->count(),
-                        'applicable_steps_count' => $applicableSteps->count(),
-                        'dokumen_nominal' => $dokumen->nominal,
-                        'has_step_approvers' => $request->has('step_approvers'),
-                        'step_approvers_keys' => $request->has('step_approvers') ? array_keys($request->input('step_approvers', [])) : [],
-                    ]);
+                Log::info('Processing masterflow steps', [
+                    'masterflow_id' => $masterflow->id,
+                    'total_steps_count' => $masterflow->steps->count(),
+                    'applicable_steps_count' => $applicableSteps->count(),
+                    'dokumen_nominal' => $dokumen->nominal,
+                    'has_step_approvers' => $request->has('step_approvers'),
+                    'step_approvers_keys' => $request->has('step_approvers') ? array_keys($request->input('step_approvers', [])) : [],
+                ]);
 
-                    foreach ($applicableSteps as $step) {
-                        $isFirstLevel = $step->step_order == $minStepOrder;
-                        // Check if user selected group approval for this step
-                        if ($request->has("step_approvers.{$step->id}")) {
-                            $stepApprover = $request->input("step_approvers.{$step->id}");
-                            $groupIndex = 'user_selected_' . $dokumen->id . '_' . $step->id;
+                foreach ($applicableSteps as $step) {
+                    $isFirstLevel = $step->step_order == $minStepOrder;
+                    // Check if user selected group approval for this step
+                    if ($request->has("step_approvers.{$step->id}")) {
+                        $stepApprover = $request->input("step_approvers.{$step->id}");
+                        $groupIndex = 'user_selected_' . $dokumen->id . '_' . $step->id;
 
-                            Log::info('Creating group approval', [
-                                'step_id' => $step->id,
+                        Log::info('Creating group approval', [
+                            'step_id' => $step->id,
+                            'group_index' => $groupIndex,
+                            'jenis_group' => $stepApprover['jenis_group'],
+                            'user_ids' => $stepApprover['user_ids'],
+                        ]);
+
+                        // Create approval records for all selected users in the group
+                        foreach ($stepApprover['user_ids'] as $userId) {
+                            $approval = DokumenApproval::create([
+                                'dokumen_id' => $dokumen->id,
+                                'user_id' => $userId,
+                                'masterflow_step_id' => $step->id,
+                                'dokumen_version_id' => $version->id,
+                                'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
+                                'tgl_deadline' => $validated['tgl_deadline'],
                                 'group_index' => $groupIndex,
                                 'jenis_group' => $stepApprover['jenis_group'],
-                                'user_ids' => $stepApprover['user_ids'],
                             ]);
 
-                            // Create approval records for all selected users in the group
-                            foreach ($stepApprover['user_ids'] as $userId) {
-                                $approval = DokumenApproval::create([
-                                    'dokumen_id' => $dokumen->id,
-                                    'user_id' => $userId,
-                                    'masterflow_step_id' => $step->id,
-                                    'dokumen_version_id' => $version->id,
-                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
-                                    'tgl_deadline' => $validated['tgl_deadline'],
-                                    'group_index' => $groupIndex,
-                                    'jenis_group' => $stepApprover['jenis_group'],
-                                ]);
-
-                                if (!isset($frontendIdToApprovalId["group_{$step->id}"])) {
-                                    $frontendIdToApprovalId["group_{$step->id}"] = [];
-                                }
-                                $frontendIdToApprovalId["group_{$step->id}"][] = $approval->id;
-
-                                if ($isFirstLevel && $submitType !== 'draft') {
-                                    // Broadcast new approval event
-                                    Log::info('Broadcasting ApprovalCreated event', [
-                                        'approval_id' => $approval->id,
-                                        'user_id' => $userId,
-                                        'dokumen_id' => $dokumen->id,
-                                    ]);
-                                    broadcast(new ApprovalCreated($approval))->toOthers();
-
-                                    // Dispatch email notification job
-                                    SendApprovalNotification::dispatch($approval);
-
-                                    // Broadcast browser notification to approver
-                                    broadcast(new BrowserNotificationEvent(
-                                        userId: $userId,
-                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
-                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
-                                        url: route('approvals.show', $approval->id),
-                                        type: 'info'
-                                    ));
-                                }
+                            if (!isset($frontendIdToApprovalId["group_{$step->id}"])) {
+                                $frontendIdToApprovalId["group_{$step->id}"] = [];
                             }
-                        } else {
-                            // Single approver selected by user
-                            if (isset($validated['approvers'][$step->id])) {
-                                Log::info('Creating single approval', [
-                                    'step_id' => $step->id,
-                                    'user_id' => $validated['approvers'][$step->id],
-                                ]);
+                            $frontendIdToApprovalId["group_{$step->id}"][] = $approval->id;
 
-                                $approval = DokumenApproval::create([
+                            if ($isFirstLevel && $submitType !== 'draft') {
+                                // Broadcast new approval event
+                                Log::info('Broadcasting ApprovalCreated event', [
+                                    'approval_id' => $approval->id,
+                                    'user_id' => $userId,
                                     'dokumen_id' => $dokumen->id,
-                                    'user_id' => $validated['approvers'][$step->id],
-                                    'masterflow_step_id' => $step->id,
-                                    'dokumen_version_id' => $version->id,
-                                    'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
-                                    'tgl_deadline' => $validated['tgl_deadline'],
                                 ]);
+                                broadcast(new ApprovalCreated($approval))->toOthers();
 
-                                $userId = $validated['approvers'][$step->id];
-                                $frontendIdToApprovalId["step_{$step->id}_user_{$userId}"] = $approval->id;
+                                // Dispatch email notification job
+                                SendApprovalNotification::dispatch($approval);
 
-                                if ($isFirstLevel && $submitType !== 'draft') {
-                                    // Broadcast new approval event
-                                    Log::info('Broadcasting ApprovalCreated event', [
-                                        'approval_id' => $approval->id,
-                                        'user_id' => $validated['approvers'][$step->id],
-                                        'dokumen_id' => $dokumen->id,
-                                    ]);
-                                    broadcast(new ApprovalCreated($approval))->toOthers();
+                                // Broadcast browser notification to approver
+                                broadcast(new BrowserNotificationEvent(
+                                    userId: $userId,
+                                    title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                    body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                    url: route('approvals.show', $approval->id),
+                                    type: 'info'
+                                ));
+                            }
+                        }
+                    } else {
+                        // Single approver selected by user
+                        if (isset($validated['approvers'][$step->id])) {
+                            Log::info('Creating single approval', [
+                                'step_id' => $step->id,
+                                'user_id' => $validated['approvers'][$step->id],
+                            ]);
 
-                                    // Dispatch email notification job
-                                    SendApprovalNotification::dispatch($approval);
+                            $approval = DokumenApproval::create([
+                                'dokumen_id' => $dokumen->id,
+                                'user_id' => $validated['approvers'][$step->id],
+                                'masterflow_step_id' => $step->id,
+                                'dokumen_version_id' => $version->id,
+                                'approval_status' => $isFirstLevel ? 'pending' : 'waiting',
+                                'tgl_deadline' => $validated['tgl_deadline'],
+                            ]);
 
-                                    // Broadcast browser notification to approver
-                                    broadcast(new BrowserNotificationEvent(
-                                        userId: $validated['approvers'][$step->id],
-                                        title: 'Dokumen Baru Membutuhkan Persetujuan',
-                                        body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
-                                        url: route('approvals.show', $approval->id),
-                                        type: 'info'
-                                    ));
-                                }
+                            $userId = $validated['approvers'][$step->id];
+                            $frontendIdToApprovalId["step_{$step->id}_user_{$userId}"] = $approval->id;
+
+                            if ($isFirstLevel && $submitType !== 'draft') {
+                                // Broadcast new approval event
+                                Log::info('Broadcasting ApprovalCreated event', [
+                                    'approval_id' => $approval->id,
+                                    'user_id' => $validated['approvers'][$step->id],
+                                    'dokumen_id' => $dokumen->id,
+                                ]);
+                                broadcast(new ApprovalCreated($approval))->toOthers();
+
+                                // Dispatch email notification job
+                                SendApprovalNotification::dispatch($approval);
+
+                                // Broadcast browser notification to approver
+                                broadcast(new BrowserNotificationEvent(
+                                    userId: $validated['approvers'][$step->id],
+                                    title: 'Dokumen Baru Membutuhkan Persetujuan',
+                                    body: "Dokumen '{$dokumen->judul_dokumen}' membutuhkan persetujuan Anda.",
+                                    url: route('approvals.show', $approval->id),
+                                    type: 'info'
+                                ));
                             }
                         }
                     }
                 }
+            }
 
             // Handle signature positions if any
             if ($request->has('signature_positions')) {
@@ -567,7 +589,7 @@ class DokumenController extends Controller
                     foreach ($positions as $pos) {
                         $frontendId = $pos['dokumen_approval_id'];
 
-                        if ($frontendId === 'qr_code' || str_starts_with((string)$frontendId, 'qr_code') || empty($frontendId)) {
+                        if ($frontendId === 'qr_code' || str_starts_with((string) $frontendId, 'qr_code') || empty($frontendId)) {
                             $positionsData[] = [
                                 'dokumen_id' => $dokumen->id,
                                 'dokumen_approval_id' => null,
@@ -808,10 +830,10 @@ class DokumenController extends Controller
             if ($request->filled('nominal')) {
                 $rawNom = $request->nominal;
                 if (is_numeric($rawNom)) {
-                    $nominal = (float)$rawNom;
+                    $nominal = (float) $rawNom;
                 } elseif (is_string($rawNom)) {
                     $cleaned = preg_replace('/[^0-9.]/', '', str_replace(',', '.', str_replace('.', '', $rawNom)));
-                    $nominal = is_numeric($cleaned) ? (float)$cleaned : 0;
+                    $nominal = is_numeric($cleaned) ? (float) $cleaned : 0;
                 }
             }
 
@@ -942,7 +964,7 @@ class DokumenController extends Controller
                         $masterflow = Masterflow::with('steps')->findOrFail($validated['masterflow_id']);
 
                         $applicableSteps = $masterflow->steps->filter(function ($step) use ($dokumen) {
-                            $stepMin = (!is_null($step->min_nominal) && (float)$step->min_nominal > 0) ? (float)$step->min_nominal : null;
+                            $stepMin = (!is_null($step->min_nominal) && (float) $step->min_nominal > 0) ? (float) $step->min_nominal : null;
                             if (is_null($stepMin)) {
                                 $sName = strtolower($step->step_name ?? '');
                                 $jName = strtolower($step->jabatan?->name ?? '');
@@ -1055,7 +1077,7 @@ class DokumenController extends Controller
                         foreach ($positions as $pos) {
                             $frontendId = $pos['dokumen_approval_id'] ?? null;
 
-                            if ($frontendId === 'qr_code' || str_starts_with((string)$frontendId, 'qr_code') || empty($frontendId)) {
+                            if ($frontendId === 'qr_code' || str_starts_with((string) $frontendId, 'qr_code') || empty($frontendId)) {
                                 $positionsData[] = [
                                     'dokumen_id' => $dokumen->id,
                                     'dokumen_approval_id' => null,
@@ -1094,8 +1116,8 @@ class DokumenController extends Controller
 
                 DB::commit();
 
-                $msg = $submitType === 'submit' 
-                    ? 'Dokumen berhasil disubmit untuk approval!' 
+                $msg = $submitType === 'submit'
+                    ? 'Dokumen berhasil disubmit untuk approval!'
                     : 'Dokumen draft berhasil diperbarui!';
 
                 return redirect()->back()->with('success', $msg);
@@ -1128,10 +1150,10 @@ class DokumenController extends Controller
             if ($request->filled('nominal')) {
                 $rawNom = $request->nominal;
                 if (is_numeric($rawNom)) {
-                    $updateData['nominal'] = (float)$rawNom;
+                    $updateData['nominal'] = (float) $rawNom;
                 } elseif (is_string($rawNom)) {
                     $cleaned = preg_replace('/[^0-9.]/', '', str_replace(',', '.', str_replace('.', '', $rawNom)));
-                    $updateData['nominal'] = is_numeric($cleaned) ? (float)$cleaned : 0;
+                    $updateData['nominal'] = is_numeric($cleaned) ? (float) $cleaned : 0;
                 }
             }
 
@@ -2010,6 +2032,19 @@ class DokumenController extends Controller
     }
 
     /**
+     * Sinkronisasi seluruh lookup data eksternal (PO & PR) ke akun Super Admin sebagai draft dokumen.
+     */
+    public function syncLookupDrafts(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $limit = $request->input('limit') ? (int) $request->input('limit') : null;
+        $type = $request->input('type') ?: null;
+
+        $result = \App\Services\LookupDraftSyncService::syncAll($limit, $type);
+
+        return response()->json($result);
+    }
+
+    /**
      * Lookup external transaction data and generate its template PDF.
      * Integrates with Fastify Integration Service (REST API + JWT) and falls back to local dummy.
      */
@@ -2054,8 +2089,34 @@ class DokumenController extends Controller
                 $source = 'external-inventory-system';
                 $pdfBinary = FastifyIntegrationService::fetchPdfByPath($keyword, $pdfPath, $lookupPath);
             }
-        } else {
-            // Fallback jika belum diatur lookup_path_api
+        }
+
+        // Fallback auto-recovery jika belum berhasil:
+        // Cek apakah nomor dokumen cocok dengan tipe transaksi lain (misal user pilih PO tapi nomor yang dimasukkan adalah PR)
+        if (!$txData) {
+            $detectedType = Dokumen::identifyTransactionTypeFromNumber($keyword);
+            if ($detectedType && (!$transaksi || $transaksi->kode_transaksi !== $detectedType)) {
+                $altTransaksi = Transaksi::where('kode_transaksi', $detectedType)
+                    ->whereNotNull('lookup_path_api')
+                    ->first();
+                if ($altTransaksi) {
+                    $altLookupPath = $altTransaksi->lookup_path_api;
+                    $altPdfPath = $altTransaksi->get_pdf_path_api;
+                    $altData = FastifyIntegrationService::fetchDocumentByPath($altLookupPath, $keyword);
+                    if ($altData) {
+                        $txData = $altData;
+                        $transaksi = $altTransaksi;
+                        $lookupPath = $altLookupPath;
+                        $pdfPath = $altPdfPath;
+                        $source = 'external-inventory-system';
+                        $pdfBinary = FastifyIntegrationService::fetchPdfByPath($keyword, $pdfPath, $lookupPath);
+                    }
+                }
+            }
+        }
+
+        // Fallback ke unified getDocument jika masih belum ditemukan
+        if (!$txData) {
             $txData = FastifyIntegrationService::getDocument($keyword);
             if ($txData) {
                 $source = 'external-inventory-system';

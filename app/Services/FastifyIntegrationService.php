@@ -63,6 +63,51 @@ class FastifyIntegrationService
     }
 
     /**
+     * Ambil daftar dokumen eksternal (list) dari Microservice Lookup menggunakan Lookup Path API dinamis.
+     * Membersihkan parameter placeholder seperti :number atau {id} agar memanggil list endpoint.
+     */
+    public static function fetchDocumentsList(string $lookupPath, array $params = []): array
+    {
+        $cleanPath = trim($lookupPath);
+        if (empty($cleanPath)) {
+            return [];
+        }
+
+        // Hapus parameter placeholder jika ada (:number, :id, {number}, {id}, dll)
+        $cleanPath = preg_replace('/(:number|:id|:keyword|\{number\}|\{id\}|\{keyword\})/i', '', $cleanPath);
+        $cleanPath = trim($cleanPath, '/');
+
+        try {
+            $url = self::getBaseUrl() . '/' . $cleanPath;
+            $scopes = [
+                'lookup:read',
+                'integration:purchase-order:read',
+                'integration:purchase-request:read',
+            ];
+
+            $response = Http::timeout(10)
+                ->withHeaders(self::getHeaders($scopes))
+                ->get($url, $params);
+
+            if ($response->successful()) {
+                $json = $response->json();
+                if (isset($json['data']) && is_array($json['data'])) {
+                    return $json['data'];
+                }
+                if (is_array($json)) {
+                    return $json;
+                }
+            } else {
+                Log::warning("FastifyIntegrationService::fetchDocumentsList failed [{$url}]: HTTP " . $response->status());
+            }
+        } catch (\Throwable $e) {
+            Log::warning("FastifyIntegrationService::fetchDocumentsList [{$cleanPath}] failed: " . $e->getMessage());
+        }
+
+        return [];
+    }
+
+    /**
      * Bangun full URL berdasarkan konfigurasi path dinamis dari Transaksi Management.
      * Mendukung:
      * - Path dengan trailing slash: 'api/v1/integration/purchase-order/'

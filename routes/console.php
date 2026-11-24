@@ -14,3 +14,11 @@ Schedule::command('approvals:send-reminders')
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/deadline-reminders.log'));
+
+// Schedule sinkronisasi otomatis berkala data lookup eksternal (PO & PR) menjadi dokumen draft untuk akun Super Admin
+Schedule::command('ams:sync-lookup-drafts')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/lookup-sync.log'));
+

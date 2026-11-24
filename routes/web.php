@@ -160,6 +160,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('api/dokumen')->group(function () {
         Route::get('/', [\App\Http\Controllers\DokumenController::class, 'index'])->name('dokumen.index');
         Route::post('/', [\App\Http\Controllers\DokumenController::class, 'store'])->name('dokumen.store');
+        Route::post('/sync-lookup-drafts', [\App\Http\Controllers\DokumenController::class, 'syncLookupDrafts'])->name('dokumen.sync-lookup-drafts');
         Route::get('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'show'])->name('dokumen.show');
         Route::put('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'update'])->name('dokumen.update');
         Route::delete('/{dokumen}', [\App\Http\Controllers\DokumenController::class, 'destroy'])->name('dokumen.destroy');

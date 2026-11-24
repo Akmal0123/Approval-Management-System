@@ -218,7 +218,7 @@ class InternalSyncController extends Controller
             if (!$dokumen) {
                 $dokumen = Dokumen::create([
                     'nomor_dokumen' => $nomorDokumen,
-                    'judul_dokumen' => $request->input('judul_dokumen'),
+                    'judul_dokumen' => $request->input('judul_dokumen') ?: $nomorDokumen,
                     'nominal' => (float) ($request->input('nominal', 0)),
                     'user_id' => $user->id,
                     'company_id' => $companyId,
@@ -233,7 +233,7 @@ class InternalSyncController extends Controller
             } else {
                 // Update dokumen existing agar tetap berstatus draft dan transaksi_id terisi
                 $dokumen->update([
-                    'judul_dokumen' => $request->input('judul_dokumen', $dokumen->judul_dokumen),
+                    'judul_dokumen' => $request->input('judul_dokumen') ?: ($dokumen->judul_dokumen ?: $nomorDokumen),
                     'nominal' => (float) ($request->input('nominal', $dokumen->nominal)),
                     'tipe_dokumen' => $tipeDokumen,
                     'transaksi_id' => $transaksiId ?: $dokumen->transaksi_id,
