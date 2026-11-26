@@ -1806,11 +1806,17 @@ class DokumenController extends Controller
             ->exists();
 
         // If no signatures and no QR code, or not a PDF, stream original file
+        $noCacheHeaders = [
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ];
+
         if (($approvedSignatures->count() === 0 && !$hasQrCode) || strtolower($version->tipe_file) !== 'pdf') {
             $filePath = Storage::disk('local')->path($version->file_url);
-            return response()->file($filePath, [
+            return response()->file($filePath, array_merge([
                 'Content-Type' => 'application/pdf',
-            ]);
+            ], $noCacheHeaders));
         }
 
         try {
@@ -1821,10 +1827,10 @@ class DokumenController extends Controller
 
             if ($version->signed_file_url && Storage::disk('local')->exists($version->signed_file_url)) {
                 $filePath = Storage::disk('local')->path($version->signed_file_url);
-                return response()->file($filePath, [
+                return response()->file($filePath, array_merge([
                     'Content-Type' => 'application/pdf',
                     'Content-Disposition' => 'inline; filename="signed_' . $version->nama_file . '"',
-                ]);
+                ], $noCacheHeaders));
             }
 
             $pdfContent = $pdfSignatureService->generateSignedPdfStream(
@@ -1836,7 +1842,10 @@ class DokumenController extends Controller
             return response($pdfContent)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="signed_' . $version->nama_file . '"')
-                ->header('Content-Length', strlen($pdfContent));
+                ->header('Content-Length', strlen($pdfContent))
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
         } catch (\Exception $e) {
             Log::error('Failed to generate signed PDF stream', [
                 'error' => $e->getMessage(),
@@ -1846,9 +1855,9 @@ class DokumenController extends Controller
 
             // Fallback to original file
             $filePath = Storage::disk('local')->path($version->file_url);
-            return response()->file($filePath, [
+            return response()->file($filePath, array_merge([
                 'Content-Type' => 'application/pdf',
-            ]);
+            ], $noCacheHeaders));
         }
     }
 

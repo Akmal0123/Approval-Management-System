@@ -82,14 +82,40 @@ async function run() {
             const width = sig.width * mmToPt;
             const height = sig.height * mmToPt;
 
-            // In PDF-lib, Y is from bottom to top. 
-            // Also account for possible non-zero MediaBox origin (e.g. crop margins).
+            // In PDF-lib, coordinates are in UNROTATED space (bottom-left origin).
+            // The user positioned the signature in the DISPLAYED (possibly rotated) coordinate space.
+            // We must map display coordinates back to unrotated PDF coordinates.
+            // PDF /Rotate is clockwise. page.getWidth()/getHeight() return UNROTATED dimensions.
             const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
             const pageX = mediaBox ? mediaBox.x : 0;
             const pageY = mediaBox ? mediaBox.y : 0;
-            const pageHeight = page.getHeight();
-            const x = pageX + (sig.x * mmToPt);
-            const yFromBottom = pageY + pageHeight - (sig.y * mmToPt) - height;
+            const pageW = page.getWidth();   // unrotated width
+            const pageH = page.getHeight();  // unrotated height
+            const rotation = page.getRotation ? page.getRotation().angle : 0;
+
+            let x, yFromBottom;
+            if (rotation === 90) {
+                // /Rotate 90 CW: display appears as landscape (H×W), origin top-left of display
+                // is unrotated bottom-left. x_display→unrot_y, y_display→unrot_x (inverted)
+                // display-x (sig.x) increasing right → unrotated y increasing upward → y_pdf = W - x_mm - h
+                // display-y (sig.y) increasing down → unrotated x increasing right
+                x = pageX + (sig.y * mmToPt);
+                yFromBottom = pageY + pageW - (sig.x * mmToPt) - height;
+            } else if (rotation === 270) {
+                // /Rotate 270 CW (=90 CCW): display appears as landscape (H×W)
+                // display-x increasing right → unrotated y decreasing (y goes from H down to 0)
+                // display-y increasing down → unrotated x increasing right (but from right edge)
+                x = pageX + pageH - (sig.y * mmToPt) - width;
+                yFromBottom = pageY + (sig.x * mmToPt);
+            } else if (rotation === 180) {
+                // /Rotate 180: display same size but flipped, x and y both reversed
+                x = pageX + pageW - (sig.x * mmToPt) - width;
+                yFromBottom = pageY + (sig.y * mmToPt);
+            } else {
+                // rotation === 0 (normal / native landscape) – standard mapping
+                x = pageX + (sig.x * mmToPt);
+                yFromBottom = pageY + pageH - (sig.y * mmToPt) - height;
+            }
 
             page.drawImage(img, {
                 x: x,
@@ -142,9 +168,24 @@ async function run() {
                     const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
                     const pageX = mediaBox ? mediaBox.x : 0;
                     const pageY = mediaBox ? mediaBox.y : 0;
-                    const pageHeight = page.getHeight();
-                    const x = pageX + (qr.x * mmToPt);
-                    const yFromBottom = pageY + pageHeight - (qr.y * mmToPt) - height;
+                    const pageW = page.getWidth();   // unrotated width
+                    const pageH = page.getHeight();  // unrotated height
+                    const rotation = page.getRotation ? page.getRotation().angle : 0;
+
+                    let x, yFromBottom;
+                    if (rotation === 90) {
+                        x = pageX + (qr.y * mmToPt);
+                        yFromBottom = pageY + pageW - (qr.x * mmToPt) - height;
+                    } else if (rotation === 270) {
+                        x = pageX + pageH - (qr.y * mmToPt) - width;
+                        yFromBottom = pageY + (qr.x * mmToPt);
+                    } else if (rotation === 180) {
+                        x = pageX + pageW - (qr.x * mmToPt) - width;
+                        yFromBottom = pageY + (qr.y * mmToPt);
+                    } else {
+                        x = pageX + (qr.x * mmToPt);
+                        yFromBottom = pageY + pageH - (qr.y * mmToPt) - height;
+                    }
 
                     page.drawImage(qrImg, {
                         x: x,
@@ -191,7 +232,15 @@ async function run() {
                 const mediaBox = page.getMediaBox ? page.getMediaBox() : null;
                 const pageX = mediaBox ? mediaBox.x : 0;
                 const pageY = mediaBox ? mediaBox.y : 0;
-                const pageWidth = page.getWidth();
+                const pageWidth = page.getWidth();   // unrotated
+                const pageHeight = page.getHeight(); // unrotated
+                const pageRotation = page.getRotation ? page.getRotation().angle : 0;
+
+                // For parafs (always bottom-right of displayed page), we need the DISPLAYED width
+                // so we can compute "right margin from displayed right edge".
+                // For rotated pages: displayed width = unrotated height, displayed height = unrotated width.
+                const displayedWidth  = (pageRotation === 90 || pageRotation === 270) ? pageHeight : pageWidth;
+                const displayedHeight = (pageRotation === 90 || pageRotation === 270) ? pageWidth  : pageHeight;
 
                 let currentRightOffset = marginFromRightPt;
 
@@ -227,8 +276,24 @@ async function run() {
                         const imgW = origW * ratio;
                         const imgH = origH * ratio;
 
-                        const x = pageX + pageWidth - (currentRightOffset + imgW);
-                        const y = pageY + marginFromBottomPt;
+                        // Place at bottom-right of the DISPLAYED page (accounting for rotation)
+                        let x, y;
+                        if (pageRotation === 90) {
+                            x = pageX + (currentRightOffset);
+                            y = pageY + (currentRightOffset);
+                            // For rotation=90: bottom-right of display = top-left in unrotated, adjust
+                            x = pageX + marginFromBottomPt;
+                            y = pageY + (currentRightOffset + imgW);
+                        } else if (pageRotation === 270) {
+                            x = pageX + pageHeight - marginFromBottomPt - imgH;
+                            y = pageY + pageWidth - (currentRightOffset + imgW);
+                        } else if (pageRotation === 180) {
+                            x = pageX + (currentRightOffset);
+                            y = pageY + pageHeight - marginFromBottomPt - imgH;
+                        } else {
+                            x = pageX + displayedWidth - (currentRightOffset + imgW);
+                            y = pageY + marginFromBottomPt;
+                        }
 
                         page.drawImage(parafImg, {
                             x: x,
@@ -245,8 +310,21 @@ async function run() {
                         const boxWidth = (8.5 * mmToPt) + textWidth;
                         const boxHeight = 6.5 * mmToPt;
 
-                        const x = pageX + pageWidth - (currentRightOffset + boxWidth);
-                        const y = pageY + marginFromBottomPt;
+                        // Place at bottom-right of the DISPLAYED page (accounting for rotation)
+                        let x, y;
+                        if (pageRotation === 90) {
+                            x = pageX + marginFromBottomPt;
+                            y = pageY + (currentRightOffset);
+                        } else if (pageRotation === 270) {
+                            x = pageX + pageHeight - marginFromBottomPt - boxHeight;
+                            y = pageY + pageWidth - (currentRightOffset + boxWidth);
+                        } else if (pageRotation === 180) {
+                            x = pageX + (currentRightOffset);
+                            y = pageY + pageHeight - marginFromBottomPt - boxHeight;
+                        } else {
+                            x = pageX + displayedWidth - (currentRightOffset + boxWidth);
+                            y = pageY + marginFromBottomPt;
+                        }
 
                         // 1. Box background & border (Darker/bolder grey theme)
                         page.drawRectangle({

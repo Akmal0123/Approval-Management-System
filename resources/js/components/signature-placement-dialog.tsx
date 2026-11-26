@@ -186,9 +186,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         fetch(fullUrl, {
             credentials: 'include',
+            cache: 'no-store',
             headers: {
                 Accept: 'application/pdf, */*',
                 'X-Requested-With': 'XMLHttpRequest',
+                'Cache-Control': 'no-cache',
             },
         })
             .then(async (response) => {
@@ -236,11 +238,12 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     }, [fileUrl]);
 
     useEffect(() => {
+        if (!open && !isEmbedded) return;
         const cleanup = loadPdfBlob();
         return () => {
             if (cleanup) cleanup();
         };
-    }, [loadPdfBlob, reloadKey]);
+    }, [loadPdfBlob, reloadKey, open, isEmbedded]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -385,7 +388,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     dokumen_approval_id: app.id,
                     page: 1,
                     x: 20 + idx * 35, // Default mm
-                    y: 220, // Default mm
+                    y: 150, // Default mm – 150mm is safe for both portrait (297mm) and landscape (210mm)
                     width: defaultSquareSize,
                     height: defaultSquareSize,
                 };
@@ -467,10 +470,43 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         pageSizesRef.current[pageNumber] = { width: widthPt, height: heightPt };
 
+        // Clamp any positions on this page that are out of bounds (e.g. default y=150 on ultra-short pages,
+        // or positions saved from a portrait view now viewed as landscape)
+        const pageWidthMm = widthPt * PDF_TO_MM;
+        const pageHeightMm = heightPt * PDF_TO_MM;
+        setPositions((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            Object.keys(next).forEach((key) => {
+                const pos = next[key];
+                if (pos.page === pageNumber) {
+                    const maxX = Math.max(0, pageWidthMm - pos.width);
+                    const maxY = Math.max(0, pageHeightMm - pos.height);
+                    const clampedX = Math.min(pos.x, maxX);
+                    const clampedY = Math.min(pos.y, maxY);
+                    if (clampedX !== pos.x || clampedY !== pos.y) {
+                        next[key] = { ...pos, x: clampedX, y: clampedY };
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) positionsRef.current = next;
+            return changed ? next : prev;
+        });
+
         if (!hasAutoFit.current) {
             hasAutoFit.current = true;
-            if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                setScale(getMobileScale(widthPt));
+            // Auto-fit scale for ALL screen sizes to prevent CSS canvas shrinking.
+            // The global CSS rule `max-width: 100% !important` on canvas shrinks it
+            // visually without changing React's scale state, causing coordinate mismatch
+            // for wide/landscape pages on desktop. We ensure scale fits the container.
+            const autoFitScale = getMobileScale(widthPt);
+            if (autoFitScale < scale) {
+                // Page is wider than available container → reduce scale to prevent CSS shrinking
+                setScale(autoFitScale);
+            } else if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                // On mobile, also apply if larger (e.g., small portrait scaling up)
+                setScale(autoFitScale);
             }
         }
     };
@@ -540,6 +576,29 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         return (px / scale) * PDF_TO_MM;
     };
 
+    // Get the CSS scaling factor for a page: ratio of actual rendered width to theoretical canvas width.
+    // CSS `max-width: 100%` can shrink the canvas display without changing React's scale state,
+    // causing visual pixels ≠ theoretical canvas pixels. This factor corrects for that.
+    const getCssFactor = (pageNumber: number): number => {
+        const pageContainer = pageContainersRef.current[pageNumber];
+        const pageSize = pageSizesRef.current[pageNumber];
+        if (!pageContainer || !pageSize) return 1;
+        const theoreticalW = pageSize.width * scale;
+        if (theoreticalW <= 0) return 1;
+        const actualW = pageContainer.clientWidth;
+        return actualW / theoreticalW;
+    };
+
+    // Convert mm to actual visual (CSS) pixels accounting for CSS canvas shrinking
+    const mmToPxActual = (mm: number, pageNumber: number): number => {
+        return mmToPx(mm) * getCssFactor(pageNumber);
+    };
+
+    // Convert actual visual (CSS) pixels back to mm accounting for CSS canvas shrinking
+    const pxActualToMm = (pxVisual: number, pageNumber: number): number => {
+        return pxToMm(pxVisual / getCssFactor(pageNumber));
+    };
+
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, approvalId: number | string, pageNumber: number) => {
         if (readOnly) return;
 
@@ -561,7 +620,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         const pos = positions[approvalId];
         if (pos) {
-            setInitialPos({ x: mmToPx(pos.x), y: mmToPx(pos.y) });
+            setInitialPos({ x: mmToPxActual(pos.x, pageNumber), y: mmToPxActual(pos.y, pageNumber) });
         }
     };
 
@@ -586,7 +645,7 @@ const SignaturePlacementDialog: React.FC<Props> = ({
 
         const pos = positions[approvalId];
         if (pos) {
-            setInitialSize({ width: mmToPx(pos.width), height: mmToPx(pos.height) });
+            setInitialSize({ width: mmToPxActual(pos.width, pageNumber), height: mmToPxActual(pos.height, pageNumber) });
         }
     };
 
@@ -596,31 +655,36 @@ const SignaturePlacementDialog: React.FC<Props> = ({
         const currentPos = positions[activeApprovalId];
         if (!currentPos) return;
 
+        // Get actual visual (CSS-rendered) container dimensions to account for CSS canvas shrinking
+        const cssFactor = getCssFactor(currentPos.page);
         const pageSize = pageSizesRef.current[currentPos.page];
-        const containerWidth = pageSize ? pageSize.width * scale : containerRef.current.clientWidth;
-        const containerHeight = pageSize ? pageSize.height * scale : containerRef.current.clientHeight;
+        const theoreticalW = pageSize ? pageSize.width * scale : containerRef.current.clientWidth;
+        const theoreticalH = pageSize ? pageSize.height * scale : containerRef.current.clientHeight;
+        const actualContainerW = theoreticalW * cssFactor;
+        const actualContainerH = theoreticalH * cssFactor;
 
         if (isDragging) {
             const dx = e.clientX - dragStart.x;
             const dy = e.clientY - dragStart.y;
 
+            // initialPos and dx/dy are both in visual screen pixels → correct
             let newX = initialPos.x + dx;
             let newY = initialPos.y + dy;
 
-            // Boundaries using accurate page dimensions
-            const boxWidth = mmToPx(currentPos.width);
-            const boxHeight = mmToPx(currentPos.height);
+            // Boundaries using actual visual dimensions
+            const boxWidth = mmToPxActual(currentPos.width, currentPos.page);
+            const boxHeight = mmToPxActual(currentPos.height, currentPos.page);
 
-            newX = Math.max(0, Math.min(newX, containerWidth - boxWidth));
-            newY = Math.max(0, Math.min(newY, containerHeight - boxHeight));
+            newX = Math.max(0, Math.min(newX, actualContainerW - boxWidth));
+            newY = Math.max(0, Math.min(newY, actualContainerH - boxHeight));
 
             setPositions((prev) => {
                 const next = {
                     ...prev,
                     [activeApprovalId]: {
                         ...prev[activeApprovalId],
-                        x: pxToMm(newX),
-                        y: pxToMm(newY),
+                        x: pxActualToMm(newX, currentPos.page),
+                        y: pxActualToMm(newY, currentPos.page),
                     },
                 };
                 positionsRef.current = next;
@@ -631,11 +695,11 @@ const SignaturePlacementDialog: React.FC<Props> = ({
             const dy = e.clientY - resizeStart.y;
 
             // Maintain strict 1:1 square aspect ratio for all signatures
-            const minSize = Math.max(15 * scale, 15);
+            const minSize = Math.max(15 * scale * cssFactor, 15);
             const delta = Math.max(dx, dy);
-            const currentBoxX = mmToPx(currentPos.x);
-            const currentBoxY = mmToPx(currentPos.y);
-            const maxSize = Math.max(minSize, Math.min(containerWidth - currentBoxX, containerHeight - currentBoxY));
+            const currentBoxX = mmToPxActual(currentPos.x, currentPos.page);
+            const currentBoxY = mmToPxActual(currentPos.y, currentPos.page);
+            const maxSize = Math.max(minSize, Math.min(actualContainerW - currentBoxX, actualContainerH - currentBoxY));
             const newSize = Math.min(maxSize, Math.max(minSize, initialSize.width + delta));
 
             setPositions((prev) => {
@@ -643,8 +707,8 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     ...prev,
                     [activeApprovalId]: {
                         ...prev[activeApprovalId],
-                        width: pxToMm(newSize),
-                        height: pxToMm(newSize),
+                        width: pxActualToMm(newSize, currentPos.page),
+                        height: pxActualToMm(newSize, currentPos.page),
                     },
                 };
                 positionsRef.current = next;
@@ -831,6 +895,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
     const renderSignatureBoxes = (pageNumber: number) => {
         if (loading) return null;
 
+        // Compute CSS factor for this page to correct visual pixel positioning
+        const cssFactor = getCssFactor(pageNumber);
+        const mmToPxV = (mm: number) => mmToPx(mm) * cssFactor; // visual pixels
+
         const boxes = approvals
             .map((approval) => {
                 const pos = positions[approval.id];
@@ -853,10 +921,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         <div
                             key={approval.id}
                             style={{
-                                left: `${mmToPx(pos.x)}px`,
-                                top: `${mmToPx(pos.y)}px`,
-                                width: `${mmToPx(pos.width)}px`,
-                                height: `${mmToPx(pos.height)}px`,
+                                left: `${mmToPxV(pos.x)}px`,
+                                top: `${mmToPxV(pos.y)}px`,
+                                width: `${mmToPxV(pos.width)}px`,
+                                height: `${mmToPxV(pos.height)}px`,
                                 cursor: isEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                             }}
                             className={`absolute flex touch-none flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${qrBoxClass}`}
@@ -919,10 +987,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                         key={approval.id}
                         className={`absolute flex flex-col items-center justify-center border-2 shadow-sm transition-colors select-none ${boxClass}`}
                         style={{
-                            left: `${mmToPx(pos.x)}px`,
-                            top: `${mmToPx(pos.y)}px`,
-                            width: `${mmToPx(pos.width)}px`,
-                            height: `${mmToPx(pos.height)}px`,
+                            left: `${mmToPxV(pos.x)}px`,
+                            top: `${mmToPxV(pos.y)}px`,
+                            width: `${mmToPxV(pos.width)}px`,
+                            height: `${mmToPxV(pos.height)}px`,
                             cursor: isEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                         }}
                         onPointerDown={isEditable ? (e) => handlePointerDown(e, approval.id, pageNumber) : undefined}
@@ -962,10 +1030,10 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                     key={qrId}
                     className={`absolute flex touch-none flex-col items-center justify-center border-2 border-dashed shadow-sm transition-colors select-none ${isActive ? 'z-10 border-amber-600 bg-amber-500/20 ring-2 ring-amber-400' : 'z-0 border-amber-500 bg-amber-100/50 hover:border-amber-600'}`}
                     style={{
-                        left: `${mmToPx(qrPos.x)}px`,
-                        top: `${mmToPx(qrPos.y)}px`,
-                        width: `${mmToPx(qrPos.width)}px`,
-                        height: `${mmToPx(qrPos.height)}px`,
+                        left: `${mmToPxV(qrPos.x)}px`,
+                        top: `${mmToPxV(qrPos.y)}px`,
+                        width: `${mmToPxV(qrPos.width)}px`,
+                        height: `${mmToPxV(qrPos.height)}px`,
                         cursor: isQrEditable ? (isDragging ? 'grabbing' : 'grab') : 'default',
                     }}
                     onPointerDown={isQrEditable ? (e) => handlePointerDown(e, qrId, pageNumber) : undefined}

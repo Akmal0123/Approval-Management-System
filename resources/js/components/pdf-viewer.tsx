@@ -83,9 +83,11 @@ export default function PDFViewer({
 
         fetch(fullUrl, {
             credentials: 'include',
+            cache: 'no-store',
             headers: {
                 Accept: 'application/pdf, */*',
                 'X-Requested-With': 'XMLHttpRequest',
+                'Cache-Control': 'no-cache',
             },
         })
             .then(async (response) => {
