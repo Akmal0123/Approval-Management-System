@@ -21,7 +21,7 @@ async function run() {
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
 
-        
+
         for (const sig of inputData.signatures || []) {
             const pageIndex = Math.min(Math.max(sig.page - 1, 0), pages.length - 1);
             const page = pages[pageIndex];
@@ -241,50 +241,50 @@ async function run() {
                     } else {
                         // Default checklist with identity (e.g. "✓ App 1", "✓ App 2")
                         const identityText = String(paraf.identity || ('App ' + (idx + 1)));
-                        const textWidth = fontBold.widthOfTextAtSize(identityText, 7);
-                        const boxWidth = (8 * mmToPt) + textWidth;
+                        const textWidth = fontBold.widthOfTextAtSize(identityText, 7.5);
+                        const boxWidth = (8.5 * mmToPt) + textWidth;
                         const boxHeight = 6.5 * mmToPt;
 
                         const x = pageX + pageWidth - (currentRightOffset + boxWidth);
                         const y = pageY + marginFromBottomPt;
 
-                        // 1. Box background & border
+                        // 1. Box background & border (Darker/bolder grey theme)
                         page.drawRectangle({
                             x: x,
                             y: y,
                             width: boxWidth,
                             height: boxHeight,
                             color: rgb(1, 1, 1),
-                            borderColor: rgb(0.08, 0.60, 0.35),
-                            borderWidth: 0.9,
+                            borderColor: rgb(0.35, 0.35, 0.35),
+                            borderWidth: 1.2,
                         });
 
-                        // 2. Checkmark icon on left
+                        // 2. Checkmark icon on left (Darker/bolder grey)
                         const checkX = x + 3.2 * mmToPt;
                         const checkY = y + boxHeight / 2;
 
                         page.drawLine({
                             start: { x: checkX - 2.8, y: checkY + 0.3 },
                             end: { x: checkX - 0.7, y: checkY - 2.3 },
-                            thickness: 1.3,
-                            color: rgb(0.08, 0.60, 0.35),
+                            thickness: 1.6,
+                            color: rgb(0.20, 0.20, 0.20),
                         });
                         page.drawLine({
                             start: { x: checkX - 0.7, y: checkY - 2.3 },
                             end: { x: checkX + 3.0, y: checkY + 2.6 },
-                            thickness: 1.3,
-                            color: rgb(0.08, 0.60, 0.35),
+                            thickness: 1.6,
+                            color: rgb(0.20, 0.20, 0.20),
                         });
 
-                        // 3. Identity text on right
+                        // 3. Identity text on right (Darker/bolder grey)
                         const textX = checkX + 5.0;
-                        const textY = y + (boxHeight - 7) / 2 + 1;
+                        const textY = y + (boxHeight - 7.5) / 2 + 1;
                         page.drawText(identityText, {
                             x: textX,
                             y: textY,
-                            size: 7,
+                            size: 7.5,
                             font: fontBold,
-                            color: rgb(0.08, 0.60, 0.35),
+                            color: rgb(0.15, 0.15, 0.15),
                         });
 
                         currentRightOffset += boxWidth + gap;

@@ -1768,14 +1768,14 @@ const SignaturePlacementDialog: React.FC<Props> = ({
                                                                 <div
                                                                     key={b.id}
                                                                     title={b.label}
-                                                                    className="flex items-center gap-1 h-6 px-1.5 rounded border border-emerald-600 bg-white shadow-xs text-emerald-700 transition-transform hover:scale-105 cursor-help"
+                                                                    className="flex items-center gap-1.5 h-6 px-2 rounded border-[1.5px] border-gray-600 bg-white shadow-xs text-gray-800 transition-transform hover:scale-105 cursor-help"
                                                                 >
                                                                     {b.type === 'image' && b.imageSrc ? (
                                                                         <img src={b.imageSrc} alt="Paraf" className="h-4 max-w-[28px] object-contain" />
                                                                     ) : (
-                                                                        <Check className="h-3 w-3 stroke-[3] text-emerald-600 shrink-0" />
+                                                                        <Check className="h-3.5 w-3.5 stroke-[3.5] text-gray-800 shrink-0" />
                                                                     )}
-                                                                    <span className="text-[10px] font-bold tracking-tight text-emerald-800 whitespace-nowrap">
+                                                                    <span className="text-[10.5px] font-bold tracking-tight text-gray-900 whitespace-nowrap">
                                                                         {b.identity}
                                                                     </span>
                                                                 </div>
